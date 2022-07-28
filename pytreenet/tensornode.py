@@ -1,7 +1,7 @@
 import numpy as np
 import uuid
 
-class tensornode(object):
+class TensorNode(object):
     """
     A node in a tree tensor network that contains a tensor and which legs
     are contracted to which other tensors.
@@ -16,7 +16,7 @@ class tensornode(object):
         self._tag = tag
 
         self._open_legs = list(np.arange(tensor.ndim))
-        self._parent_leg = dict()
+        self._parent_leg = []
         self._children_legs = dict()
 
     @property
@@ -46,7 +46,7 @@ class tensornode(object):
         if new_identifier == None:
             self._identifier = str(uuid.uuid1())
         else:
-            self._identifier = new_identifier
+            self._identifier = str(new_identifier)
 
     @property
     def tag(self):
@@ -84,13 +84,16 @@ class tensornode(object):
         The dictionary contains the children's identifier as key and the
         corresponding contracted leg as value.
         """
-        return self.children_legs
+        return self._children_legs
 
     def open_leg_to_parent(self, open_leg_index, parent_id):
         """
         Change an open leg to be a leg contracted with the parent node.
         """
-        self._parent_leg.update({parent_id :open_leg_index})
+        assert len(self.open_legs) > 0, "There are no remaining open legs."
+        
+        self._parent_leg.append(parent_id)
+        self._parent_leg.append(open_leg_index)        
         self._open_legs.remove(open_leg_index)
 
     def open_legs_to_children(self, open_leg_list, identifier_list):
@@ -99,19 +102,28 @@ class tensornode(object):
         """
         open_leg_list = list(open_leg_list)
         identifier_list = list(identifier_list)
-
+        
+        assert len(self.open_legs) > 0, "There are no remaining open legs."
         assert len(open_leg_list) == len(identifier_list), "Children and identifier list should be the same length"
 
         new_children_legs = dict(zip(identifier_list, open_leg_list))
         self._children_legs.update(new_children_legs)
-        self.open_legs = [open_leg for open_leg in self._open_legs if open_leg not in open_leg_list]
+        self._open_legs = [open_leg for open_leg in self._open_legs if open_leg not in open_leg_list]
 
     def open_leg_to_child(self, open_leg, child_id):
         """
         Only changes a single open leg to be contracted with a child
         """
         self.open_legs_to_children([open_leg], [child_id])
-
+        
+    def parent_leg_to_open_leg(self):
+        """
+        If existant, changes the leg contracted with a parent node, to an
+        open leg. (Note: this will remove any relation of this node to the parent)
+        """
+        self.open_legs.append(self.parent_leg[1])
+        self._parent_leg = []
+        
     def children_legs_to_open_legs(self, children_identifier_list):
         """
         Makes legs contracted with children identified in children_identifier_list
@@ -140,10 +152,10 @@ class tensornode(object):
         """
         Determines if this node is a root node, i.e., a node without a parent.
         """
-        if len(self._parent_leg) == 0:
-            return False
-        else:
+        if len(self.parent_leg) == 0:
             return True
+        else:
+            return False
 
     def has_x_children(self, x: int):
         """
@@ -160,5 +172,5 @@ class tensornode(object):
         """
         Determines if the node is a leaf, i.e., has at least one child.
         """
-        return self.has_x_children(x=1)
+        return not self.has_x_children(x=1)
 
