@@ -6,7 +6,7 @@ class TensorNode(object):
     A node in a tree tensor network that contains a tensor and which legs
     are contracted to which other tensors.
 
-    General structure an parts of the code from treelib.node
+    General structure and parts of the code from treelib.node
     """
 
     def __init__(self, tensor, tag=None, identifier=None):
