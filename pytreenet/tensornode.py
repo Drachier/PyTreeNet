@@ -1,6 +1,8 @@
 import numpy as np
 import uuid
 
+from .util import crandn
+
 class TensorNode(object):
     """
     A node in a tree tensor network that contains a tensor and which legs
@@ -86,15 +88,21 @@ class TensorNode(object):
         """
         return self._children_legs
 
-    def open_leg_to_parent(self, open_leg_index, parent_id):
+    def check_existence_of_open_legs(self, open_leg_list):
+        if len(open_leg_list) == 1:
+            assert open_leg_list[0] in self.open_legs, f"Tensor node with identifier {self.identifier} has no open leg {open_leg_list[0]}."
+        else:
+            assert all(open_leg in self.open_legs for open_leg in open_leg_list)
+
+    def open_leg_to_parent(self, open_leg, parent_id):
         """
         Change an open leg to be a leg contracted with the parent node.
         """
-        assert len(self.open_legs) > 0, "There are no remaining open legs."
-        
+        self.check_existence_of_open_legs([open_leg])
+
         self._parent_leg.append(parent_id)
-        self._parent_leg.append(open_leg_index)        
-        self._open_legs.remove(open_leg_index)
+        self._parent_leg.append(open_leg)
+        self._open_legs.remove(open_leg)
 
     def open_legs_to_children(self, open_leg_list, identifier_list):
         """
@@ -102,8 +110,8 @@ class TensorNode(object):
         """
         open_leg_list = list(open_leg_list)
         identifier_list = list(identifier_list)
-        
-        assert len(self.open_legs) > 0, "There are no remaining open legs."
+
+        self.check_existence_of_open_legs(open_leg_list)
         assert len(open_leg_list) == len(identifier_list), "Children and identifier list should be the same length"
 
         new_children_legs = dict(zip(identifier_list, open_leg_list))
@@ -115,7 +123,7 @@ class TensorNode(object):
         Only changes a single open leg to be contracted with a child
         """
         self.open_legs_to_children([open_leg], [child_id])
-        
+
     def parent_leg_to_open_leg(self):
         """
         If existant, changes the leg contracted with a parent node, to an
@@ -123,7 +131,7 @@ class TensorNode(object):
         """
         self.open_legs.append(self.parent_leg[1])
         self._parent_leg = []
-        
+
     def children_legs_to_open_legs(self, children_identifier_list):
         """
         Makes legs contracted with children identified in children_identifier_list
@@ -174,3 +182,23 @@ class TensorNode(object):
         """
         return not self.has_x_children(x=1)
 
+    def has_open_leg(self):
+        """
+        Determines if the node has any open legs.
+        """
+        return len(self.open_legs) > 0
+
+def random_tensor_node(shape, tag=None, identifier=None):
+    """
+    Creates a tensor node with an a random associated tensor with shape=shape.
+    """
+    rand_tensor = crandn(shape)
+    return TensorNode(tensor = rand_tensor, tag=tag, identifier=identifier)
+
+def assert_legs_matching(node1, leg1, node2, leg2):
+    """
+    Asserts if the dimensions of leg1 of node1 and leg2 of node2 match.
+    """
+    leg1_dimension = node1.tensor.shape[leg1]
+    leg2_dimension = node2.tensor.shape[leg2]
+    assert leg1_dimension == leg2_dimension
