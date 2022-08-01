@@ -33,7 +33,7 @@ class TensorNode(object):
         """
         Set value of tensor. Can be used to update the tensor of a node.
         """
-        assert self.tensor.shape == new_tensor.shape, "Tensors in the same position should have the same dimensions."
+        assert self._tensor.ndim == new_tensor.ndim, "Tensors at the same node should have the same number of dimensions/legs."
         self._tensor = new_tensor
 
     @property
@@ -74,8 +74,8 @@ class TensorNode(object):
     @property
     def parent_leg(self):
         """
-        A one or zero element dictionary, that potentially contains the parent's
-        identifier as key and the tensor leg that is contracted with it.
+        A one or zero element list, that potentially contains the parent's
+        identifier as first enty and the tensor leg that is contracted with it as the second.
         """
         return self._parent_leg
 

@@ -67,6 +67,12 @@ class TreeTensorNetwork(object):
         """
         assert node_id not in self.nodes, f"Tensor node with identifier {node_id} already exists in TTN"
 
+    def assert_id_in_tree(self, node_id):
+        """
+        Asserts if the node with the identifier node_id is in the tree.
+        """
+        assert node_id in self.nodes, f"Tensor node with identifier {node_id} is not part of the TTN."
+
     def add_root(self, node):
         """
         Adds a root tensor node to the TTN.
@@ -110,6 +116,62 @@ class TreeTensorNetwork(object):
         self.nodes.update({parent_id: parent})
         self._root_id = parent_id
 
+    def distance_to_node(self, center_node_id):
+        """
+
+        Parameters
+        ----------
+        center_node_id : str
+            The identifier of the node to which the distance of all other
+            nodes should be determined.
+
+        Returns
+        -------
+        distance_dict : dictionary(str : int)
+            A dictionary with the identifiers of the TNN's nodes as keys and
+            their distance to center_node as values
+
+        """
+        distance_dict = {center_node_id: 0}
+        self.distance_of_neighbours(ignore_node_id=None, distance=1, node_id=center_node_id, distance_dict=distance_dict)
+        return distance_dict
+
+    def distance_of_neighbours(self, ignore_node_id, distance, node_id, distance_dict):
+        """
+
+        Parameters
+        ----------
+        ignore_node_id : str
+            Identifier of the node to be ignored for the recursion, i.e., the
+            distance to it has already been established.
+        distance : int
+            The distance of the node with identifier node_id to the center_node.
+        node_id : str
+            The identifier of the node whose neighbours' distances are to be
+            checked
+        distance_dict : dictionary(str : int)
+            A dictionary with the identifiers of the TNN's nodes as keys and
+            their distance to center_node as values
+
+        Returns
+        -------
+        None.
+
+        """
+        node = self.nodes[node_id]
+        non_ignored_children_id = [child_id for child_id in node.children_legs.keys() if child_id != ignore_node_id]
+
+        children_distance_to_center = {child_id: distance for child_id in non_ignored_children_id}
+        distance_dict.update(children_distance_to_center)
+
+        for child_id in children_distance_to_center.keys():
+            self.distance_of_neighbours(ignore_node_id=node_id, distance=distance+1, node_id=child_id, distance_dict=distance_dict)
+
+        if not node.is_root():
+            parent_id = node.parent_leg[0]
+            if not parent_id == ignore_node_id:
+                distance_dict.update({parent_id: distance})
+                self.distance_of_neighbours(ignore_node_id=node_id, distance=distance+1, node_id=parent_id, distance_dict=distance_dict)
 
 
 
