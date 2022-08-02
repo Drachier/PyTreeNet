@@ -1,6 +1,8 @@
 import numpy as np
 import uuid
 
+from copy import deepcopy
+
 from .util import crandn
 
 class TensorNode(object):
@@ -79,6 +81,18 @@ class TensorNode(object):
         """
         return self._parent_leg
 
+    def parent_leg_dict(self):
+        """
+        Returns
+        -------
+        parent_leg_dict: dict
+            The parent_leg list as a dictionary.
+        """
+        if len(self.parent_leg) == 0:
+            return dict()
+        else:
+            return {self.parent_leg[0]: self.parent_leg[1]}
+
     @property
     def children_legs(self):
         """
@@ -87,6 +101,38 @@ class TensorNode(object):
         corresponding contracted leg as value.
         """
         return self._children_legs
+
+    def neighbouring_nodes(self, with_legs=True):
+        """
+        Finds the neighbouring tensor nodes of this node with varying
+        additional information.
+
+        Parameters
+        ----------
+        with_legs : boolean, optional
+            If True the legs of neighbours are also returned. The default is True.
+
+        Returns
+        -------
+        neighbour_legs: dict
+            Is returned, if with_legs=True. A dictionary that contains all the
+            identifiers of tensor nodes that are contracted with this one and
+            the leg they are attached to.
+        neighbour_ids: list of str
+            Is returned it with_legs=False. A list containing the identifiers
+            of all the tensor nodes this node is contracted with.
+        """
+
+        if with_legs:
+            parent_dict = self.parent_leg_dict()
+            neighbour_legs = deepcopy(self.children_legs)
+            neighbour_legs.update(parent_dict)
+            return neighbour_legs
+
+        else:
+            neighbour_ids = list(self.children_legs.keys())
+            neighbour_ids.append(self.parent_leg[0])
+            return neighbour_ids
 
     def check_existence_of_open_legs(self, open_leg_list):
         if len(open_leg_list) == 1:
@@ -156,6 +202,26 @@ class TensorNode(object):
 
         self.children_legs_to_open_legs(child_identifier)
 
+    def absorb_tensor(self, absorbed_tensor, absorbed_tensors_legs, this_tensors_legs):
+        """
+        Absorbes the absorbed_tensor into this instance's tensor by contracting
+        the absorbed_tensors_legs of the absorbed_tensor and the legs
+        this_tensors_legs of this instance's tensor'
+
+        Parameters
+        ----------
+        absorbed_tensor: ndarray
+            Tensor to be absorbed.
+        absorbed_tensors_legs: tuple of int
+            Legs that are to be contracted with this instance's tensor.
+        this_tensors_legs:
+            The legs of this instance's tensor that are to be contracted with
+            the absorbed tensor.
+        """
+
+        self.tensor = np.tensordot(self.tensor, absorbed_tensor, axes=(this_tensors_legs, absorbed_tensors_legs))
+
+
     def is_root(self):
         """
         Determines if this node is a root node, i.e., a node without a parent.
@@ -187,6 +253,7 @@ class TensorNode(object):
         Determines if the node has any open legs.
         """
         return len(self.open_legs) > 0
+
 
 def random_tensor_node(shape, tag=None, identifier=None):
     """

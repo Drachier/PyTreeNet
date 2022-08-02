@@ -57,13 +57,15 @@ def determine_tensor_shape(old_shape, matrix, legs, output = True):
     """
     leg_shape = [old_shape[i] for i in legs]
     if output:
-        matrix_dimension = [matrix[1]]
-        new_shape = leg_shape.extend(matrix_dimension)
+        matrix_dimension = [matrix.shape[1]]
+        leg_shape.extend(matrix_dimension)
+        new_shape = leg_shape
     else:
-        matrix_dimension = [matrix[0]]
-        new_shape = matrix_dimension.extend(leg_shape)
+        matrix_dimension = [matrix.shape[0]]
+        matrix_dimension.extend(leg_shape)
+        new_shape = matrix_dimension
 
-    return new_shape
+    return tuple(new_shape)
 
 def tensor_qr_decomposition(tensor, q_legs, r_legs, mode='reduced'):
     """
@@ -110,12 +112,19 @@ def tensor_svd(tensor, u_legs, v_legs, mode='full'):
     v_legs : tuple of int
         Legs of tensor that are to be associated to V after the SVD.
     mode : {'fulll', 'reduced'}
-        Determines if the full or reduced SVD is returned.
-        The default is 'full'.
+        Determines if the full or reduced matrices u and vh for the SVD are
+        returned. The default is 'full'.
 
     Returns
     -------
-    None.
+    u : ndarray
+        The unitary array contracted to the left of the diagonalised singular
+        values.
+    s : ndarray
+        A vector consisting of the tensor's singular values.
+    vh : ndarray
+        The unitary array contracted to the right of the diagonalised singular
+        values.
 
     """
     assert (mode == "reduced") or (mode == "full"), "Only 'reduced' and 'full' are acceptable values for mode."
@@ -126,3 +135,12 @@ def tensor_svd(tensor, u_legs, v_legs, mode='full'):
     elif mode == 'reduced':
         full_matrices = False
 
+    matrix = tensor_matricization(tensor, u_legs, v_legs)
+    u, s, vh = np.linalg.svd(matrix, full_matrices=full_matrices)
+    shape = tensor.shape
+    u_shape = determine_tensor_shape(shape, u, u_legs, output = True)
+    vh_shape = determine_tensor_shape(shape, vh, v_legs, output = False)
+    u = np.reshape(u, u_shape)
+    vh = np.reshape(vh, vh_shape)
+
+    return u, s, vh
