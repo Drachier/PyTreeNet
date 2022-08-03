@@ -4,6 +4,7 @@ from .tensor_util import tensor_qr_decomposition
 
 def canonical_form(tree_tensor_network, orthogonality_center_id):
     """
+    Brings the tree_tensor_network in canonical form with
 
     Parameters
     ----------
@@ -36,9 +37,12 @@ def canonical_form(tree_tensor_network, orthogonality_center_id):
             all_legs.remove(minimum_distance_neighbour_leg)
             q, r = tensor_qr_decomposition(node.tensor, all_legs, minimum_distance_neighbour_leg)
 
+            reshape_order = _correct_ordering_of_q_legs(node, minimum_distance_neighbour_leg)
+            node.tensor = np.reshape(q, axes=reshape_order)
+
             neighbour_tensor = tree_tensor_network.nodes[minimum_distance_neighbour_id]
             neighbour_leg_to_contract = neighbour_tensor.neighbouring_nodes[node_id]
-            neighbour_tensor.absorb_tensor(r, (1), neighbour_leg_to_contract)
+            neighbour_tensor.absorb_tensor(r, (1,), neighbour_leg_to_contract)
 
 def _find_smallest_distance_neighbour(node, distance_dict):
     """
@@ -84,5 +88,24 @@ def _find_smalles_distance_neighbour_leg(node, minimum_distance_neighbour_id):
     """
     neighbour_legs = node.neighbouring_nodes()
     return neighbour_legs[minimum_distance_neighbour_id]
+
+def _correct_ordering_of_q_legs(node, minimum_distance_neighbour_leg):
+
+    number_legs = node.tensor.ndim
+    first_part = tuple(range(0,minimum_distance_neighbour_leg))
+    last_part = tuple(range(minimum_distance_neighbour_leg,number_legs-1))
+    reshape_order = first_part + (number_legs-1,) + last_part
+    return reshape_order
+
+
+
+
+
+
+
+
+
+
+
 
 

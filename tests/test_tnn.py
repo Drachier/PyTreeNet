@@ -43,6 +43,10 @@ class TestTreeTensorNetwork(unittest.TestCase):
         self.assertEqual(len(self.tensortree.nodes),4)
         self.assertEqual(self.tensortree.nodes["new_root"],self.node4)
 
+    def test_combine_nodes(self):
+        pass
+        #TODO: Test
+
     def test_distance_to_node(self):
         node1 = ptn.random_tensor_node((2,3,4,5), identifier="id1")
         node2 = ptn.random_tensor_node((2,3,4,5), identifier="id2")

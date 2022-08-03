@@ -254,6 +254,19 @@ class TensorNode(object):
         """
         return len(self.open_legs) > 0
 
+    def is_child_of(self, other_node_id):
+        """
+        Determines if this instance is the child of the node with identifier
+        other_node_id
+        """
+        return other_node_id in self.parent_leg
+
+    def is_parent_of(self, other_node_id):
+        """
+        Determines if this instance is the parent of the node with identifier
+        other_node_id
+        """
+        return other_node_id in self.children_legs
 
 def random_tensor_node(shape, tag=None, identifier=None):
     """
