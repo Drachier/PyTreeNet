@@ -19,7 +19,6 @@ def canonical_form(tree_tensor_network, orthogonality_center_id):
     None.
 
     """
-
     distance_dict = tree_tensor_network.distance_to_node(orthogonality_center_id)
 
     minimum_distance = min(distance_dict.values())
@@ -90,6 +89,11 @@ def _find_smalles_distance_neighbour_leg(node, minimum_distance_neighbour_id):
     return neighbour_legs[minimum_distance_neighbour_id]
 
 def _correct_ordering_of_q_legs(node, minimum_distance_neighbour_leg):
+    """
+    Finds the correct ordering of the legs of the q-tensor after perfomring
+    QR-decomposition on the tensor of node.
+
+    """
 
     number_legs = node.tensor.ndim
     first_part = tuple(range(0,minimum_distance_neighbour_leg))

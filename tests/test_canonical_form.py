@@ -24,6 +24,8 @@ class TestTreeTensorNetwork(unittest.TestCase):
         self.tree_tensor_network.add_child_to_parent(self.node6, 0, "node_5", 2)
         self.tree_tensor_network.add_child_to_parent(self.node7, 0, "node_6", 1)
 
+    def test_canonical_form(self):
+
 
 
 

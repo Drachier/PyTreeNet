@@ -41,9 +41,16 @@ class TreeTensorNetwork(object):
     @property
     def root_id(self):
         """
-        The root's identifier.'
+        The root's identifier.
         """
         return self._root_id
+
+    @root_id.setter
+    def root_id(self, new_root_id):
+        """
+        Sets a new root_id
+        """
+        self._root_id = str(new_root_id)
 
     def __contains__(self, identifier):
         """

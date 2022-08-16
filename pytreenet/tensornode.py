@@ -16,8 +16,15 @@ class TensorNode(object):
     def __init__(self, tensor, tag=None, identifier=None):
 
         self._tensor = tensor
-        self._identifier = identifier
-        self._tag = tag
+
+        if identifier == None:
+            self._identifier = str(uuid.uuid1())
+        else:
+            self._identifier = str(identifier)
+        if tag == None:
+            self._tag = self.identifier
+        else:
+            self._tag = tag
 
         self._open_legs = list(np.arange(tensor.ndim))
         self._parent_leg = []
@@ -101,6 +108,14 @@ class TensorNode(object):
         corresponding contracted leg as value.
         """
         return self._children_legs
+
+    def __eq__(self, other):
+        """
+        Two tensors nodes are considered equal, if everything is equal, except
+        for the tags and identifier
+        """
+        return ((self.tensor, self.open_legs, self.parent_leg, self.children_legs) ==
+                (other.tensor, other.open_legs, other.parent_leg, other.children_legs))
 
     def neighbouring_nodes(self, with_legs=True):
         """
