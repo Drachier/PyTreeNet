@@ -2,7 +2,8 @@ import copy
 
 from warnings import warn
 
-from .tensornode import assert_legs_matching
+from .util import copy_object
+from .tensornode import assert_legs_matching, conjugate_node
 
 class TreeTensorNetwork(object):
     """
@@ -28,7 +29,7 @@ class TreeTensorNetwork(object):
             if deep:
                 for node_id in original_tree.nodes:
                     self._nodes[node_id] = copy.deepcopy(original_tree.nodes[node_id])
-                else:
+            else:
                     self._nodes = original_tree.nodes
 
     @property
@@ -240,6 +241,3 @@ class TreeTensorNetwork(object):
             leg_to_child_tensor = {new_identifier: parent.children_legs[child_id]}
             del parent.children_legs[child_id]
             parent.children_legs.update(leg_to_child_tensor)
-
-
-

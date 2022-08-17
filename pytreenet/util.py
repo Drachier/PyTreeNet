@@ -1,8 +1,9 @@
 """
 Some useful tools
 """
-
 import numpy as np
+
+from copy import deepcopy
 
 def crandn(size):
     """
@@ -29,3 +30,14 @@ def pauli_matrices(asarray=True):
         Z = np.asarray(Z)
 
     return X, Y, Z
+
+def copy_object(obj, deep):
+    """
+    Returns a normal copy of obj, if deep=False and a deepcopy if deep=True.
+    """
+    if deep:
+        new_obj = deepcopy(obj)
+    else:
+        new_obj = obj
+        
+    return new_obj

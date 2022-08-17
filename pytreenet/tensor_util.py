@@ -5,8 +5,6 @@ Helpfull functions that work with the tensors of the tensor nodes.
 import numpy as np
 from math import prod
 
-
-
 def tensor_matricization(tensor, output_legs, input_legs):
     """
     Parameters
@@ -34,7 +32,7 @@ def tensor_matricization(tensor, output_legs, input_legs):
     matrix = np.reshape(tensor_correctly_ordered, (output_dimension, input_dimension))
     return matrix
 
-def determine_tensor_shape(old_shape, matrix, legs, output = True):
+def _determine_tensor_shape(old_shape, matrix, legs, output = True):
     """
     Determines the new shape a matrix is to be reshaped to after a decomposition
     of a tensor of old_shape.
@@ -95,8 +93,8 @@ def tensor_qr_decomposition(tensor, q_legs, r_legs, mode='reduced'):
     matrix = tensor_matricization(tensor, q_legs, r_legs)
     q, r = np.linalg.qr(matrix, mode=mode)
     shape = tensor.shape
-    q_shape = determine_tensor_shape(shape, q, q_legs, output = True)
-    r_shape = determine_tensor_shape(shape, r, r_legs, output = False)
+    q_shape = _determine_tensor_shape(shape, q, q_legs, output = True)
+    r_shape = _determine_tensor_shape(shape, r, r_legs, output = False)
     q = np.reshape(q, q_shape)
     r = np.reshape(r, r_shape)
     return q, r
@@ -138,9 +136,32 @@ def tensor_svd(tensor, u_legs, v_legs, mode='full'):
     matrix = tensor_matricization(tensor, u_legs, v_legs)
     u, s, vh = np.linalg.svd(matrix, full_matrices=full_matrices)
     shape = tensor.shape
-    u_shape = determine_tensor_shape(shape, u, u_legs, output = True)
-    vh_shape = determine_tensor_shape(shape, vh, v_legs, output = False)
+    u_shape = _determine_tensor_shape(shape, u, u_legs, output = True)
+    vh_shape = _determine_tensor_shape(shape, vh, v_legs, output = False)
     u = np.reshape(u, u_shape)
     vh = np.reshape(vh, vh_shape)
 
     return u, s, vh
+
+def compute_transfer_tensor(tensor, open_indices):
+    """
+
+    Parameters
+    ----------
+    tensor : ndarray
+    
+    open_indices: tuple of int
+        The open indices of tensor.
+    
+    Returns
+    -------
+    transfer_tensor : ndarry
+        The transfer tensor of tensor, i.e., the tensor that contracts all
+        open indices of tensor with the open indices of the tensor's complex
+        conjugate.
+
+    """
+    conj_tensor = np.conjugate(tensor)
+    transfer_tensor = np.tensordot(tensor, conj_tensor, 
+                                   axes=(open_indices, open_indices))
+    return transfer_tensor

@@ -1,7 +1,10 @@
 import unittest
-import pytreenet as ptn
+import numpy as np
 
 from math import prod
+
+import pytreenet as ptn
+from pytreenet.tensor_util import _determine_tensor_shape
 
 class TestTreeTensorNetwork(unittest.TestCase):
     def setUp(self):
@@ -19,11 +22,11 @@ class TestTreeTensorNetwork(unittest.TestCase):
         matrix = ptn.tensor_matricization(self.tensor1, self.output_legs, self.input_legs)
         old_shape = self.tensor1.shape
 
-        new_output_shape = ptn.determine_tensor_shape(old_shape, matrix, self.output_legs)
+        new_output_shape = _determine_tensor_shape(old_shape, matrix, self.output_legs)
         reference_output_shape = (3,5,8)
         self.assertEqual(new_output_shape, reference_output_shape)
 
-        new_input_shape = ptn.determine_tensor_shape(old_shape, matrix, self.input_legs, output = False)
+        new_input_shape = _determine_tensor_shape(old_shape, matrix, self.input_legs, output = False)
         reference_input_shape = (15,2,4)
         self.assertEqual(new_input_shape, reference_input_shape)
 
@@ -35,7 +38,7 @@ class TestTreeTensorNetwork(unittest.TestCase):
         self.assertEqual(q.shape[0:-1],(tensor_shape[1],tensor_shape[3]))
         self.assertEqual(r.shape[1:],(tensor_shape[0],tensor_shape[2]))
 
-    def test_tesnor_svd(self):
+    def test_tensor_svd(self):
         u, s, vh = ptn.tensor_svd(self.tensor1, self.output_legs, self.input_legs)
 
         self.assertEqual(u.shape[-1], prod(u.shape[0:-1]))
@@ -43,6 +46,15 @@ class TestTreeTensorNetwork(unittest.TestCase):
         tensor_shape = self.tensor1.shape
         self.assertEqual(u.shape[0:-1],(tensor_shape[1],tensor_shape[3]))
         self.assertEqual(vh.shape[1:],(tensor_shape[0],tensor_shape[2]))
+        
+    def test_compute_transfer_tensor(self):
+        X, _, _ = ptn.pauli_matrices()
+        I = np.eye(2)
+        
+        transfer_tensor = ptn.compute_transfer_tensor(X, 0)
+        self.assertTrue(np.allclose(I, transfer_tensor))
+        transfer_tensor = ptn.compute_transfer_tensor(X, 1)
+        self.assertTrue(np.allclose(I, transfer_tensor))
 
 if __name__ == "__main__":
     unittest.main()

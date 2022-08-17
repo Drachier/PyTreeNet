@@ -68,6 +68,13 @@ class TestTensorNode(unittest.TestCase):
         self.assertTrue(self.node1.is_leaf())
         self.node1.open_legs_to_children([0,2], ["id0", "id2"])
         self.assertFalse(self.node1.is_leaf())
+        
+    def test_conj(self):
+        conj_node = ptn.conjugate_node(self.node1)
+        
+        self.assertEqual("conj_1", conj_node.identifier)
+        self.assertEqual("conj_First node", conj_node.tag)
+        self.assertTrue(np.allclose(conj_node.tensor, np.conj(self.node1.tensor)))
 
 if __name__ == "__main__":
     unittest.main()

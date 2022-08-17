@@ -21,12 +21,12 @@ def canonical_form(tree_tensor_network, orthogonality_center_id):
     """
     distance_dict = tree_tensor_network.distance_to_node(orthogonality_center_id)
 
-    minimum_distance = min(distance_dict.values())
     maximum_distance = min(distance_dict.values())
-
-    for distance in reversed(range(minimum_distance, maximum_distance+1)):
+    
+    # Perfomr QR-decomposition on all TensorNodes but the orthogonality center
+    for distance in reversed(range(1, maximum_distance+1)):
         node_id_with_distance = [node_id for node_id in distance_dict.keys()
-                                 if distance_dict(node_id) == distance]
+                                 if distance_dict[node_id] == distance]
 
         for node_id in node_id_with_distance:
             node = tree_tensor_network.nodes[node_id]
@@ -34,14 +34,15 @@ def canonical_form(tree_tensor_network, orthogonality_center_id):
             minimum_distance_neighbour_leg = _find_smalles_distance_neighbour_leg(node, minimum_distance_neighbour_id)
             all_legs = list(range(0,node.tensor.ndim))
             all_legs.remove(minimum_distance_neighbour_leg)
-            q, r = tensor_qr_decomposition(node.tensor, all_legs, minimum_distance_neighbour_leg)
+            q, r = tensor_qr_decomposition(node.tensor, all_legs, [minimum_distance_neighbour_leg])
 
             reshape_order = _correct_ordering_of_q_legs(node, minimum_distance_neighbour_leg)
-            node.tensor = np.reshape(q, axes=reshape_order)
+            node.tensor = np.transpose(q, axes=reshape_order)
 
             neighbour_tensor = tree_tensor_network.nodes[minimum_distance_neighbour_id]
             neighbour_leg_to_contract = neighbour_tensor.neighbouring_nodes[node_id]
             neighbour_tensor.absorb_tensor(r, (1,), neighbour_leg_to_contract)
+
 
 def _find_smallest_distance_neighbour(node, distance_dict):
     """
