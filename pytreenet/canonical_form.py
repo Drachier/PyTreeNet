@@ -21,9 +21,9 @@ def canonical_form(tree_tensor_network, orthogonality_center_id):
     """
     distance_dict = tree_tensor_network.distance_to_node(orthogonality_center_id)
 
-    maximum_distance = min(distance_dict.values())
-    
-    # Perfomr QR-decomposition on all TensorNodes but the orthogonality center
+    maximum_distance = max(distance_dict.values())
+
+    # Perform QR-decomposition on all TensorNodes but the orthogonality center
     for distance in reversed(range(1, maximum_distance+1)):
         node_id_with_distance = [node_id for node_id in distance_dict.keys()
                                  if distance_dict[node_id] == distance]
@@ -31,17 +31,19 @@ def canonical_form(tree_tensor_network, orthogonality_center_id):
         for node_id in node_id_with_distance:
             node = tree_tensor_network.nodes[node_id]
             minimum_distance_neighbour_id = _find_smallest_distance_neighbour(node, distance_dict)
-            minimum_distance_neighbour_leg = _find_smalles_distance_neighbour_leg(node, minimum_distance_neighbour_id)
-            all_legs = list(range(0,node.tensor.ndim))
-            all_legs.remove(minimum_distance_neighbour_leg)
-            q, r = tensor_qr_decomposition(node.tensor, all_legs, [minimum_distance_neighbour_leg])
+            minimum_distance_neighbour_index = _find_smalles_distance_neighbour_index(node, minimum_distance_neighbour_id)
+            all_leg_indices = list(range(0,node.tensor.ndim))
+            all_leg_indices.remove(minimum_distance_neighbour_index)
 
-            reshape_order = _correct_ordering_of_q_legs(node, minimum_distance_neighbour_leg)
+            q, r = tensor_qr_decomposition(node.tensor, all_leg_indices, [minimum_distance_neighbour_index])
+
+            reshape_order = _correct_ordering_of_q_legs(node, minimum_distance_neighbour_index)
             node.tensor = np.transpose(q, axes=reshape_order)
 
             neighbour_tensor = tree_tensor_network.nodes[minimum_distance_neighbour_id]
-            neighbour_leg_to_contract = neighbour_tensor.neighbouring_nodes[node_id]
-            neighbour_tensor.absorb_tensor(r, (1,), neighbour_leg_to_contract)
+            legs_to_neighbours_neighbours = neighbour_tensor.neighbouring_nodes()
+            neighbour_index_to_contract = legs_to_neighbours_neighbours[node_id]
+            neighbour_tensor.absorb_tensor(r, (0,), (neighbour_index_to_contract,))
 
 
 def _find_smallest_distance_neighbour(node, distance_dict):
@@ -69,7 +71,7 @@ def _find_smallest_distance_neighbour(node, distance_dict):
     minimum_distance_neighbour_id = min(neighbour_distance_dict, key=neighbour_distance_dict.get)
     return minimum_distance_neighbour_id
 
-def _find_smalles_distance_neighbour_leg(node, minimum_distance_neighbour_id):
+def _find_smalles_distance_neighbour_index(node, minimum_distance_neighbour_id):
     """
 
     Parameters
@@ -83,11 +85,11 @@ def _find_smalles_distance_neighbour_leg(node, minimum_distance_neighbour_id):
     Returns
     -------
      : str
-     The leg attached to the neighbour with smallest distance in distance_dict.
+     The index of leg attached to the neighbour with smallest distance in distance_dict.
 
     """
-    neighbour_legs = node.neighbouring_nodes()
-    return neighbour_legs[minimum_distance_neighbour_id]
+    neighbour_index = node.neighbouring_nodes()
+    return neighbour_index[minimum_distance_neighbour_id]
 
 def _correct_ordering_of_q_legs(node, minimum_distance_neighbour_leg):
     """
@@ -95,7 +97,6 @@ def _correct_ordering_of_q_legs(node, minimum_distance_neighbour_leg):
     QR-decomposition on the tensor of node.
 
     """
-
     number_legs = node.tensor.ndim
     first_part = tuple(range(0,minimum_distance_neighbour_leg))
     last_part = tuple(range(minimum_distance_neighbour_leg,number_legs-1))

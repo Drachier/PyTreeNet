@@ -218,7 +218,7 @@ class TensorNode(object):
 
         self.children_legs_to_open_legs(child_identifier)
 
-    def absorb_tensor(self, absorbed_tensor, absorbed_tensors_legs, this_tensors_legs):
+    def absorb_tensor(self, absorbed_tensor, absorbed_tensors_leg_indices, this_tensors_leg_indices):
         """
         Absorbes the absorbed_tensor into this instance's tensor by contracting
         the absorbed_tensors_legs of the absorbed_tensor and the legs
@@ -228,15 +228,25 @@ class TensorNode(object):
         ----------
         absorbed_tensor: ndarray
             Tensor to be absorbed.
-        absorbed_tensors_legs: tuple of int
+        absorbed_tensors_leg_indices: tuple of int
             Legs that are to be contracted with this instance's tensor.
-        this_tensors_legs:
+        this_tensors_leg_indices:
             The legs of this instance's tensor that are to be contracted with
             the absorbed tensor.
         """
-
-        self.tensor = np.tensordot(self.tensor, absorbed_tensor, axes=(this_tensors_legs, absorbed_tensors_legs))
-
+        assert len(absorbed_tensors_leg_indices) == len(this_tensors_leg_indices)
+        if len(absorbed_tensors_leg_indices) == 1:
+            this_tensors_leg_index = this_tensors_leg_indices[0]
+            self.tensor = np.tensordot(self.tensor, absorbed_tensor,
+                                       axes=(this_tensors_leg_indices, absorbed_tensors_leg_indices))
+            this_tensors_indices = tuple(range(self.tensor.ndim))
+            transpose_perm = (this_tensors_indices[0:this_tensors_leg_index]
+                              + (this_tensors_indices[-1], )
+                              + this_tensors_leg_indices[this_tensors_leg_index:-1])
+            print(transpose_perm)
+            self.tensor.transpose(transpose_perm)
+        else:
+            raise NotImplementedError
 
     def is_root(self):
         """
@@ -298,7 +308,7 @@ def assert_legs_matching(node1, leg1, node2, leg2):
     leg1_dimension = node1.tensor.shape[leg1]
     leg2_dimension = node2.tensor.shape[leg2]
     assert leg1_dimension == leg2_dimension
-    
+
 def conjugate_node(node, deep_copy=True, conj_neighbours=False):
     """
     Returns a copy of the same node but with all entries complex conjugated
@@ -308,18 +318,17 @@ def conjugate_node(node, deep_copy=True, conj_neighbours=False):
     conj_node = copy_object(node, deep = deep_copy)
     new_identifier = "conj_" + conj_node.identifier
     new_tag = "conj_" + conj_node.tag
-    
+
     conj_node.identifier = new_identifier
     conj_node.tag = new_tag
-    
+
     if conj_neighbours:
         if not node.is_root():
             conj_node.parent_leg[0] = "conj_" + conj_node.parent_leg[0]
         children_legs = conj_node.children_legs
-        conj_children_legs = {("conj_" + child_id) : children_legs[child_id] 
+        conj_children_legs = {("conj_" + child_id) : children_legs[child_id]
                               for child_id in children_legs}
         conj_node.children_legs = conj_children_legs
-        
+
     conj_node.tensor = np.conj(conj_node.tensor)
     return conj_node
-    

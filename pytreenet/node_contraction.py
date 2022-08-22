@@ -4,8 +4,7 @@ useful contractions.
 """
 import numpy as np
 
-from .tensor_util import compute_transfer_tensor
-from .tensornode import TensorNode, conjugate_node
+from .tensornode import TensorNode
 from .ttn_exceptions import NoConnectionException
 
 def _construct_contracted_identifier(node1_id, node2_id, new_identifier=None):
@@ -87,17 +86,17 @@ def contract_nodes(node1, node2, new_tag=None, new_identifier=None):
     new_tensor_node : TensorNode
         The TensorNode resulting from the contraction.
 
-    """ 
+    """
     node1_id = node1.identifier
     node2_id = node2.identifier
     tensor1 = node1.tensor
     tensor2 = node2.tensor
 
     num_uncontracted_legs_node1 = tensor1.ndim - 1
-    
+
     new_identifier = _construct_contracted_identifier(node1_id=node1_id, node2_id=node2_id, new_identifier=new_identifier)
     new_tag = _construct_contracted_tag(node1.tag, node2.tag, new_tag)
-    
+
     # one has to be the parent of the other
     if node1.is_parent_of(node2_id):
         leg_node1_to_node2, leg_node2_to_node1 = find_connecting_legs(node1, node2)
@@ -107,7 +106,7 @@ def contract_nodes(node1, node2, new_tag=None, new_identifier=None):
         new_parent_leg = _find_total_parent_leg(node2, num_uncontracted_legs_node1, leg_node2_to_node1)
     else:
         raise NoConnectionException(f"The nodes with identifiers {node1_id} and {node2_id} are not connected!")
-        
+
     new_tensor = np.tensordot(tensor1, tensor2,
                               axes=(leg_node1_to_node2, leg_node2_to_node1))
     new_children_legs = _find_new_children_legs(node1, node2,
@@ -118,22 +117,5 @@ def contract_nodes(node1, node2, new_tag=None, new_identifier=None):
     if len(new_parent_leg) != 0:
         new_tensor_node.open_leg_to_parent(new_parent_leg[1], new_parent_leg[0])
     new_tensor_node.open_legs_to_children(new_children_legs.values(), new_children_legs.keys())
-    
-    return new_tensor_node
 
-def transfer_tensor(node, new_tag=None, new_identifier=None):
-    """
-    Computes the transfer_node of the TensorNode node. That is it contracts all
-    open legs of the tensor in node with all open legs of the conjugate tensor
-    in the conjugate node.
-    """
-    conj_node = conjugate_node(node, conj_neighbours=True)
-    
-    node_id = node.identifier
-    conj_node_id = conj_node.identifier
-    
-    new_identifier = _construct_contracted_identifier(node_id, conj_node_id,
-                                                      new_identifier=new_identifier)
-    new_tag = _construct_contracted_tag(node.tag, conj_node.tag, new_tag=new_tag)
-    # Figure out how to deal with parents. Actually this resulting 
-    # node will not be a proper tree node.
+    return new_tensor_node
