@@ -43,7 +43,7 @@ def canonical_form(tree_tensor_network, orthogonality_center_id):
             neighbour_tensor = tree_tensor_network.nodes[minimum_distance_neighbour_id]
             legs_to_neighbours_neighbours = neighbour_tensor.neighbouring_nodes()
             neighbour_index_to_contract = legs_to_neighbours_neighbours[node_id]
-            neighbour_tensor.absorb_tensor(r, (0,), (neighbour_index_to_contract,))
+            neighbour_tensor.absorb_tensor(r, (1,), (neighbour_index_to_contract,))
 
 
 def _find_smallest_distance_neighbour(node, distance_dict):

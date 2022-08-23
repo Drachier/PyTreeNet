@@ -52,6 +52,19 @@ class TestTensorNode(unittest.TestCase):
         self.node1.children_legs_to_open_legs(["id0", "id2"])
         self.assertEqual(self.node1.children_legs, dict())
         self.assertEqual(self.node1.open_legs,[1,0,2])
+        
+    def test_absorb_tensor(self):
+        rand_tensor1 = ptn.crandn((2,5))
+        self.node1.absorb_tensor(rand_tensor1, 0, 0)
+        self.assertEqual(self.node1.tensor.shape, (5,3,4))
+        
+        rand_tensor2 = ptn.crandn((2,3))
+        self.node1.absorb_tensor(rand_tensor2, 1, 1)
+        self.assertEqual(self.node1.tensor.shape, (5,2,4))
+        
+        rand_tensor2 = ptn.crandn((4,3))
+        self.node1.absorb_tensor(rand_tensor2, 0, 2)
+        self.assertEqual(self.node1.tensor.shape, (5,2,3))
 
     def test_is_root(self):
         self.assertTrue(self.node1.is_root())

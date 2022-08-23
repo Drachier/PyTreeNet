@@ -1,8 +1,6 @@
 import unittest
 import numpy as np
 
-from math import prod
-
 import pytreenet as ptn
 
 from pytreenet.canonical_form import _find_smallest_distance_neighbour
@@ -12,7 +10,7 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         self.tree_tensor_network = ptn.TreeTensorNetwork()
 
         self.node1 = ptn.random_tensor_node((2,3), identifier="node1")
-        self.node2 = ptn.random_tensor_node((2,3,4), identifier="node2")
+        self.node2 = ptn.random_tensor_node((2,4,5), identifier="node2")
 
         self.tree_tensor_network.add_root(self.node1)
         self.tree_tensor_network.add_child_to_parent(self.node2, 0, "node1", 0)
@@ -25,13 +23,13 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
     def testsimple_canonical_form(self):
         reference_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
         ref_tensor = reference_ttn.nodes[reference_ttn.root_id].tensor
-
-        ptn.canonical_form(self.tree_tensor_network, "node1")
-
+        
         node1 = self.tree_tensor_network.nodes["node1"]
         node2 = self.tree_tensor_network.nodes["node2"]
-        print(node1.tensor.shape)
-        print(node2.tensor.shape)
+        ref_tensor_direct = np.tensordot(node1.tensor, node2.tensor, axes=([0],[0]))
+        self.assertTrue(np.allclose(ref_tensor, ref_tensor_direct))
+
+        ptn.canonical_form(self.tree_tensor_network, "node1")
 
         result_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
         result_tensor = result_ttn.nodes[result_ttn.root_id].tensor
@@ -73,18 +71,74 @@ class TestTreeTensorNetworkComplicated(unittest.TestCase):
         self.tree_tensor_network.add_child_to_parent(self.node6, 0, "node5", 2)
         self.tree_tensor_network.add_child_to_parent(self.node7, 0, "node6", 1)
 
-    # def test_canonical_form(self):
-    #     reference_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
-    #     ref_tensor = reference_ttn.nodes[reference_ttn.root_id].tensor
+    def test_canonical_form_root(self):
+        reference_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
+        ref_tensor = reference_ttn.nodes[reference_ttn.root_id].tensor
+        
+        ptn.canonical_form(self.tree_tensor_network, "node1")
 
-    #     ptn.canonical_form(self.tree_tensor_network, "node1")
+        result_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
+        result_tensor = result_ttn.nodes[result_ttn.root_id].tensor
 
-    #     result_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
-    #     result_tensor = result_ttn.nodes[result_ttn.root_id].tensor
+        self.assertTrue(np.allclose(ref_tensor,result_tensor))
+        
+        for node_id in self.tree_tensor_network.nodes:
+            if node_id != self.tree_tensor_network.root_id:
+                node = self.tree_tensor_network.nodes[node_id]
+                tensor = node.tensor
+                
+                open_leg_indices = tuple(node.open_legs)
+                children_leg_indices = tuple(node.children_legs.values())
+                total_non_center_indices = open_leg_indices + children_leg_indices
+                
+                transfer_tensor = ptn.compute_transfer_tensor(tensor, total_non_center_indices)
+                
+                dimension_to_center = node.tensor.shape[node.parent_leg[1]]
+                identity = np.eye(dimension_to_center)
+                
+                self.assertTrue(np.allclose(identity, transfer_tensor))
 
-    #     self.assertTrue(np.allclose(ref_tensor,result_tensor))
+    def test_canoncial_form_non_root(self):
+        reference_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
+        ref_tensor = reference_ttn.nodes[reference_ttn.root_id].tensor
+        
+        ptn.canonical_form(self.tree_tensor_network, "node2")
 
+        result_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
+        result_tensor = result_ttn.nodes[result_ttn.root_id].tensor
 
+        self.assertTrue(np.allclose(ref_tensor,result_tensor))
+        
+        for node_id in self.tree_tensor_network.nodes:
+            if node_id == "node1":
+                node = self.tree_tensor_network[node_id]
+                tensor = node.tensor
+                
+                total_non_center_indices = tuple([node.children_legs[child_id] 
+                                            for child_id in node.children_legs
+                                            if child_id != "node2"])
+                transfer_tensor = ptn.compute_transfer_tensor(tensor, total_non_center_indices)
+                
+                dimension_to_center = tensor.shape[node.children_legs["node2"]]
+                identity = np.eye(dimension_to_center)
+                
+                self.assertTrue(np.allclose(identity, transfer_tensor))
+                
+            elif node_id != "node2":
+                node = self.tree_tensor_network.nodes[node_id]
+                tensor = node.tensor
+                
+                open_leg_indices = tuple(node.open_legs)
+                children_leg_indices = tuple(node.children_legs.values())
+                total_non_center_indices = open_leg_indices + children_leg_indices
+                
+                transfer_tensor = ptn.compute_transfer_tensor(tensor, total_non_center_indices)
+                
+                dimension_to_center = node.tensor.shape[node.parent_leg[1]]
+                identity = np.eye(dimension_to_center)
+                
+                self.assertTrue(np.allclose(identity, transfer_tensor))
+                    
 
 if __name__ == "__main__":
     unittest.main()

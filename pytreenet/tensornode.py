@@ -228,23 +228,29 @@ class TensorNode(object):
         ----------
         absorbed_tensor: ndarray
             Tensor to be absorbed.
-        absorbed_tensors_leg_indices: tuple of int
+        absorbed_tensors_leg_indices: int or tuple of int
             Legs that are to be contracted with this instance's tensor.
         this_tensors_leg_indices:
             The legs of this instance's tensor that are to be contracted with
             the absorbed tensor.
         """
+        if type(absorbed_tensors_leg_indices) == int:
+            absorbed_tensors_leg_indices = (absorbed_tensors_leg_indices, )
+        if type(this_tensors_leg_indices) == int:
+            this_tensors_leg_indices = (this_tensors_leg_indices, )
+            
         assert len(absorbed_tensors_leg_indices) == len(this_tensors_leg_indices)
+        
         if len(absorbed_tensors_leg_indices) == 1:
             this_tensors_leg_index = this_tensors_leg_indices[0]
             self.tensor = np.tensordot(self.tensor, absorbed_tensor,
                                        axes=(this_tensors_leg_indices, absorbed_tensors_leg_indices))
+            
             this_tensors_indices = tuple(range(self.tensor.ndim))
             transpose_perm = (this_tensors_indices[0:this_tensors_leg_index]
                               + (this_tensors_indices[-1], )
-                              + this_tensors_leg_indices[this_tensors_leg_index:-1])
-            print(transpose_perm)
-            self.tensor.transpose(transpose_perm)
+                              + this_tensors_indices[this_tensors_leg_index:-1])
+            self.tensor = self.tensor.transpose(transpose_perm)
         else:
             raise NotImplementedError
 
