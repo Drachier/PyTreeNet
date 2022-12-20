@@ -2,21 +2,13 @@ import uuid
 
 from .ttn import TreeTensorNetwork
 from .node_contraction import contract_nodes
+from .ttn_exceptions import NoConnectionException
 
 def check_contracted_identifier(tree_tensor_network, new_identifier):
     if not tree_tensor_network.check_no_nodeid_dublication(new_identifier):
         new_identifier = str(uuid.uuid1())
     return new_identifier
-
-def find_connecting_legs(parent, child):
-    parent_id = parent.identifier
-    assert parent_id in child.parent_leg
-    child_id = child.identifier
-
-    leg_parent_to_child = parent.children_legs[child_id]
-    leg_child_to_parent = child.parent_leg[1]
-    return leg_parent_to_child, leg_child_to_parent
-
+    
 def _rewire_neighbours(tree_tensor_network, parent, contracted_child, new_identifier):
     parent_id = parent.identifier
     contracted_child_id = contracted_child.identifier
@@ -31,7 +23,7 @@ def _rewire_neighbours(tree_tensor_network, parent, contracted_child, new_identi
 
     child_children_ids = contracted_child.children_legs.keys()
     for child_id in child_children_ids:
-        tree_tensor_network.rewire_only_child(contracted_child_id, child_id, new_identifier)
+        tree_tensor_network.rewire_only_child(contracted_child_id, child_id, new_identifier)    
 
 def contract_nodes_in_tree(tree_tensor_network, node1_id, node2_id, new_tag=None, new_identifier=None):
     """
@@ -63,6 +55,8 @@ def contract_nodes_in_tree(tree_tensor_network, node1_id, node2_id, new_tag=None
         _rewire_neighbours(tree_tensor_network, node1, node2, new_identifier)
     elif node2.is_parent_of(node1_id):
         _rewire_neighbours(tree_tensor_network, node2, node1, new_identifier)
+    else:
+        raise NoConnectionException(f"Nodes with identifiers {node1_id} and {node2_id} are no neigbours.")
         
     del tree_tensor_network.nodes[node1_id]
     del tree_tensor_network.nodes[node2_id]    

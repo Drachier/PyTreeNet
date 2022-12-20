@@ -2,8 +2,7 @@ import copy
 
 from warnings import warn
 
-from .util import copy_object
-from .tensornode import assert_legs_matching, conjugate_node
+from .tensornode import assert_legs_matching
 
 class TreeTensorNetwork(object):
     """
