@@ -171,7 +171,7 @@ def find_connecting_legs(node1, node2):
     else:
         raise NoConnectionException(f"Nodes with identifiers {node1_id} and {node2_id} are no neigbours.")
         
-def contract_tensors_of_nodes(node1, node2):
+def contract_tensors_of_nodes(node1, node2, with_leg_dict = True):
     """
     Contracts the tensors of associated to two nodes.
 
@@ -179,6 +179,10 @@ def contract_tensors_of_nodes(node1, node2):
     ----------
     node1 : TensorNode
     node2 : TensorNode
+    with_leg_dict: bool
+        If True additionally a dictionary is returned that contains information
+        on which legs are open and belong to which node
+        
 
     Returns
     -------
@@ -193,5 +197,8 @@ def contract_tensors_of_nodes(node1, node2):
     
     contracted_tensor = np.tensordot(tensor1, tensor2,
                                      axe=([leg_1_to_2],[leg_2_to_1]))
-    
-    return contracted_tensor
+    if with_leg_dict:
+        leg_dict = {node1.identifier + "open": node1.open_legs,
+                    node1.identifier + "bond": }
+    else:
+        return contracted_tensor

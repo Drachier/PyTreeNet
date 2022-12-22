@@ -2,6 +2,8 @@ import numpy as np
 
 from scipy.linalg import expm
 
+from node_contraction import contract_tensors_of_nodes
+
 class Hamiltonian:
     """
     Represents the Hamiltonian on a TTN.
@@ -113,7 +115,9 @@ class TEBD:
     def time_step_size(self, new_hamiltonian):
         self._hamiltonian = new_hamiltonian
         self.exponents = self.exponentiate_terms()
-            
+    
+    
+    
     def run_one_time_step(self):
         """
         Running one time_step on the TNS according to the exponentials and the
@@ -121,6 +125,19 @@ class TEBD:
         """
         
         for index in self.splitting:
+            two_site_exponent = self.exponents[index]
+            
+            operator = two_site_exponent["operator"]
+            
+            identifiers = two_site_exponent["site_ids"]
+            
+            # TODO: Generalise to more than two sites
+            node1 = self.state.nodes[identifiers[0]]
+            node2 = self.state.nodes[identifiers[1]]
+            
+            two_site_tensor = contract_tensors_of_nodes(node1, node2)
+            
+            
             
             
     

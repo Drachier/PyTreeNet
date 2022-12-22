@@ -25,8 +25,10 @@ class TensorNode(object):
             self._tag = self.identifier
         else:
             self._tag = tag
-
+            
+        #At the beginning all legs are open
         self._open_legs = list(np.arange(tensor.ndim))
+        
         self._parent_leg = []
         self._children_legs = dict()
 
