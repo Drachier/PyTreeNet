@@ -7,3 +7,6 @@ from .tensor_util import *
 from .tree_contraction import *
 from .node_contraction import *
 from .ttn_exceptions import *
+from .tdvp import *
+from .tto import *
+from .tts import *

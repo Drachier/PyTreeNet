@@ -43,7 +43,7 @@ def _determine_tensor_shape(old_shape, matrix, legs, output = True):
         Shape of the original tensor.
     legs : tuple of int
         Which legs of the original tensor are associated to matrix.
-    ouput : boolean, optional
+    output : boolean, optional
         If the legs of the original tensor are associated to the input or
         output of matrix. The default is True.
 
@@ -65,7 +65,7 @@ def _determine_tensor_shape(old_shape, matrix, legs, output = True):
 
     return tuple(new_shape)
 
-def tensor_qr_decomposition(tensor, q_legs, r_legs, mode='reduced'):
+def tensor_qr_decomposition(tensor, q_legs, r_legs, mode='full'):
     """
     Parameters
     ----------

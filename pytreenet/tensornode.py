@@ -3,7 +3,7 @@ import uuid
 
 from copy import deepcopy
 
-from .util import crandn, copy_object
+from .util import crandn, crandn_uniform, copy_object
 
 class TensorNode(object):
     """
@@ -254,7 +254,7 @@ class TensorNode(object):
         else:
             raise NotImplementedError
 
-    def is_root(self):
+    def is_root(self) -> bool:
         """
         Determines if this node is a root node, i.e., a node without a parent.
         """
@@ -304,7 +304,8 @@ def random_tensor_node(shape, tag=None, identifier=None):
     """
     Creates a tensor node with an a random associated tensor with shape=shape.
     """
-    rand_tensor = crandn(shape)
+    # rand_tensor = crandn(shape)
+    rand_tensor = crandn_uniform(shape)
     return TensorNode(tensor = rand_tensor, tag=tag, identifier=identifier)
 
 def assert_legs_matching(node1, leg1, node2, leg2):

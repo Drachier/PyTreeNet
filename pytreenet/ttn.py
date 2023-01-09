@@ -2,8 +2,13 @@ import copy
 
 from warnings import warn
 
-from .util import copy_object
+from .util import *
 from .tensornode import assert_legs_matching, conjugate_node
+
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.collections import PatchCollection
 
 class TreeTensorNetwork(object):
     """
@@ -35,7 +40,7 @@ class TreeTensorNetwork(object):
     @property
     def nodes(self):
         """
-        A dictionary containing the tensor trees notes via their identifiers.
+        A dictionary containing the tensor trees nodes via their identifiers.
         """
         return self._nodes
 
@@ -241,3 +246,38 @@ class TreeTensorNetwork(object):
             leg_to_child_tensor = {new_identifier: parent.children_legs[child_id]}
             del parent.children_legs[child_id]
             parent.children_legs.update(leg_to_child_tensor)
+
+    def plot(self, title=""):
+        #TODO label legs
+        #TODO add open legs? current version only ondicates if there are any open legs at all
+
+        root_node_key = self.root_id
+        
+        Plot = PlotDetails(self, root_node_key)
+        Plot.draw_children(self, root_node_key)
+        
+        fig, ax = plt.subplots()
+
+        for key in Plot.nodes.keys():
+            node = Plot.nodes[key]
+            if node.parent_coordinates is not None:
+                ax.plot([node.parent_coordinates[0], node.coordinates[0]], [node.parent_coordinates[1], node.coordinates[1]], 'b', alpha=0.3)
+            if len(self.nodes[key].open_legs) > 0:
+                ax.plot([node.coordinates[0], node.coordinates[0]-.2], [node.coordinates[1], node.coordinates[1]+.07], 'b', alpha=0.7)
+
+        patches = []
+        for key in Plot.nodes.keys():
+            circle = mpatches.Circle(Plot.nodes[key].coordinates, 0.1, ec="none")
+            plt.text(Plot.nodes[key].coordinates[0], Plot.nodes[key].coordinates[1], key, ha="center", va="center", family='sans-serif', size=10, color='black')
+            patches.append(circle)
+        collection = PatchCollection(patches, color='blue', alpha=0.3)
+        ax.add_collection(collection)
+
+        plt.axis('equal')
+        plt.axis('off')
+        plt.tight_layout()
+        plt.title(title)
+
+        plt.show()
+
+        return None
