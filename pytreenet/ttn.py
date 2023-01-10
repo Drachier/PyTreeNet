@@ -131,6 +131,25 @@ class TreeTensorNetwork(object):
         self.nodes.update({parent_id: parent})
         self._root_id = parent_id
 
+    def nearest_neighbours(self):
+        """
+        Finds all nearest neighbouring nodes in a tree.
+        We basically find all parent-child pairs.
+
+        Returns
+        -------
+        nn: list of tuples of strings.
+            A list containing tuples that contain the two identifiers of
+            nearest neighbour pairs of nodes.
+        """
+        nn = []
+        
+        for node_id in self.nodes:
+            current_node = self.nodes[node_id]
+            for child_id in current_node.children_legs:
+                nn.append((node_id, child_id))
+                
+        return nn
 
     def distance_to_node(self, center_node_id):
         """

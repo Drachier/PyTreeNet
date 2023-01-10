@@ -1,8 +1,12 @@
 import uuid
 
+import numpy as np
+
 from .ttn import TreeTensorNetwork
-from .node_contraction import contract_nodes
+from .node_contraction import contract_nodes, operator_expectation_value_on_node
 from .ttn_exceptions import NoConnectionException
+from .canonical_form import canonical_form
+from .util import copy_object
 
 def check_contracted_identifier(tree_tensor_network, new_identifier):
     if not tree_tensor_network.check_no_nodeid_dublication(new_identifier):
@@ -95,3 +99,65 @@ def completely_contract_tree(tree_tensor_network, to_copy=False):
                 
     if to_copy:
         return work_ttn
+    
+def single_site_operator_expectation_value(ttn, node_id, operator):
+    """
+    Assuming ttn represents a quantum state, this function evaluates the 
+    expectation value of the operator applied to the node with identifier 
+    node_id.
+
+    Parameters
+    ----------
+    ttn : TreeTensoNetwork
+        A TTN representing a quantum state.
+    node_id : string
+        Identifier of a node in ttn.
+        Currently assumes the node has asingle open leg..
+    operator : ndarray
+        A matrix representing the operator to be evaluated.
+
+    Returns
+    -------
+    exp_value: complex
+        The resulting expectation value.
+
+    """
+    # Canonical form makes the evaluation very simple.
+    canonical_form(ttn, node_id)
+    node = ttn.nodes[node_id]
+    
+    # Make use of the single-site nature
+    exp_value = operator_expectation_value_on_node(node, operator)
+        
+    return exp_value
+    
+
+def operator_expectation_value(ttn, operator_dict):
+    """
+    Assuming ttn represents a quantum state, this function evaluates the 
+    expectation value of the operator.
+
+    Parameters
+    ----------
+    ttn : TreeTensorNetwork
+        A TTN representing a quantum state. Currently assumes each node has a
+        single open leg.
+    operator_dict : dict
+        A dictionary representing an operator applied to a quantum state.
+        The keys are node identifiers to which the value, a matrix, is applied.
+
+    Returns
+    -------
+    exp_value: complex
+        The resulting expectation value.
+
+    """
+    
+    if len(operator_dict )==1:
+        node_id = list(operator_dict.keys())
+        operator = operator_dict[node_id]
+        
+        # Single-site is special due to canonical forms
+        return single_site_operator_expectation_value(ttn, node_id, operator)
+    else:
+        raise NotImplementedError("Evaluation of multi-site operators is not yet implemented.")

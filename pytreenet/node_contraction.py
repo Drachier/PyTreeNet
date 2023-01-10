@@ -4,8 +4,9 @@ useful contractions.
 """
 import numpy as np
 
-from .tensornode import TensorNode
+from .tensornode import TensorNode, conjugate_node
 from .ttn_exceptions import NoConnectionException
+from .util import copy_object
 
 def _construct_contracted_identifier(node1_id, node2_id, new_identifier=None):
     if new_identifier == None:
@@ -164,41 +165,136 @@ def find_connecting_legs(node1, node2):
     if node2_id in neighbours:
         leg_1_to_2 = neighbours[node2_id]
         
-        neighbours = node2.neighbouring_nodes
-        leg_2_to_1 = neighbours[node2_id]
+        neighbours = node2.neighbouring_nodes()
+        leg_2_to_1 = neighbours[node1_id]
         
         return (leg_1_to_2, leg_2_to_1) 
     else:
         raise NoConnectionException(f"Nodes with identifiers {node1_id} and {node2_id} are no neigbours.")
         
-def contract_tensors_of_nodes(node1, node2, with_leg_dict = True):
+def _create_leg_dict(node, connecting_leg_index, offset = 0, key_virtual = None, key_open = None):
     """
-    Contracts the tensors of associated to two nodes.
+    Will return a dictionary with all legs, but the connecting_leg_index.
+    WARNING: This function will cange the leg ordering in the node.
+
+    Parameters
+    ----------
+    node : TensorNode
+    connecting_leg_index : int
+    offset: int
+        A constant to add to every index
+    key_virtual, key_open: string, string
+        A custom key can be given to each entry, if none they default to
+        node.identifier + "vitual"/"open"
+
+    Returns
+    -------
+    leg_dict: dict
+    A dictionary that contains two entries. Both have a key starting with the node`s identifier
+    and end in virtual or open. The one with "virtual" key contains all virtual legs, apart from
+    the connecting leg and the value of the "open" key contains all open legs.
+
+    """  
+    node.order_legs(last_leg_index=connecting_leg_index)
+    
+    virtual_leg_indices= [node.children_legs[child_id] + offset
+                           for child_id in node.children_legs]
+    
+    if not node.is_root():
+        virtual_leg_indices.append(node.parent_leg[1] + offset)
+    
+    # We know the contracted leg has to be a virtual one
+    # and it will be the highest index
+    new_connecting_index = node.tensor.ndim - 1 + offset
+    assert new_connecting_index in virtual_leg_indices
+    virtual_leg_indices.remove(new_connecting_index)
+    
+    open_leg_indices = [open_leg_index + offset
+                        for open_leg_index in node.open_legs]
+    
+    # Prepare keys
+    if key_virtual == None:
+        key_virtual = node.identifier + "virtual"
+    if key_open == None:
+        key_open = node.identifier + "open"
+    
+    dictionary = {key_virtual: virtual_leg_indices,
+                  key_open: open_leg_indices}
+
+    return dictionary
+
+def contract_tensors_of_nodes(node1, node2):
+    """
+    Contracts the tensors of associated to two nodes and returns it
+    to work mostly outside of the tree picture.
+    WARNING: Using this function will change the node's leg ordering
 
     Parameters
     ----------
     node1 : TensorNode
-    node2 : TensorNode
-    with_leg_dict: bool
-        If True additionally a dictionary is returned that contains information
-        on which legs are open and belong to which node
-        
+    node2 : TensorNode     
 
     Returns
     -------
     contracted_tensor : ndarray
         The result of contracing the tensors of both nodes with leg order
         (remaining legs of tensor of node1, remaining legs of tensor of node2)
-
+    leg_dictionary: dict
+        A dictionar that contains information on which legs are open/virtual
+        and belong to which of the two nodes.
+    
     """
-    tensor1 = node1.tensor
-    tensor2 = node2.tensor
+    
     leg_1_to_2, leg_2_to_1 = find_connecting_legs(node1, node2)
     
-    contracted_tensor = np.tensordot(tensor1, tensor2,
-                                     axe=([leg_1_to_2],[leg_2_to_1]))
-    if with_leg_dict:
-        leg_dict = {node1.identifier + "open": node1.open_legs,
-                    node1.identifier + "bond": }
-    else:
-        return contracted_tensor
+    dict_node1 = _create_leg_dict(node1, leg_1_to_2)
+    
+    # In the contracted tensor the legs of the second tensor start after
+    # the last leg of the first tensor.
+    offset = node1.tensor.ndim - 1        
+    dict_node2 = _create_leg_dict(node2, leg_2_to_1, offset=offset)
+    
+    leg_dictionary = dict_node1 | dict_node2
+    
+    leg_1_to_2 = offset
+    leg_2_to_1 = node2.tensor.ndim  - 1
+    
+    contracted_tensor = np.tensordot(node1.tensor, node2.tensor,
+                                     axes=([leg_1_to_2],[leg_2_to_1]))
+    
+    return contracted_tensor, leg_dictionary
+
+def operator_expectation_value_on_node(node, operator):
+    """
+    This function evaluates the expectation value of the operator applied to
+    the node, while tracing out the remaining legs.
+
+    Parameters
+    ----------
+    node_id : string
+        Currently assumes the node has a single open leg.
+    operator : ndarray
+        A matrix representing the operator to be evaluated.
+
+    Returns
+    -------
+    exp_value: complex
+        The resulting expectation value.
+
+    """
+    node = copy_object(node, deep=True)
+    
+    if len(node.open_legs) == 0:
+        raise ValueError("A node with no open leg cannot have an operator applied.")
+    # TODO: Dimensional checks
+    
+    node_conjugate = conjugate_node(node)
+    
+    node.absorb_tensor(operator, (1,), (node.open_legs[0],))
+    
+    all_axes = range(node.tensor.ndim)
+    
+    exp_value = float(np.tensordot(node.tensor,node_conjugate.tensor,
+                                 axes = (all_axes, all_axes)))
+ 
+    return exp_value

@@ -1,0 +1,7 @@
+Some ideas that make the code more readable/efficient
+*Make a parentclass to TensorNode called Tensor, which differs by not having a
+    distinction between children and parent legs
+*Create a leg class which contains the attributes kind, index, from, to
+    (This will require a lot of reworking on the remaining code.)
+*Make term/multinode_operator a different subclass from tensor to represent
+    operators applied to multiple nodes.

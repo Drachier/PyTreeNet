@@ -105,6 +105,7 @@ class TestTreeContraction(unittest.TestCase):
         self.assertEqual(result_node.children_legs, dict())
         self.assertTrue(result_node.is_root())
         
+    
 
 if __name__ == "__main__":
     unittest.main()
