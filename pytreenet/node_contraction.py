@@ -254,7 +254,9 @@ def contract_tensors_of_nodes(node1, node2):
     offset = node1.tensor.ndim - 1        
     dict_node2 = _create_leg_dict(node2, leg_2_to_1, offset=offset)
     
-    leg_dictionary = dict_node1 | dict_node2
+    leg_dictionary = dict()
+    leg_dictionary.update(dict_node1)
+    leg_dictionary.update(dict_node2)
     
     leg_1_to_2 = offset
     leg_2_to_1 = node2.tensor.ndim  - 1
@@ -294,7 +296,7 @@ def operator_expectation_value_on_node(node, operator):
     
     all_axes = range(node.tensor.ndim)
     
-    exp_value = float(np.tensordot(node.tensor,node_conjugate.tensor,
+    exp_value = complex(np.tensordot(node.tensor,node_conjugate.tensor,
                                  axes = (all_axes, all_axes)))
  
     return exp_value

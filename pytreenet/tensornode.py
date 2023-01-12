@@ -388,7 +388,8 @@ class TensorNode(object):
             assert len(new_open_legs) == len(self.open_legs)
             self._open_legs = new_open_legs
     
-    def absorb_tensor(self, absorbed_tensor, absorbed_tensors_leg_indices, this_tensors_leg_indices):
+    def absorb_tensor(self, absorbed_tensor, absorbed_tensors_leg_indices,
+                      this_tensors_leg_indices):
         """
         Absorbes the absorbed_tensor into this instance's tensor by contracting
         the absorbed_tensors_legs of the absorbed_tensor and the legs

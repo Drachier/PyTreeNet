@@ -5,7 +5,7 @@ import pytreenet as ptn
 
 from pytreenet.canonical_form import _find_smallest_distance_neighbour
 
-class TestTreeTensorNetworkSimple(unittest.TestCase):
+class TestCanonicalFormSimple(unittest.TestCase):
     def setUp(self):
         self.tree_tensor_network = ptn.TreeTensorNetwork()
 
@@ -50,7 +50,7 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         self.assertTrue(np.allclose(identity, transfer_tensor))
 
 
-class TestTreeTensorNetworkComplicated(unittest.TestCase):
+class TestCanonicalFormComplicated(unittest.TestCase):
     def setUp(self):
         self.tree_tensor_network = ptn.TreeTensorNetwork()
 

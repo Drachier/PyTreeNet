@@ -1,5 +1,7 @@
 import copy
 
+import numpy as np
+
 from warnings import warn
 
 from .tensornode import assert_legs_matching
@@ -150,6 +152,26 @@ class TreeTensorNetwork(object):
                 nn.append((node_id, child_id))
                 
         return nn
+    
+    def conjugate(self):
+        """
+        Returns a new TTN that is a conjugated version of the current TTN
+
+        Returns
+        -------
+        ttn_conj:
+            A conjugated copy of the current TTN.
+        
+        """
+        
+        ttn_conj = TreeTensorNetwork(original_tree=self, deep=True)
+        
+        for node_id in ttn_conj.nodes:
+            
+            node = ttn_conj.nodes[node_id]
+            node.tensor = np.conj(node.tensor)
+            
+        return ttn_conj
 
     def distance_to_node(self, center_node_id):
         """
