@@ -520,12 +520,12 @@ def random_tensor_node(shape, tag=None, identifier=None):
     rand_tensor = crandn(shape)
     return TensorNode(tensor = rand_tensor, tag=tag, identifier=identifier)
 
-def assert_legs_matching(node1, leg1, node2, leg2):
+def assert_legs_matching(node1, leg1_index, node2, leg2_index):
     """
     Asserts if the dimensions of leg1 of node1 and leg2 of node2 match.
     """
-    leg1_dimension = node1.tensor.shape[leg1]
-    leg2_dimension = node2.tensor.shape[leg2]
+    leg1_dimension = node1.tensor.shape[leg1_index]
+    leg2_dimension = node2.tensor.shape[leg2_index]
     assert leg1_dimension == leg2_dimension
 
 def conjugate_node(node, deep_copy=True, conj_neighbours=False):

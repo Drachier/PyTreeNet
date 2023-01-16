@@ -265,9 +265,35 @@ def operator_expectation_value(ttn, operator_dict):
             
             node.absorb_tensor(operator, (1, ), (node.open_legs[0], ))
             
-            exp_value = contract_two_ttn(ttn_copy, ttn_conj).flatten
+            exp_value = contract_two_ttn(ttn_copy, ttn_conj).flatten()
             
             assert len(exp_value) == 1
             
             return exp_value[0]
+
+def scalar_product(ttn):
+    """
+    Computes the scalar product for a state_like TTN, i.e. one where the open
+    legs represent a quantum state.
+
+    Parameters
+    ----------
+    ttn : TreeTensorNetwork
+        A TTN representing a quantum state. Currently assumes each node has a
+        single open leg.
+
+    Returns
+    -------
+    sc_prod: complex
+        The resulting scalar product.
+
+    """
+
+    ttn_copy = copy_object(ttn)
+        
+    ttn_conj = ttn_copy.conjugate()
+
+    sc_prod = contract_two_ttn(ttn_copy, ttn_conj).flatten()
+
+    return sc_prod[0]
         
