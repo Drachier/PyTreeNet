@@ -47,3 +47,7 @@ def sort_dictionary(dictionary):
     Adapted from https://www.geeksforgeeks.org/python-sort-a-dictionary/ .
     """
     return {key: val for key, val in sorted(dictionary.items(), key = lambda ele: ele[1], reverse = False)}
+
+def random_hermitian_matrix(size=2):
+    matrix = crandn((size,size))
+    return matrix + matrix.T

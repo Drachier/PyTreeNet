@@ -10,13 +10,13 @@ class TestTreeContraction(unittest.TestCase):
         self.tree_tensor_network = ptn.TreeTensorNetwork()
 
         # Constructing a tree for tests
-        self.node1 = ptn.random_tensor_node((2,2), identifier="node1")
-        self.node2 = ptn.random_tensor_node((2,3,3), identifier="node2")
-        self.node3 = ptn.random_tensor_node((3,), identifier="node3")
-        self.node4 = ptn.random_tensor_node((3,4), identifier="node4")
-        self.node5 = ptn.random_tensor_node((2,3,3), identifier="node5")
-        self.node6 = ptn.random_tensor_node((3,4,4), identifier="node6")
-        self.node7 = ptn.random_tensor_node((4,2,2), identifier="node7")
+        self.node1 = ptn.random_tensor_node((2,3), identifier="node1")
+        self.node2 = ptn.random_tensor_node((2,4,5), identifier="node2")
+        self.node3 = ptn.random_tensor_node((4,), identifier="node3")
+        self.node4 = ptn.random_tensor_node((5,8), identifier="node4")
+        self.node5 = ptn.random_tensor_node((3,6,7), identifier="node5")
+        self.node6 = ptn.random_tensor_node((7,10,9), identifier="node6")
+        self.node7 = ptn.random_tensor_node((10,11,12), identifier="node7")
 
         self.tree_tensor_network.add_root(self.node1)
         self.tree_tensor_network.add_child_to_parent(self.node2, 0, "node1", 0)
@@ -87,7 +87,7 @@ class TestTreeContraction(unittest.TestCase):
         self.assertTrue(idcontr124 in nodes)
         self.assertEqual(self.tree_tensor_network.root_id, idcontr124)
         self.assertTrue(nodes[idcontr124].is_root())
-        self.assertEqual(nodes[idcontr124].tensor.shape, (2,3,4))
+        self.assertEqual(nodes[idcontr124].tensor.shape, (3,4,8))
 
         ptn.contract_nodes_in_tree(self.tree_tensor_network, idcontr124, "node3")
         idcontr1243 = idcontr124 + "_contr_node3"
@@ -176,42 +176,79 @@ class TestTreeContraction(unittest.TestCase):
                                                 to_copy=True)
         ttn2_tensor = ttn2_contr.nodes[ttn2_contr.root_id].tensor
         
-        axs = range(ttn1_tensor.ndim)
+        all_axes = range(ttn1_tensor.ndim)
         
         correct_result = np.tensordot(ttn1_tensor, ttn2_tensor,
-                                      axes=(axs, axs))
+                                      axes=(all_axes, all_axes))
                
         self.assertAlmostEqual(correct_result.item(), found_result.item())
         
     def test_single_site_operator_expectation_value(self):        
         
         node_ids = ["node4", "node5", "node6"]
-        dim = [4, 3, 4]
+        dim = [8, 6, 9]
         
         for i, node_id in enumerate(node_ids):
-            matrix = ptn.crandn((dim[i], dim[i]))
-            operator = matrix + matrix.conj().T
+            operator = ptn.random_hermitian_matrix(dim[i])
             
             ttn1 = ptn.TreeTensorNetwork(original_tree=self.tree_tensor_network,
-                                         deep=True)
+                                          deep=True)
             
             found_result = ptn.single_site_operator_expectation_value(ttn1,
                                                                       node_id,
                                                                       operator)
             
             ttn1z = ptn.TreeTensorNetwork(original_tree=self.tree_tensor_network,
-                                         deep=True)
+                                          deep=True)
             
             ttn1z_conj = ttn1z.conjugate()
             
             # Apply Operator locally
-            ttn1z.nodes[node_id].absorb_tensor(operator, 1, 1)
+            open_leg = ttn1z.nodes[node_id].open_legs[0]
+            ttn1z.nodes[node_id].absorb_tensor(operator, [1], [open_leg])
             
-            correct_result = ptn.contract_two_ttn(ttn1z, ttn1z_conj)
+            correct_result = ptn.contract_two_ttn(ttn1z, ttn1z_conj).flatten()
+            correct_result = correct_result[0]
+        
+            self.assertTrue(np.allclose(correct_result, found_result))
             
-            self.assertAlmostEqual(correct_result, found_result)
-            
-            # TODO: Further testing on the canonical form
+    def test_operator_expectation_value(self):
+        
+        node_ids = ["node4", "node5", "node6"]
+        dims = [8, 6, 9]
+
+        operator_dict = {node_ids[i]: ptn.random_hermitian_matrix(dims[i])
+                     for i in range(len(dims))}
+        
+        ttn1  = ptn.TreeTensorNetwork(original_tree=self.tree_tensor_network,
+                                      deep=True)
+        
+        found_result = ptn.operator_expectation_value(ttn1, operator_dict)
+        
+        ttn1op = ptn.TreeTensorNetwork(original_tree=self.tree_tensor_network,
+                                      deep=True)
+        
+        ttn1op_conj = ttn1op.conjugate()
+        
+        # Manually contract operators
+        tensor4 = ttn1op.nodes["node4"].tensor
+        ttn1op.nodes["node4"].tensor = np.tensordot(tensor4, operator_dict["node4"],
+                                                    axes=(1,1))
+        
+        tensor5 = ttn1op.nodes["node5"].tensor
+        tensor5 = np.tensordot(tensor5, operator_dict["node5"],
+                                                    axes=(1,1))
+        ttn1op.nodes["node5"].tensor = tensor5.transpose([0,2,1])
+        
+        tensor6 = ttn1op.nodes["node6"].tensor
+        ttn1op.nodes["node6"].tensor = np.tensordot(tensor6, operator_dict["node6"],
+                                                    axes=(2,1))
+        
+        correct_result = ptn.contract_two_ttn(ttn1op, ttn1op_conj).flatten()
+        correct_result = correct_result[0]
+
+        self.assertTrue(np.allclose(correct_result, found_result))
+        
 
 if __name__ == "__main__":
     unittest.main()

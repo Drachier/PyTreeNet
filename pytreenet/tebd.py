@@ -6,6 +6,7 @@ from .node_contraction import contract_tensors_of_nodes
 from .tensor_util import (transpose_tensor_by_leg_list,
                           tensor_matricization, 
                           truncated_tensor_svd)
+from .tree_contraction import operator_expectation_value
 
 class TEBD:
     """
@@ -13,7 +14,7 @@ class TEBD:
     """
     
     def __init__(self, state, hamiltonian, time_step_size, final_time,
-                 custom_splitting=None, evaluate_operator=None,
+                 custom_splitting=None, operators=None,
                  max_bond_dim=100, rel_tol=0.01, total_tol=1e-15):
         """
         The state is a TreeTensorNetwork representing an initial state which is
@@ -34,9 +35,9 @@ class TEBD:
         custom_splitting: list of int
             The integers int the list should give the order in which the Hamiltonian
             terms are to be applied, i.e. the order of the Trotter-Suzuki splitting.
-        evaluate_operator: dict
-            A dictionary that contains node identifiers as keys and single-site
-            operators as values. It represents an operator that will be
+        operators: list of dict
+            A list containing dictionaries that contain node identifiers as keys and single-site
+            operators as values. Each represents an operator that will be
             evaluated after every time step.
         max_bond_dim: int
             The maximum bond dimension allowed between nodes. Default is 100.
@@ -54,7 +55,7 @@ class TEBD:
         
         self._time_step_size = time_step_size
         self.final_time = final_time
-        self.num_time_steps = np.ceil(final_time / time_step_size)
+        self.num_time_steps = int(np.ceil(final_time / time_step_size))
         
         if custom_splitting==None:
             raise NotImplementedError()
@@ -66,6 +67,15 @@ class TEBD:
         self.total_tol = total_tol
         
         self._exponents = self._exponentiate_terms()
+        
+        self.operators = operators
+        
+        # Place to hold the results obtained during computation
+        # Each row contains the data obtained during the run and the last row
+        # contains the time_steps
+        if operators != None:
+            self._results = np.zeros((len(self.operators) + 1, 
+                                     self.num_time_steps + 1), dtype=complex)
         
     def _exponentiate_terms(self):
         """
@@ -117,6 +127,10 @@ class TEBD:
     @property
     def exponents(self):
         return self._exponents
+    
+    @property
+    def results(self):
+        return self._results
     
     @staticmethod
     def _find_node_for_legs_of_two_site_tensor(node1, node2):
@@ -291,6 +305,30 @@ class TEBD:
 
         self._split_two_site_tensors(new_two_site_tensor, node1, node2)
     
+    def evaluate_operators(self):
+        """
+        Evaluates the expectation value for all operators given in
+        self.operators for the current TNS.
+
+        Returns
+        -------
+        current_results : list
+            The expectation values with indeces corresponding to those in
+            operators.
+
+        """
+        if self.operators != None:
+            current_results = np.zeros(len(self.operators), dtype=complex)
+                
+            for i, operator_dict in enumerate(self.operators):
+                exp_val = operator_expectation_value(self.state, operator_dict)
+                
+                current_results[i] = exp_val
+                
+            return current_results
+        else:
+            return []
+    
     def run_one_time_step(self):
         """
         Running one time_step on the TNS according to the exponentials and the
@@ -299,7 +337,18 @@ class TEBD:
         for index in self.splitting:
             self._apply_one_trotter_step(index)
             
-        # Compute  expectation value
-            
     def run(self):
-        pass
+        """
+        Runs the TEBD algorithm for the given parameters and saves the computed
+        expectation values in self.results
+        """
+        
+        for i in range(self.num_time_steps + 1):
+            if i != 0:
+                self.run_one_time_step()
+                
+            current_results = self.evaluate_operators()
+            
+            self.results[0:-1,i] = current_results
+            # Save current time
+            self.results[-1,i] = i*self.time_step_size

@@ -173,7 +173,7 @@ class TensorNode(object):
         -------
         neighbour_legs: dict
             Is returned, if with_legs=True. A dictionary that contains all the
-            identifiers of tensor nodes that are contracted with this one and
+            identifiers of tensor nodes that are contracted with this node and
             the leg they are attached to.
         neighbour_ids: list of str
             Is returned it with_legs=False. A list containing the identifiers

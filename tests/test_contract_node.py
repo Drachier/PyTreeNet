@@ -237,14 +237,28 @@ class TestNodeContraction_Complicated(unittest.TestCase):
         self.assertTrue(np.allclose(correct_tensor, found_tensor))
         
     def test_operator_expectation_value_on_node(self):
-        # No idea how to test this any better, but the tree version can be.
-        node = ptn.TensorNode(np.asarray([0,1]), identifier="TestNode")
+        shape = (2,3,4,5)
+        tensor = ptn.crandn(shape)
         
-        _, _, operator = ptn.pauli_matrices()
+        node = ptn.TensorNode(tensor, identifier="node")
         
-        found_exp_value = ptn.operator_expectation_value_on_node(node, operator)
+        leg_index_with_operator = 1
+        matrix = ptn.crandn((shape[leg_index_with_operator],shape[leg_index_with_operator]))
+        operator = matrix + matrix.T
+
+        leg_index_list = [i for i in range(tensor.ndim) if i != leg_index_with_operator]
+        identifier_list = [str(i) for i in range(tensor.ndim) if i != leg_index_with_operator]
+        node.open_legs_to_children(leg_index_list, identifier_list)
+
+        found_exp_value = ptn.operator_expectation_value_on_node(node, operator)       
+
+        conj_tensor = tensor.conjugate()
+        tensor_operator = np.tensordot(tensor, operator, axes=(leg_index_with_operator, 1))
         
-        self.assertAlmostEqual(-1.0, found_exp_value)
-       
+        correct_exp_value = np.tensordot(tensor_operator, conj_tensor,
+                                         axes=([0,1,2,3],[0,2,3,1]))
+        
+        self.assertAlmostEqual(correct_exp_value, found_exp_value)
+        
 if __name__ == "__main__":
     unittest.main()

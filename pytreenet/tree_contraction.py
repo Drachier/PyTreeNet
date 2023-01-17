@@ -224,7 +224,7 @@ def single_site_operator_expectation_value(ttn, node_id, operator):
     
     # Make use of the single-site nature
     exp_value = operator_expectation_value_on_node(node, operator)
-        
+    
     return exp_value
 
 def operator_expectation_value(ttn, operator_dict):
@@ -249,7 +249,7 @@ def operator_expectation_value(ttn, operator_dict):
     """
     
     if len(operator_dict )==1:
-        node_id = list(operator_dict.keys())
+        node_id = list(operator_dict.keys())[0]
         operator = operator_dict[node_id]
         
         # Single-site is special due to canonical forms
@@ -260,6 +260,7 @@ def operator_expectation_value(ttn, operator_dict):
         ttn_conj = ttn_copy.conjugate()
         
         for node_id in operator_dict:
+            
             node = ttn_copy[node_id]
             operator = operator_dict[node_id]
             
@@ -269,7 +270,7 @@ def operator_expectation_value(ttn, operator_dict):
             
             assert len(exp_value) == 1
             
-            return exp_value[0]
+        return exp_value[0]
 
 def scalar_product(ttn):
     """
@@ -294,6 +295,8 @@ def scalar_product(ttn):
     ttn_conj = ttn_copy.conjugate()
 
     sc_prod = contract_two_ttn(ttn_copy, ttn_conj).flatten()
-
+    
+    assert len(sc_prod) == 1
+    
     return sc_prod[0]
         

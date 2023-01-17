@@ -55,13 +55,13 @@ class TestCanonicalFormComplicated(unittest.TestCase):
         self.tree_tensor_network = ptn.TreeTensorNetwork()
 
         # Constructing a tree for tests
-        self.node1 = ptn.random_tensor_node((2,2), identifier="node1")
-        self.node2 = ptn.random_tensor_node((2,3,3), identifier="node2")
-        self.node3 = ptn.random_tensor_node((3,), identifier="node3")
-        self.node4 = ptn.random_tensor_node((3,4), identifier="node4")
-        self.node5 = ptn.random_tensor_node((2,3,3), identifier="node5")
-        self.node6 = ptn.random_tensor_node((3,4,4), identifier="node6")
-        self.node7 = ptn.random_tensor_node((4,2,2), identifier="node7")
+        self.node1 = ptn.random_tensor_node((2,3), identifier="node1")
+        self.node2 = ptn.random_tensor_node((2,4,5), identifier="node2")
+        self.node3 = ptn.random_tensor_node((4,), identifier="node3")
+        self.node4 = ptn.random_tensor_node((5,8), identifier="node4")
+        self.node5 = ptn.random_tensor_node((3,6,7), identifier="node5")
+        self.node6 = ptn.random_tensor_node((7,10,9), identifier="node6")
+        self.node7 = ptn.random_tensor_node((10,11,12), identifier="node7")
 
         self.tree_tensor_network.add_root(self.node1)
         self.tree_tensor_network.add_child_to_parent(self.node2, 0, "node1", 0)
@@ -97,48 +97,68 @@ class TestCanonicalFormComplicated(unittest.TestCase):
                 identity = np.eye(dimension_to_center)
                 
                 self.assertTrue(np.allclose(identity, transfer_tensor))
+    
+    def _check_node(self, ttn, node, id_neighbour_towards_center):
+        node_neighbour_legs = node.neighbouring_nodes()
+        
+        non_center_indices = [node_neighbour_legs[neighbour_id]
+                              for neighbour_id in node_neighbour_legs
+                              if neighbour_id != id_neighbour_towards_center]
+        non_center_indices.extend(node.open_legs)        
+        
+        tensor = node.tensor
+        transfer_tensor = ptn.compute_transfer_tensor(tensor, non_center_indices)
+        
+        # Dimension of leg towards the neighbour nearest to the orth. center
+        dimension_to_center = tensor.shape[node_neighbour_legs[id_neighbour_towards_center]]
+        
+        identity = np.eye(dimension_to_center)
+        
+        self.assertTrue(np.allclose(identity, transfer_tensor))
+        
+        for neighbour_id in node_neighbour_legs:
+            if neighbour_id != id_neighbour_towards_center:
+                self._check_node(ttn, ttn.nodes[neighbour_id], node.identifier)
 
     def test_canoncial_form_non_root(self):
         reference_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
         ref_tensor = reference_ttn.nodes[reference_ttn.root_id].tensor
         
-        ptn.canonical_form(self.tree_tensor_network, "node2")
-
-        result_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
-        result_tensor = result_ttn.nodes[result_ttn.root_id].tensor
-
-        self.assertTrue(np.allclose(ref_tensor,result_tensor))
+        # We can find the scalar product of this TTN with itself, by contracting
+        # all legs left.
+        ref_scalar_product = ptn.compute_transfer_tensor(ref_tensor, range(ref_tensor.ndim))
         
-        for node_id in self.tree_tensor_network.nodes:
-            if node_id == "node1":
-                node = self.tree_tensor_network[node_id]
-                tensor = node.tensor
+        for node_id_center in self.tree_tensor_network.nodes:
+            canon_ttn = ptn.TreeTensorNetwork(original_tree=self.tree_tensor_network,
+                                              deep=True)
+            
+            ptn.canonical_form(canon_ttn, node_id_center)
+            
+            # Test, if both TTN represent the same tensor network
+            result_ttn = ptn.completely_contract_tree(canon_ttn, to_copy=True)
+            result_tensor = result_ttn.nodes[result_ttn.root_id].tensor
+            
+            self.assertTrue(np.allclose(ref_tensor,result_tensor))
+            
+            # Test, if we actually have a canonical form
+            center_node = canon_ttn.nodes[node_id_center]
+            
+            # Contracting this node's tensor with the conjugate should give the
+            # same result as the total scalar product.
+            scalar_product = ptn.compute_transfer_tensor(ref_tensor,
+                                                 range(ref_tensor.ndim))
+            
+            self.assertTrue(np.allclose(ref_scalar_product, scalar_product))
+                        
+            # All other tensors should become the identity, when contracting all
+            # non_center pointing legs with the complex conjugate
+            neighbours_of_center = center_node.neighbouring_nodes()
+            
+            for neighbour_id in neighbours_of_center:
+                self._check_node(canon_ttn,
+                                 canon_ttn.nodes[neighbour_id],
+                                 node_id_center)
                 
-                total_non_center_indices = tuple([node.children_legs[child_id] 
-                                            for child_id in node.children_legs
-                                            if child_id != "node2"])
-                transfer_tensor = ptn.compute_transfer_tensor(tensor, total_non_center_indices)
-                
-                dimension_to_center = tensor.shape[node.children_legs["node2"]]
-                identity = np.eye(dimension_to_center)
-                
-                self.assertTrue(np.allclose(identity, transfer_tensor))
-                
-            elif node_id != "node2":
-                node = self.tree_tensor_network.nodes[node_id]
-                tensor = node.tensor
-                
-                open_leg_indices = tuple(node.open_legs)
-                children_leg_indices = tuple(node.children_legs.values())
-                total_non_center_indices = open_leg_indices + children_leg_indices
-                
-                transfer_tensor = ptn.compute_transfer_tensor(tensor, total_non_center_indices)
-                
-                dimension_to_center = node.tensor.shape[node.parent_leg[1]]
-                identity = np.eye(dimension_to_center)
-                
-                self.assertTrue(np.allclose(identity, transfer_tensor))
-                    
 
 if __name__ == "__main__":
     unittest.main()

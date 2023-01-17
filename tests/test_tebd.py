@@ -31,17 +31,38 @@ class TestTEBD(unittest.TestCase):
         self.ttn.add_child_to_parent(self.node7, 0, "site6", 1)
         self.ttn.add_child_to_parent(self.node8, 0, "site6", 2)
         
-        # We need a Hamiltonian and will use an simple Ising model
-        _, _, Z = ptn.pauli_matrices()
-        self.loc_operator = Z / 4
+        # We need a Hamiltonian and will use a simple Ising model
+        X, _, Z = ptn.pauli_matrices()
+        self.loc_operatorZ = Z
+        self.loc_operatorX = X
         
         nn = self.ttn.nearest_neighbours()
         
         self.hamiltonian = ptn.Hamiltonian()
         
         for nn_pair in nn:
-            term = {nn_pair[0]: self.loc_operator, nn_pair[1]: self.loc_operator}
+            term = {nn_pair[0]: self.loc_operatorZ, nn_pair[1]: self.loc_operatorZ}
             self.hamiltonian.add_term(term)
+            
+        # We want to evaluate the two pauli_matrices locally and the tensor
+        # poduct over all sites
+        self.operators = []
+        
+        Z_all = dict()
+        X_all = dict()
+        
+        for node_id in self.ttn.nodes:
+            dictZ = {node_id: self.loc_operatorZ}
+            self.operators.append(dictZ)
+            
+            dictX = {node_id: self.loc_operatorX}
+            self.operators.append(dictX)
+            
+            Z_all[node_id] = self.loc_operatorZ
+            X_all[node_id] = self.loc_operatorX
+            
+        self.operators.append(Z_all)
+        self.operators.append(X_all)
         
         # And finally a splitting
         self.splitting = [3, 0, 1, 4, 2, 5, 6]
@@ -56,7 +77,7 @@ class TestTEBD(unittest.TestCase):
         tebd1 = ptn.TEBD(self.ttn, self.hamiltonian, time_step_size,
                          final_time, self.splitting)
         
-        two_site_operator = np.kron(self.loc_operator, self.loc_operator)
+        two_site_operator = np.kron(self.loc_operatorZ, self.loc_operatorZ)
         correct_exponent = expm((-1j * time_step_size) * two_site_operator)
         
         correct_pairs = self.ttn.nearest_neighbours()
@@ -96,18 +117,39 @@ class TestTEBD(unittest.TestCase):
         correct_permutation = [1,2,0,3]
         
         self.assertEqual(correct_permutation, found_permutation)
-        
-        
+              
     def test_run_one_time_step(self):
         # Setting up tebd
         time_step_size = 0.1
         final_time = 1
         
         tebd1 = ptn.TEBD(self.ttn, self.hamiltonian, time_step_size,
-                         final_time, self.splitting)
+                         final_time, custom_splitting=self.splitting)
         
         tebd1.run_one_time_step()
     
+    def test_evaluate_operators(self):
+        # Setting up tebd
+        time_step_size = 0.1
+        final_time = 1
+
+        tebd1 = ptn.TEBD(self.ttn, self.hamiltonian, time_step_size,
+                         final_time, custom_splitting=self.splitting,
+                         operators=self.operators)
+        
+        tebd1.evaluate_operators()
+        
+    def test_run(self):
+        # Setting up tebd
+        time_step_size = 0.1
+        final_time = 1
+
+        tebd1 = ptn.TEBD(self.ttn, self.hamiltonian, time_step_size,
+                         final_time, custom_splitting=self.splitting,
+                         operators=self.operators)
+        
+        tebd1.run()
+        print(tebd1.results)
 
 if __name__ == "__main__":
     unittest.main()
