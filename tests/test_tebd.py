@@ -149,7 +149,6 @@ class TestTEBD(unittest.TestCase):
                          operators=self.operators)
         
         tebd1.run()
-        print(tebd1.results)
 
 if __name__ == "__main__":
     unittest.main()

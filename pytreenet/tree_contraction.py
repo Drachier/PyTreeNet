@@ -258,10 +258,10 @@ def operator_expectation_value(ttn, operator_dict):
         ttn_copy = copy_object(ttn)
         
         ttn_conj = ttn_copy.conjugate()
-        
+
         for node_id in operator_dict:
-            
-            node = ttn_copy[node_id]
+
+            node = ttn_copy.nodes[node_id]
             operator = operator_dict[node_id]
             
             node.absorb_tensor(operator, (1, ), (node.open_legs[0], ))

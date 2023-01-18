@@ -68,7 +68,11 @@ class TEBD:
         
         self._exponents = self._exponentiate_terms()
         
-        self.operators = operators
+        if type(operators) == dict:
+            # In this case a single operator has been provided
+            self.operators = [operators]
+        else:
+            self.operators = operators
         
         # Place to hold the results obtained during computation
         # Each row contains the data obtained during the run and the last row
