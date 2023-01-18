@@ -4,7 +4,7 @@ from scipy.linalg import expm
 
 from .node_contraction import contract_tensors_of_nodes
 from .tensor_util import (transpose_tensor_by_leg_list,
-                          tensor_matricization, 
+                          tensor_matricization,
                           truncated_tensor_svd)
 from .tree_contraction import operator_expectation_value
 
@@ -12,7 +12,7 @@ class TEBD:
     """
     Runs the TEBD algorithm on a TTN
     """
-    
+
     def __init__(self, state, hamiltonian, time_step_size, final_time,
                  custom_splitting=None, operators=None,
                  max_bond_dim=100, rel_tol=0.01, total_tol=1e-15):
@@ -20,10 +20,10 @@ class TEBD:
         The state is a TreeTensorNetwork representing an initial state which is
         to be time-evolved under the Hamiltonian hamiltonian until final_time,
         where each time step has size time_step_size.
-        
+
         If no truncation is desired set max_bond_dim = inf, rel_tol = -inf,
         and total_tol = -inf.
-        
+
         Parameters
         ----------
         state : TreeTensorNetwork
@@ -49,76 +49,76 @@ class TEBD:
             Defaults to 1e-15.
 
         """
-        
+
         self.state = state
         self._hamiltonian = hamiltonian
-        
+
         self._time_step_size = time_step_size
         self.final_time = final_time
         self.num_time_steps = int(np.ceil(final_time / time_step_size))
-        
+
         if custom_splitting==None:
             raise NotImplementedError()
         else:
             self.splitting = custom_splitting
-            
+
         self.max_bond_dim = max_bond_dim
         self.rel_tol = rel_tol
         self.total_tol = total_tol
-        
+
         self._exponents = self._exponentiate_terms()
-        
+
         if type(operators) == dict:
             # In this case a single operator has been provided
             self.operators = [operators]
         else:
             self.operators = operators
-        
+
         # Place to hold the results obtained during computation
         # Each row contains the data obtained during the run and the last row
         # contains the time_steps
         if operators != None:
-            self._results = np.zeros((len(self.operators) + 1, 
+            self._results = np.zeros((len(self.operators) + 1,
                                      self.num_time_steps + 1), dtype=complex)
-        
+
     def _exponentiate_terms(self):
         """
         Exponentiates each of the terms. If we were to split the matrix into a tensor
         the site_id order should correspond to the input leg order.
         (i.e. the site with id at position n should have its leg contracted with the exponent's nth leg)
-        
+
         If time_step_size or hamiltonian is to be changed, this function has to be rerun.
         """
         # TODO: Implement dimension checks
-        
+
         exponents = []
-        
+
         for interaction_operator in self.hamiltonian.terms:
             total_operator = 1
             site_ids = []
-            
+
             for site in interaction_operator:
                 total_operator = np.kron(total_operator,
                                               interaction_operator[site],)
 
                 site_ids.append(site)
-            
+
             exponentiated_operator = expm((-1j*self.time_step_size) * total_operator)
-                    
+
             exponents.append({"operator": exponentiated_operator,
                                    "site_ids": site_ids})
-            
+
         return exponents
-            
+
     @property
     def time_step_size(self):
         return self._time_step_size
-    
+
     @time_step_size.setter
     def time_step_size(self, new_time_step_size):
         self._time_step_size = new_time_step_size
         self._exponents = self._exponentiate_terms()
-    
+
     @property
     def hamiltonian(self):
         return self._hamiltonian
@@ -127,15 +127,40 @@ class TEBD:
     def hamiltonian(self, new_hamiltonian):
         self._hamiltonian = new_hamiltonian
         self._exponents = self._exponentiate_terms()
-    
+
     @property
     def exponents(self):
         return self._exponents
-    
+
     @property
     def results(self):
         return self._results
-    
+
+
+    def _apply_one_trotter_step_single_site(self, single_site_exponent):
+        """
+        Applies the single-site exponential operator of the Trotter splitting.
+
+        Parameters
+        ----------
+        single_site_exponent: dict
+            A dictionary with representing a single-site unitary operator.
+            The operator is saved with key "operator" and the site to which it
+            is applied is saved via node identifiers in the key "site_ids"
+
+        Returns
+        -------
+        None.
+
+        """
+        operator = single_site_exponent["operator"]
+        identifiers = single_site_exponent["site_ids"]
+
+        node = self.state.nodes[identifiers[0]]
+
+        node.absorb_tensor(operator, (1, ), (node.open_legs[0], ))
+
+
     @staticmethod
     def _find_node_for_legs_of_two_site_tensor(node1, node2):
         """
@@ -146,30 +171,30 @@ class TEBD:
         """
         current_max_leg_num = node1.nopen_legs()
         node1_open_leg_indices = range(0, current_max_leg_num)
-        
+
         current_max_leg_num += node2.nopen_legs()
         node2_open_leg_indices = range(len(node1_open_leg_indices),current_max_leg_num)
-        
+
         # One virtual leg was lost in the contraction
         num_virt_legs1 = node1.nvirt_legs() - 1
         temp_leg_num = current_max_leg_num
         current_max_leg_num  += num_virt_legs1
         node1_virt_leg_indices = range(temp_leg_num, current_max_leg_num)
-        
+
         # One virtual leg was lost in the contraction
         num_virt_legs2 = node2.nvirt_legs() - 1
         temp_leg_num = current_max_leg_num
         current_max_leg_num  += num_virt_legs2
         node2_virt_leg_indices = range(temp_leg_num, current_max_leg_num)
-        
+
         node1_leg_indices = list(node1_open_leg_indices)
         node1_leg_indices.extend(node1_virt_leg_indices)
-        
+
         node2_leg_indices = list(node2_open_leg_indices)
         node2_leg_indices.extend(node2_virt_leg_indices)
-        
+
         return node1_leg_indices, node2_leg_indices
-    
+
     @staticmethod
     def _permutation_svdresult_u_to_fit_node(node):
         """
@@ -180,7 +205,7 @@ class TEBD:
         (virtual-legs, open-legs, contracted leg)
         and the tensor u from the svd has the leg order
         (open-legs, virtual-legs, contracted leg)
-        
+
         Returns
         -------
         permutation: list of int
@@ -194,7 +219,7 @@ class TEBD:
         permutation.append(node.nlegs() -1)
 
         return permutation
-    
+
     @staticmethod
     def _permutation_svdresult_v_to_fit_node(node):
         """
@@ -205,7 +230,7 @@ class TEBD:
         (virtual-legs, open-legs, contracted leg)
         and the tensor v from the svd has the leg order
         (contracted leg, open-legs, virtual-legs)
-        
+
         Returns
         -------
         permutation: list of int
@@ -219,13 +244,13 @@ class TEBD:
         permutation.append(0)
 
         return permutation
-    
+
     def _split_two_site_tensors(self, two_site_tensor, node1, node2):
             # Split the tensor in two via svd
             # Currently the leg order is
             # (open_legs1, open_legs2, virtual_legs1, virtual_legs2)
             node1_leg_indices, node2_leg_indices = self._find_node_for_legs_of_two_site_tensor(node1, node2)
-            
+
             node1_tensor, s, node2_tensor = truncated_tensor_svd(two_site_tensor,
                                                         node1_leg_indices,
                                                         node2_leg_indices,
@@ -236,14 +261,71 @@ class TEBD:
             permutation1 = TEBD._permutation_svdresult_u_to_fit_node(node1)
             node1_tensor = node1_tensor.transpose(permutation1)
             node1.tensor = node1_tensor
-            
+
             permutation2 = TEBD._permutation_svdresult_v_to_fit_node(node2)
             node2_tensor = node2_tensor.transpose(permutation2)
             # We absorb the singular values into this second tensor
             node2_tensor = np.tensordot(node2_tensor, np.diag(s), axes=(-1,1))
-            
+
             node2.tensor = node2_tensor
-        
+
+    def _apply_one_trotter_step_two_site(self, two_site_exponent):
+        """
+        Applies the two-site exponential operator of the Trotter splitting.
+
+        Parameters
+        ----------
+        two_site_exponent: dict
+            A dictionary with representing a two-site unitary operator.
+            The operator is saved with key "operator" and the sites to which it
+            is applied are saved via node identifiers in the key "site_ids"
+
+        Returns
+        -------
+        None.
+
+        """
+        operator = two_site_exponent["operator"]
+        identifiers = two_site_exponent["site_ids"]
+
+        node1 = self.state.nodes[identifiers[0]]
+        node2 = self.state.nodes[identifiers[1]]
+
+        two_site_tensor, leg_dict = contract_tensors_of_nodes(node1, node2)
+
+        # Matricise site_tensor
+        # Output legs will be the combined physical legs
+        output_legs = [leg_index for leg_index in
+                       leg_dict[node1.identifier + "open"]]
+        output_legs.extend([leg_index for leg_index in
+                            leg_dict[node2.identifier + "open"]])
+
+        # Input legs are the combined virtual legs
+        input_legs = [leg_index for leg_index in
+                       leg_dict[node1.identifier + "virtual"]]
+        input_legs.extend([leg_index for leg_index in
+                            leg_dict[node2.identifier + "virtual"]])
+
+
+
+        # Save original shape for later
+        two_site_tensor = transpose_tensor_by_leg_list(two_site_tensor,
+                                                       output_legs,
+                                                       input_legs)
+        orig_shape = two_site_tensor.shape
+
+        two_site_tensor = tensor_matricization(two_site_tensor,
+                                               output_legs,
+                                               input_legs,
+                                               correctly_ordered=True)
+
+        # exp(-H dt) * |psi_loc>
+        new_two_site_tensor = operator @ two_site_tensor
+
+        new_two_site_tensor = new_two_site_tensor.reshape(orig_shape)
+
+        self._split_two_site_tensors(new_two_site_tensor, node1, node2)
+
     def _apply_one_trotter_step(self, index):
         """
         Applies the exponential operator of the Trotter splitting that is
@@ -261,54 +343,17 @@ class TEBD:
 
         """
         assert index < len(self.exponents)
-        
-        two_site_exponent = self.exponents[index]
-        
-        operator = two_site_exponent["operator"]
-        identifiers = two_site_exponent["site_ids"]
-        
-        # TODO: Generalise to more than two sites
-        if len(identifiers) != 2:
-            raise NotImplementedError
-        
-        node1 = self.state.nodes[identifiers[0]]
-        node2 = self.state.nodes[identifiers[1]]
-        
-        two_site_tensor, leg_dict = contract_tensors_of_nodes(node1, node2)
-        
-        # Matricise site_tensor
-        # Output legs will be the combined physical legs
-        output_legs = [leg_index for leg_index in
-                       leg_dict[node1.identifier + "open"]]
-        output_legs.extend([leg_index for leg_index in
-                            leg_dict[node2.identifier + "open"]])
-        
-        # Input legs are the combined virtual legs
-        input_legs = [leg_index for leg_index in
-                       leg_dict[node1.identifier + "virtual"]]
-        input_legs.extend([leg_index for leg_index in
-                            leg_dict[node2.identifier + "virtual"]])
-        
-        
-        
-        # Save original shape for later
-        two_site_tensor = transpose_tensor_by_leg_list(two_site_tensor,
-                                                       output_legs,
-                                                       input_legs)
-        orig_shape = two_site_tensor.shape            
 
-        two_site_tensor = tensor_matricization(two_site_tensor,
-                                               output_legs,
-                                               input_legs,
-                                               correctly_ordered=True)
+        exponent = self.exponents[index]
+        num_of_sites_acted_upon = len(exponent["site_ids"])
 
-        # exp(-H dt) * |psi_loc>
-        new_two_site_tensor = operator @ two_site_tensor
+        if num_of_sites_acted_upon == 0:
+            pass
+        elif num_of_sites_acted_upon == 1:
+            self._apply_one_trotter_step_single_site(exponent)
+        elif num_of_sites_acted_upon == 2:
+            self._apply_one_trotter_step_two_site(exponent)
 
-        new_two_site_tensor = new_two_site_tensor.reshape(orig_shape)
-
-        self._split_two_site_tensors(new_two_site_tensor, node1, node2)
-    
     def evaluate_operators(self):
         """
         Evaluates the expectation value for all operators given in
@@ -323,36 +368,36 @@ class TEBD:
         """
         if self.operators != None:
             current_results = np.zeros(len(self.operators), dtype=complex)
-                
+
             for i, operator_dict in enumerate(self.operators):
                 exp_val = operator_expectation_value(self.state, operator_dict)
-                
+
                 current_results[i] = exp_val
-                
+
             return current_results
         else:
             return []
-    
+
     def run_one_time_step(self):
         """
         Running one time_step on the TNS according to the exponentials and the
         splitting provided in the object.
-        """   
+        """
         for index in self.splitting:
             self._apply_one_trotter_step(index)
-            
+
     def run(self):
         """
         Runs the TEBD algorithm for the given parameters and saves the computed
         expectation values in self.results
         """
-        
+
         for i in range(self.num_time_steps + 1):
-            if i != 0:
+            if i != 0: # We also measure the initial expectation_values
                 self.run_one_time_step()
-                
+
             current_results = self.evaluate_operators()
-            
+
             self.results[0:-1,i] = current_results
             # Save current time
             self.results[-1,i] = i*self.time_step_size
