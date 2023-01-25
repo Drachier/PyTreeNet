@@ -25,10 +25,10 @@ class TensorNode(object):
             self._tag = self.identifier
         else:
             self._tag = tag
-            
+
         #At the beginning all legs are open
         self._open_legs = list(np.arange(tensor.ndim))
-        
+
         self._parent_leg = []
         self._children_legs = dict()
 
@@ -110,7 +110,7 @@ class TensorNode(object):
         corresponding contracted leg as value.
         """
         return self._children_legs
-    
+
     def nlegs(self):
         """
         Returns
@@ -119,7 +119,7 @@ class TensorNode(object):
             The total number of legs of the node. Wrapper of numpy ndim
         """
         return self.tensor.ndim
-    
+
     def nchild_legs(self):
         """
         Returns
@@ -128,7 +128,7 @@ class TensorNode(object):
             The number of  children leg/children of this node.
         """
         return len(self.children_legs)
-    
+
     def nvirt_legs(self):
         """
         Returns
@@ -141,7 +141,7 @@ class TensorNode(object):
         else:
             c = 1
         return self.nchild_legs() + c
-    
+
     def nopen_legs(self):
         """
         Returns
@@ -150,7 +150,7 @@ class TensorNode(object):
             The number of  open legs.
         """
         return len(self.open_legs)
-    
+
     def __eq__(self, other):
         """
         Two tensors nodes are considered equal, if everything is equal, except
@@ -176,7 +176,7 @@ class TensorNode(object):
             identifiers of tensor nodes that are contracted with this node and
             the leg they are attached to.
         neighbour_ids: list of str
-            Is returned it with_legs=False. A list containing the identifiers
+            Is returned if with_legs=False. A list containing the identifiers
             of all the tensor nodes this node is contracted with.
         """
 
@@ -274,7 +274,7 @@ class TensorNode(object):
         Parameters
         ----------
         last_leg_index : int, optional
-            A leg can be given that is put in last position. 
+            A leg can be given that is put in last position.
             The default is None.
 
         Returns
@@ -283,7 +283,7 @@ class TensorNode(object):
 
         """
         if last_leg_index == None:
-            
+
             # We have to transpose the tensor accordingly
             new_tensor_order = [self.children_legs[child_id]
                                 for child_id in self.children_legs]
@@ -291,103 +291,103 @@ class TensorNode(object):
                 new_tensor_order.append(self.parent_leg[1])
             new_tensor_order.extend([open_leg_index
                                      for open_leg_index in self.open_legs])
-            
+
             new_tensor_order = tuple(new_tensor_order)
             tensor_transposed = np.transpose(self.tensor,
                                              new_tensor_order)
-            
+
             self.tensor = tensor_transposed
-            
+
             # Now the leg indices have to be changed accordingly
             # New indeces for children_legs
             new_children_legs = {child_id: index for
                                  index, child_id in enumerate(self.children_legs)}
-            
+
             assert len(new_children_legs) == len(self.children_legs)
-            
+
             self._children_legs = new_children_legs
-            
+
             # New indeces for parent_leg
             num_child_legs = len(new_children_legs)
-            
+
             if self.is_root():
                 c = 0
             else:
                 # In this case we have to account for the leg in the index values
                 c = 1
                 self._parent_leg[1] = num_child_legs
-            
+
             # New indices for open_legs
             new_open_legs = [index + num_child_legs + c
                              for index, _ in enumerate(self.open_legs)]
-            
+
             assert len(new_open_legs) == len(self.open_legs)
-            
+
             self._open_legs = new_open_legs
-            
+
         else:
             # Now we go through all legs and build the new version of them.
             # However, if we hit the last_leg_index we don't give it the current index we are at
             # but rather the last one.
             total_num_legs = self.tensor.ndim
-            
+
             current_index = 0
             new_children_legs = {}
             # We will change the values in this list with every new leg assignment
             new_tensor_order = list(range(total_num_legs))
-            
+
             for child_id in self.children_legs:
                 if self.children_legs[child_id] != last_leg_index:
-                    
+
                     new_children_legs[child_id] = current_index
                     new_tensor_order[current_index] = self.children_legs[child_id]
                     current_index += 1
-                
+
                 else:
-                    
+
                     new_children_legs[child_id] = total_num_legs - 1
                     new_tensor_order[-1] = self.children_legs[child_id]
-                    
+
             if not self.is_root():
                 if self.parent_leg[1] != last_leg_index:
-                    
+
                     new_parent_leg = current_index
                     new_tensor_order[current_index] = self.parent_leg[1]
                     current_index += 1
-                
+
                 else:
-                    
+
                     new_parent_leg = total_num_legs - 1
                     new_tensor_order[-1] = self.parent_leg[1]
-            
+
             new_open_legs = []
             for open_leg_index in self.open_legs:
                 if open_leg_index != last_leg_index:
-                    
+
                     new_open_legs.append(current_index)
                     new_tensor_order[current_index] = open_leg_index
                     current_index += 1
-                
+
                 else:
-                    
+
                     new_open_legs.append(total_num_legs - 1)
                     new_tensor_order[-1] = open_leg_index
-                    
+
             # Transposing the tensor
             new_tensor = np.transpose(self.tensor, tuple(new_tensor_order))
             self.tensor = new_tensor
-            
+
             # Reassigning all legs
-            
+
             assert len(new_children_legs) == len(self.children_legs)
             self._children_legs = new_children_legs
-            
+
             if not self.is_root():
                 self._parent_leg[1] = new_parent_leg
-                
+
             assert len(new_open_legs) == len(self.open_legs)
             self._open_legs = new_open_legs
-    
+
     def absorb_tensor(self, absorbed_tensor, absorbed_tensors_leg_indices,
                       this_tensors_leg_indices):
         """
@@ -407,17 +407,17 @@ class TensorNode(object):
         """
         if type(absorbed_tensors_leg_indices) == int:
             absorbed_tensors_leg_indices = (absorbed_tensors_leg_indices, )
-    
+
         if type(this_tensors_leg_indices) == int:
             this_tensors_leg_indices = (this_tensors_leg_indices, )
-        
+
         assert len(absorbed_tensors_leg_indices) == len(this_tensors_leg_indices)
-        
+
         if len(absorbed_tensors_leg_indices) == 1:
             this_tensors_leg_index = this_tensors_leg_indices[0]
             self.tensor = np.tensordot(self.tensor, absorbed_tensor,
                                        axes=(this_tensors_leg_indices, absorbed_tensors_leg_indices))
-            
+
             this_tensors_indices = tuple(range(self.tensor.ndim))
             transpose_perm = (this_tensors_indices[0:this_tensors_leg_index]
                               + (this_tensors_indices[-1], )
@@ -425,18 +425,18 @@ class TensorNode(object):
             self.tensor = self.tensor.transpose(transpose_perm)
         else:
             raise NotImplementedError
-            
+
     def shape(self):
         """
         Wraps the numpy function
-        
+
         Returns
         -------
         shp: tuple of ints
             Shape of the node's tensor.
         """
         return self.tensor.shape
-    
+
     def shape_of_legs(self, leg_indices, dtype="tuple"):
         """
         Gives the shape, i.e. dimensions, of a given list of legs.
@@ -457,15 +457,35 @@ class TensorNode(object):
         """
         if dtype not in ["tuple", "list"]:
             raise ValueError(f"'dtype' can only be 'tuple' or 'list' not {dtype}")
-        
+
         total_shape = self.tensor.shape
         legs_shape = [total_shape[leg_index] for leg_index in leg_indices]
-        
+
         if dtype == "list":
             return legs_shape
         elif dtype ==  "tuple":
             return tuple(legs_shape)
-        
+
+    def open_dimension(self):
+        """
+        Returns
+        -------
+        open_dim: int
+            The total dimension of all open legs of this node.
+
+        """
+        open_shape = self.shape_of_legs(self.open_legs)
+
+        if len(open_shape) == 0:
+            return 0
+
+        open_dim = 1
+
+        for dim in open_shape:
+            open_dim *= dim
+
+        return open_dim
+
     def is_root(self):
         """
         Determines if this node is a root node, i.e., a node without a parent.
@@ -511,7 +531,7 @@ class TensorNode(object):
         other_node_id
         """
         return other_node_id in self.children_legs
-    
+
 
 def random_tensor_node(shape, tag=None, identifier=None):
     """

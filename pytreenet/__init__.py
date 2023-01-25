@@ -9,3 +9,4 @@ from .node_contraction import *
 from .ttn_exceptions import *
 from .tebd import *
 from .hamiltonian import *
+from .trotter import *

@@ -1,6 +1,5 @@
 import numpy as np
 
-from scipy.linalg import expm
 
 from .node_contraction import contract_tensors_of_nodes
 from .tensor_util import (transpose_tensor_by_leg_list,
@@ -13,12 +12,11 @@ class TEBD:
     Runs the TEBD algorithm on a TTN
     """
 
-    def __init__(self, state, hamiltonian, time_step_size, final_time,
-                 custom_splitting=None, operators=None,
-                 max_bond_dim=100, rel_tol=0.01, total_tol=1e-15):
+    def __init__(self, state, trotter_splitting, time_step_size, final_time,
+                 operators=None, max_bond_dim=100, rel_tol=0.01, total_tol=1e-15):
         """
         The state is a TreeTensorNetwork representing an initial state which is
-        to be time-evolved under the Hamiltonian hamiltonian until final_time,
+        to be time-evolved under the `trotter_splitting` until `final_time`,
         where each time step has size time_step_size.
 
         If no truncation is desired set max_bond_dim = inf, rel_tol = -inf,
@@ -28,13 +26,12 @@ class TEBD:
         ----------
         state : TreeTensorNetwork
             A TTN representing a quantum state.
+        trotter_splitting: TrotterSplitting
+            The Trotter splitting to be used for time-evolution.
         time_step_size: float
             The time difference that the state is propagated by every time step.
         final_time: float
             The final time to which the simulation is to be run.
-        custom_splitting: list of int
-            The integers int the list should give the order in which the Hamiltonian
-            terms are to be applied, i.e. the order of the Trotter-Suzuki splitting.
         operators: list of dict
             A list containing dictionaries that contain node identifiers as keys and single-site
             operators as values. Each represents an operator that will be
@@ -51,22 +48,20 @@ class TEBD:
         """
 
         self.state = state
-        self._hamiltonian = hamiltonian
+        self._trotter_splitting = trotter_splitting
 
         self._time_step_size = time_step_size
         self.final_time = final_time
         self.num_time_steps = int(np.ceil(final_time / time_step_size))
 
-        if custom_splitting==None:
-            raise NotImplementedError()
-        else:
-            self.splitting = custom_splitting
-
         self.max_bond_dim = max_bond_dim
         self.rel_tol = rel_tol
         self.total_tol = total_tol
 
-        self._exponents = self._exponentiate_terms()
+        if not self._trotter_splitting.is_compatible_with_ttn(self.state):
+            raise ValueError("State TTN and Trotter Splitting are not compatible!")
+
+        self._exponents = self._exponentiate_splitting()
 
         if type(operators) == dict:
             # In this case a single operator has been provided
@@ -81,34 +76,12 @@ class TEBD:
             self._results = np.zeros((len(self.operators) + 1,
                                      self.num_time_steps + 1), dtype=complex)
 
-    def _exponentiate_terms(self):
+    def _exponentiate_splitting(self):
         """
-        Exponentiates each of the terms. If we were to split the matrix into a tensor
-        the site_id order should correspond to the input leg order.
-        (i.e. the site with id at position n should have its leg contracted with the exponent's nth leg)
-
-        If time_step_size or hamiltonian is to be changed, this function has to be rerun.
+        Wraps the exponentiate splitting in the TrotterSplitting class.
         """
-        # TODO: Implement dimension checks
-
-        exponents = []
-
-        for interaction_operator in self.hamiltonian.terms:
-            total_operator = 1
-            site_ids = []
-
-            for site in interaction_operator:
-                total_operator = np.kron(total_operator,
-                                              interaction_operator[site],)
-
-                site_ids.append(site)
-
-            exponentiated_operator = expm((-1j*self.time_step_size) * total_operator)
-
-            exponents.append({"operator": exponentiated_operator,
-                                   "site_ids": site_ids})
-
-        return exponents
+        return self._trotter_splitting.exponentiate_splitting(self.state,
+                                                              self._time_step_size)
 
     @property
     def time_step_size(self):
@@ -117,16 +90,7 @@ class TEBD:
     @time_step_size.setter
     def time_step_size(self, new_time_step_size):
         self._time_step_size = new_time_step_size
-        self._exponents = self._exponentiate_terms()
-
-    @property
-    def hamiltonian(self):
-        return self._hamiltonian
-
-    @hamiltonian.setter
-    def hamiltonian(self, new_hamiltonian):
-        self._hamiltonian = new_hamiltonian
-        self._exponents = self._exponentiate_terms()
+        self._exponents = self._exponentiate_splitting()
 
     @property
     def exponents(self):
@@ -306,8 +270,6 @@ class TEBD:
         input_legs.extend([leg_index for leg_index in
                             leg_dict[node2.identifier + "virtual"]])
 
-
-
         # Save original shape for later
         two_site_tensor = transpose_tensor_by_leg_list(two_site_tensor,
                                                        output_legs,
@@ -353,6 +315,8 @@ class TEBD:
             self._apply_one_trotter_step_single_site(exponent)
         elif num_of_sites_acted_upon == 2:
             self._apply_one_trotter_step_two_site(exponent)
+        else:
+            raise NotImplementedError("More than two-site interactions are not yet implemented.")
 
     def evaluate_operators(self):
         """
