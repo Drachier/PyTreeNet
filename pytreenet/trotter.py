@@ -183,11 +183,14 @@ class TrotterSplitting:
 
         Returns
         -------
-        unitary_operators : list of ndarray
-            Alll operators that make up one time-step of the Trotter splitting.
+        unitary_operators : list of dict
+            All operators that make up one time-step of the Trotter splitting.
             They are to be applied according to their index order in the list.
-
-        """
+            Each operator is saved as a dictionary, where the actual operator
+            is saved as an ndarray under the key `"operator"` and the sites it
+            is applied to are saved as a list of strings/site identifiers under
+            they key `"site_ids"`.
+            """
 
         unitary_operators = [] # Includes the neccessary SWAPs
 
@@ -207,7 +210,7 @@ class TrotterSplitting:
 
             exponentiated_operator = expm((-1j*factor*delta_time) * total_operator)
             exponentiated_operator = {"operator": exponentiated_operator,
-                                   "site_ids": site_ids}
+                                      "site_ids": site_ids}
 
             # Build required swaps for befor trotter term
             swaps_before = []

@@ -5,6 +5,13 @@ import numpy as np
 from warnings import warn
 
 from .tensornode import assert_legs_matching
+from .canonical_form import canonical_form
+from .tree_contraction import (completely_contract_tree,
+                               contract_two_ttn, 
+                               single_site_operator_expectation_value,
+                               operator_expectation_value,
+                               scalar_product
+                               )
 
 class TreeTensorNetwork(object):
     """
@@ -281,3 +288,122 @@ class TreeTensorNetwork(object):
             leg_to_child_tensor = {new_identifier: parent.children_legs[child_id]}
             del parent.children_legs[child_id]
             parent.children_legs.update(leg_to_child_tensor)
+            
+            
+    # Functions below this are just wrappers of external functions that are
+    # linked tightly to the TTN and its structure. This allows these functions
+    # to be overwritten for subclasses of the TTN with more known structure.
+    # The additional sturcture allows for more efficent algorithms than the
+    # general case.
+    
+    def canonical_form(self, orthogonality_center_id):
+        """
+        Brings the tree_tensor_network in canonical form with
+
+        Parameters
+        ----------
+        orthogonality_center_id : str
+            The id of the tensor node, which sould be the orthogonality center for
+            the canonical form
+
+        Returns
+        -------
+        None.
+        """
+        canonical_form(self, orthogonality_center_id)
+        
+    def completely_contract_tree(self, to_copy=False):
+        """
+        Completely contracts the given tree_tensor_network by combining all
+        nodes.
+        (WARNING: Can get very costly very fast. Only use for debugging.)
+
+        Parameters
+        ----------
+        to_copy: bool
+            Wether or not the contraction should be perfomed on a deep copy.
+            Default is False.
+
+        Returns
+        -------
+        In case copy is True a deep copy of the completely contracted TTN is
+        returned.
+
+        """
+        return completely_contract_tree(self, top_copy=to_copy)
+        
+    def contract_two_ttn(self, other):
+        """
+        Contracts two TTN with the same structure. Assumes both TTN use the same
+        identifiers for the nodes.
+        
+        Parameters
+        ----------
+        other : TreeTensorNetwork
+
+        Returns
+        -------
+        result_tensor: ndarray
+            The contraction result.
+            
+        """
+        return contract_two_ttn(self, other)
+        
+    def single_site_operator_expectation_value(self, node_id, operator):
+        """
+        Assuming ttn represents a quantum state, this function evaluates the 
+        expectation value of the operator applied to the node with identifier 
+        node_id.
+
+        Parameters
+        ----------
+        node_id : string
+            Identifier of a node in ttn.
+            Currently assumes the node has a single open leg..
+        operator : ndarray
+            A matrix representing the operator to be evaluated.
+
+        Returns
+        -------
+        exp_value: complex
+            The resulting expectation value.
+
+        """
+        return single_site_operator_expectation_value(self, node_id,
+                                                         operator)
+    
+    def operator_expectation_value(self, operator_dict):
+        """
+        Assuming ttn represents a quantum state, this function evaluates the 
+        expectation value of the operator.
+
+        Parameters
+        ----------
+        operator_dict : dict
+            A dictionary representing an operator applied to a quantum state.
+            The keys are node identifiers to which the value, a matrix, is applied.
+
+        Returns
+        -------
+        exp_value: complex
+            The resulting expectation value.
+
+        """
+        return operator_expectation_value(self, operator_dict)
+    
+    def scalar_product(self):
+        """
+        Computes the scalar product for a state_like TTN, i.e. one where the open
+        legs represent a quantum state.
+    
+        Parameters
+        ----------
+        None
+    
+        Returns
+        -------
+        sc_prod: complex
+            The resulting scalar product.
+    
+        """
+        return scalar_product(self)

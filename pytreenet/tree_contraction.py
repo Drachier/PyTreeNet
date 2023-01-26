@@ -2,7 +2,6 @@ import uuid
 
 import numpy as np
 
-from .ttn import TreeTensorNetwork
 from .node_contraction import contract_nodes, operator_expectation_value_on_node
 from .ttn_exceptions import NoConnectionException
 from .canonical_form import canonical_form
@@ -78,16 +77,15 @@ def completely_contract_tree(tree_tensor_network, to_copy=False):
         The TTN to be contracted.
     to_copy: bool
         Wether or not the contraction should be perfomed on a deep copy.
+        Default is False.
 
     Returns
     -------
-    In case copy is True a deep copy of the completely contracted TTN is returned.
+    In case copy is True a deep copy of the completely contracted TTN is
+    returned.
 
     """
-    if to_copy:
-        work_ttn = TreeTensorNetwork(original_tree=tree_tensor_network, deep=True)
-    else:
-        work_ttn = tree_tensor_network
+    work_ttn = copy_object(tree_tensor_network, deep=to_copy)
 
     distance_to_root = work_ttn.distance_to_node(work_ttn.root_id)
 
@@ -175,8 +173,8 @@ def contract_two_ttn(ttn1, ttn2):
     
     Parameters
     ----------
-    ttn_copy : TreeTensorNetwork
-    ttn_conj : TreeTensorNetwork
+    ttn1 : TreeTensorNetwork
+    ttn2 : TreeTensorNetwork
 
     Returns
     -------
@@ -253,7 +251,7 @@ def operator_expectation_value(ttn, operator_dict):
         operator = operator_dict[node_id]
         
         # Single-site is special due to canonical forms
-        return single_site_operator_expectation_value(ttn, node_id, operator)
+        return ttn.single_site_operator_expectation_value(node_id, operator)
     else:
         ttn_copy = copy_object(ttn)
         
@@ -266,7 +264,7 @@ def operator_expectation_value(ttn, operator_dict):
             
             node.absorb_tensor(operator, (1, ), (node.open_legs[0], ))
             
-            exp_value = contract_two_ttn(ttn_copy, ttn_conj).flatten()
+            exp_value = ttn_copy.contract_two_ttn(ttn_conj).flatten()
             
             assert len(exp_value) == 1
             
@@ -294,7 +292,7 @@ def scalar_product(ttn):
         
     ttn_conj = ttn_copy.conjugate()
 
-    sc_prod = contract_two_ttn(ttn_copy, ttn_conj).flatten()
+    sc_prod = ttn_copy.contract_two_ttn(ttn_conj).flatten()
     
     assert len(sc_prod) == 1
     

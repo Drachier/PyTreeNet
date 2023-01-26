@@ -1,11 +1,11 @@
 import numpy as np
 
+from tqdm import tqdm
 
 from .node_contraction import contract_tensors_of_nodes
 from .tensor_util import (transpose_tensor_by_leg_list,
                           tensor_matricization,
                           truncated_tensor_svd)
-from .tree_contraction import operator_expectation_value
 
 class TEBD:
     """
@@ -75,6 +75,8 @@ class TEBD:
         if operators != None:
             self._results = np.zeros((len(self.operators) + 1,
                                      self.num_time_steps + 1), dtype=complex)
+        else:
+            self._results = np.asarray([], dtype=complex)
 
     def _exponentiate_splitting(self):
         """
@@ -97,9 +99,12 @@ class TEBD:
         return self._exponents
 
     @property
+    def trotter_splitting(self):
+        return self._trotter_splitting
+
+    @property
     def results(self):
         return self._results
-
 
     def _apply_one_trotter_step_single_site(self, single_site_exponent):
         """
@@ -288,36 +293,44 @@ class TEBD:
 
         self._split_two_site_tensors(new_two_site_tensor, node1, node2)
 
-    def _apply_one_trotter_step(self, index):
+    def _apply_one_trotter_step(self, unitary):
         """
         Applies the exponential operator of the Trotter splitting that is
         chosen via index
 
         Parameters
         ----------
-        index : int
-            Index in splitting that determines which interaction will be
-            applied.
+        unitary : dict
+            A dictionary representing a time evolution operator (usually a unitary matrix), 
+            where the actual operator is saved as an ndarray under the key
+            `"operator"` and the sites it is applied to are saved as a list of
+            strings/site identifiers under they key `"site_ids"`
 
         Returns
         -------
         None.
 
         """
-        assert index < len(self.exponents)
-
-        exponent = self.exponents[index]
-        num_of_sites_acted_upon = len(exponent["site_ids"])
+        num_of_sites_acted_upon = len(unitary["site_ids"])
 
         if num_of_sites_acted_upon == 0:
             pass
         elif num_of_sites_acted_upon == 1:
-            self._apply_one_trotter_step_single_site(exponent)
+            self._apply_one_trotter_step_single_site(unitary)
         elif num_of_sites_acted_upon == 2:
-            self._apply_one_trotter_step_two_site(exponent)
+            self._apply_one_trotter_step_two_site(unitary)
         else:
             raise NotImplementedError("More than two-site interactions are not yet implemented.")
 
+    def run_one_time_step(self):
+        """
+        Running one time_step on the TNS according to the exponentials. The
+        order in which the trotter splitting is run, is the order in which the
+        time-evolution operators are saved in `self.exponents`.
+        """
+        for unitary in self.exponents:
+            self._apply_one_trotter_step(unitary)
+            
     def evaluate_operators(self):
         """
         Evaluates the expectation value for all operators given in
@@ -334,7 +347,7 @@ class TEBD:
             current_results = np.zeros(len(self.operators), dtype=complex)
 
             for i, operator_dict in enumerate(self.operators):
-                exp_val = operator_expectation_value(self.state, operator_dict)
+                exp_val = self.state.operator_expectation_value(operator_dict)
 
                 current_results[i] = exp_val
 
@@ -342,26 +355,57 @@ class TEBD:
         else:
             return []
 
-    def run_one_time_step(self):
+    def save_results(self, filepath):
         """
-        Running one time_step on the TNS according to the exponentials and the
-        splitting provided in the object.
+        Saves the data in `self.results` into a .npz file.
+        
+        Parameters
+        ----------
+        filepath : str
+            If results are to be saved in an external file a path can be given
+            here.     
         """
-        for index in self.splitting:
-            self._apply_one_trotter_step(index)
+        if filepath == None:
+            print("No filepath given. Data wasn't saved.")
+            return
+        
+        # We have to lable our data
+        kwarg_dict = {}
+        for i, operator in enumerate(self.operators):
+            kwarg_dict["operator" + str(i)] = operator
+            
+            kwarg_dict["operator" + str(i) + "results"] = self.results[i]
+            
+        kwarg_dict["time"] = self.results[-1]
+        
+        np.savez(filepath, **kwarg_dict)
 
-    def run(self):
+
+    def run(self, filepath=None, pgbar=True):
         """
         Runs the TEBD algorithm for the given parameters and saves the computed
-        expectation values in self.results
+        expectation values in `self.results`.
+        
+        Parameters
+        ----------
+        filepath : str
+            If results are to be saved in an external file a path can be given
+            here. Default is None.
+        pgbar: bool
+            Toggles the progress bar on (True) or off (False). Default is True.
+        
         """
 
-        for i in range(self.num_time_steps + 1):
+        for i in tqdm(range(self.num_time_steps + 1), disable=(not pgbar)):
             if i != 0: # We also measure the initial expectation_values
                 self.run_one_time_step()
 
-            current_results = self.evaluate_operators()
-
-            self.results[0:-1,i] = current_results
-            # Save current time
-            self.results[-1,i] = i*self.time_step_size
+            if len(self.results) > 0:
+                current_results = self.evaluate_operators()
+    
+                self.results[0:-1,i] = current_results
+                # Save current time
+                self.results[-1,i] = i*self.time_step_size
+                
+        if filepath != None:
+            self.save_results(filepath)

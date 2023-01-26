@@ -1,9 +1,5 @@
 import unittest
 
-import numpy as np
-
-from scipy.linalg import expm
-
 import pytreenet as ptn
 
 class TestTEBD(unittest.TestCase):
@@ -87,9 +83,9 @@ class TestTEBD(unittest.TestCase):
         time_step_size = 0.1
         final_time = 1
 
-        tebd = ptn.TEBD(self.ttn, self.trotter_splitting_woswaps, time_step_size,
+        tebd1 = ptn.TEBD(self.ttn, self.trotter_splitting_woswaps, time_step_size,
                          final_time)
-        tebd = ptn.TEBD(self.ttn, self.trotter_splitting_wswaps, time_step_size,
+        tebd2 = ptn.TEBD(self.ttn, self.trotter_splitting_wswaps, time_step_size,
                          final_time)
 
     def test_find_node_for_legs_of_two_site_tensor(self):
@@ -120,33 +116,33 @@ class TestTEBD(unittest.TestCase):
 
         self.assertEqual(correct_permutation, found_permutation)
 
-    # def test_run_one_time_step(self):
-    #     # Setting up tebd
-    #     time_step_size = 0.1
-    #     final_time = 1
+    def test_run_one_time_step(self):
+        # Setting up tebd
+        time_step_size = 0.1
+        final_time = 1
 
-    #     tebd = ptn.TEBD(self.ttn, self.trotter_splitting_wswaps, time_step_size,
-    #                      final_time)
+        tebd = ptn.TEBD(self.ttn, self.trotter_splitting_wswaps, time_step_size,
+                          final_time)
 
-    #     tebd.run_one_time_step()
+        tebd.run_one_time_step()
 
-    # def test_evaluate_operators(self):
-    #     # Setting up tebd
-    #     time_step_size = 0.1
-    #     final_time = 1
+    def test_evaluate_operators(self):
+        # Setting up tebd
+        time_step_size = 0.1
+        final_time = 1
 
-    #     tebd = ptn.TEBD(self.ttn, self.trotter_splitting_wswaps, time_step_size,
-    #                      final_time)
-    #     tebd.evaluate_operators()
+        tebd = ptn.TEBD(self.ttn, self.trotter_splitting_wswaps, time_step_size,
+                          final_time)
+        tebd.evaluate_operators()
 
-    # def test_run(self):
-    #     # Setting up tebd
-    #     time_step_size = 0.1
-    #     final_time = 1
+    def test_run(self):
+        # Setting up tebd
+        time_step_size = 0.1
+        final_time = 1
 
-    #     tebd = ptn.TEBD(self.ttn, self.trotter_splitting_wswaps, time_step_size,
-    #                      final_time)
-    #     tebd.run()
+        tebd = ptn.TEBD(self.ttn, self.trotter_splitting_wswaps, time_step_size,
+                          final_time, operators=self.operators)
+        tebd.run(pgbar=False)
 
 if __name__ == "__main__":
     unittest.main()
