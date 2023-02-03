@@ -82,12 +82,189 @@ class TestTensorNode(unittest.TestCase):
         self.node1.open_legs_to_children([0,2], ["id0", "id2"])
         self.assertFalse(self.node1.is_leaf())
         
-    def test_conj(self):
+    def test_conjugate_node(self):
         conj_node = ptn.conjugate_node(self.node1)
         
         self.assertEqual("conj_1", conj_node.identifier)
         self.assertEqual("conj_First node", conj_node.tag)
         self.assertTrue(np.allclose(conj_node.tensor, np.conj(self.node1.tensor)))
 
+class TestComplicatedTensorNode(unittest.TestCase):
+    def setUp(self):
+        tensor = ptn.crandn((2,3,4,5,6,7))
+        
+        self.node = ptn.TensorNode(tensor, identifier="MyNode")
+        
+    def test_order_legs_wolastlegindex_woparent(self):        
+        # Identifiers correspond to leg dimension
+        open_leg_list = [0,2,3,5]
+        id_list = ["id2", "id4", "id5", "id7"]
+        self.node.open_legs_to_children(open_leg_list, id_list)
+           
+        self.node.order_legs()
+        
+        self.assertEqual(self.node.open_legs, [4,5])
+        
+        correct_children_legs = {"id2": 0, "id4": 1, "id5": 2, "id7": 3}
+        self.assertEqual(self.node.children_legs, correct_children_legs)
+        
+        correct_tensor_shape = (2,4,5,7,3,6)
+        self.assertEqual(self.node.tensor.shape, correct_tensor_shape)
+        
+    def test_order_leg_wolastlegindex_wparent(self):
+        # Identifiers correspond to leg dimension
+        open_leg_list = [0,3,5]
+        id_list = ["id2", "id5", "id7"]
+        self.node.open_legs_to_children(open_leg_list,  id_list)   
+        self.node.open_leg_to_parent(1, "id3")
+        
+        self.node.order_legs()
+        
+        correct_open_legs = [4,5]
+        self.assertEqual(self.node.open_legs, correct_open_legs)
+        
+        correct_parent_leg = ["id3", 3]
+        self.assertEqual(self.node.parent_leg, correct_parent_leg)
+        
+        correct_children_legs = {"id2": 0, "id5": 1, "id7": 2}
+        self.assertEqual(self.node.children_legs, correct_children_legs)
+        
+        correct_tensor_shape = (2,5,7,3,4,6)
+        self.assertEqual(self.node.tensor.shape, correct_tensor_shape)
+        
+    def test_order_legs_wlastlegindexopen_woparent(self):
+        # Identifiers correspond to leg dimension
+        open_leg_list = [0,2,3,5]
+        id_list = ["id2", "id4", "id5", "id7"]
+        self.node.open_legs_to_children(open_leg_list, id_list)
+           
+        self.node.order_legs(last_leg_index=1)
+        
+        correct_open_legs = [5, 4]
+        self.assertEqual(self.node.open_legs, correct_open_legs)
+        
+        correct_children_legs = {"id2": 0, "id4": 1, "id5": 2, "id7": 3}
+        self.assertEqual(self.node.children_legs, correct_children_legs)
+        
+        correct_tensor_shape = (2,4,5,7,6,3)
+        self.assertEqual(self.node.tensor.shape, correct_tensor_shape)
+        
+    def test_order_legs_wlastlegindexchil_woparent(self):
+        # Identifiers correspond to leg dimension
+        open_leg_list = [0,2,3,5]
+        id_list = ["id2", "id4", "id5", "id7"]
+        self.node.open_legs_to_children(open_leg_list, id_list)
+           
+        self.node.order_legs(last_leg_index=2)
+        
+        correct_open_legs = [3, 4]
+        self.assertEqual(self.node.open_legs, correct_open_legs)
+        
+        correct_children_legs = {"id2": 0, "id4": 5, "id5": 1, "id7": 2}
+        self.assertEqual(self.node.children_legs, correct_children_legs)
+        
+        correct_tensor_shape = (2,5,7,3,6,4)
+        self.assertEqual(self.node.tensor.shape, correct_tensor_shape)
+        
+    def test_order_legs_wlastindexopen_wparent(self):
+        # Identifiers correspond to leg dimension
+        open_leg_list = [0,3,5]
+        id_list = ["id2", "id5", "id7"]
+        self.node.open_legs_to_children(open_leg_list, id_list)   
+        self.node.open_leg_to_parent(1, "id3")
+        
+        self.node.order_legs(last_leg_index=2)
+        
+        correct_open_legs = [5,4]
+        self.assertEqual(self.node.open_legs, correct_open_legs)
+        
+        correct_parent_leg = ["id3", 3]
+        self.assertEqual(self.node.parent_leg, correct_parent_leg)
+        
+        correct_children_legs = {"id2": 0, "id5": 1, "id7": 2}
+        self.assertEqual(self.node.children_legs, correct_children_legs)
+        
+        correct_tensor_shape = (2,5,7,3,6,4)
+        self.assertEqual(self.node.tensor.shape, correct_tensor_shape)        
+    
+    def test_order_legs_wlastindexparent(self):
+        # Identifiers correspond to leg dimension
+        open_leg_list = [0,3,5]
+        id_list = ["id2", "id5", "id7"]
+        self.node.open_legs_to_children(open_leg_list, id_list)   
+        self.node.open_leg_to_parent(1, "id3")
+        
+        self.node.order_legs(last_leg_index=1)
+        
+        correct_open_legs = [3,4]
+        self.assertEqual(self.node.open_legs, correct_open_legs)
+        
+        correct_parent_leg = ["id3", 5]
+        self.assertEqual(self.node.parent_leg, correct_parent_leg)
+        
+        correct_children_legs = {"id2": 0, "id5": 1, "id7": 2}
+        self.assertEqual(self.node.children_legs, correct_children_legs)
+        
+        correct_tensor_shape = (2,5,7,4,6,3)
+        self.assertEqual(self.node.tensor.shape, correct_tensor_shape)
+        
+    def test_shape(self):
+        found_shape = self.node.shape()
+        correct_shape = (2,3,4,5,6,7)
+        
+        self.assertEqual(found_shape, correct_shape)
+        
+    def test_shape_of_legs(self):
+        leg_indices = [0,2,4,5]
+        
+        # Test for tuple
+        found_shape = self.node.shape_of_legs(leg_indices)
+        
+        correct_shape = (2,4,6,7)
+        
+        self.assertEqual(correct_shape, found_shape)
+        
+        # Test for list
+        found_shape = self.node.shape_of_legs(leg_indices, dtype="list")
+        
+        correct_shape = [2,4,6,7]
+        
+        self.assertEqual(correct_shape, found_shape)
+        
+        # Test error        
+        self.assertRaises(ValueError, self.node.shape_of_legs,
+                                      leg_indices, "pancake")
+        
+    def test_leg_number_functions(self):
+        open_leg_list = [0,2,3,5]
+        id_list = ["id2", "id4", "id5", "id7"]
+        self.node.open_legs_to_children(open_leg_list, id_list)
+        
+        # Total legs
+        found_total_legs = self.node.nlegs()
+        correct_number = 6
+        self.assertEqual(correct_number, found_total_legs)
+        
+        # Children legs
+        found_children_legs = self.node.nchild_legs()
+        correct_number = 4
+        self.assertEqual(correct_number, found_children_legs)
+        
+        # Virtual legs without parent
+        found_virtual_legs = self.node.nvirt_legs()
+        self.assertEqual(correct_number, found_virtual_legs)
+        
+        # Virtual legs with parent
+        self.node.child_leg_to_open_leg("id5")
+        self.node.open_leg_to_parent(3, "id5")
+        
+        found_virtual_legs = self.node.nvirt_legs()
+        self.assertEqual(correct_number, found_virtual_legs)
+        
+        # Open Legs
+        found_open_legs = self.node.nopen_legs()
+        correct_number = 2
+        self.assertEqual(correct_number, found_open_legs)
+        
 if __name__ == "__main__":
     unittest.main()
