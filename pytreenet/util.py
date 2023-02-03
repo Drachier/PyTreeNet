@@ -104,18 +104,18 @@ def build_swap_gate(dimension=2):
 
     """
 
-    swap_gate = np.zeros((dimension**2, dimension**2))
+    swap_gate = np.zeros((dimension**2, dimension**2), dtype=complex)
 
     for i in range(dimension**2):
         for j in range(dimension**2):
 
             # Basically find the indices in base dimension
-            output_sys1 = i / dimension
-            output_sys2 = i % dimension
+            output_sys1 = int(i / dimension)
+            output_sys2 = int(i % dimension)
 
-            input_sys1 = i / dimension
-            input_sys2 = i % dimension
-
+            input_sys1 = int(j / dimension)
+            input_sys2 = int(j % dimension)
+            
             if (output_sys1 == input_sys2) and (input_sys1 == output_sys2):
                 swap_gate[i,j] = 1
 

@@ -13,7 +13,7 @@ class TEBD:
     """
 
     def __init__(self, state, trotter_splitting, time_step_size, final_time,
-                 operators=None, max_bond_dim=100, rel_tol=0.01, total_tol=1e-15):
+                 operators=None, max_bond_dim=100, rel_tol=1e-10, total_tol=1e-15):
         """
         The state is a TreeTensorNetwork representing an initial state which is
         to be time-evolved under the `trotter_splitting` until `final_time`,

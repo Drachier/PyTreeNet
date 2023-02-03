@@ -22,7 +22,7 @@ class SWAPlist(list):
             if not len(pair) == 2:
                 raise ValueError("SWAPs can only happen between exactly two nodes!")
 
-        list.__init__(swap_list)
+        list.__init__(self, swap_list)
 
     def is_compatible_with_ttn(self, ttn):
         """
@@ -50,7 +50,7 @@ class SWAPlist(list):
             # If it is check, if the other is actually connected and thus also
             #  in the TTN
             node1 = ttn.nodes[swap_pair[0]]
-            if not (swap_pair[1] in node1.neighbouring_nodes(with_leg=False)):
+            if not (swap_pair[1] in node1.neighbouring_nodes(with_legs=False)):
                 return False
 
             # Finally check if both have the same total physical dimension.
@@ -109,12 +109,18 @@ class TrotterSplitting:
 
 
         if swaps_before == None:
-            self.swaps_before = [SWAPlist([]) for i in splitting]
+            if splitting == None:
+                self.swaps_before = [SWAPlist([]) for i in range(len(operators))]
+            else:
+                self.swaps_before = [SWAPlist([]) for i in splitting]
         else:
             self.swaps_before = swaps_before
 
         if swaps_after == None:
-            self.swaps_after = [SWAPlist([]) for i in splitting]
+            if splitting == None:
+                self.swaps_after = [SWAPlist([]) for i in range(len(operators))]
+            else:
+                self.swaps_after = [SWAPlist([]) for i in splitting]
         else:
             self.swaps_after = swaps_after
 
