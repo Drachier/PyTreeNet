@@ -7,7 +7,7 @@ from warnings import warn
 from .tensornode import assert_legs_matching
 from .canonical_form import canonical_form
 from .tree_contraction import (completely_contract_tree,
-                               contract_two_ttn, 
+                               contract_two_ttn,
                                single_site_operator_expectation_value,
                                operator_expectation_value,
                                scalar_product
@@ -152,14 +152,14 @@ class TreeTensorNetwork(object):
             nearest neighbour pairs of nodes.
         """
         nn = []
-        
+
         for node_id in self.nodes:
             current_node = self.nodes[node_id]
             for child_id in current_node.children_legs:
                 nn.append((node_id, child_id))
-                
+
         return nn
-    
+
     def conjugate(self):
         """
         Returns a new TTN that is a conjugated version of the current TTN
@@ -168,16 +168,16 @@ class TreeTensorNetwork(object):
         -------
         ttn_conj:
             A conjugated copy of the current TTN.
-        
+
         """
-        
+
         ttn_conj = TreeTensorNetwork(original_tree=self, deep=True)
-        
+
         for node_id in ttn_conj.nodes:
-            
+
             node = ttn_conj.nodes[node_id]
             node.tensor = np.conj(node.tensor)
-            
+
         return ttn_conj
 
     def distance_to_node(self, center_node_id):
@@ -288,14 +288,45 @@ class TreeTensorNetwork(object):
             leg_to_child_tensor = {new_identifier: parent.children_legs[child_id]}
             del parent.children_legs[child_id]
             parent.children_legs.update(leg_to_child_tensor)
-            
-            
+
+    def find_subtree_of_node(self, node_id):
+        """
+        Finds the subtree for which the node with identifier node_id is the
+        root node.
+
+        Parameters
+        ----------
+        node_id : string
+
+        Returns
+        -------
+        subtree_list: list of strings
+            A dictionary that contains the identifiers of node and all its
+            offspring.
+
+        """
+        self.assert_id_in_tree(node_id)
+
+        root_node = self.nodes[node_id]
+        subtree_list = [node_id]
+
+        if root_node.is_leaf():
+            return subtree_list
+
+        children_ids = root_node.get_children_ids()
+        for child_id in children_ids:
+            child_subtree_list = self.find_subtree_of_node(child_id)
+
+            subtree_list.extend(child_subtree_list)
+
+        return subtree_list
+
     # Functions below this are just wrappers of external functions that are
     # linked tightly to the TTN and its structure. This allows these functions
     # to be overwritten for subclasses of the TTN with more known structure.
     # The additional sturcture allows for more efficent algorithms than the
     # general case.
-    
+
     def canonical_form(self, orthogonality_center_id):
         """
         Brings the tree_tensor_network in canonical form with
@@ -311,7 +342,7 @@ class TreeTensorNetwork(object):
         None.
         """
         canonical_form(self, orthogonality_center_id)
-        
+
     def completely_contract_tree(self, to_copy=False):
         """
         Completely contracts the given tree_tensor_network by combining all
@@ -330,13 +361,13 @@ class TreeTensorNetwork(object):
         returned.
 
         """
-        return completely_contract_tree(self, top_copy=to_copy)
-        
+        return completely_contract_tree(self, to_copy=to_copy)
+
     def contract_two_ttn(self, other):
         """
         Contracts two TTN with the same structure. Assumes both TTN use the same
         identifiers for the nodes.
-        
+
         Parameters
         ----------
         other : TreeTensorNetwork
@@ -345,14 +376,14 @@ class TreeTensorNetwork(object):
         -------
         result_tensor: ndarray
             The contraction result.
-            
+
         """
         return contract_two_ttn(self, other)
-        
+
     def single_site_operator_expectation_value(self, node_id, operator):
         """
-        Assuming ttn represents a quantum state, this function evaluates the 
-        expectation value of the operator applied to the node with identifier 
+        Assuming ttn represents a quantum state, this function evaluates the
+        expectation value of the operator applied to the node with identifier
         node_id.
 
         Parameters
@@ -371,10 +402,10 @@ class TreeTensorNetwork(object):
         """
         return single_site_operator_expectation_value(self, node_id,
                                                          operator)
-    
+
     def operator_expectation_value(self, operator_dict):
         """
-        Assuming ttn represents a quantum state, this function evaluates the 
+        Assuming ttn represents a quantum state, this function evaluates the
         expectation value of the operator.
 
         Parameters
@@ -390,20 +421,20 @@ class TreeTensorNetwork(object):
 
         """
         return operator_expectation_value(self, operator_dict)
-    
+
     def scalar_product(self):
         """
         Computes the scalar product for a state_like TTN, i.e. one where the open
         legs represent a quantum state.
-    
+
         Parameters
         ----------
         None
-    
+
         Returns
         -------
         sc_prod: complex
             The resulting scalar product.
-    
+
         """
         return scalar_product(self)

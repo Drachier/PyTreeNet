@@ -159,6 +159,17 @@ class TensorNode(object):
         return ((self.tensor, self.open_legs, self.parent_leg, self.children_legs) ==
                 (other.tensor, other.open_legs, other.parent_leg, other.children_legs))
 
+    def __repr__(self):
+        string = "identifier: " + self.identifier + "\n"
+        if self.tag != self.identifier:
+            string += "tag: " + self.tag + "\n"
+        string += "tensor_shape = " + str(self.tensor.shape) + "\n"
+        string += "children_legs = " + str(self.children_legs) + "\n"
+        string += "parent_leg = " + str(self.parent_leg) + "\n"
+        string += "open_legs = " + str(self.open_legs) + "\n"
+        return string
+
+
     def neighbouring_nodes(self, with_legs=True):
         """
         Finds the neighbouring tensor nodes of this node with varying
@@ -192,11 +203,30 @@ class TensorNode(object):
                 neighbour_ids.append(self.parent_leg[0])
             return neighbour_ids
 
+    def get_children_ids(self):
+        """
+
+        Returns
+        -------
+        child_id_list: list of string
+            A list containing the identifiers of all children of this node.
+
+        """
+        return list(self.children_legs.keys())
+
     def check_existence_of_open_legs(self, open_leg_list):
         if len(open_leg_list) == 1:
-            assert open_leg_list[0] in self.open_legs, f"Tensor node with identifier {self.identifier} has no open leg {open_leg_list[0]}."
+            leg_index = open_leg_list[0]
+
+            if leg_index < 0:
+                leg_index += self.tensor.ndim
+
+            if not (leg_index in self.open_legs):
+                raise ValueError(f"Tensor node with identifier {self.identifier} has no open leg {open_leg_list[0]}.")
+
         else:
-            assert all(open_leg in self.open_legs for open_leg in open_leg_list)
+            for leg_index in open_leg_list:
+                self.check_existence_of_open_legs([leg_index])
 
     def open_leg_to_parent(self, open_leg, parent_id):
         """
