@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytreenet"
+version = "1.0.0"
+description = "Tree tensor network library for quantum simulations"
+readme = "README.md"
+authors = [{ name = "Richard M. Milbradt", email = "r.milbradt@tum.de" }]
+license = { text = "European Union Public License, v1.1" }
+requires-python = ">=3.7"
+dependencies = [
+    "numpy >= 1.23.1",
+    "scipy >= 1.9.3",
+    "tqdm >= 4.64.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Drachier/PyTreeNet"
