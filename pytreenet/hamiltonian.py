@@ -1,4 +1,7 @@
 from numpy.random import default_rng
+from numpy import prod, eye, tensordot, reshape, transpose
+
+from ttn_exceptions import NotCompatibleException
 
 class Hamiltonian(object):
     """
@@ -14,7 +17,9 @@ class Hamiltonian(object):
         Parameters
         ----------
         terms : list of dictionaries, optional
-            A list of dictionaries containing the terms of the Hamiltonian
+            A list of dictionaries containing the terms of the Hamiltonian. The
+            keys are identifiers of the site to which the value, an operator,
+            is to be applied.
             The default is None.
 
         """
@@ -37,7 +42,109 @@ class Hamiltonian(object):
             for term in terms:
                 self.add_term(term)
         else:
-            raise TypeError("'terms' has to be a list of dictionaries")
+            raise TypeError("'terms' has to be a list of dictionaries")#
+            
+    def pad_with_identity(self, ttn, mode="safe"):
+        """
+        Pads all terms with an identity according to the reference TTN
+
+        Parameters
+        ----------
+        ttn : TreeTensorNetwork
+            TTN with reference to which the identities are to be padded. From
+            here the site_ids and operator dimension is inferred.
+        mode : string, optional
+            Whether to perform checks ('safe') or not ('risky').
+            For big TTN the checks can take a long time.
+            The default is 'safe'.
+
+        Returns
+        -------
+        None.
+
+        """
+        if mode == "safe":
+            if not self.is_compatible_with(ttn):
+                raise NotCompatibleException("Hamiltonian and TTN are incompatible")
+        elif mode != "risky":
+            raise ValueError(f"{mode} is not a valied option for 'mode'. (Only 'safe' and 'risky are)!")
+        
+        for site_id in ttn.nodes:
+            
+            site_node = ttn.nodes[site_id]
+            physical_dim = prod(site_node.shape_of_legs(site_node.open_legs))
+            site_identity = eye(physical_dim)
+            
+            for term in self.terms:
+                if not (site_id in term):
+                    term[site_id] = site_identity
+    
+    def is_compatible_with(self, ttn):
+        """
+        Checks if the Hamiltonian is compatible with the givent TTN.
+
+        Parameters
+        ----------
+        ttn : TreeTensorNetwork
+            The TTN to be checked against.
+
+        Returns
+        -------
+        compatability: bool
+            If the current Hamiltonian ist compatible with the given TTN.
+
+        """
+        
+        for term in self.terms:
+            for site_id in term:
+                if not site_id in ttn.nodes:
+                    return False
+        
+        return True
+    
+    def to_matrix(self, ttn):
+        """
+        Creates a matrix ndarray representing this Hamiltonian assuming it is
+        defined on the structure of ttn.
+
+        Parameters
+        ----------
+        ttn : TreeTensorNetwork
+            TTN giving the tree structure which the Hamiltonian should respect.
+
+        Returns
+        -------
+        matrix: ndarray
+            A matrix representing the Hamiltonian.
+
+        """
+        self.pad_with_identity(ttn)
+        
+        first = True
+        for term in self.terms:
+            
+            tensor = term[ttn.root_id]
+            tensor = self._to_matrix_rec(ttn, ttn.root_id, term, tensor)
+            
+            if first:
+                matrix = tensor
+            else:
+                matrix += tensor
+                
+        return matrix
+    
+    def _to_matrix_rec(self, ttn, node_id, term, tensor):
+        tensor = term[node_id]
+        for child_id in ttn.nodes[node_id].children_legs:
+            child_tensor = term[child_id]
+            tensor = tensordot(tensor, child_tensor, axes=0)
+            tensor = transpose(tensor, (0,2,1,3))
+            tensor_half_dim = tensor.ndim / 2
+            tensor = reshape(tensor, (tensor_half_dim, tensor_half_dim))
+            
+            tensor = self._to_matrix_rec(ttn, child_id, term, tensor)
+        
+        return tensor
         
     def __add__(self, other_hamiltonian):
         
@@ -108,7 +215,7 @@ def random_terms(num_of_terms, possible_operators, sites, min_strength = -1, max
             
             operator = possible_operators[operator_index]
             
-            if first == True:
+            if first:
                 # The first operator has the interaction strength
                 operator = strength[index] * operator
                 first = False

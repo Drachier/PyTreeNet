@@ -7,6 +7,22 @@ class TTNO(TreeTensorNetwork):
 
     def __init__(self, **kwargs):
         TreeTensorNetwork.__init__(self, **kwargs)
+        
+    def from_hamiltonian(self, hamiltonian):
+        """
+        
+
+        Parameters
+        ----------
+        hamiltonian : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        raise NotImplementedError()
 
     def from_tensor(self, reference_tree, tensor, leg_dict):
         """
@@ -47,17 +63,21 @@ class TTNO(TreeTensorNetwork):
 
     def _from_tensor_rec(self, reference_tree, current_node, leg_dict):
         """
+        Recursive part to obtain a TTNO from a tensor. For each child of the
+        current node a new node is defined via a QR-decomposition and the 
+        current_node and the leg_dict are modified.
 
         Parameters
         ----------
-        reference_tree : TYPE
-            DESCRIPTION.
-        tensor : TYPE
-            DESCRIPTION.
-        node_id : TYPE
-            DESCRIPTION.
-        leg_dict : TYPE
-            DESCRIPTION.
+        reference_tree : TreeTensorNetwork
+            A tree used as a reference. The TTNO will have the same underlying
+            tree structure and the same node_ids.
+        current_node : TensorNode
+            The current node which we want to split via a QR-decomposition.
+        leg_dict : dict
+            A dictionary it contains node_identifiers as keys and leg indices
+            as values. It is used to match the legs of tensor in the current
+            node to the different nodes it will be split into.
 
         Returns
         -------
@@ -71,49 +91,16 @@ class TTNO(TreeTensorNetwork):
         current_children = reference_tree.nodes[current_node.identifier].get_children_ids()
 
         for child_id in current_children:
+            
+            q_legs, r_legs, q_leg_dict, r_leg_dict = TTNO._prepare_legs_for_QR(reference_tree, current_node, child_id, leg_dict)
+
             current_tensor = current_node.tensor
-            subtree_list_child = reference_tree.find_subtree_of_node(child_id)
-
-            q_legs = []
-            r_legs = []
-            # Required to keep the leg ordering later as open_legs_in, open_legs_out
-            q_legs_sec = []
-            r_legs_sec = []
-
-            r_leg_dict = {}
-            q_leg_dict = {}
-
-
-            for node_id_temp in leg_dict:
-                if node_id_temp in subtree_list_child:
-                    r_legs.append(leg_dict[node_id_temp][0])
-                    r_legs_sec.append(leg_dict[node_id_temp][1])
-                    r_leg_dict[node_id_temp] = leg_dict[node_id_temp]
-                else:
-                    q_legs.append(leg_dict[node_id_temp][0])
-                    q_legs_sec.append(leg_dict[node_id_temp][1])
-                    q_leg_dict[node_id_temp] = leg_dict[node_id_temp]
-
-            q_legs.extend(q_legs_sec)
-            r_legs.extend(r_legs_sec)
-
-            if not current_node.is_root():
-                q_legs.append(current_node.parent_leg[1])
-                c=1
-            else:
-                c=0
-
-            q_legs.extend(list(current_node.children_legs.values()))
-
             Q, R = tensor_qr_decomposition(current_tensor, q_legs, r_legs)
 
-            q_node = TensorNode(Q, identifier=current_node.identifier)
-            q_half_leg = len(q_leg_dict)
-            if c==1:
-                q_node.open_leg_to_parent(2*q_half_leg, current_node.parent_leg[0])
-            q_node.open_legs_to_children(list(range(2*q_half_leg+c, 2*q_half_leg+c + len(current_node.children_legs))), list(current_node.children_legs.keys()))
+            q_node = TTNO._create_q_node(Q, current_node, q_leg_dict)
             new_q_leg_dict = TTNO._find_new_leg_dict(q_leg_dict, c=0)
-
+            
+            # Replace current_node with q_node in the TTNO
             self.nodes[current_node.identifier] = q_node
 
             r_node = TensorNode(R, identifier=child_id)
@@ -133,7 +120,110 @@ class TTNO(TreeTensorNetwork):
             leg_dict = new_q_leg_dict
 
         return
+    
+    @staticmethod
+    def _prepare_legs_for_QR(reference_tree, current_node, child_id, leg_dict):
+        """
+        Prepares the lists of legs to be used in the QR-decomposition and
+        splits the leg_dict. One of the new dictionary contains the legs
+        belonging to the Q-tensor and the other contains the legs belonging to
+        the R-tensor
 
+        Parameters
+        ----------
+        reference_tree : TreeTensorNetwork
+            A tree used as a reference. The TTNO will have the same underlying
+            tree structure and the same node_ids.
+        current_node : TensorNode
+            The current node which we want to split via a QR-decomposition.
+        child_id : string
+            Identifier of the child, which we want to obtain for the TTNO by#
+            splitting it of the current_node via a QR-decomposition.
+        leg_dict : dict
+            A dictionary it contains node_identifiers as keys and leg indices
+            as values. It is used to match the legs of tensor in the current
+            node to the different nodes it will be split into.
+
+        Returns
+        -------
+        q_legs: list of int
+            The legs of the current_tensor which are to be associated to the
+            Q-tensor. (The ones that remain with the current_node)
+        r_legs: list of int
+            The legs of the current_tensor which are to be associated to the
+            R-tensor. (The legs of the to-be created child)
+        q_leg_dict, r_leg_dict: dict
+            Dictionary describing to which node the open legs of the tensor in
+            the Q(R)-node will belong to.
+        """
+        
+        subtree_list_child = reference_tree.find_subtree_of_node(child_id)
+
+        q_legs = []
+        r_legs = []
+        # Required to keep the leg ordering later as open_legs_in, open_legs_out
+        q_legs_sec = []
+        r_legs_sec = []
+
+        r_leg_dict = {}
+        q_leg_dict = {}
+
+
+        for node_id_temp in leg_dict:
+            if node_id_temp in subtree_list_child:
+                r_legs.append(leg_dict[node_id_temp][0])
+                r_legs_sec.append(leg_dict[node_id_temp][1])
+                r_leg_dict[node_id_temp] = leg_dict[node_id_temp]
+            else:
+                q_legs.append(leg_dict[node_id_temp][0])
+                q_legs_sec.append(leg_dict[node_id_temp][1])
+                q_leg_dict[node_id_temp] = leg_dict[node_id_temp]
+
+        q_legs.extend(q_legs_sec)
+        r_legs.extend(r_legs_sec)
+
+        if not current_node.is_root():
+            q_legs.append(current_node.parent_leg[1])
+        q_legs.extend(list(current_node.children_legs.values()))
+        
+        return q_legs, r_legs, q_leg_dict, r_leg_dict
+    
+    @staticmethod
+    def _create_q_node(tensor, current_node, q_leg_dict):
+        """
+        Prepares the new TensorNode which will consist of the Q of the 
+        QR-decomposition and be in the place of the current_node.
+
+        Parameters
+        ----------
+        tensor : ndarray
+            Tensor associated to the new node.
+        current_node : TensorNode
+            The node that is currently in the process of being split into two.
+        q_leg_dict : dict
+            Dictionary describing to which node the open legs of the tensor in
+            the new node will belong to.
+
+        Returns
+        -------
+        q_node : TensorNode
+            The new tensor node that will replace the current_node.
+
+        """
+        
+        q_node = TensorNode(tensor, identifier=current_node.identifier)
+        q_half_leg = len(q_leg_dict)
+        if not current_node.is_root():
+            q_node.open_leg_to_parent(2*q_half_leg, current_node.parent_leg[0])
+            c = 1
+        else:
+            c = 0
+            
+        q_node.open_legs_to_children(list(range(2*q_half_leg+c, 2*q_half_leg+c + len(current_node.children_legs))),
+                                     list(current_node.children_legs.keys()))
+        
+        return q_node
+        
     @staticmethod
     def _find_new_leg_dict(leg_dict, c=0):
         """

@@ -8,3 +8,9 @@ class NoConnectionException(Exception):
     nodes are not actually connected.
     """
     pass
+
+class NotCompatibleException(Exception):
+    """
+    Raised when compatibility of two TTN is checked, but not fulfilled.
+    """
+    pass
