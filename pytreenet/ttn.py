@@ -180,6 +180,19 @@ class TreeTensorNetwork(object):
 
         return ttn_conj
 
+    def get_leaves(self):
+        """
+        Get the identifiers of all leaves of the TTN
+
+        Returns
+        -------
+        leaf_id_list: list
+
+        """
+        leaf_id_list = [node_id for node_id in self.nodes
+                            if self.nodes[node_id].is_leaf()]
+        return leaf_id_list
+
     def distance_to_node(self, center_node_id):
         """
 

@@ -4,6 +4,7 @@ Some useful tools
 import numpy as np
 
 from copy import deepcopy
+from collections import Counter
 
 def crandn(size):
     """
@@ -115,8 +116,14 @@ def build_swap_gate(dimension=2):
 
             input_sys1 = int(j / dimension)
             input_sys2 = int(j % dimension)
-            
+
             if (output_sys1 == input_sys2) and (input_sys1 == output_sys2):
                 swap_gate[i,j] = 1
 
     return swap_gate
+
+def compare_lists_by_value(list1, list2):
+    if Counter(list1) == Counter(list2):
+        return True
+    else:
+        return False

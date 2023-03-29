@@ -19,7 +19,8 @@ class Hamiltonian(object):
         terms : list of dictionaries, optional
             A list of dictionaries containing the terms of the Hamiltonian. The
             keys are identifiers of the site to which the value, an operator,
-            is to be applied.
+            is to be applied. (Operators can be symbolic, i.e. strings or explicit
+            i.e. ndarrays)
             The default is None.
 
         """
