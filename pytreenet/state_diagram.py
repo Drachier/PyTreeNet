@@ -40,7 +40,7 @@ class HyperEdge():
     def vertex_single_he(self, other_node_id):
         """
         Checks if the vertex with the corresponding edge vertex_corr_edge
-        is contains is connected to a single hyperedge at the current node.
+        is connected to a single hyperedge at the current node.
 
         Parameters
         ----------
@@ -55,15 +55,33 @@ class HyperEdge():
         result: bool
         """
         vertex = self.find_correct_vertex(other_node_id)
-        num_hyperedges = len(vertex.hyperedges)
         
-        if num_hyperedges == 1:
+        return vertex.check_hyperedge_uniqueness(self.corr_node_id)
+         
+    def num_of_vertices_contained(self):
+        """
+        Determines the number of vertices connected to this hyperedge
+        which are marked as contained.
+
+        Returns
+        -------
+        num_marked_contained: int
+
+        """
+        marked_contained = [True for vertex in self.vertices
+                                if vertex.contained]
+        num_marked_contained = len(marked_contained)
+    
+    def all_vertices_contained(self):
+        """
+        Checks, if all vertices attached to this hyperedge are marked as
+        contained.
+        """
+        num_vertices = len(self.vertices)
+        if num_vertices == self.num_of_vertices_contained():
             return True
-        elif num_hyperedges > 1:
-            return False
-        else:
-            assert False, "Something went terribly wrong."     
-            
+        return False
+    
     def all_but_one_vertex_contained(self):
         """
         Checks, if all or all but one vertex of attached to this hyperedge are 
@@ -75,9 +93,7 @@ class HyperEdge():
 
         """
         num_vertices = len(self.vertices)
-        marked_contained = [True for vertex in self.vertices
-                                if vertex.contained]
-        num_marked_contained = len(marked_contained)
+        num_marked_contained = self.num_of_vertices_contained()
         
         assert num_vertices >= num_marked_contained
         if num_vertices == num_marked_contained:
@@ -93,11 +109,75 @@ class Vertex():
         self.hyperedges = hyperedges
         
         self.contained = False
+        self.new = False
 
     def __repr__(self):
         string = "edge = " + str(self.corr_edge)
         string += "no. hyperedges = " + str(len(self.hyperedges)) + "|"
         return string
+    
+    def check_validity_of_node(self, node_id):
+        if not (node_id in self.corr_edge):
+            raise ValueError("Vertex does not correspond to and edge connecting node with identifier 'node_id'")
+    
+    def get_hyperedges_for_one_node_id(self, node_id):
+        """
+        Find all hyperedges connected to this vertex which correspond to the node with 
+        identifier 'node_id'
+        
+        node_id : str
+            The identifier of the node for which we are to find the
+            hyperedges connected to this vertex
+
+        Returns
+        -------
+        hyperedges_of_node: list of HyperEdge
+            A list containing all hyperedges connected to this vertex and
+            corresponding to the node with identifier node_id.
+        """
+        self.check_validity_of_node(node_id)        
+        
+        hyperedges_of_node = [hyperedge for hyperedge in self.hyperedges
+                               if hyperedge.corr_node_id == node_id]
+        
+        assert len(hyperedges_of_node) > 0
+        
+        return hyperedges_of_node
+    
+    def num_hyperedges_to_node(self, node_id):
+        """
+        Finds the number of hyperedges which are connected to this
+        vertex and correspond to the node with identifier 'node_id'.
+
+        Parameters
+        ----------
+        node_id : str
+            Identifier of a node that is connected by the edge
+            corresponding to this vertex.
+
+        Returns
+        -------
+        num_he: int
+            The number of hyperedges of this vertex corresponding
+            to the node with identifer 'node_id'.
+
+        """
+        self.check_validity_of_node(node_id)
+        
+        he = self.get_hyperedges_for_one_node_id(node_id)
+        return len(he)
+
+    def check_hyperedge_uniqueness(self, node_id):
+        """
+        Checks, if the number of hyperedges attached to this vertex and
+        corresponding to the node with identifier 'node_id' is one.
+        """
+        num_he = self.num_hyperedges_to_node(node_id)
+        
+        if num_he == 1:
+            return True
+        else:
+            return False
 
 class HyperEdgeColl():
     def __init__(self, corr_node_id, contained_hyperedges):
@@ -222,7 +302,6 @@ class StateDiagram():
                 state_diagram.add_single_term(term)
                 
         return state_diagram
-
     
     def add_single_term(self, term):
         temp_state_diagram = StateDiagram.from_single_term(term, self.reference_tree)
@@ -246,40 +325,38 @@ class StateDiagram():
                 active_path = ActivePath(single_hyperedges[0])
                 self.run_active_path(active_path, temp_state_diagram)
                 
+        self._add_hyperedges(temp_state_diagram)
+        self.reset_markers()
+    
     def run_active_path(self, active_path, temp_state_diagram):
         
         if active_path.current_node_id == self.reference_tree.root_id:
             active_path.direction = "down"
         
         if active_path.direction == "up":
-            parent_id = self.reference_tree.nodes[active_path.current_node_id].parent_leg[0]
+            parent_id = self.reference_tree.nodes[active_path.current_node_id].parent_leg[0]            
             parent_vertex = active_path.current_he.find_correct_vertex(parent_id)
-            parent_vertex.contained = True
             
-            # All hyperedges attached to the parent vertex that correspond to the parent node of the current node
-            parent_vertex_parent_he = [hyperedge for hyperedge in parent_vertex.contained_hyperedges
-                                         if hyperedge.corr_node_id == parent_id]
-            
-            potential_vertex_parent_he = [hyperedge for hyperedge in parent_vertex_parent_he
-                                          if hyperedge.all_but_one_vertex_contained()]
-            
-            if len(potential_vertex_parent_he) == 0:
+            if not parent_vertex.check_hyperedge_uniqueness(active_path.current_node_id):
                 return
-            elif len(potential_vertex_parent_he) == 1:
-                parent_he = potential_vertex_parent_he[0]
                 
-                # The label of the hyperedges has to match
-                if parent_he == temp_state_diagram.hyperedge_colls[parent_id][0]:
-                    new_active_path = ActivePath(parent_he)
-                    self.run_active_path(new_active_path, temp_state_diagram)
+            parent_vertex.contained = True
+            new_he = self._find_new_he(parent_vertex, parent_id, temp_state_diagram)
                     
         elif active_path.direction == "down":
             current_node = self.reference_tree.nodes[active_path.current_node_id]
             
+            for child_id in current_node.children_legs:
+                child_vertex = active_path.current_he.find_correct_vertex(child_id)
+                # Otherwise multiple paths would be created
+                if not child_vertex.check_hyperedge_uniqueness(active_path.current_node_id):
+                    return
+        
             count = 0
             unmarked_child_id = None
             for child_id in current_node.children_legs:
                 child_vertex = active_path.current_he.find_correct_vertex(child_id)
+                
                 if not child_vertex.contained:
                     # There should only be a single unmarked child_index
                     assert count == 0
@@ -294,35 +371,96 @@ class StateDiagram():
                 print("This should never happen, but it did.")
                 return
             
-            he_of_child_vertex = [hyperedge for hyperedge in child_vertex.hyperedges
-                                      if hyperedge.corr_node == unmarked_child_id]
-            
-            potential_new_he = [hyperedge for hyperedge in he_of_child_vertex
-                                    if hyperedge.all_but_one_vertex_contained()]
-            
-            if len(potential_new_he) == 0:
-                return
-            elif len(potential_new_he) == 1:
-                new_he = potential_new_he[0]
-                
-                if new_he == temp_state_diagram.hyperedge_colls[unmarked_child_id]:
-                    new_active_path = ActivePath(new_he, direction="down")
-                    self.run_active_path(new_active_path, temp_state_diagram)
-                    
+            new_he = self._find_new_he(child_vertex, unmarked_child_id, temp_state_diagram)
+                   
         else:
             raise ValueError("Direction for an ActivePath has to be 'up' or 'down'")
+        
+        if new_he == None:
+            return
+        else:
+            # In this case there is a he contained in the current state diagram
+            # that corresponds to the same he in the single term sd
+            # Thus we continue the current path
+            active_path.current_he = new_he
+            self.run_active_path(active_path, temp_state_diagram)   
+         
+    def _find_new_he(self, current_vertex, node_id, single_term_sd):
+        """
+        If there is a new hyperedge in the current statediagram, which
+        is equivalent to the hyperedge in the single term StateDiagram, return it.
+        Else return None
+
+        Parameters
+        ----------
+        current_vertex : Vertex
+            The vertex from which we are currently looking for potential
+            hyperedges.
+        node_id : str
+            The identifier of the node to which the potential hyperedge
+            corresponds.
+
+        Returns
+        -------
+
+        """
+        
+        he_of_vertex = current_vertex.get_hyperedges_for_one_node_id(node_id)
+        
+        potential_new_he = [hyperedge for hyperedge in he_of_vertex
+                                if hyperedge.all_but_one_vertex_contained()]
+        
+        potential_new_he = [hyperedge for hyperedge in potential_new_he
+                            if hyperedge == single_term_sd.hyperedge_colls[node_id]]
+        # All checks done
+        
+        assert len(potential_new_he) <= 1
+        
+        if len(potential_new_he) == 1:
+            new_he = potential_new_he[0]
+            return new_he
+            
+        return None
+    
+    def _add_hyperedges(self, temp_state_diagram):
+        
+        root_id = self.reference_tree.root_id
+        
+        self._add_hyperedges_rec(root_id, temp_state_diagram)
+        
+    def _add_hyperedges_rec(self, node_id, temp_state_diagram):
+        hyperedges = self.hyperedge_colls[node_id]
+        hyperedge = [he for he in hyperedges if he.all_vertices_contained()]
+        
+        if len(hyperedge) == 0:
+            
             
 class ActivePath:
     def __init__(self, current_he, current_node_id = None, direction = "up"):
         
-        self.current_he = current_he
+        self._current_he = current_he
         
+        # Mainly to allow for easier access
         if current_node_id == None:
-            self.current_node_id = self.current_he.corr_node_id
+            self._current_node_id = self.current_he.corr_node_id
         else:
-            self.current_node_id = current_node_id
+            self._current_node_id = current_node_id
         
         if direction == "up" or direction == "down":
             self.direction = direction
         else:
             raise ValueError("Direction for an ActivePath has to be 'up' or 'down'")
+            
+        @property
+        def current_he(self):
+            return self._current_he
+        
+        @current_he.setter
+        def current_he(self, new_he):
+            self._current_he = new_he
+            self._current_node_id = new_he.corr_node_id
+            
+        @property
+        def current_node_id(self):
+            return self._current_node_id
+            
