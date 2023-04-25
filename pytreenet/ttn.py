@@ -1,14 +1,18 @@
 import copy
 
+import numpy as np
+
 from warnings import warn
 
-from .util import *
-from .tensornode import assert_legs_matching, conjugate_node
-
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.collections import PatchCollection
+from .tensornode import assert_legs_matching
+from .canonical_form import canonical_form, orthogonalize, _correct_ordering_of_q_legs
+from .tree_contraction import (completely_contract_tree,
+                               contract_two_ttn, 
+                               single_site_operator_expectation_value,
+                               operator_expectation_value,
+                               scalar_product
+                               )
+from .tensor_util import tensor_qr_decomposition
 
 class TreeTensorNetwork(object):
     """
@@ -40,7 +44,7 @@ class TreeTensorNetwork(object):
     @property
     def nodes(self):
         """
-        A dictionary containing the tensor trees nodes via their identifiers.
+        A dictionary containing the tensor trees notes via their identifiers.
         """
         return self._nodes
 
@@ -137,6 +141,45 @@ class TreeTensorNetwork(object):
         self.nodes.update({parent_id: parent})
         self._root_id = parent_id
 
+    def nearest_neighbours(self):
+        """
+        Finds all nearest neighbouring nodes in a tree.
+        We basically find all parent-child pairs.
+
+        Returns
+        -------
+        nn: list of tuples of strings.
+            A list containing tuples that contain the two identifiers of
+            nearest neighbour pairs of nodes.
+        """
+        nn = []
+        
+        for node_id in self.nodes:
+            current_node = self.nodes[node_id]
+            for child_id in current_node.children_legs:
+                nn.append((node_id, child_id))
+                
+        return nn
+    
+    def conjugate(self):
+        """
+        Returns a new TTN that is a conjugated version of the current TTN
+
+        Returns
+        -------
+        ttn_conj:
+            A conjugated copy of the current TTN.
+        
+        """
+        
+        ttn_conj = TreeTensorNetwork(original_tree=self, deep=True)
+        
+        for node_id in ttn_conj.nodes:
+            
+            node = ttn_conj.nodes[node_id]
+            node.tensor = np.conj(node.tensor)
+            
+        return ttn_conj
 
     def distance_to_node(self, center_node_id):
         """
@@ -246,38 +289,212 @@ class TreeTensorNetwork(object):
             leg_to_child_tensor = {new_identifier: parent.children_legs[child_id]}
             del parent.children_legs[child_id]
             parent.children_legs.update(leg_to_child_tensor)
+            
+            
+    # Functions below this are just wrappers of external functions that are
+    # linked tightly to the TTN and its structure. This allows these functions
+    # to be overwritten for subclasses of the TTN with more known structure.
+    # The additional sturcture allows for more efficent algorithms than the
+    # general case.
+    
+    def canonical_form(self, orthogonality_center_id):
+        """
+        Brings the tree_tensor_network in canonical form with
 
-    def plot(self, title=""):
-        #TODO label legs
-        #TODO add open legs? current version only ondicates if there are any open legs at all
+        Parameters
+        ----------
+        orthogonality_center_id : str
+            The id of the tensor node, which sould be the orthogonality center for
+            the canonical form
 
-        root_node_key = self.root_id
+        Returns
+        -------
+        None.
+        """
+        canonical_form(self, orthogonality_center_id)
+    
+    def orthogonalize(self, orthogonality_center_id):
+        """
+        Brings the tree_tensor_network in orthogonal form with
+
+        Parameters
+        ----------
+        orthogonality_center_id : str
+            The id of the tensor node, which sould be the orthogonality center
+
+        Returns
+        -------
+        None.
+        """
+        orthogonalize(self, orthogonality_center_id)
         
-        Plot = PlotDetails(self, root_node_key)
-        Plot.draw_children(self, root_node_key)
+    def completely_contract_tree(self, to_copy=False):
+        """
+        Completely contracts the given tree_tensor_network by combining all
+        nodes.
+        (WARNING: Can get very costly very fast. Only use for debugging.)
+
+        Parameters
+        ----------
+        to_copy: bool
+            Wether or not the contraction should be perfomed on a deep copy.
+            Default is False.
+
+        Returns
+        -------
+        In case copy is True a deep copy of the completely contracted TTN is
+        returned.
+
+        """
+        return completely_contract_tree(self, top_copy=to_copy)
         
-        fig, ax = plt.subplots()
+    def contract_two_ttn(self, other):
+        """
+        Contracts two TTN with the same structure. Assumes both TTN use the same
+        identifiers for the nodes.
+        
+        Parameters
+        ----------
+        other : TreeTensorNetwork
 
-        for key in Plot.nodes.keys():
-            node = Plot.nodes[key]
-            if node.parent_coordinates is not None:
-                ax.plot([node.parent_coordinates[0], node.coordinates[0]], [node.parent_coordinates[1], node.coordinates[1]], 'b', alpha=0.3)
-            if len(self.nodes[key].open_legs) > 0:
-                ax.plot([node.coordinates[0], node.coordinates[0]-.2], [node.coordinates[1], node.coordinates[1]+.07], 'b', alpha=0.7)
+        Returns
+        -------
+        result_tensor: ndarray
+            The contraction result.
+            
+        """
+        return contract_two_ttn(self, other)
+        
+    def single_site_operator_expectation_value(self, node_id, operator):
+        """
+        Assuming ttn represents a quantum state, this function evaluates the 
+        expectation value of the operator applied to the node with identifier 
+        node_id.
 
-        patches = []
-        for key in Plot.nodes.keys():
-            circle = mpatches.Circle(Plot.nodes[key].coordinates, 0.1, ec="none")
-            plt.text(Plot.nodes[key].coordinates[0], Plot.nodes[key].coordinates[1], key, ha="center", va="center", family='sans-serif', size=10, color='black')
-            patches.append(circle)
-        collection = PatchCollection(patches, color='blue', alpha=0.3)
-        ax.add_collection(collection)
+        Parameters
+        ----------
+        node_id : string
+            Identifier of a node in ttn.
+            Currently assumes the node has a single open leg..
+        operator : ndarray
+            A matrix representing the operator to be evaluated.
 
-        plt.axis('equal')
-        plt.axis('off')
-        plt.tight_layout()
-        plt.title(title)
+        Returns
+        -------
+        exp_value: complex
+            The resulting expectation value.
 
-        plt.show()
+        """
+        return single_site_operator_expectation_value(self, node_id,
+                                                         operator)
+    
+    def operator_expectation_value(self, operator_dict):
+        """
+        Assuming ttn represents a quantum state, this function evaluates the 
+        expectation value of the operator.
 
-        return None
+        Parameters
+        ----------
+        operator_dict : dict
+            A dictionary representing an operator applied to a quantum state.
+            The keys are node identifiers to which the value, a matrix, is applied.
+
+        Returns
+        -------
+        exp_value: complex
+            The resulting expectation value.
+
+        """
+        return operator_expectation_value(self, operator_dict)
+    
+    def scalar_product(self):
+        """
+        Computes the scalar product for a state_like TTN, i.e. one where the open
+        legs represent a quantum state.
+    
+        Parameters
+        ----------
+        None
+    
+        Returns
+        -------
+        sc_prod: complex
+            The resulting scalar product.
+    
+        """
+        return scalar_product(self)
+    
+    def find_path_to_root(self, node_id):
+        """
+        Get a list of all parent nodes starting from node_id until root is reached.
+        """
+        path = [node_id] # Starting point
+
+        while not self.nodes[node_id].is_root():
+            path.append(self.nodes[node_id].parent_leg[0])
+            node_id = self.nodes[node_id].parent_leg[0]
+        return path
+    
+    def path_from_to(self, node1_id, node2_id):
+        sub_path_current_center = self.find_path_to_root(node1_id)
+        sub_path_next_center = self.find_path_to_root(node2_id)
+
+        combined = sub_path_current_center + sub_path_next_center
+        num_of_duplicates = len([j for j in combined if combined.count(j) != 1])//2
+
+        if -num_of_duplicates+1 != 0:
+            sub_path_current_center_no_duplicates = sub_path_current_center[:-num_of_duplicates+1]
+        else:
+            sub_path_current_center_no_duplicates = sub_path_current_center[::]
+
+        sub_path_next_center_no_duplicates = sub_path_next_center[:-num_of_duplicates]
+        sub_path_next_center_no_duplicates.reverse()
+
+        sub_path = sub_path_current_center_no_duplicates + sub_path_next_center_no_duplicates
+        
+        return sub_path
+
+    def orthogonalize_sequence(self, sequence):
+        if type(sequence) != list:
+            sequence = [sequence]
+        for node_id in sequence:
+            if self.orthogonality_center_id != node_id:
+                self._orthogonalize_to_node(self.orthogonality_center_id, node_id)
+                self.orthogonality_center_id = node_id
+    
+    def _orthogonalize_to_node(self, node_id_old, node_id_new):
+        """
+        Move orthogonalization center from node_id_old to node_id_new.
+        This code is essentially just a QR decomp and some leg sorting.
+        """
+        assert self.orthogonality_center_id == node_id_old
+
+        node_old_node = self[node_id_old]
+        index_of_node_new_in_node_old = node_old_node.neighbouring_nodes()[node_id_new]
+
+        all_leg_indices = list(range(0, node_old_node.tensor.ndim))
+        all_leg_indices.remove(index_of_node_new_in_node_old)
+
+        q, r =  tensor_qr_decomposition(node_old_node.tensor, all_leg_indices, [index_of_node_new_in_node_old], keep_shape=True)
+
+        reshape_order = _correct_ordering_of_q_legs(node_old_node, index_of_node_new_in_node_old)
+        node_old_node.tensor = np.transpose(q, axes=reshape_order)
+
+        legs_of_target_node = self[node_id_new].neighbouring_nodes()
+        node_index_to_contract = legs_of_target_node[node_id_old]
+        self[node_id_new].absorb_tensor(r, (1,), (node_index_to_contract,))
+
+class QuantumTTState(TreeTensorNetwork):
+    def __init__(self, original_tree=None, deep=False):
+        super().__init__(original_tree, deep)
+
+        self.orthogonality_center_id = None
+
+    def orthogonalize(self, orthogonality_center_id):
+        self.orthogonality_center_id = orthogonality_center_id
+        return super().orthogonalize(orthogonality_center_id)
+
+
+class QuantumTTOperator(TreeTensorNetwork):
+    def __init__(self, original_tree=None, deep=False):
+        super().__init__(original_tree, deep)

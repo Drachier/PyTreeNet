@@ -2,7 +2,9 @@
 Some useful tools
 """
 import numpy as np
-import matplotlib as plt
+from scipy.sparse.linalg import eigsh
+from scipy.linalg import expm
+from scipy.sparse.linalg import expm_multiply
 
 from copy import deepcopy
 
@@ -10,19 +12,9 @@ def crandn(size):
     """
     Draw random samples from the standard complex normal (Gaussian) distribution.
     """
-    # 1/sqrt(2) is a normalization factor        
+    # 1/sqrt(2) is a normalization factor
     return (np.random.standard_normal(size)
-        + 1j*np.random.standard_normal(size)) / np.sqrt(2)
-
-
-def crandn_uniform(size):
-    """
-    Draw random samples from a uniform [-1, 1] distribution.
-    """
-    # 1/sqrt(2) is a normalization factor        
-    return (np.random.uniform(low=-1, high=1, size=size)
-        + 1j*np.random.uniform(low=-1, high=1, size=size)) / np.sqrt(2)
-
+       + 1j*np.random.standard_normal(size)) / np.sqrt(2)
 
 def pauli_matrices(asarray=True):
     """
@@ -42,7 +34,7 @@ def pauli_matrices(asarray=True):
 
     return X, Y, Z
 
-def copy_object(obj, deep):
+def copy_object(obj, deep=True):
     """
     Returns a normal copy of obj, if deep=False and a deepcopy if deep=True.
     """
@@ -50,56 +42,124 @@ def copy_object(obj, deep):
         new_obj = deepcopy(obj)
     else:
         new_obj = obj
-        
+
     return new_obj
 
+def sort_dictionary(dictionary):
+    """
+    Adapted from https://www.geeksforgeeks.org/python-sort-a-dictionary/ .
+    """
+    return {key: val for key, val in sorted(dictionary.items(), key = lambda ele: ele[1], reverse = False)}
 
-#
-# Plotting Utils
-# TODO comment stuff
+def random_hermitian_matrix(size=2):
+    matrix = crandn((size,size))
+    return matrix + matrix.T
+
+def create_bosonic_operators(dimension=2):
+    """
+    Supplies the common bosonic operators. The creation and anihilation operators
+    don't have the numerically correct entries, but only 1s as entries,
+
+    Parameters
+    ----------
+    dimension : int, optional
+        The dimension of the bosonics space to be considers. This determines
+        the size of all the operators. The default is 2.
+
+    Returns
+    -------
+    creation_op : ndarray
+        Bosonic creation operator, i.e. a matrix with the subdiagonal entries
+        equal to 1 and all others 0.
+    annihilation_op : ndarray
+        Bosonic anihilation operator, i.e. a matrix with the superdiagonal
+        entries equal to 1 and all other 0.
+    number_op : ndarray
+        The bosonic number operator, i.e. a diagonal matrix with increasing
+        integers on the diagonal from 0 to dimension-1.
+
+    """
 
 
-def xy_from_polar(polar):
-    polar[1] = polar[1] / 360 * 2 * np.pi
-    return np.array([polar[0]*np.cos(polar[1]), polar[0]*np.sin(polar[1])]) 
+    creation_op = np.eye(dimension, k=-1)
+    annihilation_op = np.conj(creation_op.T)
 
+    number_vector = np.asarray(range(0,dimension))
+    number_op = np.diag(number_vector)
 
-class NodePlot:
-    def __init__(self, ttn, key, coordinates, parent_coordinates, angle_area):
-        self.ttn = ttn
-        self.key = key
-        self.coordinates = coordinates
-        self.parent_coordinates = parent_coordinates
-        self.angle_area = angle_area
-        
+    return creation_op, annihilation_op, number_op
 
-class PlotDetails:
-    def __init__(self, ttn, root_node_key):
-        self.ttn = ttn
-        self.nodes = dict()
-        self.edges = []
-        self.open_legs = []
-        self.draw_root(root_node_key)
+def build_swap_gate(dimension=2):
+    """
+    A SWAP gate acts on two systems with the same pysical dimension and swappes
+    their states.
+
+    Parameters
+    ----------
+    dimension : int, optional
+        Physical dimension of the two sites, which has to be the same for both.
+        The default is 2.
+
+    Returns
+    -------
+    swap_gate: ndarry
+        A SWAP-gate for two `dimension`-dimensional systems.
+
+    """
+
+    swap_gate = np.zeros((dimension**2, dimension**2), dtype=complex)
+
+    for i in range(dimension**2):
+        for j in range(dimension**2):
+
+            # Basically find the indices in base dimension
+            output_sys1 = int(i / dimension)
+            output_sys2 = int(i % dimension)
+
+            input_sys1 = int(j / dimension)
+            input_sys2 = int(j % dimension)
+            
+            if (output_sys1 == input_sys2) and (input_sys1 == output_sys2):
+                swap_gate[i,j] = 1
+
+    return swap_gate
+
+def fast_exp_action(exponent, vector, mode="fastest"):
+    """
+    result = exp( exponent ) * vector
     
-    def draw_children(self, ttn, parent_node_key):
-        Parent = self.nodes[parent_node_key]
-        children_keys = ttn.nodes[parent_node_key].children_legs.keys()
+    Parameters
+    ----------
+    
+    exponent : ndarray wit shape (n, n)
+    vector : ndarray with shape (n,)
+    mode : {"fastest", "expm", "eigsh", "chebyshec", "none"}
+    
+    Returns
+    -------
+    result : ndarray with shape (n,)
+    
+    """
+    if mode == "fastest":
+        mode = "chebyshev"
+    
+    if mode == "expm":
+        return expm(exponent) @ vector
+    elif mode == "eigsh":
+        if exponent.shape[0] < 4:
+            return expm(exponent) @ vector
+        else:
+            k = min(exponent.shape[0]-2, 8)
+            w, v, = eigsh(exponent, k=k)
+            return v @ np.diag(np.exp(w)) @ np.linalg.pinv(v) @ vector
+    elif mode == "chebyshev":
+        return expm_multiply(exponent, vector, traceA=np.trace(exponent))
+    elif mode == "none":
+        return vector
+    else:
+        raise NotImplementedError
 
-        number_of_children = len(children_keys)
-        segment = 1
-        for child_key in children_keys:
-            segment_length = (Parent.angle_area[1] - Parent.angle_area[0]) / number_of_children
-            segment_start = Parent.angle_area[0] + (segment-1) * segment_length 
-            segment_end = segment_start + segment_length
-
-            self.nodes[child_key] = NodePlot(self.ttn, child_key, Parent.coordinates + xy_from_polar([1, segment_start + segment_length / 2]), Parent.coordinates, [segment_start, segment_end])
-            self.draw_children(ttn, child_key)
-
-            segment += 1
-        return None
-
-    def draw_root(self, root_node_key):
-        self.nodes[root_node_key] = NodePlot(self.ttn, root_node_key, np.array([0, 0]), None, [180, 360])
-        return None
-
-
+def zero_state(shape):
+    state = np.zeros(shape)
+    state[0, 0, 0] = 1
+    return state

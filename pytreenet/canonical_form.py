@@ -2,6 +2,7 @@ import numpy as np
 
 from .tensor_util import tensor_qr_decomposition
 
+
 def canonical_form(tree_tensor_network, orthogonality_center_id):
     """
     Brings the tree_tensor_network in canonical form with
@@ -19,31 +20,7 @@ def canonical_form(tree_tensor_network, orthogonality_center_id):
     None.
 
     """
-    distance_dict = tree_tensor_network.distance_to_node(orthogonality_center_id)
-
-    maximum_distance = max(distance_dict.values())
-
-    # Perform QR-decomposition on all TensorNodes but the orthogonality center
-    for distance in reversed(range(1, maximum_distance+1)):
-        node_id_with_distance = [node_id for node_id in distance_dict.keys()
-                                 if distance_dict[node_id] == distance]
-
-        for node_id in node_id_with_distance:
-            node = tree_tensor_network.nodes[node_id]
-            minimum_distance_neighbour_id = _find_smallest_distance_neighbour(node, distance_dict)
-            minimum_distance_neighbour_index = _find_smalles_distance_neighbour_index(node, minimum_distance_neighbour_id)
-            all_leg_indices = list(range(0,node.tensor.ndim))
-            all_leg_indices.remove(minimum_distance_neighbour_index)
-
-            q, r = tensor_qr_decomposition(node.tensor, all_leg_indices, [minimum_distance_neighbour_index])
-
-            reshape_order = _correct_ordering_of_q_legs(node, minimum_distance_neighbour_index)
-            node.tensor = np.transpose(q, axes=reshape_order)
-
-            neighbour_tensor = tree_tensor_network.nodes[minimum_distance_neighbour_id]
-            legs_to_neighbours_neighbours = neighbour_tensor.neighbouring_nodes()
-            neighbour_index_to_contract = legs_to_neighbours_neighbours[node_id]
-            neighbour_tensor.absorb_tensor(r, (1,), (neighbour_index_to_contract,))
+    orthogonalize(tree_tensor_network, orthogonality_center_id, keep_shape=False)
 
 
 def _find_smallest_distance_neighbour(node, distance_dict):
@@ -103,7 +80,49 @@ def _correct_ordering_of_q_legs(node, minimum_distance_neighbour_leg):
     reshape_order = first_part + (number_legs-1,) + last_part
     return reshape_order
 
+def orthogonalize(tree_tensor_network, orthogonality_center_id, keep_shape=True):
+    """
+    Brings the tree_tensor_network in orthogonal form with
 
+    Parameters
+    ----------
+    tree_tensor_network : TreeTensorNetwork
+        The TTN for which to find the canonical form
+    orthogonality_center_id : str
+        The id of the tensor node, which sould be the orthogonality center 
+    keep_shape : bool
+        True: virtual bond dimensions are not changed. False: Creates_canonical form.
+
+    Returns
+    -------
+    None.
+
+    """
+    distance_dict = tree_tensor_network.distance_to_node(orthogonality_center_id)
+
+    maximum_distance = max(distance_dict.values())
+
+    # Perform QR-decomposition on all TensorNodes but the orthogonality center
+    for distance in reversed(range(1, maximum_distance+1)):
+        node_id_with_distance = [node_id for node_id in distance_dict.keys()
+                                 if distance_dict[node_id] == distance]
+
+        for node_id in node_id_with_distance:
+            node = tree_tensor_network.nodes[node_id]
+            minimum_distance_neighbour_id = _find_smallest_distance_neighbour(node, distance_dict)
+            minimum_distance_neighbour_index = _find_smalles_distance_neighbour_index(node, minimum_distance_neighbour_id)
+            all_leg_indices = list(range(0,node.tensor.ndim))
+            all_leg_indices.remove(minimum_distance_neighbour_index)
+
+            q, r = tensor_qr_decomposition(node.tensor, all_leg_indices, [minimum_distance_neighbour_index], keep_shape=keep_shape)
+
+            reshape_order = _correct_ordering_of_q_legs(node, minimum_distance_neighbour_index)
+            node.tensor = np.transpose(q, axes=reshape_order)
+
+            neighbour_tensor = tree_tensor_network.nodes[minimum_distance_neighbour_id]
+            legs_to_neighbours_neighbours = neighbour_tensor.neighbouring_nodes()
+            neighbour_index_to_contract = legs_to_neighbours_neighbours[node_id]
+            neighbour_tensor.absorb_tensor(r, (1,), (neighbour_index_to_contract,))
 
 
 
