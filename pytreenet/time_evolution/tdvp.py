@@ -141,8 +141,7 @@ class TDVP(TimeEvolutionAlgorithm):
     
     def _orthogonalize_init(self, force_new=False):
         if self.state.orthogonality_center_id is None or force_new:
-            self.state.orthogonality_center_id = self.update_path[0]
-            self.state.orthogonalize(self.state.orthogonality_center_id)
+            self.state.orthogonalize(self.update_path[0])
         else:
             path = self.state.path_from_to(self.state.orthogonality_center_id, self.update_path[0])
             self.state.orthogonalize_sequence(path)
@@ -191,7 +190,7 @@ class TDVP(TimeEvolutionAlgorithm):
             parent_part = self._contract_partial_tree(start=self.state.root_id, end=target_node_id)
             parent_part = parent_part.reshape([target_node.shape()[target_node.parent_leg[1]], target_hamiltonian.shape()[target_hamiltonian.parent_leg[1]], target_node.shape()[target_node.parent_leg[1]]])
             tensor = np.tensordot(parent_part, tensor, axes=(1, target_hamiltonian.parent_leg[1]))
-            tensor_added_legs += 2
+            tensor_added_legs += 1
 
         """
         leg order is:
@@ -235,14 +234,14 @@ class TDVP(TimeEvolutionAlgorithm):
         
         tensor_bra_legs = [2*i for i in range(tensor.ndim//2)] 
         node_leg_of_next_node = self.neighbouring_nodes[node_id][next_node_id]
-        tensorbra_legs_without_next_node = [i for i in tensor_bra_legs if i//2 != node_leg_of_next_node]
+        tensor_bra_legs_without_next_node = [i for i in tensor_bra_legs if i//2 != node_leg_of_next_node]
         site_bra_legs_without_next_node = [i for i in range(self.state[node_id].tensor.ndim) if i != node_leg_of_next_node]
 
-        tensor = np.tensordot(self.state[node_id].tensor, tensor, axes=(site_bra_legs_without_next_node, tensorbra_legs_without_next_node))
+        tensor = np.tensordot(self.state[node_id].tensor.conj(), tensor, axes=(site_bra_legs_without_next_node, tensor_bra_legs_without_next_node))
 
         tensor_ket_legs_without_next_node = [i+2 for i in site_bra_legs_without_next_node]
         site_ket_legs_without_next_node = site_bra_legs_without_next_node
-        tensor = np.tensordot(tensor, np.conj(self.state[node_id].tensor), axes=(tensor_ket_legs_without_next_node, site_ket_legs_without_next_node))
+        tensor = np.tensordot(tensor, self.state[node_id].tensor, axes=(tensor_ket_legs_without_next_node, site_ket_legs_without_next_node))
         
         return tensor_matricization(tensor, (0, 1), (2, 3), correctly_ordered=True)
     
@@ -286,8 +285,8 @@ class TDVP(TimeEvolutionAlgorithm):
         self._orthogonalize_init(force_new=True)  # Force new until I figure out what the operator evaluation does ...
         self._init_site_cache()
         self.partial_tree_cache = dict()
+
         for i, node_id in enumerate(self.update_path):
-            
             # Orthogonalize
             if i>0:
                 self.state.orthogonalize_sequence(self.orthogonalization_path[i-1], node_change_callback=self._update_site_cache)
