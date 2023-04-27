@@ -192,7 +192,7 @@ def contract_two_ttn(ttn1, ttn2):
     
     return result_tensor
     
-def single_site_operator_expectation_value(ttn, node_id, operator):
+def single_site_operator_expectation_value(ttn_in, node_id, operator):
     """
     Assuming ttn represents a quantum state, this function evaluates the 
     expectation value of the operator applied to the node with identifier 
@@ -216,6 +216,7 @@ def single_site_operator_expectation_value(ttn, node_id, operator):
     """
     # Canonical form makes the evaluation very simple.
     # TODO DISCUSS THIS WITH RICHARD
+    ttn = deepcopy(ttn_in)
     orthogonalize(ttn, node_id) 
     node = ttn[node_id]
     

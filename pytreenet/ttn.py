@@ -454,13 +454,16 @@ class TreeTensorNetwork(object):
         
         return sub_path
 
-    def orthogonalize_sequence(self, sequence):
+    def orthogonalize_sequence(self, sequence, node_change_callback=None):
         if type(sequence) != list:
             sequence = [sequence]
         for node_id in sequence:
             if self.orthogonality_center_id != node_id:
                 self._orthogonalize_to_node(self.orthogonality_center_id, node_id)
                 self.orthogonality_center_id = node_id
+                if node_change_callback is not None:
+                    node_change_callback(self.orthogonality_center_id)
+                    node_change_callback(node_id)
     
     def _orthogonalize_to_node(self, node_id_old, node_id_new):
         """

@@ -77,23 +77,23 @@ class TDVP(TimeEvolutionAlgorithm):
         ket = self.state
         ham = self.hamiltonian
 
-        ketham_tensor = np.tensordot(ket[node_id].tensor, ham[node_id].tensor, axes=(ket[node_id].physical_leg, ham[node_id].physical_leg_ket))
-        kethambra_tensor = np.tensordot(ketham_tensor, ket[node_id].tensor.conj(), axes=(ket[node_id].tensor.ndim-1 + ham[node_id].physical_leg_bra, ket[node_id].physical_leg))
+        braham_tensor = np.tensordot(ket[node_id].tensor.conj(), ham[node_id].tensor, axes=(ket[node_id].physical_leg, ham[node_id].physical_leg_bra))
+        brahamket_tensor = np.tensordot(braham_tensor, ket[node_id].tensor, axes=(ket[node_id].tensor.ndim-2 + ham[node_id].physical_leg_ket, ket[node_id].physical_leg))
 
-        num_cached_tensor_legs = kethambra_tensor.ndim // 3
+        num_cached_tensor_legs = brahamket_tensor.ndim // 3
 
         ordered_legs = []
         for leg_num in range(num_cached_tensor_legs):
             for j in [0,1,2]:
                 ordered_legs.append(leg_num + j*num_cached_tensor_legs)
         
-        kethambra_tensor = kethambra_tensor.transpose(ordered_legs)
+        brahamket_tensor = brahamket_tensor.transpose(ordered_legs)
 
         shape = []
         for leg_num in range(num_cached_tensor_legs):
-            shape.append(np.prod([kethambra_tensor.shape[leg_num + j] for j in [0,1,2]]))
+            shape.append(np.prod([brahamket_tensor.shape[leg_num + j] for j in [0,1,2]]))
 
-        self.site_cache[node_id] = kethambra_tensor.reshape(shape)
+        self.site_cache[node_id] = brahamket_tensor.reshape(shape)
     
     def _find_tdvp_update_path(self):
         """
@@ -139,8 +139,8 @@ class TDVP(TimeEvolutionAlgorithm):
             sub_path = self.state.path_from_to(self.update_path[i], self.update_path[i+1])
             self.orthogonalization_path.append(sub_path[1::])
     
-    def _orthogonalize_init(self):
-        if self.state.orthogonality_center_id is None:
+    def _orthogonalize_init(self, force_new=False):
+        if self.state.orthogonality_center_id is None or force_new:
             self.state.orthogonality_center_id = self.update_path[0]
             self.state.orthogonalize(self.state.orthogonality_center_id)
         else:
@@ -183,7 +183,7 @@ class TDVP(TimeEvolutionAlgorithm):
         
         target_node = self.state[target_node_id]
         target_hamiltonian = self.hamiltonian[target_node_id]
-        tensor = target_hamiltonian.tensor
+        tensor = target_hamiltonian.tensor * 1
         tensor_added_legs = 0
 
         # Step 1: Check if node has parents and if yes build parent tree
@@ -191,7 +191,12 @@ class TDVP(TimeEvolutionAlgorithm):
             parent_part = self._contract_partial_tree(start=self.state.root_id, end=target_node_id)
             parent_part = parent_part.reshape([target_node.shape()[target_node.parent_leg[1]], target_hamiltonian.shape()[target_hamiltonian.parent_leg[1]], target_node.shape()[target_node.parent_leg[1]]])
             tensor = np.tensordot(parent_part, tensor, axes=(1, target_hamiltonian.parent_leg[1]))
-            tensor_added_legs += 1
+            tensor_added_legs += 2
+
+        """
+        leg order is:
+            parent_part: bra, ket,  hamiltonian: child1, child2, ..., bra, ket
+        """
 
         # Step 2: build children trees:
         children_trees = []
@@ -205,14 +210,14 @@ class TDVP(TimeEvolutionAlgorithm):
         
         """
         leg order is:
-            parent_part: ket, bra,  hamiltonian: ket, bra, child1: ket, bra, child2: ...
+            parent_part: bra, ket,  hamiltonian: bra, ket, child1: bra, ket, child2: ...
         """
         ordered_legs = list(range(tensor.ndim))
         ordered_legs[2:] = ordered_legs[4:] + [2, 3]
         tensor = tensor.transpose(ordered_legs)
         """
         leg order is:
-            parent, children, pphysical
+            parent, children, physical
         """
         return tensor
 
@@ -220,26 +225,26 @@ class TDVP(TimeEvolutionAlgorithm):
     def _get_effective_site_hamiltonian(self, node_id):
         tensor = self._contract_all_except_node(node_id)
         
-        ket_legs = [2*i for i in range(tensor.ndim//2)] 
-        bra_legs = [2*i+1 for i in range(tensor.ndim//2)]
+        bra_legs = [2*i for i in range(tensor.ndim//2)] 
+        ket_legs = [2*i+1 for i in range(tensor.ndim//2)]
 
-        return tensor_matricization(tensor, bra_legs, ket_legs)
+        return tensor_matricization(tensor, bra_legs, ket_legs, correctly_ordered=False)
     
     def _get_effective_link_hamiltonian(self, node_id, next_node_id):
         tensor = self._contract_all_except_node(node_id)
         
-        tensor_ket_legs = [2*i for i in range(tensor.ndim//2)] 
+        tensor_bra_legs = [2*i for i in range(tensor.ndim//2)] 
         node_leg_of_next_node = self.neighbouring_nodes[node_id][next_node_id]
-        tensorket_legs_without_next_node = [i for i in tensor_ket_legs if i//2 != node_leg_of_next_node]
-        site_ket_legs_without_next_node = [i for i in range(self.state[node_id].tensor.ndim) if i != node_leg_of_next_node]
+        tensorbra_legs_without_next_node = [i for i in tensor_bra_legs if i//2 != node_leg_of_next_node]
+        site_bra_legs_without_next_node = [i for i in range(self.state[node_id].tensor.ndim) if i != node_leg_of_next_node]
 
-        tensor = np.tensordot(self.state[node_id].tensor, tensor, axes=(site_ket_legs_without_next_node, tensorket_legs_without_next_node))
+        tensor = np.tensordot(self.state[node_id].tensor, tensor, axes=(site_bra_legs_without_next_node, tensorbra_legs_without_next_node))
 
-        tensor_bra_legs_without_next_node = [i+2 for i in site_ket_legs_without_next_node]
-        site_bra_legs_without_next_node = site_ket_legs_without_next_node
-        tensor = np.tensordot(tensor, np.conj(self.state[node_id].tensor), axes=(tensor_bra_legs_without_next_node, site_bra_legs_without_next_node))
+        tensor_ket_legs_without_next_node = [i+2 for i in site_bra_legs_without_next_node]
+        site_ket_legs_without_next_node = site_bra_legs_without_next_node
+        tensor = np.tensordot(tensor, np.conj(self.state[node_id].tensor), axes=(tensor_ket_legs_without_next_node, site_ket_legs_without_next_node))
         
-        return tensor_matricization(tensor, (2, 3), (0, 1), correctly_ordered=False)
+        return tensor_matricization(tensor, (0, 1), (2, 3), correctly_ordered=True)
     
     def _update_site_and_get_link(self, node_id, next_node_id):
         node = self.state[node_id]
@@ -278,14 +283,14 @@ class TDVP(TimeEvolutionAlgorithm):
         self._update_site_cache(next_node_id)
 
     def run_one_time_step(self):
+        self._orthogonalize_init(force_new=True)  # Force new until I figure out what the operator evaluation does ...
+        self._init_site_cache()
+        self.partial_tree_cache = dict()
         for i, node_id in enumerate(self.update_path):
             
             # Orthogonalize
-            if i==0:
-                self._orthogonalize_init()
-                self.partial_tree_cache = dict()
-            else:
-                self.state.orthogonalize_sequence(self.orthogonalization_path[i-1])
+            if i>0:
+                self.state.orthogonalize_sequence(self.orthogonalization_path[i-1], node_change_callback=self._update_site_cache)
 
             # Select Next Node
             if i+1 < len(self.update_path):
