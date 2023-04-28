@@ -1,30 +1,59 @@
 from .ttn import TreeTensorNetwork
 from .tensor_util import tensor_qr_decomposition
 from .tensornode import TensorNode
+from .state_diagram import StateDiagram
 
 
 class TTNO(TreeTensorNetwork):
 
     def __init__(self, **kwargs):
         TreeTensorNetwork.__init__(self, **kwargs)
-        
-    def from_hamiltonian(self, hamiltonian):
+
+    @classmethod
+    def from_hamiltonian(self, hamiltonian, reference_tree):
         """
-        
 
         Parameters
         ----------
-        hamiltonian : TYPE
-            DESCRIPTION.
+        hamiltonian : Hamiltonian
+            The Hamiltonian which is to be brought into TTNO form. Should contain
+            a conversion dictionary to allow for better compression.
+        reference_tree : TreeTensorNetwork
+            A TTN which has the same underlying tree topology as the TTNO is
+            supposed to have.
 
         Returns
         -------
-        None.
+        new_TTNO: TTNO
 
         """
-        raise NotImplementedError()
 
-    def from_tensor(self, reference_tree, tensor, leg_dict):
+        state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
+                                                      reference_tree)
+        conversion_dict = hamiltonian.conversion_dictionary
+
+        for node_id in state_diagram.hyperedge_colls:
+            node = reference_tree.nodes[node_id]
+
+            neighbours = node.neighbouring_nodes(with_legs = False)
+
+            for leg_index, neighbour_id in enumerate(neighbours):
+                vertex_coll = state_diagram.get_vertex_coll_two_ids(node_id, neighbour_id)
+                vertex_coll.leg_index = leg_index
+
+                for index_value, vertex in enumerate(vertex_coll):
+                    vertex.index_value = index_value
+
+            hyperedge_coll = state_diagram.hyperedge_colls[node_id]
+
+            phys_dim = None
+            for he in hyperedge_coll.contained_hyperedges:
+
+                if phys_dim == None:
+
+
+    @classmethod
+    def from_tensor(cls, reference_tree, tensor, leg_dict):
         """
 
 
@@ -44,7 +73,7 @@ class TTNO(TreeTensorNetwork):
 
         Returns
         -------
-        None.
+        new_TTNO: TTNO
 
         """
 
@@ -57,14 +86,17 @@ class TTNO(TreeTensorNetwork):
                         for node_id in leg_dict}
 
         root_node = TensorNode(tensor, identifier=root_id)
-        self.add_root(root_node)
 
-        self._from_tensor_rec(reference_tree, root_node, new_leg_dict)
+        new_TTNO = TTNO()
+        new_TTNO.add_root(root_node)
+
+        new_TTNO._from_tensor_rec(reference_tree, root_node, new_leg_dict)
+        return new_TTNO
 
     def _from_tensor_rec(self, reference_tree, current_node, leg_dict):
         """
         Recursive part to obtain a TTNO from a tensor. For each child of the
-        current node a new node is defined via a QR-decomposition and the 
+        current node a new node is defined via a QR-decomposition and the
         current_node and the leg_dict are modified.
 
         Parameters
@@ -91,7 +123,7 @@ class TTNO(TreeTensorNetwork):
         current_children = reference_tree.nodes[current_node.identifier].get_children_ids()
 
         for child_id in current_children:
-            
+
             q_legs, r_legs, q_leg_dict, r_leg_dict = TTNO._prepare_legs_for_QR(reference_tree, current_node, child_id, leg_dict)
 
             current_tensor = current_node.tensor
@@ -99,7 +131,7 @@ class TTNO(TreeTensorNetwork):
 
             q_node = TTNO._create_q_node(Q, current_node, q_leg_dict)
             new_q_leg_dict = TTNO._find_new_leg_dict(q_leg_dict, c=0)
-            
+
             # Replace current_node with q_node in the TTNO
             self.nodes[current_node.identifier] = q_node
 
@@ -120,7 +152,7 @@ class TTNO(TreeTensorNetwork):
             leg_dict = new_q_leg_dict
 
         return
-    
+
     @staticmethod
     def _prepare_legs_for_QR(reference_tree, current_node, child_id, leg_dict):
         """
@@ -156,7 +188,7 @@ class TTNO(TreeTensorNetwork):
             Dictionary describing to which node the open legs of the tensor in
             the Q(R)-node will belong to.
         """
-        
+
         subtree_list_child = reference_tree.find_subtree_of_node(child_id)
 
         q_legs = []
@@ -185,13 +217,13 @@ class TTNO(TreeTensorNetwork):
         if not current_node.is_root():
             q_legs.append(current_node.parent_leg[1])
         q_legs.extend(list(current_node.children_legs.values()))
-        
+
         return q_legs, r_legs, q_leg_dict, r_leg_dict
-    
+
     @staticmethod
     def _create_q_node(tensor, current_node, q_leg_dict):
         """
-        Prepares the new TensorNode which will consist of the Q of the 
+        Prepares the new TensorNode which will consist of the Q of the
         QR-decomposition and be in the place of the current_node.
 
         Parameters
@@ -210,7 +242,7 @@ class TTNO(TreeTensorNetwork):
             The new tensor node that will replace the current_node.
 
         """
-        
+
         q_node = TensorNode(tensor, identifier=current_node.identifier)
         q_half_leg = len(q_leg_dict)
         if not current_node.is_root():
@@ -218,12 +250,12 @@ class TTNO(TreeTensorNetwork):
             c = 1
         else:
             c = 0
-            
+
         q_node.open_legs_to_children(list(range(2*q_half_leg+c, 2*q_half_leg+c + len(current_node.children_legs))),
                                      list(current_node.children_legs.keys()))
-        
+
         return q_node
-        
+
     @staticmethod
     def _find_new_leg_dict(leg_dict, c=0):
         """

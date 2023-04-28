@@ -5,9 +5,6 @@ import pytreenet as ptn
 
 class TestTTNOBasics(unittest.TestCase):
 
-    def setUp(self):
-        self.ttno = ptn.TTNO()
-
     def _find_permutation_rec(self, ttno, leg_dict, node_id, perm):
         """
         Working Code, but for a wrong contraction order. Might get usefull once
@@ -56,18 +53,18 @@ class TestTTNOBasics(unittest.TestCase):
         start_tensor = ptn.crandn(shape)
         leg_dict = {"id1": 0, "id2": 1, "id3": 2, "id4": 3}
 
-        self.ttno.from_tensor(reference_tree, start_tensor, leg_dict)
+        ttno = ptn.TTNO.from_tensor(reference_tree, start_tensor, leg_dict)
 
         correct_open_leg_dimensions = {"id1": (2,6), "id2": (3,7),
                                         "id3": (4,8), "id4": (5,9)}
 
         for node_id in correct_open_leg_dimensions:
             correct_shape = correct_open_leg_dimensions[node_id]
-            node = self.ttno.nodes[node_id]
+            node = ttno.nodes[node_id]
             found_shape = node.shape_of_legs(node.open_legs)
             self.assertEqual(correct_shape, found_shape)
 
-        contracted_ttno = self.ttno.completely_contract_tree(to_copy=True)
+        contracted_ttno = ttno.completely_contract_tree(to_copy=True)
         contracted_tensor = contracted_ttno.nodes[contracted_ttno.root_id].tensor
 
         # The shape is not retained throughout the entire procedure
@@ -96,14 +93,14 @@ class TestTTNOBasics(unittest.TestCase):
         start_tensor = ptn.crandn(shape)
         leg_dict = {"id" + str(i + 1): i for i in range(num_nodes)}
 
-        self.ttno.from_tensor(reference_tree, start_tensor, leg_dict)
+        ttno = ptn.TTNO.from_tensor(reference_tree, start_tensor, leg_dict)
 
-        contracted_ttno = self.ttno.completely_contract_tree(to_copy=True)
+        contracted_ttno = ttno.completely_contract_tree(to_copy=True)
         contracted_tensor = contracted_ttno.nodes[contracted_ttno.root_id].tensor
 
         # The shape is not retained throughout the entire procedure
         permutation = []
-        self._find_permutation(self.ttno, leg_dict, self.ttno.root_id, permutation)
+        self._find_permutation(ttno, leg_dict, ttno.root_id, permutation)
 
         correct_tensor = start_tensor.transpose(permutation)
 
@@ -140,14 +137,14 @@ class TestTTNOBasics(unittest.TestCase):
         start_tensor = ptn.crandn(shape)
         leg_dict = {"id" + str(i + 1): i for i in range(num_nodes)}
 
-        self.ttno.from_tensor(reference_tree, start_tensor, leg_dict)
+        ttno = ptn.TTNO.from_tensor(reference_tree, start_tensor, leg_dict)
 
-        contracted_ttno = self.ttno.completely_contract_tree(to_copy=True)
+        contracted_ttno = ttno.completely_contract_tree(to_copy=True)
         contracted_tensor = contracted_ttno.nodes[contracted_ttno.root_id].tensor
 
         # The shape is not retained throughout the entire procedure
         permutation = []
-        self._find_permutation(self.ttno, leg_dict, self.ttno.root_id, permutation)
+        self._find_permutation(ttno, leg_dict, ttno.root_id, permutation)
 
         correct_tensor = start_tensor.transpose(permutation)
 

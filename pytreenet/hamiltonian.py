@@ -12,7 +12,7 @@ class Hamiltonian(object):
     that node/site.
     """
 
-    def __init__(self, terms=None):
+    def __init__(self, terms=None, conversion_dictionary=None):
         """
         Parameters
         ----------
@@ -22,12 +22,21 @@ class Hamiltonian(object):
             is to be applied. (Operators can be symbolic, i.e. strings or explicit
             i.e. ndarrays)
             The default is None.
+        conversion_dictionary : dict
+            A dictionary that contains keys corresponding to certain tensors.
+            Thus the terms can contain labels rather than the whole numpy arrays
+            representing the operators.
 
         """
         if terms == None:
             self.terms = []
         else:
             self.terms = terms
+
+        if conversion_dictionary == None:
+            self.conversion_dictionary = []
+        else:
+            self.conversion_dictionary = conversion_dictionary
 
     def add_term(self, term):
         if not (type(term) == dict):

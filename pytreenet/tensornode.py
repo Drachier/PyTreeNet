@@ -208,11 +208,26 @@ class TensorNode(object):
 
         Returns
         -------
-        child_id_list: list of string
+        child_id_list: list of str
             A list containing the identifiers of all children of this node.
 
         """
         return list(self.children_legs.keys())
+
+    def get_parent_id(self):
+        """
+
+
+        Returns
+        -------
+        parent_id: str
+            If it exists, the identifier of the parent node of this node
+
+        """
+        if self.is_root():
+            raise ValueError("Node with id {self.identifier} is a root node and does not have a parent node!")
+        else:
+            return self.parent_leg[0]
 
     def check_existence_of_open_legs(self, open_leg_list):
         if len(open_leg_list) == 1:
