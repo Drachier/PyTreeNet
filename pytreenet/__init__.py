@@ -14,3 +14,4 @@ from .ttn_exceptions import *
 from .util import *
 from .util_contraction_testing_for_tdvp import *
 
+# TODO maybe not always import * ?? makes stuff slower.

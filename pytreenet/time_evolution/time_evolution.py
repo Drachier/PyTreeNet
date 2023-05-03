@@ -4,6 +4,7 @@ from tqdm import tqdm
 from ..ttn import TreeTensorNetwork
 from ..util import fast_exp_action
 
+from copy import deepcopy
 """
 Implements a wrapper for different time evolution algorithms.
 """
@@ -118,7 +119,8 @@ class TimeEvolutionAlgorithm:
             current_results = np.zeros(len(self.operators), dtype=complex)
 
             for i, operator_dict in enumerate(self.operators):
-                exp_val = self.state.operator_expectation_value(operator_dict)
+                state = deepcopy(self.state)
+                exp_val = state.operator_expectation_value(operator_dict)
 
                 current_results[i] = exp_val
 

@@ -28,9 +28,9 @@ def pauli_matrices(asarray=True):
     Z = [[1,0],
          [0,-1]]
     if asarray:
-        X = np.asarray(X)
-        Y = np.asarray(Y)
-        Z = np.asarray(Z)
+        X = np.asarray(X, dtype=complex)
+        Y = np.asarray(Y, dtype=complex)
+        Z = np.asarray(Z, dtype=complex)
 
     return X, Y, Z
 
@@ -163,3 +163,19 @@ def zero_state(shape):
     state = np.zeros(shape)
     state[0, 0, 0] = 1
     return state
+
+def state_vector_time_evolution(state, hamiltonian, final_time, time_step_size, operators):
+    num_time_steps = int(np.ceil(final_time / time_step_size))
+    results = np.zeros((len(operators) + 1, num_time_steps + 1), dtype=complex)
+
+    for time_step in range(num_time_steps + 1):
+        if time_step != 0:
+            state = fast_exp_action(-1j*time_step_size*hamiltonian, state)
+        
+        conj_state = np.conjugate(state.T)
+        for i, operator in enumerate(operators):
+            results[i,time_step] = conj_state @ operator @ state
+            
+        results[-1,time_step] = time_step * time_step_size
+
+    return results

@@ -43,19 +43,21 @@ class TDVP(TimeEvolutionAlgorithm):
         self.hamiltonian = hamiltonian
 
         self.mode = mode
+        self.print_debugging_warnings = False
 
         super().__init__(state, operators, time_step_size, final_time)
 
         #     LEG ORDER: PARENT CHILDREN PHYSICAL
 
-        self._find_tdvp_update_path()
+        self.update_path = self._find_tdvp_update_path()
         self._find_tdvp_orthogonalization_path()
 
         self.site_cache = dict()
-        self._init_site_cache()
-
         self.partial_tree_caching = True
         self.partial_tree_cache = dict()
+        self._cached_distances = dict([(node_id, self.state.distance_to_node(node_id)) for node_id in self.state.nodes.keys()])
+
+        self._init_site_cache()
 
         # Caching for speed up
         self.neighbouring_nodes = dict()
@@ -92,9 +94,29 @@ class TDVP(TimeEvolutionAlgorithm):
         shape = []
         for leg_num in range(num_cached_tensor_legs):
             shape.append(np.prod([brahamket_tensor.shape[leg_num + j] for j in [0,1,2]]))
+        tensor = brahamket_tensor.reshape(shape)
 
-        self.site_cache[node_id] = brahamket_tensor.reshape(shape)
-    
+        if self.print_debugging_warnings == True and node_id in self.site_cache.keys() and np.allclose(self.site_cache[node_id], tensor):
+            print("Unneccesary site_cache update:", node_id)
+        else:
+            self.site_cache[node_id] = tensor
+            if self.partial_tree_caching == True and len(self.partial_tree_cache.keys()) > 0:
+                affected_trees = []
+                for tree_name in self.partial_tree_cache.keys():
+                    node1, node2 = tree_name.split("._.")
+
+                    # Question: Is node_id in the partiel tree spanned by node1 and node2? Only if ...
+                    if node1 == node_id or node2 == node_id:
+                        affected_trees.append(tree_name)
+                    elif self._cached_distances[node_id][self.state.root_id] >= self._cached_distances[node_id][node1] and self._cached_distances[self.state.root_id][node_id] > self._cached_distances[self.state.root_id][node1]:  # otherwise node_id and node1 not in same branch or node_id higher in hierarchy than node1
+                        if node2 == "None" or self._cached_distances[self.state.root_id][node_id] < self._cached_distances[self.state.root_id][node2]:
+                            affected_trees.append(tree_name)
+                
+                for tree_name in affected_trees:
+                    self.partial_tree_cache.pop(tree_name)
+        
+        return None
+
     def _find_tdvp_update_path(self):
         """
         Returns a list of all nodes - ordered so that a TDVP update along
@@ -104,25 +126,30 @@ class TDVP(TimeEvolutionAlgorithm):
         distances_from_root = self.state.distance_to_node(self.state.root_id)
         start = max(distances_from_root, key=distances_from_root.get)
 
-        # Move from start to root. Start might not be exactly start, but another leaf with same distance. 
-        sub_path = self._find_tdvp_path_from_leaves_to_root(start)
-        self.update_path = [] + sub_path + [self.state.root_id]
-        
-        branch_roots = [x for x in self.state[self.state.root_id].children_legs.keys() if x not in self.update_path]
+        if len(self.state.nodes.keys()) < 2:
+            update_path = [start]
+        else:
+            # Move from start to root. Start might not be exactly start, but another leaf with same distance. 
+            sub_path = self._find_tdvp_path_from_leaves_to_root(start)
+            update_path = [] + sub_path + [self.state.root_id]
+            
+            branch_roots = [x for x in self.state[self.state.root_id].children_legs.keys() if x not in update_path]
 
-        sub_paths = []
-        for branch_root in branch_roots:
-            sub_paths.append(self._find_tdvp_path_from_leaves_to_root(branch_root).reverse())
+            sub_paths = []
+            for branch_root in branch_roots:
+                sub_paths.append(self._find_tdvp_path_from_leaves_to_root(branch_root).reverse())
+            
+            sub_paths.sort(key=lambda x: -len(x))
+            for sub_path in sub_paths:
+                update_path = update_path + sub_path
         
-        sub_paths.sort(key=lambda x: -len(x))
-        for sub_path in sub_paths:
-            self.update_path = self.update_path + sub_path
+        return update_path
 
     def _find_tdvp_path_from_leaves_to_root(self, any_child):
         path_from_child_to_root = self.state.find_path_to_root(any_child)
         branch_origin = path_from_child_to_root[-2]
 
-        path = self._find_tdvp_path_for_branch(branch_origin)
+        path = self._find_tdvp_path_for_branch(branch_origin, [])
         return path
 
     def _find_tdvp_path_for_branch(self, branch_origin, path=[]):
@@ -151,8 +178,8 @@ class TDVP(TimeEvolutionAlgorithm):
             connecting_from_root = True
             start = self.state.root_id
 
-        if self.partial_tree_caching and str(start)+str(end) in self.partial_tree_cache.keys():
-            return self.partial_tree_cache[str(start)+str(end)]
+        if self.partial_tree_caching == True and str(start)+str(end) in self.partial_tree_cache.keys():
+            return self.partial_tree_cache[str(start)+"._."+str(end)]
         
         if tensor_parent is None:
             tensor = self.site_cache[start]
@@ -165,8 +192,8 @@ class TDVP(TimeEvolutionAlgorithm):
                 leg = self.state[start].children_legs[child_id] - connecting_from_root
                 tensor = self._contract_partial_tree(child_id, end, tensor, leg, connecting_from_root)
 
-        if self.partial_tree_caching:
-            self.partial_tree_cache[str(start)+str(end)] = tensor
+        if self.partial_tree_caching == True:
+            self.partial_tree_cache[str(start)+"._."+str(end)] = tensor
         return tensor
     
     def _contract_all_except_node(self, target_node_id):
@@ -189,6 +216,7 @@ class TDVP(TimeEvolutionAlgorithm):
         if target_node_id != self.state.root_id:
             parent_part = self._contract_partial_tree(start=self.state.root_id, end=target_node_id)
             parent_part = parent_part.reshape([target_node.shape()[target_node.parent_leg[1]], target_hamiltonian.shape()[target_hamiltonian.parent_leg[1]], target_node.shape()[target_node.parent_leg[1]]])
+
             tensor = np.tensordot(parent_part, tensor, axes=(1, target_hamiltonian.parent_leg[1]))
             tensor_added_legs += 1
 
@@ -211,9 +239,16 @@ class TDVP(TimeEvolutionAlgorithm):
         leg order is:
             parent_part: bra, ket,  hamiltonian: bra, ket, child1: bra, ket, child2: ...
         """
-        ordered_legs = list(range(tensor.ndim))
-        ordered_legs[2:] = ordered_legs[4:] + [2, 3]
-        tensor = tensor.transpose(ordered_legs)
+
+        if len(self.state[target_node_id].children_legs.keys()) > 0:
+            if target_node_id != self.state.root_id:
+                ordered_legs = list(range(tensor.ndim))
+                ordered_legs[2:] = ordered_legs[4:] + [2, 3]
+                tensor = tensor.transpose(ordered_legs)
+            else:
+                ordered_legs = list(range(tensor.ndim))
+                ordered_legs[:] = ordered_legs[2:] + [0, 1]
+                tensor = tensor.transpose(ordered_legs)
         """
         leg order is:
             parent, children, physical
@@ -232,18 +267,42 @@ class TDVP(TimeEvolutionAlgorithm):
     def _get_effective_link_hamiltonian(self, node_id, next_node_id):
         tensor = self._contract_all_except_node(node_id)
         
-        tensor_bra_legs = [2*i for i in range(tensor.ndim//2)] 
+        """
+        leg order is:
+            parent (bra, ket), children (bra, ket), physical (bra, ket)
+        """
+
+        bra_legs = [2*i for i in range(tensor.ndim//2)] 
+        ket_legs = [2*i+1 for i in range(tensor.ndim//2)]
+        tensor = tensor.transpose(bra_legs + ket_legs)
+
+        """
+        leg order is:
+            bra: parent, children, physical; ket: parent, children, physical
+        """
+
+        tensor_bra_legs = [i for i in range(tensor.ndim//2)] 
         node_leg_of_next_node = self.neighbouring_nodes[node_id][next_node_id]
-        tensor_bra_legs_without_next_node = [i for i in tensor_bra_legs if i//2 != node_leg_of_next_node]
+        tensor_bra_legs_without_next_node = [i for i in tensor_bra_legs if i != node_leg_of_next_node]
         site_bra_legs_without_next_node = [i for i in range(self.state[node_id].tensor.ndim) if i != node_leg_of_next_node]
 
-        tensor = np.tensordot(self.state[node_id].tensor.conj(), tensor, axes=(site_bra_legs_without_next_node, tensor_bra_legs_without_next_node))
+        tensor = np.tensordot(tensor, self.state[node_id].tensor.conj(), axes=(tensor_bra_legs_without_next_node, site_bra_legs_without_next_node))
 
-        tensor_ket_legs_without_next_node = [i+2 for i in site_bra_legs_without_next_node]
+        """
+        leg order is:
+            bra: link_next_node; ket: parent, children, physical; bra: link_node
+        """
+
+        tensor_ket_legs_without_next_node = [i+1 for i in site_bra_legs_without_next_node]
         site_ket_legs_without_next_node = site_bra_legs_without_next_node
         tensor = np.tensordot(tensor, self.state[node_id].tensor, axes=(tensor_ket_legs_without_next_node, site_ket_legs_without_next_node))
+
+        """
+        leg order is:
+            bra: link_next_node; ket: link_next_node; bra: link_node; ket: link_node
+        """
         
-        return tensor_matricization(tensor, (0, 1), (2, 3), correctly_ordered=True)
+        return tensor_matricization(tensor, (2, 0), (3, 1), correctly_ordered=False)
     
     def _update_site_and_get_link(self, node_id, next_node_id):
         node = self.state[node_id]
@@ -262,7 +321,6 @@ class TDVP(TimeEvolutionAlgorithm):
     
     def _update(self, node_id, next_node_id):
         assert self.state.orthogonality_center_id == node_id
-
         hamiltonian_eff_site = self._get_effective_site_hamiltonian(node_id)
 
         psi = self.state[node_id].tensor
@@ -282,7 +340,7 @@ class TDVP(TimeEvolutionAlgorithm):
         self._update_site_cache(next_node_id)
 
     def run_one_time_step(self):
-        self._orthogonalize_init(force_new=True)  # Force new until I figure out what the operator evaluation does ...
+        self._orthogonalize_init()
         self._init_site_cache()
         self.partial_tree_cache = dict()
 

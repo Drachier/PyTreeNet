@@ -36,16 +36,11 @@ def mps_zero(num_sites, virtual_bond_dimension):
 
 
 def mps_heisenberg(num_sites, jx, jy, jz, h):
-    A = np.array([[O, O, O, O, O],
+    A = np.array([[I, O, O, O, O],
                   [X, O, O, O, O],
                   [Y, O, O, O, O],
                   [Z, O, O, O, O],
-                  [-h*Z, -jx*X, -jy*Y, -jz*Z, O]])
-    A = np.array([[I, O, O, O, O],
-                  [O, O, O, O, O],
-                  [O, O, O, O, O],
-                  [O, O, O, O, O],
-                  [O, O, O, O, I]]) - A
+                  [h*Z, jx*X, jy*Y, jz*Z, I]])
     A = np.transpose(A, (0, 1, 2, 3))
 
     remove = [i for i, val in enumerate([1, jx, jy, jz]) if val == 0]
@@ -58,12 +53,12 @@ def mps_heisenberg(num_sites, jx, jy, jz, h):
         identifier = "site" + str(site)
         if site == 0:
             # Open boundary conditions on first site
-            node_ham = QuantumOperatorNode(A[:,0,:,:], identifier=identifier)
+            node_ham = QuantumOperatorNode(A[2,:,:,:], identifier=identifier)
             ham.add_root(node_ham)
         elif 0 < site:
             if site == num_sites - 1:
                 # Open boundary conditions on last site
-                node_ham = QuantumOperatorNode(A[2,:,:,:], identifier=identifier)
+                node_ham = QuantumOperatorNode(A[:,0,:,:], identifier=identifier)
             else:
                 node_ham = QuantumOperatorNode(A, identifier=identifier)
             parent_id = "site" + str(site - 1)
