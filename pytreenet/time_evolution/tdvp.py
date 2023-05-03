@@ -320,32 +320,36 @@ class TDVP(TimeEvolutionAlgorithm):
         self._update_site_cache(node_id)
 
         return r
+
+    def _update_site(self, node_id, half_time_step=False):
+        hamiltonian_eff_site = self._get_effective_site_hamiltonian(node_id)
+        psi = self.state[node_id].tensor
+        if half_time_step == True:
+            self.state[node_id].tensor = time_evolve(psi, hamiltonian_eff_site, self.time_step_size / 2, forward=True)
+        else:
+            self.state[node_id].tensor = time_evolve(psi, hamiltonian_eff_site, self.time_step_size, forward=True)
+        self._update_site_cache(node_id)
+
+    def _update_link(self, node_id, next_node_id, half_time_step=False):
+        link_tensor = self._update_site_and_get_link(node_id, next_node_id)
+        hamiltonian_eff_link = self._get_effective_link_hamiltonian(node_id, next_node_id)
+        if half_time_step == True:
+            link_tensor = time_evolve(link_tensor, hamiltonian_eff_link, self.time_step_size / 2, forward=False)
+        else:
+            link_tensor = time_evolve(link_tensor, hamiltonian_eff_link, self.time_step_size, forward=False)
+        self.state[next_node_id].absorb_tensor(link_tensor, 1, self.neighbouring_nodes[next_node_id][node_id])
+        self._update_site_cache(next_node_id)
     
     def _update(self, node_id, next_node_id):
         assert self.state.orthogonality_center_id == node_id
-        
-        hamiltonian_eff_site = self._get_effective_site_hamiltonian(node_id)
-
-        psi = self.state[node_id].tensor
-        self.state[node_id].tensor = time_evolve(psi, hamiltonian_eff_site, self.time_step_size, forward=True)
-        self._update_site_cache(node_id)
-
+        self._update_site(node_id)
         if next_node_id is None:
             return
-
-        link_tensor = self._update_site_and_get_link(node_id, next_node_id)
-
-        hamiltonian_eff_link = self._get_effective_link_hamiltonian(node_id, next_node_id)
-
-        link_tensor = time_evolve(link_tensor, hamiltonian_eff_link, self.time_step_size, forward=False)
-
-        self.state[next_node_id].absorb_tensor(link_tensor, 1, self.neighbouring_nodes[next_node_id][node_id])
-        self._update_site_cache(next_node_id)
+        self._update_link(node_id, next_node_id)
 
     def run_one_time_step(self):
         self._orthogonalize_init()
         self._init_site_cache()
-        self.partial_tree_cache = dict()
 
         for i, node_id in enumerate(self.update_path):
             # Orthogonalize
@@ -373,50 +377,21 @@ class SecondOrderTDVP(TDVP):
 
     def _forward_update(self, node_id, next_node_id):
         assert self.state.orthogonality_center_id == node_id
-
-        hamiltonian_eff_site = self._get_effective_site_hamiltonian(node_id)
-
-        psi = self.state[node_id].tensor
-
-        if next_node_id == node_id:
-            self.state[node_id].tensor = time_evolve(psi, hamiltonian_eff_site, self.time_step_size, forward=True)
-            self._update_site_cache(node_id)
+        if next_node_id != node_id:
+            self._update_site(node_id, half_time_step=True)
+        else:
+            self._update_site(node_id, half_time_step=False)
             return
-
-        self.state[node_id].tensor = time_evolve(psi, hamiltonian_eff_site, self.time_step_size/2, forward=True)
-        self._update_site_cache(node_id)
-
-        link_tensor = self._update_site_and_get_link(node_id, next_node_id)
-
-        hamiltonian_eff_link = self._get_effective_link_hamiltonian(node_id, next_node_id)
-
-        link_tensor = time_evolve(link_tensor, hamiltonian_eff_link, self.time_step_size/2, forward=False)
-
-        self.state[next_node_id].absorb_tensor(link_tensor, 1, self.neighbouring_nodes[next_node_id][node_id])
-        self._update_site_cache(next_node_id)
+        self._update_link(node_id, next_node_id, half_time_step=True)
     
     def _backward_update(self, node_id, next_node_id):
         assert self.state.orthogonality_center_id == node_id
-
-        link_tensor = self._update_site_and_get_link(node_id, next_node_id)
-
-        hamiltonian_eff_link = self._get_effective_link_hamiltonian(node_id, next_node_id)
-
-        link_tensor = time_evolve(link_tensor, hamiltonian_eff_link, self.time_step_size/2, forward=False)
-
-        self.state[next_node_id].absorb_tensor(link_tensor, 1, self.neighbouring_nodes[next_node_id][node_id])
-        self._update_site_cache(next_node_id)
-
-        hamiltonian_eff_site = self._get_effective_site_hamiltonian(next_node_id)
-
-        psi = self.state[next_node_id].tensor
-        self.state[next_node_id].tensor = time_evolve(psi, hamiltonian_eff_site, self.time_step_size/2, forward=True)
-        self._update_site_cache(next_node_id)
+        self._update_link(node_id, next_node_id, half_time_step=True)
+        self._update_site(next_node_id, half_time_step=True)
 
     def run_one_time_step(self):
         self._orthogonalize_init()
         self._init_site_cache()
-        self.partial_tree_cache = dict()
 
         second_order_update_path = self.update_path + list(reversed(self.update_path))
         second_order_orthogonalization_path = self.orthogonalization_path + list(reversed(self.orthogonalization_path)) + [self.update_path[0]]
