@@ -2,6 +2,8 @@ from copy import deepcopy
 
 import numpy as np
 
+from pytreenet.ttn import TreeTensorNetwork
+
 from .time_evolution import TimeEvolutionAlgorithm, time_evolve
 from ..tensor_util import (tensor_qr_decomposition, tensor_matricization)
 from ..ttn import TreeTensorNetwork
@@ -321,6 +323,7 @@ class TDVP(TimeEvolutionAlgorithm):
     
     def _update(self, node_id, next_node_id):
         assert self.state.orthogonality_center_id == node_id
+        
         hamiltonian_eff_site = self._get_effective_site_hamiltonian(node_id)
 
         psi = self.state[node_id].tensor
@@ -358,7 +361,80 @@ class TDVP(TimeEvolutionAlgorithm):
             # Update
             self._update(node_id, next_node_id)
 
-        # TODO consider self.mode
+
+class FirstOrderTDVP(TDVP):
+    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None, mode="1site") -> None:
+        super().__init__(state, hamiltonian, time_step_size, final_time, operators, mode)
 
 
+class SecondOrderTDVP(TDVP):
+    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None, mode="1site") -> None:
+        super().__init__(state, hamiltonian, time_step_size, final_time, operators, mode)
+
+    def _forward_update(self, node_id, next_node_id):
+        assert self.state.orthogonality_center_id == node_id
+
+        hamiltonian_eff_site = self._get_effective_site_hamiltonian(node_id)
+
+        psi = self.state[node_id].tensor
+
+        if next_node_id == node_id:
+            self.state[node_id].tensor = time_evolve(psi, hamiltonian_eff_site, self.time_step_size, forward=True)
+            self._update_site_cache(node_id)
+            return
+
+        self.state[node_id].tensor = time_evolve(psi, hamiltonian_eff_site, self.time_step_size/2, forward=True)
+        self._update_site_cache(node_id)
+
+        link_tensor = self._update_site_and_get_link(node_id, next_node_id)
+
+        hamiltonian_eff_link = self._get_effective_link_hamiltonian(node_id, next_node_id)
+
+        link_tensor = time_evolve(link_tensor, hamiltonian_eff_link, self.time_step_size/2, forward=False)
+
+        self.state[next_node_id].absorb_tensor(link_tensor, 1, self.neighbouring_nodes[next_node_id][node_id])
+        self._update_site_cache(next_node_id)
+    
+    def _backward_update(self, node_id, next_node_id):
+        assert self.state.orthogonality_center_id == node_id
+
+        link_tensor = self._update_site_and_get_link(node_id, next_node_id)
+
+        hamiltonian_eff_link = self._get_effective_link_hamiltonian(node_id, next_node_id)
+
+        link_tensor = time_evolve(link_tensor, hamiltonian_eff_link, self.time_step_size/2, forward=False)
+
+        self.state[next_node_id].absorb_tensor(link_tensor, 1, self.neighbouring_nodes[next_node_id][node_id])
+        self._update_site_cache(next_node_id)
+
+        hamiltonian_eff_site = self._get_effective_site_hamiltonian(next_node_id)
+
+        psi = self.state[next_node_id].tensor
+        self.state[next_node_id].tensor = time_evolve(psi, hamiltonian_eff_site, self.time_step_size/2, forward=True)
+        self._update_site_cache(next_node_id)
+
+    def run_one_time_step(self):
+        self._orthogonalize_init()
+        self._init_site_cache()
+        self.partial_tree_cache = dict()
+
+        second_order_update_path = self.update_path + list(reversed(self.update_path))
+        second_order_orthogonalization_path = self.orthogonalization_path + list(reversed(self.orthogonalization_path)) + [self.update_path[0]]
+
+        for i, node_id in enumerate(second_order_update_path):
+            # Orthogonalize
+            if i>0:
+                self.state.orthogonalize_sequence(second_order_orthogonalization_path[i-1], node_change_callback=self._update_site_cache)
+
+            # Select Next Node
+            if i+1 < len(second_order_update_path):
+                next_node_id = second_order_update_path[i+1]
+            else:
+                next_node_id = None
+
+            # Update
+            if i < len(second_order_update_path)//2:
+                self._forward_update(node_id, next_node_id)
+            elif next_node_id is not None:
+                self._backward_update(node_id, next_node_id)
 
