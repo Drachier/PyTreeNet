@@ -1,5 +1,5 @@
 from numpy.random import default_rng
-from numpy import prod, eye, tensordot, reshape, transpose
+from numpy import prod, eye, tensordot, reshape, transpose, kron
 
 from .ttn_exceptions import NotCompatibleException
 
@@ -38,6 +38,16 @@ class Hamiltonian(object):
         else:
             self.conversion_dictionary = conversion_dictionary
 
+        self.check_conversion_dict_valid()
+
+    def check_conversion_dict_valid(self):
+        for label in self.conversion_dictionary:
+            operator = self.conversion_dictionary[label]
+
+            shape = operator.shape
+            assert len(shape) == 2,  f"Operator with label {label} is not a matrix!"
+            assert shape[0] == shape[1], f"Matrix with label {label} is not square!"
+
     def add_term(self, term):
         if not (type(term) == dict):
             try:
@@ -54,19 +64,22 @@ class Hamiltonian(object):
         else:
             raise TypeError("'terms' has to be a list of dictionaries")#
 
-    def pad_with_identity(self, ttn, mode="safe"):
+    def pad_with_identity(self, reference_ttn, mode="safe", identity=None):
         """
-        Pads all terms with an identity according to the reference TTN
+        Pads all terms with an identity according to the reference reference_ttn
 
         Parameters
         ----------
-        ttn : TreeTensorNetwork
-            TTN with reference to which the identities are to be padded. From
+        reference_ttn : TreeTensorNetwork
+            reference_ttn with reference to which the identities are to be padded. From
             here the site_ids and operator dimension is inferred.
         mode : string, optional
             Whether to perform checks ('safe') or not ('risky').
-            For big TTN the checks can take a long time.
+            For big reference_ttn the checks can take a long time.
             The default is 'safe'.
+        identity :
+            If None, an appropriately sized identity is determined. Else the
+            value is inserted as a placeholder.
 
         Returns
         -------
@@ -74,16 +87,19 @@ class Hamiltonian(object):
 
         """
         if mode == "safe":
-            if not self.is_compatible_with(ttn):
-                raise NotCompatibleException("Hamiltonian and TTN are incompatible")
+            if not self.is_compatible_with(reference_ttn):
+                raise NotCompatibleException("Hamiltonian and reference_ttn are incompatible")
         elif mode != "risky":
             raise ValueError(f"{mode} is not a valied option for 'mode'. (Only 'safe' and 'risky are)!")
 
-        for site_id in ttn.nodes:
+        for site_id in reference_ttn.nodes:
 
-            site_node = ttn.nodes[site_id]
-            physical_dim = prod(site_node.shape_of_legs(site_node.open_legs))
-            site_identity = eye(physical_dim)
+            if identity == None:
+                site_node = reference_ttn.nodes[site_id]
+                physical_dim = prod(site_node.shape_of_legs(site_node.open_legs))
+                site_identity = eye(physical_dim)
+            else:
+                site_identity = identity
 
             for term in self.terms:
                 if not (site_id in term):
@@ -112,6 +128,57 @@ class Hamiltonian(object):
 
         return True
 
+    def to_tensor(self, ref_ttn, use_padding=False):
+        """
+        Creates a tensor ndarray representing this Hamiltonian assuming it is
+        defined on the structure of ttn.
+
+        Parameters
+        ----------
+        ref_ttn : TreeTensorNetwork
+            TTN giving the tree structure which the Hamiltonian should respect.
+
+        Returns
+        -------
+        full_tensor: ndarray
+            A tensor representing the Hamiltonian. Every node in the ref_ttn
+            corresponds to two legs in the tensor.
+
+        """
+        if use_padding:
+            self.pad_with_identity(ref_ttn)
+
+        first = True
+        for term in self.terms:
+
+            term_tensor = term[ref_ttn.root_id]
+            term_tensor = self._to_tensor_rec(ref_ttn,
+                                              ref_ttn.root_id,
+                                              term,
+                                              term_tensor)
+
+            if first:
+                full_tensor = term_tensor
+                first = False
+            else:
+                full_tensor += term_tensor
+
+        # Separating input and output legs
+        permutation = list(range(0,full_tensor.ndim,2))
+        permutation.extend(list(range(1,full_tensor.ndim,2)))
+        full_tensor = full_tensor.transpose(permutation)
+        return full_tensor
+
+    def _to_tensor_rec(self, ttn, node_id, term, tensor):
+        tensor = self.conversion_dictionary[term[node_id]]
+        for child_id in ttn.nodes[node_id].children_legs:
+            child_tensor = self.conversion_dictionary[term[child_id]]
+            tensor = tensordot(tensor, child_tensor, axes=0)
+            tensor = self._to_tensor_rec(ttn, child_id, term, tensor)
+            print(node_id, child_id, tensor.shape)
+
+        return tensor
+
     def to_matrix(self, ttn):
         """
         Creates a matrix ndarray representing this Hamiltonian assuming it is
@@ -128,33 +195,11 @@ class Hamiltonian(object):
             A matrix representing the Hamiltonian.
 
         """
-        self.pad_with_identity(ttn)
+        matrix = self.to_tensor(ttn)
+        half_dim = matrix.ndim / 2
+        matrix_size = prod(matrix.shape[0:half_dim])
 
-        first = True
-        for term in self.terms:
-
-            tensor = term[ttn.root_id]
-            tensor = self._to_matrix_rec(ttn, ttn.root_id, term, tensor)
-
-            if first:
-                matrix = tensor
-            else:
-                matrix += tensor
-
-        return matrix
-
-    def _to_matrix_rec(self, ttn, node_id, term, tensor):
-        tensor = term[node_id]
-        for child_id in ttn.nodes[node_id].children_legs:
-            child_tensor = term[child_id]
-            tensor = tensordot(tensor, child_tensor, axes=0)
-            tensor = transpose(tensor, (0,2,1,3))
-            tensor_half_dim = tensor.ndim / 2
-            tensor = reshape(tensor, (tensor_half_dim, tensor_half_dim))
-
-            tensor = self._to_matrix_rec(ttn, child_id, term, tensor)
-
-        return tensor
+        return matrix.reshape((matrix_size, matrix_size))
 
     def __add__(self, other_hamiltonian):
 

@@ -117,8 +117,8 @@ class Vertex():
         self.contained = False
         self.new = False
 
-        # Needed to obtain an MPO
-        self.index_value = None
+        # Needed to obtain an MPO (leg_index, index_value)
+        self.index = None
 
     def __repr__(self):
         string = "corr_edge = " + str(self.corr_edge) + "; "
@@ -222,9 +222,6 @@ class VertexColl():
         """
         self.corr_edge = corr_edge
         self.contained_vertices = contained_vertices
-
-        # Required to obtain the TTNO later on
-        self.leg_index = None
 
 class StateDiagram():
 

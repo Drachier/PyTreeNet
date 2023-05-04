@@ -316,6 +316,61 @@ class TestonSingleStateDiagram(unittest.TestCase):
                                    potential_num_vertices[edge],
                                    potential_num_connected_he[edge])
 
+    def test_add_single_term_on_different_in_middle(self):
+        # Building additional sd where one subtree of the root and the root itself is the same
+        term2 = {"site1": "1",
+                 "site2": "22",
+                 "site3": "3",
+                 "site4": "4",
+                 "site5": "5",
+                 "site6": "6",
+                 "site7": "7"}
+        self.sd.add_single_term(term2)
+
+        # The subtree from 2 down, should contain two paths, the remaining
+        # state diagram should have unique hyperedges and vertices
+        potential_num_vertices_dict = {"site1": {2},
+                                       "site2": {3},
+                                       "site3": {1},
+                                       "site4": {1},
+                                       "site5": {3},
+                                       "site6": {1},
+                                       "site7": {1}}
+
+        potential_labels_dict = {"site1": {"1"},
+                                 "site2": {"2", "22"},
+                                 "site3": {"3"},
+                                 "site4": {"4"},
+                                 "site5": {"5"},
+                                 "site6": {"6"},
+                                 "site7": {"7"}}
+
+        for i in range(1,8):
+            node_id = "site" + str(i)
+            self.check_hyperedge_coll(node_id,
+                                      potential_labels_dict[node_id],
+                                      len(potential_labels_dict[node_id]),
+                                      potential_num_vertices_dict[node_id])
+
+        potential_num_connected_he = {('site1', 'site2'): {3},
+                                      ('site1', 'site5'): {2},
+                                      ('site2', 'site3'): {3},
+                                      ('site2', 'site4'): {3},
+                                      ('site5', 'site6'): {2},
+                                      ('site5', 'site7'): {2}}
+
+        potential_num_vertices = {('site1', 'site2'): 1,
+                                  ('site1', 'site5'): 1,
+                                  ('site2', 'site3'): 1,
+                                  ('site2', 'site4'): 1,
+                                  ('site5', 'site6'): 1,
+                                  ('site5', 'site7'): 1}
+
+        for edge in self.sd.vertex_colls:
+            self.check_vertex_coll(edge,
+                                   potential_num_vertices[edge],
+                                   potential_num_connected_he[edge])
+
 class TestFromHamiltonian(unittest.TestCase):
     def setUp(self):
         self.ref_tree = ptn.TreeTensorNetwork()

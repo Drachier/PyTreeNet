@@ -217,7 +217,6 @@ class TensorNode(object):
     def get_parent_id(self):
         """
 
-
         Returns
         -------
         parent_id: str

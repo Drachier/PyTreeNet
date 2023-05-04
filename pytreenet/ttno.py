@@ -1,3 +1,5 @@
+import numpy as np
+
 from .ttn import TreeTensorNetwork
 from .tensor_util import tensor_qr_decomposition
 from .tensornode import TensorNode
@@ -10,7 +12,7 @@ class TTNO(TreeTensorNetwork):
         TreeTensorNetwork.__init__(self, **kwargs)
 
     @classmethod
-    def from_hamiltonian(self, hamiltonian, reference_tree):
+    def from_hamiltonian(cls, hamiltonian, reference_tree):
         """
 
         Parameters
@@ -30,27 +32,66 @@ class TTNO(TreeTensorNetwork):
 
         state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
                                                       reference_tree)
-        conversion_dict = hamiltonian.conversion_dictionary
+        ttno = TTNO(original_tree=reference_tree)
 
         for node_id in state_diagram.hyperedge_colls:
-            node = reference_tree.nodes[node_id]
-
-            neighbours = node.neighbouring_nodes(with_legs = False)
-
-            for leg_index, neighbour_id in enumerate(neighbours):
-                vertex_coll = state_diagram.get_vertex_coll_two_ids(node_id, neighbour_id)
-                vertex_coll.leg_index = leg_index
-
-                for index_value, vertex in enumerate(vertex_coll):
-                    vertex.index_value = index_value
-
             hyperedge_coll = state_diagram.hyperedge_colls[node_id]
+            local_tensor, leg_dict = ttno._setup_for_from_hamiltonian(node_id,
+                                                                      state_diagram,
+                                                                      hamiltonian.conversion_dictionary)
 
-            phys_dim = None
+            # Adding the operator corresponding to each hyperedge to the tensor
             for he in hyperedge_coll.contained_hyperedges:
+                operator_label = he.label
+                operator = hamiltonian.conversion_dictionary[operator_label]
 
-                if phys_dim == None:
+                index_value = [0] * len(he.vertices)
+                index_value.extend([slice(None), slice(None)])
 
+                for vertex in he.vertices:
+                    index_value[vertex.index[0]] = vertex.index[1]
+
+                index_value = tuple(index_value)
+                local_tensor[index_value] += operator
+
+            new_node = TensorNode(local_tensor, identifier=node_id)
+
+            node = reference_tree.nodes[node_id]
+            if not node.is_root():
+                parent_id = node.get_parent_id()
+                new_node.open_leg_to_parent(leg_dict[parent_id], parent_id)
+                del leg_dict[parent_id]
+
+            new_node.open_legs_to_children(leg_dict.values(), leg_dict.keys())
+            ttno.nodes[node_id] = new_node
+
+        return ttno
+
+    def _setup_for_from_hamiltonian(self, node_id, state_diagram, conversion_dict):
+        he = state_diagram.hyperedge_colls[node_id].contained_hyperedges[0]
+        operator_label = he.label
+        operator = conversion_dict[operator_label]
+        # Should be square operators
+        phys_dim = operator.shape[0]
+
+        total_tensor_shape = [0] * len(he.vertices)
+        total_tensor_shape.extend([phys_dim, phys_dim])
+
+        node = self.nodes[node_id]
+        neighbours = node.neighbouring_nodes(with_legs = False)
+        leg_dict = {}
+        for leg_index, neighbour_id in enumerate(neighbours):
+            leg_dict[neighbour_id] = leg_index
+
+            vertex_coll = state_diagram.get_vertex_coll_two_ids(node_id, neighbour_id)
+            for index_value, vertex in enumerate(vertex_coll.contained_vertices):
+                vertex.index = (leg_index, index_value)
+            # The number of vertices is equal to the number of bond-dimensions required.
+            total_tensor_shape[leg_index] = len(vertex_coll.contained_vertices)
+
+        local_tensor = np.zeros(total_tensor_shape, dtype=complex)
+
+        return local_tensor, leg_dict
 
     @classmethod
     def from_tensor(cls, reference_tree, tensor, leg_dict):
