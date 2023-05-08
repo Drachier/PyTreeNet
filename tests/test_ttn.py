@@ -102,6 +102,27 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         self.assertTrue("test" in node2.children_legs)
         self.assertEqual(leg_2_to_5, node2.children_legs["test"])
 
+    def test_find_subtree_of_node(self):
+        found_subtree = self.tensortree.find_subtree_of_node("id1")
+        correct_subtree = list(self.tensortree.nodes.keys())
+
+        self.assertEqual(correct_subtree, found_subtree)
+
+        found_subtree = self.tensortree.find_subtree_of_node("id9")
+        correct_subtree = ["id9"]
+
+        self.assertEqual(correct_subtree, found_subtree)
+
+        found_subtree = self.tensortree.find_subtree_of_node("id2")
+        correct_subtree = ["id2", "id3", "id4", "id5", "id6", "id7"]
+
+        self.assertEqual(correct_subtree, found_subtree)
+
+        found_subtree = self.tensortree.find_subtree_of_node("id8")
+        correct_subtree = ["id8", "id9"]
+
+        self.assertEqual(correct_subtree, found_subtree)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,7 +1,8 @@
 import numpy as np
 
-from .util import build_swap_gate
 from scipy.linalg import expm
+
+from .util import build_swap_gate
 
 class SWAPlist(list):
 
