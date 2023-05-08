@@ -69,7 +69,6 @@ class TestHamiltonian(unittest.TestCase):
         full_tensor = hamiltonian.to_tensor(ttns)
 
         self.assertEqual((3,4,3,4), full_tensor.shape)
-        print(full_tensor.shape)
 
 
 if __name__ == "__main__":

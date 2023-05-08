@@ -228,6 +228,34 @@ class TensorNode(object):
         else:
             return self.parent_leg[0]
 
+    def get_parent_leg_index(self):
+        """
+
+
+        Returns
+        -------
+        parent_leg_index: int
+            If it exists, the index of the leg to this node's parent.
+
+        """
+        if self.is_root():
+            raise ValueError("Node with id {self.identifier} is a root node and does not have a parent node!")
+        else:
+            return self.parent_leg[1]
+
+    def get_parent_leg_dim(self):
+        """
+
+
+        Returns
+        -------
+        parent_leg_dim: int
+            If it exists, the dimension of the leg to this node's parent.
+
+        """
+        index = self.get_parent_leg_index()
+        return self.tensor.shape[index]
+
     def check_existence_of_open_legs(self, open_leg_list):
         if len(open_leg_list) == 1:
             leg_index = open_leg_list[0]
