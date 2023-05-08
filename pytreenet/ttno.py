@@ -1,7 +1,7 @@
 import numpy as np
 
 from .ttn import TreeTensorNetwork
-from .tensor_util import tensor_qr_decomposition
+from .tensor_util import tensor_qr_decomposition, tensor_svd, truncated_tensor_svd
 from .tensornode import TensorNode
 from .state_diagram import StateDiagram
 
@@ -94,7 +94,7 @@ class TTNO(TreeTensorNetwork):
         return local_tensor, leg_dict
 
     @classmethod
-    def from_tensor(cls, reference_tree, tensor, leg_dict):
+    def from_tensor(cls, reference_tree, tensor, leg_dict, mode="QR"):
         """
 
 
@@ -111,6 +111,10 @@ class TTNO(TreeTensorNetwork):
             as values. It is used to match the legs of tensor to the different
             nodes. Only the lower half of the legs is to be put in this dict,
             the others are inferred by ordering.
+        mode: str
+            Can be either '' or 'SVD'. Determines the decomposition to use.
+            'SVD' allows for truncation of trivial singular values, while 'QR'
+            is faster.
 
         Returns
         -------
@@ -131,13 +135,13 @@ class TTNO(TreeTensorNetwork):
         new_TTNO = TTNO()
         new_TTNO.add_root(root_node)
 
-        new_TTNO._from_tensor_rec(reference_tree, root_node, new_leg_dict)
+        new_TTNO._from_tensor_rec(reference_tree, root_node, new_leg_dict, mode=mode)
         return new_TTNO
 
-    def _from_tensor_rec(self, reference_tree, current_node, leg_dict):
+    def _from_tensor_rec(self, reference_tree, current_node, leg_dict, mode="QR"):
         """
         Recursive part to obtain a TTNO from a tensor. For each child of the
-        current node a new node is defined via a QR-decomposition and the
+        current node a new node is defined via a Matrix-decomposition and the
         current_node and the leg_dict are modified.
 
         Parameters
@@ -151,6 +155,10 @@ class TTNO(TreeTensorNetwork):
             A dictionary it contains node_identifiers as keys and leg indices
             as values. It is used to match the legs of tensor in the current
             node to the different nodes it will be split into.
+        mode: str
+            Can be either 'QR' or 'SVD', 'tSVD'. Determines the decomposition to use.
+            'SVD' & 'tSVD' allows for truncation of trivial singular values, while 'QR'
+            is faster.
 
         Returns
         -------
@@ -168,7 +176,16 @@ class TTNO(TreeTensorNetwork):
             q_legs, r_legs, q_leg_dict, r_leg_dict = TTNO._prepare_legs_for_QR(reference_tree, current_node, child_id, leg_dict)
 
             current_tensor = current_node.tensor
-            Q, R = tensor_qr_decomposition(current_tensor, q_legs, r_legs)
+            if mode == "QR":
+                Q, R = tensor_qr_decomposition(current_tensor, q_legs, r_legs)
+            elif mode == "SVD":
+                Q, S, Vh = tensor_svd(current_tensor, q_legs, r_legs)
+                R = np.tensordot(np.diag(S), Vh, axes=(1,0))
+            elif mode == "tSVD":
+                Q, S, Vh = truncated_tensor_svd(current_tensor, q_legs, r_legs)
+                R = np.tensordot(np.diag(S), Vh, axes=(1,0))
+            else:
+                raise ValueError(f"{mode} is not a valid keyword for mode.")
 
             q_node = TTNO._create_q_node(Q, current_node, q_leg_dict)
             new_q_leg_dict = TTNO._find_new_leg_dict(q_leg_dict, c=0)
@@ -186,7 +203,7 @@ class TTNO(TreeTensorNetwork):
             else:
                 new_r_leg_dict = TTNO._find_new_leg_dict(r_leg_dict, c=1) # Every r_node will have a parent, so c=1
 
-            self._from_tensor_rec(reference_tree, r_node, new_r_leg_dict)
+            self._from_tensor_rec(reference_tree, r_node, new_r_leg_dict, mode=mode)
 
             # Prepare to repeat for next child
             current_node = self.nodes[current_node.identifier]

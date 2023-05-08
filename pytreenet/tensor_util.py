@@ -9,8 +9,8 @@ def transpose_tensor_by_leg_list(tensor, first_legs, last_legs):
     """
     Transposes a tensor according to two lists of legs. All legs in first_legs
     will become the first legs of the new tensor and the last_legs will all
-    become the last legs of the tensor. 
-    
+    become the last legs of the tensor.
+
     Parameters
     ----------
     tensor : ndarray
@@ -27,7 +27,7 @@ def transpose_tensor_by_leg_list(tensor, first_legs, last_legs):
 
     """
     assert tensor.ndim == len(first_legs) + len(last_legs)
-    
+
     correct_leg_order = first_legs + last_legs
     transposed_tensor = np.transpose(tensor, axes=correct_leg_order)
     return transposed_tensor
@@ -46,7 +46,7 @@ def tensor_matricization(tensor, output_legs, input_legs,
     correctly_ordered: bool, optional
         If true it is assumed, the tensor does not need to be transposed, i.e.
         this should be activated if the tensor already has the correct order
-        of legs. Else 
+        of legs. Else
 
     Returns
     -------
@@ -54,7 +54,7 @@ def tensor_matricization(tensor, output_legs, input_legs,
         The resulting matrix.
     """
     assert tensor.ndim == len(output_legs) + len(input_legs)
-    
+
     if correctly_ordered:
         tensor_correctly_ordered = tensor
     else:
@@ -188,13 +188,13 @@ def check_truncation_parameters(max_bond_dim, rel_tol, total_tol):
     elif (rel_tol < 0) and (rel_tol != float("-inf")):
         raise ValueError("'rel_tol' has to be positive or -inf.")
     elif (total_tol < 0) and (total_tol != float("-inf")):
-        raise ValueError("'total_tol' has to be positive or -inf.")        
+        raise ValueError("'total_tol' has to be positive or -inf.")
 
 def truncated_tensor_svd(tensor, u_legs, v_legs,
                          max_bond_dim=100, rel_tol=0.01, total_tol=1e-15):
     """
     Performs an svd including truncation, i.e. discarding some singular values.
-    
+
     Parameters
     ----------
     tensor : ndarray
@@ -224,43 +224,43 @@ def truncated_tensor_svd(tensor, u_legs, v_legs,
         values.
     """
     check_truncation_parameters(max_bond_dim, rel_tol, total_tol)
-    
+
     matrix = tensor_matricization(tensor, u_legs, v_legs)
     u, s, vh = np.linalg.svd(matrix)
-    
+
     # Here the truncation happens
     max_singular_value = s[0]
     min_singular_value_cutoff = max(rel_tol * max_singular_value, total_tol)
     s = [singular_value for singular_value in s
          if singular_value > min_singular_value_cutoff]
-    
+
     if len(s) > max_bond_dim:
         s = s[:max_bond_dim]
     elif len(s) == 0:
         s = [s[0]]
-    
+
     new_bond_dim = len(s)
     u = u[:,:new_bond_dim]
     vh = vh[:new_bond_dim,:]
-    
+
     shape = tensor.shape
     u_shape = _determine_tensor_shape(shape, u, u_legs, output = True)
     vh_shape = _determine_tensor_shape(shape, vh, v_legs, output = False)
     u = np.reshape(u, u_shape)
     vh = np.reshape(vh, vh_shape)
 
-    return u, s, vh
-    
+    return u, np.asarray(s), vh
+
 def compute_transfer_tensor(tensor, open_indices):
     """
 
     Parameters
     ----------
     tensor : ndarray
-    
+
     open_indices: tuple of int
         The open indices of tensor.
-    
+
     Returns
     -------
     transfer_tensor : ndarry
@@ -270,6 +270,6 @@ def compute_transfer_tensor(tensor, open_indices):
 
     """
     conj_tensor = np.conjugate(tensor)
-    transfer_tensor = np.tensordot(tensor, conj_tensor, 
+    transfer_tensor = np.tensordot(tensor, conj_tensor,
                                    axes=(open_indices, open_indices))
     return transfer_tensor
