@@ -2,6 +2,66 @@ import unittest
 
 import pytreenet as ptn
 
+def check_hyperedge_coll(state_diagram, node_id, he_labels, num_hes, num_connected_vertices):
+    """
+    Checks a HyperedgeColl and less exact the he in it. More precisely
+    the number of hyperedges contained are checked and for each hyperedge
+    it is checked, if the corresponding node_id is correct, the label is
+    one of a few possible labels given by he_labels and if the number of
+    vertices the hyperedge is connected to is one possible number given
+    by the set num_connected_vertices.
+
+    Parameters
+    ----------
+    node_id: str
+        The node_id identifiying the HyperedgeColl to check
+    he_labels: set
+        A set of possible lables the he can have
+    num_hes: int
+        The number of hyperedges which are supposed to be in the
+        HyperedgeColl
+    num_connected_vertices: set of int
+        The possibe number of vertices the hyperedges can be connected to
+
+    Returns
+    -------
+    None
+
+    """
+    he_coll = state_diagram.hyperedge_colls[node_id]
+    assert len(he_coll.contained_hyperedges) == num_hes
+    for he in he_coll.contained_hyperedges:
+        assert he.corr_node_id ==  node_id
+        assert he.label in he_labels
+        assert (len(he.vertices) in num_connected_vertices)
+
+def check_vertex_coll(state_diagram, corr_edge, num_vertices, num_connected_hes):
+    """
+    Checks a VertexColl and less exact the vertices in it. More precisely
+    the number of vertices contained are checked and for each vertex
+    it is checked, if the number of hyperedges the vertex is connected to
+    is one possible number given by the set num_connected_hes.
+
+    Parameters
+    ----------
+    corr_edge: tuple of str
+        The edge identifiying the VertexColl to check
+    num_vertices: int
+        The number of vertices which are supposed to be in the
+        VertexColl
+    num_connected_hes: set of int
+        The possibe number of hyperedges the vertices can be connected to
+
+    Returns
+    -------
+    None
+
+    """
+    vertex_coll = state_diagram.vertex_colls[corr_edge]
+    assert len(vertex_coll.contained_vertices) == num_vertices
+    for vertex in vertex_coll.contained_vertices:
+        assert len(vertex.hyperedges) in num_connected_hes
+
 class TestStateDiagram(unittest.TestCase):
 
     def setUp(self):
@@ -739,6 +799,95 @@ class TestFromHamiltonian(unittest.TestCase):
             self.check_vertex_coll(sd, edge,
                                    num_vertices[edge],
                                    potential_num_connected_he[edge])
+
+class TestFromHamiltonianAsymmetric(unittest.TestCase):
+
+    def setUp(self):
+        self.ref_tree = ptn.TreeTensorNetwork()
+
+        node1 = ptn.TensorNode(ptn.crandn((2,2,2)), identifier="site1")
+        node2 = ptn.TensorNode(ptn.crandn((2,2,2,2)), identifier="site2")
+        node5 = ptn.TensorNode(ptn.crandn((2,2,2,2)), identifier="site5")
+        node3 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site3")
+        node4 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site4")
+        node6 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site6")
+        node7 = ptn.TensorNode(ptn.crandn((2,2,2)), identifier="site7")
+        node8 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site8")
+
+        self.ref_tree.add_root(node1)
+        self.ref_tree.add_child_to_parent(node2, 0, "site1", 0)
+        self.ref_tree.add_child_to_parent(node5, 0, "site1", 1)
+        self.ref_tree.add_child_to_parent(node3, 0, "site2", 1)
+        self.ref_tree.add_child_to_parent(node4, 0, "site2", 2)
+        self.ref_tree.add_child_to_parent(node6, 0, "site5", 1)
+        self.ref_tree.add_child_to_parent(node7, 0, "site5", 2)
+        self.ref_tree.add_child_to_parent(node8, 0, "site7", 1)
+
+    def test_four_sites(self):
+
+        terms = [{'site3': 'I', 'site6': 'Y', 'site1': 'I', 'site2': 'I', 'site4': 'I', 'site5': 'I', 'site7': 'I', 'site8': 'I'},
+                {'site4': 'I', 'site5': 'Z', 'site3': 'Z', 'site6': 'Z', 'site8': 'Z', 'site7': 'X', 'site1': 'I', 'site2': 'X'},
+                {'site6': 'I', 'site4': 'I', 'site2': 'Z', 'site8': 'Z', 'site7': 'Y', 'site1': 'Y', 'site5': 'Y', 'site3': 'I'},
+                {'site1': 'I', 'site2': 'I', 'site3': 'I', 'site4': 'I', 'site5': 'I', 'site6': 'I', 'site7': 'I', 'site8': 'I'}]
+
+        hamiltonian = ptn.Hamiltonian(terms=terms)
+
+        sd = ptn.StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
+
+        potential_num_vertices_dict = {"site1": {2},
+                                       "site2": {3},
+                                       "site3": {1},
+                                       "site4": {1},
+                                       "site5": {3},
+                                       "site6": {1},
+                                       "site7": {2},
+                                       "site8": {1}}
+        potential_labels_dict = {"site1": {"I", "Y"},
+                                 "site2": {"I", "X", "Z"},
+                                 "site3": {"I", "Z"},
+                                 "site4": {"I"},
+                                 "site5": {"I", "Z", "Y"},
+                                 "site6": {"I", "Y", "Z"},
+                                 "site7": {"I", "X", "Y"},
+                                 "site8": {"I", "Z"}}
+
+        num_he_dict = {"site1": 3,
+                       "site2": 3,
+                       "site3": 2,
+                       "site4": 1,
+                       "site5": 4,
+                       "site6": 3,
+                       "site7": 3,
+                       "site8": 2}
+
+        for node_id in sd.hyperedge_colls:
+            check_hyperedge_coll(sd, node_id,
+                                      potential_labels_dict[node_id],
+                                      num_he_dict[node_id],
+                                      potential_num_vertices_dict[node_id])
+
+        potential_num_connected_he = {('site1', 'site2'): {2},
+                                      ('site1', 'site5'): {2, 3},
+                                      ('site2', 'site3'): {2, 3},
+                                      ('site2', 'site4'): {4},
+                                      ('site5', 'site6'): {2,3},
+                                      ('site5', 'site7'): {2,3},
+                                      ('site7', 'site8'): {2,3}}
+
+        num_vertices = {('site1', 'site2'): 3,
+                        ('site1', 'site5'): 3,
+                        ('site2', 'site3'): 2,
+                        ('site2', 'site4'): 1,
+                        ('site5', 'site6'): 3,
+                        ('site5', 'site7'): 3,
+                        ('site7', 'site8'): 2}
+
+        for edge in sd.vertex_colls:
+            check_vertex_coll(sd, edge,
+                                   num_vertices[edge],
+                                   potential_num_connected_he[edge])
+
+
 
 if __name__ == "__main__":
     unittest.main()

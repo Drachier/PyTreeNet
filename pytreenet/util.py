@@ -26,9 +26,9 @@ def pauli_matrices(asarray=True):
     Z = [[1,0],
          [0,-1]]
     if asarray:
-        X = np.asarray(X)
-        Y = np.asarray(Y)
-        Z = np.asarray(Z)
+        X = np.asarray(X, dtype="complex")
+        Y = np.asarray(Y, dtype="complex")
+        Z = np.asarray(Z, dtype="complex")
 
     return X, Y, Z
 

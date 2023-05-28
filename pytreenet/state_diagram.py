@@ -1,10 +1,12 @@
 from copy import copy
+import uuid
 
 class HyperEdge():
     def __init__(self, corr_node_id, label, vertices):
         self.corr_node_id = corr_node_id
         self.label = label
         self.vertices = vertices
+        self.identifier = str(uuid.uuid1())
 
     def __repr__(self):
         string = "label = " + self.label + "; "
@@ -113,12 +115,14 @@ class Vertex():
     def __init__(self, corr_edge, hyperedges):
         self.corr_edge = corr_edge
         self.hyperedges = hyperedges
+        self.identifier = str(uuid.uuid1())
 
         self.contained = False
         self.new = False
 
         # Needed to obtain an MPO (leg_index, index_value)
         self.index = None
+
 
     def __repr__(self):
         string = "corr_edge = " + str(self.corr_edge) + "; "
@@ -222,6 +226,23 @@ class VertexColl():
         """
         self.corr_edge = corr_edge
         self.contained_vertices = contained_vertices
+
+    def contains_contained(self):
+        """
+        Returns, if one of the vertices in this collection are marked as
+        contained.
+
+        Returns
+        -------
+        result: bool
+
+        """
+        all_marked_vertices = [vertex for vertex in self.contained_vertices
+                               if vertex.contained]
+        if len(all_marked_vertices) == 0:
+            return False
+        else:
+            return True
 
 class StateDiagram():
 
@@ -420,6 +441,10 @@ class StateDiagram():
                 return
 
             if not parent_vertex.check_hyperedge_uniqueness(active_path.current_node_id):
+                # We would add an additional path
+                return
+            elif self.get_vertex_coll_two_ids(parent_id, active_path.current_node_id).contains_contained():
+                # This vertex collection already has a contained vertex
                 return
 
             parent_vertex.contained = True
@@ -443,6 +468,10 @@ class StateDiagram():
                     # There should only be a single unmarked child_index
                     assert count == 0
                     count += 1
+
+                    if self.get_vertex_coll_two_ids(child_id, active_path.current_node_id).contains_contained():
+                        # This vertex collection already has a contained vertex
+                        return
 
                     unmarked_child_vertex = child_vertex
                     child_vertex.contained = True
@@ -494,10 +523,7 @@ class StateDiagram():
         potential_new_he = [hyperedge for hyperedge in potential_new_he
                             if hyperedge == single_term_sd.hyperedge_colls[node_id].contained_hyperedges[0]]
         # All checks done
-
-        assert len(potential_new_he) <= 1
-
-        if len(potential_new_he) == 1:
+        if len(potential_new_he) > 1: # The > will still make it work, but the result might not be the best
             new_he = potential_new_he[0]
             return new_he
 
@@ -518,6 +544,7 @@ class StateDiagram():
         neighbour_ids = node.neighbouring_nodes(with_legs=False)
 
         potential_label = temp_state_diagram.hyperedge_colls[node_id].contained_hyperedges[0].label
+        hyperedge_labels = [he.label for he in hyperedge]
 
         if len(hyperedge) == 0:
             vertices_to_connect_to_new_he = []
@@ -544,16 +571,13 @@ class StateDiagram():
             for vertex in vertices_to_connect_to_new_he:
                 vertex.hyperedges.append(new_hyperedge)
 
-        elif len(hyperedge) == 1 and (hyperedge[0].label != potential_label):
+        elif len(hyperedge) >= 1 and not (potential_label in hyperedge_labels):
             vertices_to_connect_to_new_he = copy(hyperedge[0].vertices)
             new_hyperedge = HyperEdge(node_id, potential_label, vertices_to_connect_to_new_he)
             self.add_hyperedge(new_hyperedge)
 
             for vertex in vertices_to_connect_to_new_he:
                 vertex.hyperedges.append(new_hyperedge)
-
-        elif len(hyperedge) > 1:
-            assert False, "Something went terribly wrong!"
 
         children_ids = node.get_children_ids()
 
