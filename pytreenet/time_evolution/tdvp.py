@@ -34,7 +34,7 @@ class TDVP(object):
         
 
 class TDVPAlgorithm(TimeEvolutionAlgorithm):
-    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None) -> None:
+    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None, save_every=1) -> None:
         """
         Parameters
         ----------
@@ -60,7 +60,7 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
 
         self.print_debugging_warnings = False
 
-        super().__init__(state, operators, time_step_size, final_time)
+        super().__init__(state, operators, time_step_size, final_time, save_every)
 
         #     LEG ORDER: PARENT CHILDREN PHYSICAL
 
@@ -361,8 +361,8 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
 
 
 class FirstOrderOneSiteTDVP(TDVPAlgorithm):
-    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None) -> None:
-        super().__init__(state, hamiltonian, time_step_size, final_time, operators)
+    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None, save_every=1) -> None:
+        super().__init__(state, hamiltonian, time_step_size, final_time, operators, save_every)
 
     def __repr__(self):
         return self.__str__()
@@ -398,8 +398,8 @@ class FirstOrderOneSiteTDVP(TDVPAlgorithm):
 
 
 class SecondOrderOneSiteTDVP(TDVPAlgorithm):
-    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None) -> None:
-        super().__init__(state, hamiltonian, time_step_size, final_time, operators)
+    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None, save_every=1) -> None:
+        super().__init__(state, hamiltonian, time_step_size, final_time, operators, save_every)
 
     def __repr__(self):
         return self.__str__()
@@ -447,8 +447,8 @@ class SecondOrderOneSiteTDVP(TDVPAlgorithm):
 
 
 class FirstOrderTwoSiteTDVP(TDVPAlgorithm):
-    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None) -> None:
-        super().__init__(state, hamiltonian, time_step_size, final_time, operators)
+    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None, save_every=1) -> None:
+        super().__init__(state, hamiltonian, time_step_size, final_time, operators, save_every)
     
     def __repr__(self):
         return self.__str__()
@@ -458,8 +458,8 @@ class FirstOrderTwoSiteTDVP(TDVPAlgorithm):
 
 
 class SecondOrderTwoSiteTDVP(TDVPAlgorithm):
-    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None) -> None:
-        super().__init__(state, hamiltonian, time_step_size, final_time, operators)
+    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None, save_every=1) -> None:
+        super().__init__(state, hamiltonian, time_step_size, final_time, operators, save_every)
     
     def __repr__(self):
         return self.__str__()
