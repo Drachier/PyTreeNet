@@ -42,7 +42,7 @@ class TimeEvolutionAlgorithm:
         # contains the time_steps
         if operators != None:
             self._results = np.zeros((len(self.operators) + 1,
-                                     self.num_time_steps + 1), dtype=complex)
+                                     self.num_time_steps//self.save_every + 1), dtype=complex)
         else:
             self._results = np.asarray([], dtype=complex)
     
@@ -176,9 +176,9 @@ class TimeEvolutionAlgorithm:
             if len(self.results) > 0 and i % self.save_every == 0:
                 current_results = self.evaluate_operators()
     
-                self.results[0:-1,i] = current_results
+                self.results[0:-1,i//self.save_every] = current_results
                 # Save current time
-                self.results[-1,i] = i*self.time_step_size
+                self.results[-1,i//self.save_every] = i*self.time_step_size
                 
         if filepath != None:
             self.save_results(filepath)
