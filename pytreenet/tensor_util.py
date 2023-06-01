@@ -289,3 +289,37 @@ def compute_transfer_tensor(tensor, open_indices):
     transfer_tensor = np.tensordot(tensor, conj_tensor, 
                                    axes=(open_indices, open_indices))
     return transfer_tensor
+
+def tensor_multidot(tensor, other_tensors, main_legs, other_legs):
+    """
+    For a given tensor, perform multiple tensor contractions at once.
+    
+    Parameters
+    ----------
+    tensor : ndarray
+
+    other_tensors : list (of ndarray)
+        The tensors that should be contracted with tensor.
+
+    main_legs : list (of int)
+        The legs of tensor which are connected to the tensors in other_tensors.
+
+    other_legs : list (of int)
+        The legs of the tensors in other_tensors which are connected to tensor.
+    
+    Returns
+    -------
+    tensor: ndarray
+
+    """
+    idx = np.argsort(main_legs)
+
+    main_legs = [main_legs[i] for i in idx]
+    other_tensors = [other_tensors[i] for i in idx]
+    other_legs = [other_legs[i] for i in idx]
+
+    connected_legs = 0
+    for i, t in enumerate(other_tensors):
+        tensor = np.tensordot(tensor, t, axes=(main_legs[i]-connected_legs, other_legs[i]))
+        connected_legs += 1
+    return tensor
