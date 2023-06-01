@@ -102,8 +102,7 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
 
         ordered_legs = []
         for leg_num in range(num_cached_tensor_legs):
-            for j in [0,1,2]:
-                ordered_legs.append(leg_num + j*num_cached_tensor_legs)
+            ordered_legs += [leg_num + j*num_cached_tensor_legs for j in [0, 1, 2]]
         
         brahamket_tensor = brahamket_tensor.transpose(ordered_legs)
 
@@ -287,8 +286,7 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
         return tensor_matricization(tensor, bra_legs, ket_legs, correctly_ordered=False)
     
     def _get_effective_link_hamiltonian(self, node_id, next_node_id):
-        if tensor is None:
-            tensor = self._contract_all_except_node(node_id)
+        tensor = self._contract_all_except_node(node_id)
         
         """
         leg order is:
