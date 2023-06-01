@@ -5,7 +5,7 @@ import numpy as np
 from pytreenet.ttn import TreeTensorNetwork
 
 from .time_evolution import TimeEvolutionAlgorithm, time_evolve
-from ..tensor_util import (tensor_qr_decomposition, tensor_matricization)
+from ..tensor_util import (tensor_qr_decomposition, tensor_matricization, tensor_multidot)
 from ..ttn import TreeTensorNetwork
 from ..canonical_form import _correct_ordering_of_q_legs
 
@@ -19,8 +19,22 @@ Reference:
 """
 
 
-class TDVP(TimeEvolutionAlgorithm):
-    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None, mode="1site") -> None:
+class TDVP(object):
+    def __new__(cls, tdvp_type, *args, **kwargs) -> TimeEvolutionAlgorithm:
+        if tdvp_type == "FirstOrder,OneSite":
+            return FirstOrderOneSiteTDVP(*args, **kwargs)
+        elif tdvp_type == "SecondOrder,OneSite":
+            return SecondOrderOneSiteTDVP(*args, **kwargs)
+        elif tdvp_type == "FirstOrder,TwoSite":
+            raise NotImplementedError  # return FirstOrderTwoSiteTDVP(*args, **kwargs)
+        elif tdvp_type == "SecondOrder,Twosite":
+            raise NotImplementedError  # return SecondOrderTwoSiteTDVP(*args, **kwargs)
+        else:
+            raise ValueError
+        
+
+class TDVPAlgorithm(TimeEvolutionAlgorithm):
+    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None) -> None:
         """
         Parameters
         ----------
@@ -44,7 +58,6 @@ class TDVP(TimeEvolutionAlgorithm):
         assert len(state.nodes) == len(hamiltonian.nodes)
         self.hamiltonian = hamiltonian
 
-        self.mode = mode
         self.print_debugging_warnings = False
 
         super().__init__(state, operators, time_step_size, final_time)
@@ -52,7 +65,9 @@ class TDVP(TimeEvolutionAlgorithm):
         #     LEG ORDER: PARENT CHILDREN PHYSICAL
 
         self.update_path = self._find_tdvp_update_path()
-        self._find_tdvp_orthogonalization_path()
+        self.orthogonalization_path = self._find_tdvp_orthogonalization_path(self.update_path)
+
+        # Caching for speed up
 
         self.site_cache = dict()
         self.partial_tree_caching = True
@@ -61,7 +76,6 @@ class TDVP(TimeEvolutionAlgorithm):
 
         self._init_site_cache()
 
-        # Caching for speed up
         self.neighbouring_nodes = dict()
         for node_id in self.state.nodes.keys():
             self.neighbouring_nodes[node_id] = deepcopy(self.state[node_id].neighbouring_nodes())
@@ -95,7 +109,7 @@ class TDVP(TimeEvolutionAlgorithm):
 
         shape = []
         for leg_num in range(num_cached_tensor_legs):
-            shape.append(np.prod([brahamket_tensor.shape[leg_num + j] for j in [0,1,2]]))
+            shape.append(np.prod([brahamket_tensor.shape[3 * leg_num + j] for j in [0,1,2]]))
         tensor = brahamket_tensor.reshape(shape)
 
         if self.print_debugging_warnings == True and node_id in self.site_cache.keys() and np.allclose(self.site_cache[node_id], tensor):
@@ -139,7 +153,9 @@ class TDVP(TimeEvolutionAlgorithm):
 
             sub_paths = []
             for branch_root in branch_roots:
-                sub_paths.append(self._find_tdvp_path_from_leaves_to_root(branch_root).reverse())
+                sp = self._find_tdvp_path_from_leaves_to_root(branch_root)
+                sp.reverse()
+                sub_paths.append(sp)
             
             sub_paths.sort(key=lambda x: -len(x))
             for sub_path in sub_paths:
@@ -162,11 +178,12 @@ class TDVP(TimeEvolutionAlgorithm):
         path.append(node)
         return path
 
-    def _find_tdvp_orthogonalization_path(self):
-        self.orthogonalization_path = []
-        for i in range(len(self.update_path)-1):
-            sub_path = self.state.path_from_to(self.update_path[i], self.update_path[i+1])
-            self.orthogonalization_path.append(sub_path[1::])
+    def _find_tdvp_orthogonalization_path(self, update_path):
+        orthogonalization_path = []
+        for i in range(len(update_path)-1):
+            sub_path = self.state.path_from_to(update_path[i], update_path[i+1])
+            orthogonalization_path.append(sub_path[1::])
+        return orthogonalization_path
     
     def _orthogonalize_init(self, force_new=False):
         if self.state.orthogonality_center_id is None or force_new:
@@ -174,29 +191,29 @@ class TDVP(TimeEvolutionAlgorithm):
         else:
             path = self.state.path_from_to(self.state.orthogonality_center_id, self.update_path[0])
             self.state.orthogonalize_sequence(path)
-
-    def _contract_partial_tree(self, start=None, end=None, tensor_parent=None, leg_parent=None, connecting_from_root=False):
-        if start is None or start == self.state.root_id:
-            connecting_from_root = True
+    
+    def _contract_partial_tree(self, start=None, end=None):
+        if start is None:
             start = self.state.root_id
-
-        if self.partial_tree_caching == True and str(start)+str(end) in self.partial_tree_cache.keys():
+        
+        if self.partial_tree_caching == True and str(start)+"._."+str(end) in self.partial_tree_cache.keys():
             return self.partial_tree_cache[str(start)+"._."+str(end)]
         
-        if tensor_parent is None:
-            tensor = self.site_cache[start]
-        else:
-            leg_child = self.state[start].parent_leg[1]
-            tensor = np.tensordot(tensor_parent, self.site_cache[start], axes=(leg_parent, leg_child))
-
-        for child_id in self.state[start].children_legs.keys():
+        tensor = self.site_cache[start]
+        children_tensors = []
+        for child_id in self.state[start].children_legs:
             if child_id != end:
-                leg = self.state[start].children_legs[child_id] - connecting_from_root
-                tensor = self._contract_partial_tree(child_id, end, tensor, leg, connecting_from_root)
+                child_tensor = self._contract_partial_tree(child_id, end)
+                children_tensors.append((self.state[start].children_legs[child_id], child_tensor, self.state[child_id].parent_leg[1]))
+        
+        if children_tensors != []:
+            tensor = tensor_multidot(tensor, [children_tensors[i][1] for i in range(len(children_tensors))], 
+                                     [children_tensors[i][0] for i in range(len(children_tensors))], 
+                                     [children_tensors[i][2] for i in range(len(children_tensors))])
 
         if self.partial_tree_caching == True:
             self.partial_tree_cache[str(start)+"._."+str(end)] = tensor
-        return tensor
+        return tensor        
     
     def _contract_all_except_node(self, target_node_id):
         # Contract bra-ham-ket for each site and then contract TTN:
@@ -212,15 +229,15 @@ class TDVP(TimeEvolutionAlgorithm):
         target_node = self.state[target_node_id]
         target_hamiltonian = self.hamiltonian[target_node_id]
         tensor = target_hamiltonian.tensor * 1
-        tensor_added_legs = 0
 
+        parent_part_added = False
         # Step 1: Check if node has parents and if yes build parent tree
         if target_node_id != self.state.root_id:
             parent_part = self._contract_partial_tree(start=self.state.root_id, end=target_node_id)
             parent_part = parent_part.reshape([target_node.shape()[target_node.parent_leg[1]], target_hamiltonian.shape()[target_hamiltonian.parent_leg[1]], target_node.shape()[target_node.parent_leg[1]]])
 
             tensor = np.tensordot(parent_part, tensor, axes=(1, target_hamiltonian.parent_leg[1]))
-            tensor_added_legs += 1
+            parent_part_added = True
 
         """
         leg order is:
@@ -232,11 +249,13 @@ class TDVP(TimeEvolutionAlgorithm):
         for child_id in self.state[target_node_id].children_legs.keys():
             child_part = self._contract_partial_tree(start=child_id, end=None)
             child_part = child_part.reshape([target_node.shape()[target_node.children_legs[child_id]], target_hamiltonian.shape()[target_hamiltonian.children_legs[child_id]], target_node.shape()[target_node.children_legs[child_id]]])
-            children_trees.append(child_part)
+            children_trees.append((target_hamiltonian.children_legs[child_id] + parent_part_added, child_part, 1))
 
-            tensor = np.tensordot(tensor, child_part, axes=(target_hamiltonian.children_legs[child_id]+tensor_added_legs, 1))
-            tensor_added_legs += 1
-        
+        if children_trees != []:
+            tensor = tensor_multidot(tensor, [children_trees[i][1] for i in range(len(children_trees))], 
+                                     [children_trees[i][0] for i in range(len(children_trees))], 
+                                     [children_trees[i][2] for i in range(len(children_trees))])
+            
         """
         leg order is:
             parent_part: bra, ket,  hamiltonian: bra, ket, child1: bra, ket, child2: ...
@@ -260,6 +279,7 @@ class TDVP(TimeEvolutionAlgorithm):
 
     def _get_effective_site_hamiltonian(self, node_id):
         tensor = self._contract_all_except_node(node_id)
+
         
         bra_legs = [2*i for i in range(tensor.ndim//2)] 
         ket_legs = [2*i+1 for i in range(tensor.ndim//2)]
@@ -267,7 +287,8 @@ class TDVP(TimeEvolutionAlgorithm):
         return tensor_matricization(tensor, bra_legs, ket_legs, correctly_ordered=False)
     
     def _get_effective_link_hamiltonian(self, node_id, next_node_id):
-        tensor = self._contract_all_except_node(node_id)
+        if tensor is None:
+            tensor = self._contract_all_except_node(node_id)
         
         """
         leg order is:
@@ -339,7 +360,18 @@ class TDVP(TimeEvolutionAlgorithm):
             link_tensor = time_evolve(link_tensor, hamiltonian_eff_link, self.time_step_size, forward=False)
         self.state[next_node_id].absorb_tensor(link_tensor, 1, self.neighbouring_nodes[next_node_id][node_id])
         self._update_site_cache(next_node_id)
+
+
+class FirstOrderOneSiteTDVP(TDVPAlgorithm):
+    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None) -> None:
+        super().__init__(state, hamiltonian, time_step_size, final_time, operators)
+
+    def __repr__(self):
+        return self.__str__()
     
+    def __str__(self):
+        return "pytreenet.time_evolution.tdvp.FirstOrderOneSiteTDVP(TDVPAlgorithm): One-site TDVP algorithm (first order)"
+
     def _update(self, node_id, next_node_id):
         assert self.state.orthogonality_center_id == node_id
         self._update_site(node_id)
@@ -357,8 +389,9 @@ class TDVP(TimeEvolutionAlgorithm):
                 self.state.orthogonalize_sequence(self.orthogonalization_path[i-1], node_change_callback=self._update_site_cache)
 
             # Select Next Node
+            # This is wrong. SHould be parent except if node is root/past root. Maybe whatever is next in ortho path??
             if i+1 < len(self.update_path):
-                next_node_id = self.update_path[i+1]
+                next_node_id = self.orthogonalization_path[i][0]
             else:
                 next_node_id = None
 
@@ -366,14 +399,15 @@ class TDVP(TimeEvolutionAlgorithm):
             self._update(node_id, next_node_id)
 
 
-class FirstOrderTDVP(TDVP):
-    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None, mode="1site") -> None:
-        super().__init__(state, hamiltonian, time_step_size, final_time, operators, mode)
+class SecondOrderOneSiteTDVP(TDVPAlgorithm):
+    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None) -> None:
+        super().__init__(state, hamiltonian, time_step_size, final_time, operators)
 
-
-class SecondOrderTDVP(TDVP):
-    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None, mode="1site") -> None:
-        super().__init__(state, hamiltonian, time_step_size, final_time, operators, mode)
+    def __repr__(self):
+        return self.__str__()
+    
+    def __str__(self):
+        return "pytreenet.time_evolution.tdvp.SecondOrderOneSiteTDVP(TDVPAlgorithm): One-site TDVP algorithm (second order)"
 
     def _forward_update(self, node_id, next_node_id):
         assert self.state.orthogonality_center_id == node_id
@@ -394,7 +428,7 @@ class SecondOrderTDVP(TDVP):
         self._init_site_cache()
 
         second_order_update_path = self.update_path + list(reversed(self.update_path))
-        second_order_orthogonalization_path = self.orthogonalization_path + list(reversed(self.orthogonalization_path)) + [self.update_path[0]]
+        second_order_orthogonalization_path = self.orthogonalization_path + [[self.update_path[-1]]] + self._find_tdvp_orthogonalization_path(list(reversed(self.update_path))) + [[self.update_path[0]]]
 
         for i, node_id in enumerate(second_order_update_path):
             # Orthogonalize
@@ -403,7 +437,7 @@ class SecondOrderTDVP(TDVP):
 
             # Select Next Node
             if i+1 < len(second_order_update_path):
-                next_node_id = second_order_update_path[i+1]
+                next_node_id = second_order_orthogonalization_path[i][0]
             else:
                 next_node_id = None
 
@@ -413,3 +447,24 @@ class SecondOrderTDVP(TDVP):
             elif next_node_id is not None:
                 self._backward_update(node_id, next_node_id)
 
+
+class FirstOrderTwoSiteTDVP(TDVPAlgorithm):
+    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None) -> None:
+        super().__init__(state, hamiltonian, time_step_size, final_time, operators)
+    
+    def __repr__(self):
+        return self.__str__()
+    
+    def __str__(self):
+        return "pytreenet.time_evolution.tdvp.FirstOrderTwoSiteTDVP(TDVPAlgorithm): Two-site TDVP algorithm (first order)"
+
+
+class SecondOrderTwoSiteTDVP(TDVPAlgorithm):
+    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None) -> None:
+        super().__init__(state, hamiltonian, time_step_size, final_time, operators)
+    
+    def __repr__(self):
+        return self.__str__()
+    
+    def __str__(self):
+        return "pytreenet.time_evolution.tdvp.SecondOrderTwoSiteTDVP(TDVPAlgorithm): Two-site TDVP algorithm (second order)"
