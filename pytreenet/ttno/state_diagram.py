@@ -179,7 +179,7 @@ class StateDiagram():
 
         self._mark_contained_vertices(single_term_diagram)
         self._add_hyperedges(single_term_diagram)
-        self.reset_markers()
+        # At this point all vertices have their marking reset already.
 
     def _mark_contained_vertices(self, single_term_diagram):
         leaves = self.reference_tree.get_leaves()
@@ -252,13 +252,18 @@ class StateDiagram():
 
         elif len(hyperedges) >= 1:
             for hyperedge in hyperedges:
+                vertices_to_connect_to_new_he = copy(hyperedge.vertices)
                 if hyperedge.label == desired_label:
                     new_hyperedge = None
                     break
                 else:
-                    vertices_to_connect_to_new_he = copy(hyperedge.vertices)
                     new_hyperedge = HyperEdge(
                         node_id, desired_label, vertices_to_connect_to_new_he)
+
+        # Allows for reset directly instead of after the fact
+        # Thus we don't have to run through all vertices of the entire diagram.
+        for vertex in vertices_to_connect_to_new_he:
+            vertex.runtime_reset()
 
         if not new_hyperedge is None:
             self.add_hyperedge(new_hyperedge)
@@ -273,7 +278,6 @@ class StateDiagram():
         for neighbour_id in neighbour_ids:
             vertex_coll = self.get_vertex_coll_two_ids(node_id, neighbour_id)
             vertex_to_connect = vertex_coll.get_all_marked_vertices()
-            # TODO: Vertices are checked a maximum of two times, so the markers could be reset after doing this twice
             if len(vertex_to_connect) == 0:
                 vertex_to_connect = Vertex((node_id, neighbour_id), [])
                 vertex_to_connect.new = True

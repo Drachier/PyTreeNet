@@ -97,16 +97,6 @@ class TestonSingleStateDiagram(unittest.TestCase):
                 self.assertTrue(not vertex.contained)
                 self.assertTrue(not vertex.new)
 
-    def test_reset_markers(self):
-        for vertex_coll in self.sd.vertex_colls.values():
-            for vertex in vertex_coll.contained_vertices:
-                vertex.contained = True
-                vertex.new = True
-
-        self.sd.reset_markers()
-
-        self.reset_check()
-
     def test_add_single_term_all_different(self):
         # Building intial sd
         term2 = {"site1": "12", "site2": "22", "site3": "32",
@@ -790,6 +780,10 @@ class TestFromHamiltonianAsymmetric(unittest.TestCase):
         self.ref_tree.add_child_to_parent(node8, 0, "site7", 1)
 
     def test_four_sites(self):
+        """
+        In this case it can happen, that two vertices at ("site5","site6") are marked as
+        contained, which leads to wrong results.
+        """
 
         terms = [{'site3': 'I', 'site6': 'Y', 'site1': 'I', 'site2': 'I',
                   'site4': 'I', 'site5': 'I', 'site7': 'I', 'site8': 'I'},

@@ -10,6 +10,9 @@ class Vertex():
         self.contained = False
         self.new = False
 
+        # Needed for runtime-reset
+        self._already_checked = False
+
         # Needed to obtain an MPO (leg_index, index_value)
         self.index = None
 
@@ -111,3 +114,16 @@ class Vertex():
         self.check_validity_of_node(node_id)
         return [other_node_id for other_node_id in self.corr_edge
                 if other_node_id != node_id][0]
+
+    def runtime_reset(self):
+        """
+        Allows for reset immediately during running while building state diagramms.
+
+        This works, since we check every marked vertex exactly twice.
+        """
+        if self._already_checked:
+            self._already_checked = False
+            self.contained = False
+            self.new = False
+        else:
+            self._already_checked = True
