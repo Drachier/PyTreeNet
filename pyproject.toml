@@ -2,6 +2,9 @@
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+packages = ["pytreenet"]
+
 [project]
 name = "pytreenet"
 version = "1.0.0"

@@ -2,6 +2,7 @@ import unittest
 
 import pytreenet as ptn
 
+
 def check_hyperedge_coll(state_diagram, node_id, he_labels, num_hes, num_connected_vertices):
     """
     Checks a HyperedgeColl and less exact the he in it. More precisely
@@ -14,7 +15,8 @@ def check_hyperedge_coll(state_diagram, node_id, he_labels, num_hes, num_connect
     Parameters
     ----------
     node_id: str
-        The node_id identifiying the HyperedgeColl to check
+        The node_id identifiying the Hyp9
+        eredgeColl to check
     he_labels: set
         A set of possible lables the he can have
     num_hes: int
@@ -31,9 +33,10 @@ def check_hyperedge_coll(state_diagram, node_id, he_labels, num_hes, num_connect
     he_coll = state_diagram.hyperedge_colls[node_id]
     assert len(he_coll.contained_hyperedges) == num_hes
     for he in he_coll.contained_hyperedges:
-        assert he.corr_node_id ==  node_id
+        assert he.corr_node_id == node_id
         assert he.label in he_labels
-        assert (len(he.vertices) in num_connected_vertices)
+        assert len(he.vertices) in num_connected_vertices
+
 
 def check_vertex_coll(state_diagram, corr_edge, num_vertices, num_connected_hes):
     """
@@ -62,51 +65,18 @@ def check_vertex_coll(state_diagram, corr_edge, num_vertices, num_connected_hes)
     for vertex in vertex_coll.contained_vertices:
         assert len(vertex.hyperedges) in num_connected_hes
 
-class TestStateDiagram(unittest.TestCase):
-
-    def setUp(self):
-        self.ref_tree = ptn.TreeTensorNetwork()
-
-        node1 = ptn.TensorNode(ptn.crandn((2,2,2)), identifier="site1")
-        node2 = ptn.TensorNode(ptn.crandn((2,2,2,2)), identifier="site2")
-        node5 = ptn.TensorNode(ptn.crandn((2,2,2,2)), identifier="site5")
-        node3 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site3")
-        node4 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site4")
-        node6 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site6")
-        node7 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site7")
-
-        self.ref_tree.add_root(node1)
-        self.ref_tree.add_child_to_parent(node2, 0, "site1", 0)
-        self.ref_tree.add_child_to_parent(node5, 0, "site1", 1)
-        self.ref_tree.add_child_to_parent(node3, 0, "site2", 1)
-        self.ref_tree.add_child_to_parent(node4, 0, "site2", 2)
-        self.ref_tree.add_child_to_parent(node6, 0, "site5", 1)
-        self.ref_tree.add_child_to_parent(node7, 0, "site5", 2)
-
-    def test_from_single_term(self):
-        term = {"site1": "1", "site2": "2", "site3": "3", "site4": "4", "site5": "5", "site6": "6", "site7": "7"}
-
-        sd = ptn.StateDiagram.from_single_term(term, self.ref_tree)
-
-        self.assertEqual(6, len(sd.vertex_colls))
-        self.assertEqual(7, len(sd.hyperedge_colls))
-
-        for site in sd.vertex_colls:
-            self.assertEqual(1, len(sd.vertex_colls[site].contained_vertices))
-        for site in sd.hyperedge_colls:
-            self.assertEqual(1, len(sd.hyperedge_colls[site].contained_hyperedges))
 
 class TestonSingleStateDiagram(unittest.TestCase):
     def setUp(self):
         self.ref_tree = ptn.TreeTensorNetwork()
 
-        node1 = ptn.TensorNode(ptn.crandn((2,2,2)), identifier="site1")
-        node2 = ptn.TensorNode(ptn.crandn((2,2,2,2)), identifier="site2")
-        node5 = ptn.TensorNode(ptn.crandn((2,2,2,2)), identifier="site5")
-        node3 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site3")
-        node4 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site4")
-        node6 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site6")
-        node7 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site7")
+        node1 = ptn.TensorNode(ptn.crandn((2, 2, 2)), identifier="site1")
+        node2 = ptn.TensorNode(ptn.crandn((2, 2, 2, 2)), identifier="site2")
+        node5 = ptn.TensorNode(ptn.crandn((2, 2, 2, 2)), identifier="site5")
+        node3 = ptn.TensorNode(ptn.crandn((2, 2)), identifier="site3")
+        node4 = ptn.TensorNode(ptn.crandn((2, 2)), identifier="site4")
+        node6 = ptn.TensorNode(ptn.crandn((2, 2)), identifier="site6")
+        node7 = ptn.TensorNode(ptn.crandn((2, 2)), identifier="site7")
 
         self.ref_tree.add_root(node1)
         self.ref_tree.add_child_to_parent(node2, 0, "site1", 0)
@@ -116,21 +86,20 @@ class TestonSingleStateDiagram(unittest.TestCase):
         self.ref_tree.add_child_to_parent(node6, 0, "site5", 1)
         self.ref_tree.add_child_to_parent(node7, 0, "site5", 2)
 
-        self.term = {"site1": "1", "site2": "2", "site3": "3", "site4": "4", "site5": "5", "site6": "6", "site7": "7"}
+        self.term = {"site1": "1", "site2": "2", "site3": "3",
+                     "site4": "4", "site5": "5", "site6": "6", "site7": "7"}
         self.sd = ptn.StateDiagram.from_single_term(self.term, self.ref_tree)
 
     def reset_check(self):
         # Checking the markers are reset correctly
-        for vertex_coll_id in self.sd.vertex_colls:
-            vertex_col = self.sd.vertex_colls[vertex_coll_id]
-            for vertex in vertex_col.contained_vertices:
+        for vertex_coll in self.sd.vertex_colls.values():
+            for vertex in vertex_coll.contained_vertices:
                 self.assertTrue(not vertex.contained)
                 self.assertTrue(not vertex.new)
 
     def test_reset_markers(self):
-        for vertex_coll_id in self.sd.vertex_colls:
-            vertex_col = self.sd.vertex_colls[vertex_coll_id]
-            for vertex in vertex_col.contained_vertices:
+        for vertex_coll in self.sd.vertex_colls.values():
+            for vertex in vertex_coll.contained_vertices:
                 vertex.contained = True
                 vertex.new = True
 
@@ -140,7 +109,8 @@ class TestonSingleStateDiagram(unittest.TestCase):
 
     def test_add_single_term_all_different(self):
         # Building intial sd
-        term2 = {"site1": "12", "site2": "22", "site3": "32", "site4": "42", "site5": "52", "site6": "62", "site7": "72"}
+        term2 = {"site1": "12", "site2": "22", "site3": "32",
+                 "site4": "42", "site5": "52", "site6": "62", "site7": "72"}
         self.sd.add_single_term(term2)
 
         self.reset_check()
@@ -150,20 +120,12 @@ class TestonSingleStateDiagram(unittest.TestCase):
         self.assertTrue(len(self.sd.vertex_colls) == 6)
 
         # Every site has two corresponding hyperedges
-        for node_id in self.sd.hyperedge_colls:
-            self.assertTrue(len(self.sd.hyperedge_colls[node_id].contained_hyperedges) == 2)
+        for hyperedge_coll in self.sd.hyperedge_colls.values():
+            self.assertTrue(len(hyperedge_coll.contained_hyperedges) == 2)
 
         # Every edge has two corresponding vertices
-        for edge in self.sd.vertex_colls:
-            self.assertEqual(len(self.sd.vertex_colls[edge].contained_vertices), 2)
-
-    def test_ActivePath(self):
-        test_he = ptn.HyperEdge("site2", "F", [])
-        test_path = ptn.ActivePath(test_he)
-
-        self.assertEqual("site2", test_path.current_node_id)
-        self.assertEqual("up", test_path.direction)
-        self.assertEqual(test_he, test_path.current_he)
+        for vertex_coll in self.sd.vertex_colls.values():
+            self.assertEqual(len(vertex_coll.contained_vertices), 2)
 
     def check_hyperedge_coll(self, node_id, he_labels, num_hes, num_connected_vertices):
         """
@@ -227,19 +189,20 @@ class TestonSingleStateDiagram(unittest.TestCase):
 
     def test_add_single_term_one_leaf_same(self):
         # Building intial sd where the label of site3 is the same as in the original term
-        term2 = {"site1": "12", "site2": "22", "site3": "3", "site4": "42", "site5": "52", "site6": "62", "site7": "72"}
+        term2 = {"site1": "12", "site2": "22", "site3": "3",
+                 "site4": "42", "site5": "52", "site6": "62", "site7": "72"}
         self.sd.add_single_term(term2)
 
         self.reset_check()
 
         # Lables and number of connected vertices hes at each site can have
         potential_labels_dict = {"site1": {"1", "12"},
-                                 "site2": {"2","22"},
+                                 "site2": {"2", "22"},
                                  "site3": {"3"},
-                                 "site4": {"4","42"},
-                                 "site5": {"5","52"},
-                                 "site6": {"6","62"},
-                                 "site7": {"7","72"}}
+                                 "site4": {"4", "42"},
+                                 "site5": {"5", "52"},
+                                 "site6": {"6", "62"},
+                                 "site7": {"7", "72"}}
         potential_num_vertices_dict = {"site1": {2},
                                        "site2": {3},
                                        "site3": {1},
@@ -248,10 +211,9 @@ class TestonSingleStateDiagram(unittest.TestCase):
                                        "site6": {1},
                                        "site7": {1}}
 
-        for node_id in self.sd.hyperedge_colls:
+        for node_id, he_coll in self.sd.hyperedge_colls.items():
 
             if node_id == "site3":
-                he_coll = self.sd.hyperedge_colls[node_id]
                 # Site 3 has only one corresponding hyperedge
                 self.assertTrue(len(he_coll.contained_hyperedges) == 1)
                 for he in he_coll.contained_hyperedges:
@@ -282,16 +244,17 @@ class TestonSingleStateDiagram(unittest.TestCase):
 
         # There should only be one site with two hyperedges, which is the leaf
         # site
-        for s in range(1,8):
+        for s in range(1, 8):
             node_id = "site" + str(s)
             if s == 7:
                 self.check_hyperedge_coll(node_id, {"7", "72"}, 2, {1})
             else:
-                self.check_hyperedge_coll(node_id, {str(s)}, 1, {1,2,3})
+                self.check_hyperedge_coll(node_id, {str(s)}, 1, {1, 2, 3})
 
     def test_add_single_term_only_root_differen(self):
         # Building intial sd where only the root lable is different
-        term2 = {"site1": "12", "site2": "2", "site3": "3", "site4": "4", "site5": "5", "site6": "6", "site7": "7"}
+        term2 = {"site1": "12", "site2": "2", "site3": "3",
+                 "site4": "4", "site5": "5", "site6": "6", "site7": "7"}
         self.sd.add_single_term(term2)
 
         self.reset_check()
@@ -307,7 +270,7 @@ class TestonSingleStateDiagram(unittest.TestCase):
                                        "site5": {3},
                                        "site6": {1},
                                        "site7": {1}}
-        for i in range(1,8):
+        for i in range(1, 8):
             node_id = "site" + str(i)
             if i == 1:
                 self.check_hyperedge_coll(node_id, {"1", "12"}, 2, {2})
@@ -350,7 +313,7 @@ class TestonSingleStateDiagram(unittest.TestCase):
                                  "site6": {"6"},
                                  "site7": {"7"}}
 
-        for i in range(1,8):
+        for i in range(1, 8):
             node_id = "site" + str(i)
             self.check_hyperedge_coll(node_id,
                                       potential_labels_dict[node_id],
@@ -405,7 +368,7 @@ class TestonSingleStateDiagram(unittest.TestCase):
                                  "site6": {"6"},
                                  "site7": {"7"}}
 
-        for i in range(1,8):
+        for i in range(1, 8):
             node_id = "site" + str(i)
             self.check_hyperedge_coll(node_id,
                                       potential_labels_dict[node_id],
@@ -431,17 +394,18 @@ class TestonSingleStateDiagram(unittest.TestCase):
                                    potential_num_vertices[edge],
                                    potential_num_connected_he[edge])
 
+
 class TestFromHamiltonian(unittest.TestCase):
     def setUp(self):
         self.ref_tree = ptn.TreeTensorNetwork()
 
-        node1 = ptn.TensorNode(ptn.crandn((2,2,2)), identifier="site1")
-        node2 = ptn.TensorNode(ptn.crandn((2,2,2,2)), identifier="site2")
-        node5 = ptn.TensorNode(ptn.crandn((2,2,2,2)), identifier="site5")
-        node3 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site3")
-        node4 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site4")
-        node6 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site6")
-        node7 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site7")
+        node1 = ptn.TensorNode(ptn.crandn((2, 2, 2)), identifier="site1")
+        node2 = ptn.TensorNode(ptn.crandn((2, 2, 2, 2)), identifier="site2")
+        node5 = ptn.TensorNode(ptn.crandn((2, 2, 2, 2)), identifier="site5")
+        node3 = ptn.TensorNode(ptn.crandn((2, 2)), identifier="site3")
+        node4 = ptn.TensorNode(ptn.crandn((2, 2)), identifier="site4")
+        node6 = ptn.TensorNode(ptn.crandn((2, 2)), identifier="site6")
+        node7 = ptn.TensorNode(ptn.crandn((2, 2)), identifier="site7")
 
         self.ref_tree.add_root(node1)
         self.ref_tree.add_child_to_parent(node2, 0, "site1", 0)
@@ -575,12 +539,13 @@ class TestFromHamiltonian(unittest.TestCase):
         self.assertTrue(len(sd.vertex_colls) == 6)
 
         # Every site has two corresponding hyperedges
-        for node_id in sd.hyperedge_colls:
-            self.assertTrue(len(sd.hyperedge_colls[node_id].contained_hyperedges) == 2)
+        for hyperedge_coll in sd.hyperedge_colls.values():
+            self.assertTrue(
+                len(hyperedge_coll.contained_hyperedges) == 2)
 
         # Every edge has two corresponding vertices
-        for edge in sd.vertex_colls:
-            self.assertEqual(len(sd.vertex_colls[edge].contained_vertices), 2)
+        for vertex_coll in sd.vertex_colls.values():
+            self.assertEqual(len(vertex_coll.contained_vertices), 2)
 
     def test_from_hamiltonian_three_terms(self):
         term1 = {"site1": "1",
@@ -639,26 +604,26 @@ class TestFromHamiltonian(unittest.TestCase):
 
     def test_from_hamiltonian_more_complicated_example1(self):
         term1 = {"site1": "1",
-                  "site2": "2",
-                  "site3": "3",
-                  "site4": "4",
-                  "site5": "5",
-                  "site6": "6",
-                  "site7": "7"}
+                 "site2": "2",
+                 "site3": "3",
+                 "site4": "4",
+                 "site5": "5",
+                 "site6": "6",
+                 "site7": "7"}
         term2 = {"site1": "1",
-                  "site2": "2",
-                  "site3": "3",
-                  "site4": "4",
-                  "site5": "5",
-                  "site6": "6",
-                  "site7": "72"}
+                 "site2": "2",
+                 "site3": "3",
+                 "site4": "4",
+                 "site5": "5",
+                 "site6": "6",
+                 "site7": "72"}
         term3 = {"site1": "1",
-                  "site2": "2",
-                  "site3": "3",
-                  "site4": "4",
-                  "site5": "53",
-                  "site6": "6",
-                  "site7": "73"}
+                 "site2": "2",
+                 "site3": "3",
+                 "site4": "4",
+                 "site5": "53",
+                 "site6": "6",
+                 "site7": "73"}
 
         terms = [term1, term2, term3]
         hamiltonian = ptn.Hamiltonian(terms=terms)
@@ -703,7 +668,7 @@ class TestFromHamiltonian(unittest.TestCase):
                                       ('site2', 'site3'): {2},
                                       ('site2', 'site4'): {2},
                                       ('site5', 'site6'): {3},
-                                      ('site5', 'site7'): {2,3}}
+                                      ('site5', 'site7'): {2, 3}}
 
         potential_num_vertices = {('site1', 'site2'): 1,
                                   ('site1', 'site5'): 1,
@@ -719,33 +684,33 @@ class TestFromHamiltonian(unittest.TestCase):
 
     def test_from_hamiltonian_more_complicated_example2(self):
         term1 = {"site1": "1",
-                  "site2": "2",
-                  "site3": "3",
-                  "site4": "4",
-                  "site5": "5",
-                  "site6": "6",
-                  "site7": "7"}
+                 "site2": "2",
+                 "site3": "3",
+                 "site4": "4",
+                 "site5": "5",
+                 "site6": "6",
+                 "site7": "7"}
         term2 = {"site1": "1",
-                  "site2": "2",
-                  "site3": "3",
-                  "site4": "4",
-                  "site5": "5",
-                  "site6": "6",
-                  "site7": "72"}
+                 "site2": "2",
+                 "site3": "3",
+                 "site4": "4",
+                 "site5": "5",
+                 "site6": "6",
+                 "site7": "72"}
         term3 = {"site1": "1",
-                  "site2": "2",
-                  "site3": "3",
-                  "site4": "4",
-                  "site5": "53",
-                  "site6": "6",
-                  "site7": "73"}
+                 "site2": "2",
+                 "site3": "3",
+                 "site4": "4",
+                 "site5": "53",
+                 "site6": "6",
+                 "site7": "73"}
         term4 = {"site1": "1",
-                  "site2": "2",
-                  "site3": "3",
-                  "site4": "44",
-                  "site5": "53",
-                  "site6": "6",
-                  "site7": "73"}
+                 "site2": "2",
+                 "site3": "3",
+                 "site4": "44",
+                 "site5": "53",
+                 "site6": "6",
+                 "site7": "73"}
 
         terms = [term1, term2, term3, term4]
         hamiltonian = ptn.Hamiltonian(terms=terms)
@@ -800,19 +765,20 @@ class TestFromHamiltonian(unittest.TestCase):
                                    num_vertices[edge],
                                    potential_num_connected_he[edge])
 
+
 class TestFromHamiltonianAsymmetric(unittest.TestCase):
 
     def setUp(self):
         self.ref_tree = ptn.TreeTensorNetwork()
 
-        node1 = ptn.TensorNode(ptn.crandn((2,2,2)), identifier="site1")
-        node2 = ptn.TensorNode(ptn.crandn((2,2,2,2)), identifier="site2")
-        node5 = ptn.TensorNode(ptn.crandn((2,2,2,2)), identifier="site5")
-        node3 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site3")
-        node4 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site4")
-        node6 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site6")
-        node7 = ptn.TensorNode(ptn.crandn((2,2,2)), identifier="site7")
-        node8 = ptn.TensorNode(ptn.crandn((2,2)), identifier="site8")
+        node1 = ptn.TensorNode(ptn.crandn((2, 2, 2)), identifier="site1")
+        node2 = ptn.TensorNode(ptn.crandn((2, 2, 2, 2)), identifier="site2")
+        node5 = ptn.TensorNode(ptn.crandn((2, 2, 2, 2)), identifier="site5")
+        node3 = ptn.TensorNode(ptn.crandn((2, 2)), identifier="site3")
+        node4 = ptn.TensorNode(ptn.crandn((2, 2)), identifier="site4")
+        node6 = ptn.TensorNode(ptn.crandn((2, 2)), identifier="site6")
+        node7 = ptn.TensorNode(ptn.crandn((2, 2, 2)), identifier="site7")
+        node8 = ptn.TensorNode(ptn.crandn((2, 2)), identifier="site8")
 
         self.ref_tree.add_root(node1)
         self.ref_tree.add_child_to_parent(node2, 0, "site1", 0)
@@ -825,10 +791,14 @@ class TestFromHamiltonianAsymmetric(unittest.TestCase):
 
     def test_four_sites(self):
 
-        terms = [{'site3': 'I', 'site6': 'Y', 'site1': 'I', 'site2': 'I', 'site4': 'I', 'site5': 'I', 'site7': 'I', 'site8': 'I'},
-                {'site4': 'I', 'site5': 'Z', 'site3': 'Z', 'site6': 'Z', 'site8': 'Z', 'site7': 'X', 'site1': 'I', 'site2': 'X'},
-                {'site6': 'I', 'site4': 'I', 'site2': 'Z', 'site8': 'Z', 'site7': 'Y', 'site1': 'Y', 'site5': 'Y', 'site3': 'I'},
-                {'site1': 'I', 'site2': 'I', 'site3': 'I', 'site4': 'I', 'site5': 'I', 'site6': 'I', 'site7': 'I', 'site8': 'I'}]
+        terms = [{'site3': 'I', 'site6': 'Y', 'site1': 'I', 'site2': 'I',
+                  'site4': 'I', 'site5': 'I', 'site7': 'I', 'site8': 'I'},
+                 {'site4': 'I', 'site5': 'Z', 'site3': 'Z', 'site6': 'Z',
+                  'site8': 'Z', 'site7': 'X', 'site1': 'I', 'site2': 'X'},
+                 {'site6': 'I', 'site4': 'I', 'site2': 'Z', 'site8': 'Z',
+                  'site7': 'Y', 'site1': 'Y', 'site5': 'Y', 'site3': 'I'},
+                 {'site1': 'I', 'site2': 'I', 'site3': 'I', 'site4': 'I',
+                  'site5': 'I', 'site6': 'I', 'site7': 'I', 'site8': 'I'}]
 
         hamiltonian = ptn.Hamiltonian(terms=terms)
 
@@ -862,17 +832,17 @@ class TestFromHamiltonianAsymmetric(unittest.TestCase):
 
         for node_id in sd.hyperedge_colls:
             check_hyperedge_coll(sd, node_id,
-                                      potential_labels_dict[node_id],
-                                      num_he_dict[node_id],
-                                      potential_num_vertices_dict[node_id])
+                                 potential_labels_dict[node_id],
+                                 num_he_dict[node_id],
+                                 potential_num_vertices_dict[node_id])
 
         potential_num_connected_he = {('site1', 'site2'): {2},
                                       ('site1', 'site5'): {2, 3},
                                       ('site2', 'site3'): {2, 3},
                                       ('site2', 'site4'): {4},
-                                      ('site5', 'site6'): {2,3},
-                                      ('site5', 'site7'): {2,3},
-                                      ('site7', 'site8'): {2,3}}
+                                      ('site5', 'site6'): {2, 3},
+                                      ('site5', 'site7'): {2, 3},
+                                      ('site7', 'site8'): {2, 3}}
 
         num_vertices = {('site1', 'site2'): 3,
                         ('site1', 'site5'): 3,
@@ -884,9 +854,8 @@ class TestFromHamiltonianAsymmetric(unittest.TestCase):
 
         for edge in sd.vertex_colls:
             check_vertex_coll(sd, edge,
-                                   num_vertices[edge],
-                                   potential_num_connected_he[edge])
-
+                              num_vertices[edge],
+                              potential_num_connected_he[edge])
 
 
 if __name__ == "__main__":
