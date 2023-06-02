@@ -1,12 +1,18 @@
 import numpy as np
 
-from .ttn import TreeTensorNetwork
-from .tensor_util import tensor_qr_decomposition, tensor_svd, truncated_tensor_svd
-from .tensornode import TensorNode
+from ..ttn import TreeTensorNetwork
+from ..tensor_util import tensor_qr_decomposition, tensor_svd, truncated_tensor_svd
+from ..tensornode import TensorNode
 from .state_diagram import StateDiagram
 
 
 class TTNO(TreeTensorNetwork):
+    """
+    Represents a tree tensor network operator, that is
+    an operator in tensor network form with an
+    underlying tree structure. Every node in this
+    TTN has zero or two open legs of equal dimension.
+    """
 
     def __init__(self, **kwargs):
         TreeTensorNetwork.__init__(self, **kwargs)
@@ -34,8 +40,7 @@ class TTNO(TreeTensorNetwork):
                                                       reference_tree)
         ttno = TTNO(original_tree=reference_tree)
 
-        for node_id in state_diagram.hyperedge_colls:
-            hyperedge_coll = state_diagram.hyperedge_colls[node_id]
+        for node_id, hyperedge_coll in state_diagram.hyperedge_colls.items():
             local_tensor, leg_dict = ttno._setup_for_from_hamiltonian(node_id,
                                                                       state_diagram,
                                                                       hamiltonian.conversion_dictionary)

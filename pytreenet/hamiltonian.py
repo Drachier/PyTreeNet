@@ -199,6 +199,19 @@ class Hamiltonian(object):
 
         return matrix.reshape((matrix_size, matrix_size))
 
+    def contains_duplicates(self):
+        """
+        If the there are equal terms contained. Especially important to recheck
+        after padding.
+
+        Returns
+        -------
+        result: bool
+
+        """
+        dup = [term for term in self.terms if self.terms.count(term) > 1]
+        return len(dup) > 0
+
     def __add__(self, other_hamiltonian):
 
         total_terms = []
@@ -283,3 +296,74 @@ def random_terms(num_of_terms, possible_operators, sites, min_strength = -1, max
         rterms.append(term)
 
     return rterms
+
+def random_symbolic_terms(num_of_terms, possible_operators, sites,
+                          min_num_sites=2,  max_num_sites=2, seed=None):
+    """
+    Creates random interaction terms.
+
+    Parameters
+    ----------
+    num_of_terms : int
+        The number of random terms to be generated.
+    possible_operators : list of arrays
+        A list of all possible single site operators. We assume all sites have
+        the same physical dimension.
+    sites : list of str
+        A list containing the possible identifiers of site nodes.
+    min_num_sites : int, optional
+        The minimum numberof sites that can partake in a single interaction
+        term. The default is 2.
+    max_num_sites : int, optional
+        The minimum numberof sites that can partake in a single interaction
+        term. The default is 2.
+
+    Returns
+    -------
+    rterms : list of dictionaries
+        A list containing all the random terms.
+    """
+
+    rterms= []
+
+    rng = default_rng(seed=seed)
+    number_of_sites = rng.integers(low=min_num_sites, high=max_num_sites + 1,
+                                   size=num_of_terms)
+
+    for num_sites in number_of_sites:
+        term =random_symbolic_term(possible_operators, sites,
+                                   num_sites=num_sites, seed=rng)
+
+        while term in rterms:
+            term = random_symbolic_term(possible_operators, sites,
+                                 num_sites=num_sites, seed=rng)
+
+        rterms.append(term)
+
+    return rterms
+
+def random_symbolic_term(possible_operators, sites, num_sites=2, seed=None):
+    """
+    Creates a random interaction term.
+
+    Parameters
+    ----------
+    possible_operators : list of arrays
+        A list of all possible single site operators. We assume all sites have
+        the same physical dimension.
+    sites : list of str
+        A list containing the possible identifiers of site nodes.
+    num_sites : int, optional
+        The number of sites that are non-trivial in this term. The default is 2.
+
+    Returns
+    -------
+    rterm : dict
+        A dictionary containing the sites as keys and the symbolic operators
+        as value.
+    """
+    rng = default_rng(seed=seed)
+    rand_sites = rng.choice(sites, size=num_sites, replace=False)
+    rand_operators = rng.choice(possible_operators, size=num_sites)
+
+    return dict(zip(rand_sites, rand_operators))
