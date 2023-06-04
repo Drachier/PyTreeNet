@@ -431,7 +431,9 @@ class SecondOrderOneSiteTDVP(TDVPAlgorithm):
         for i, node_id in enumerate(second_order_update_path):
             # Orthogonalize
             if i>0:
-                self.state.orthogonalize_sequence(second_order_orthogonalization_path[i-1], node_change_callback=self._update_site_cache)
+                self.state.orthogonality_center_id = second_order_orthogonalization_path[i-1][0]
+                if len(second_order_orthogonalization_path[i-1])>1:
+                    self.state.orthogonalize_sequence(second_order_orthogonalization_path[i-1][1:], node_change_callback=self._update_site_cache)
 
             # Select Next Node
             if i+1 < len(second_order_update_path):
