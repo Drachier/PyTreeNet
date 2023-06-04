@@ -13,7 +13,7 @@ class TEBD(TimeEvolutionAlgorithm):
     """
 
     def __init__(self, state:TreeTensorNetwork, trotter_splitting, time_step_size, final_time,
-                 operators=None, max_bond_dim=100, rel_tol=1e-10, total_tol=1e-15):
+                 operators=None, max_bond_dim=100, rel_tol=1e-10, total_tol=1e-15, save_every=1):
         """
         The state is a TreeTensorNetwork representing an initial state which is
         to be time-evolved under the `trotter_splitting` until `final_time`,
@@ -46,7 +46,7 @@ class TEBD(TimeEvolutionAlgorithm):
             Defaults to 1e-15.
 
         """
-        super().__init__(state, operators, time_step_size, final_time)
+        super().__init__(state, operators, time_step_size, final_time, save_every)
 
         self._trotter_splitting = trotter_splitting
 
