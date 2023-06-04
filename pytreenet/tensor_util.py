@@ -253,7 +253,7 @@ def truncated_tensor_svd(tensor, u_legs, v_legs,
     if len(s) > max_bond_dim:
         s = s[:max_bond_dim]
     elif len(s) == 0:
-        s = [s[0]]
+        s = [max_singular_value]  # old: s = [s[0]], which makes no sense, so i figured this might work
     
     new_bond_dim = len(s)
     u = u[:,:new_bond_dim]
