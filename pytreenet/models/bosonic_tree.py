@@ -21,20 +21,20 @@ def bosonic_tree_operator(num_spins, num_bosons_per_spin, boson_dimension, J, g,
     # Spin-Boson interaction
     sb = np.array([[O, O, O],
                    [O, O, O],
-                   [Z, O, O]])
+                   [g*Z, O, O]])
     
     s_shape = [3, 3, 2, 2] + [3] * num_bosons_per_spin
     S = np.zeros(s_shape, dtype=complex)
     for b in range(num_bosons_per_spin):
         index = [0] * num_bosons_per_spin
         idx = tuple([Ellipsis] + index)
-        S[:,:,:,:][idx] = ss
+        S[idx] = ss
         index[b] = 1
         idx = tuple([Ellipsis] + index)
-        S[:,:,:,:][idx] = bo
+        S[idx] = bo
         index[b] = 2
         idx = tuple([Ellipsis] + index)
-        S[:,:,:,:][idx] = sb
+        S[idx] = sb
 
     s_trans = list(range(S.ndim))
     s_trans.remove(2)
@@ -48,7 +48,7 @@ def bosonic_tree_operator(num_spins, num_bosons_per_spin, boson_dimension, J, g,
     B = np.zeros((3, boson_dimension, boson_dimension), dtype=complex)
     B[0,:,:] = I_b
     B[1,:,:] = momega/2 * number_op
-    B[2,:,:] = g * (annihilation_op + creation_op)
+    B[2,:,:] = annihilation_op + creation_op
 
     ham = QuantumTTOperator()
 
@@ -86,12 +86,12 @@ def bosonic_tree_operator(num_spins, num_bosons_per_spin, boson_dimension, J, g,
 
 
 def bosonic_tree_state(num_spins, virtual_spin_spin_bond_dimension, num_bosons_per_spin, boson_dimension, virtual_spin_boson_bond_dimension):    
-    s_shape = [virtual_spin_spin_bond_dimension] * 2 + [virtual_spin_boson_bond_dimension] * num_bosons_per_spin + [2]
+    s_shape = tuple([virtual_spin_spin_bond_dimension] * 2 + [virtual_spin_boson_bond_dimension] * num_bosons_per_spin + [2])
     S = np.zeros(s_shape, dtype=complex).flatten()
     S[0] = 1
     S = S.reshape(s_shape)
     
-    b_shape = [virtual_spin_boson_bond_dimension] + [boson_dimension]
+    b_shape = tuple([virtual_spin_boson_bond_dimension] + [boson_dimension])
     B = np.zeros(b_shape, dtype=complex).flatten()
     B[0] = 1
     B = B.reshape(b_shape)
