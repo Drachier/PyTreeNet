@@ -2,7 +2,7 @@ import numpy as np
 
 from .tensor_util import tensor_qr_decomposition
 
-def canonical_form(tree_tensor_network, orthogonality_center_id):
+def canonical_form(tree_tensor_network: TreeTensorNetwork, orthogonality_center_id: str):
     """
     Brings the tree_tensor_network in canonical form with
 
@@ -46,7 +46,7 @@ def canonical_form(tree_tensor_network, orthogonality_center_id):
             neighbour_tensor.absorb_tensor(r, (1,), (neighbour_index_to_contract,))
 
 
-def _find_smallest_distance_neighbour(node, distance_dict):
+def _find_smallest_distance_neighbour(node, distance_dict: dict[str, int]):
     """
     Finds identifier of the neighbour of node with the minimal distance in
     distance dict, i.e. minimum distance to the orthogonality center.
@@ -91,7 +91,8 @@ def _find_smalles_distance_neighbour_index(node, minimum_distance_neighbour_id):
     neighbour_index = node.neighbouring_nodes()
     return neighbour_index[minimum_distance_neighbour_id]
 
-def _correct_ordering_of_q_legs(node, minimum_distance_neighbour_leg):
+
+def _correct_ordering_of_q_legs(node, minimum_distance_neighbour_leg: tuple[int]):
     """
     Finds the correct ordering of the legs of the q-tensor after perfomring
     QR-decomposition on the tensor of node.
