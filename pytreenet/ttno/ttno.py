@@ -58,13 +58,12 @@ class TTNO(TreeTensorNetwork):
         state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
                                                       reference_tree)
         ttno = TTNO(original_tree=reference_tree)
-
         for node_id, hyperedge_coll in state_diagram.hyperedge_colls.items():
             local_tensor, leg_dict = ttno._setup_for_from_hamiltonian(node_id,
                                                                       state_diagram,
                                                                       hamiltonian.conversion_dictionary)
-
             # Adding the operator corresponding to each hyperedge to the tensor
+
             for he in hyperedge_coll.contained_hyperedges:
                 operator_label = he.label
                 operator = hamiltonian.conversion_dictionary[operator_label]
@@ -74,7 +73,6 @@ class TTNO(TreeTensorNetwork):
 
                 for vertex in he.vertices:
                     index_value[vertex.index[0]] = vertex.index[1]
-
                 index_value = tuple(index_value)
                 local_tensor[index_value] += operator
 
@@ -102,12 +100,13 @@ class TTNO(TreeTensorNetwork):
         total_tensor_shape.extend([phys_dim, phys_dim])
 
         node = self.nodes[node_id]
-        neighbours = node.neighbouring_nodes(with_legs = False)
+        neighbours = node.neighbouring_nodes(with_legs=False)
         leg_dict = {}
         for leg_index, neighbour_id in enumerate(neighbours):
             leg_dict[neighbour_id] = leg_index
 
-            vertex_coll = state_diagram.get_vertex_coll_two_ids(node_id, neighbour_id)
+            vertex_coll = state_diagram.get_vertex_coll_two_ids(
+                node_id, neighbour_id)
             for index_value, vertex in enumerate(vertex_coll.contained_vertices):
                 vertex.index = (leg_index, index_value)
             # The number of vertices is equal to the number of bond-dimensions required.
@@ -200,21 +199,23 @@ class TTNO(TreeTensorNetwork):
         if reference_tree.nodes[current_node.identifier].is_leaf():
             return
 
-        current_children = reference_tree.nodes[current_node.identifier].get_children_ids()
+        current_children = reference_tree.nodes[current_node.identifier].get_children_ids(
+        )
 
         for child_id in current_children:
 
-            q_legs, r_legs, q_leg_dict, r_leg_dict = TTNO._prepare_legs_for_QR(reference_tree, current_node, child_id, leg_dict)
+            q_legs, r_legs, q_leg_dict, r_leg_dict = TTNO._prepare_legs_for_QR(
+                reference_tree, current_node, child_id, leg_dict)
 
             current_tensor = current_node.tensor
-            if mode == "QR":
+            if mode == Decomposition.QR:
                 Q, R = tensor_qr_decomposition(current_tensor, q_legs, r_legs)
-            elif mode == "SVD":
+            elif mode == Decomposition.SVD:
                 Q, S, Vh = tensor_svd(current_tensor, q_legs, r_legs)
-                R = np.tensordot(np.diag(S), Vh, axes=(1,0))
-            elif mode == "tSVD":
+                R = np.tensordot(np.diag(S), Vh, axes=(1, 0))
+            elif mode == Decomposition.tSVD:
                 Q, S, Vh = truncated_tensor_svd(current_tensor, q_legs, r_legs)
-                R = np.tensordot(np.diag(S), Vh, axes=(1,0))
+                R = np.tensordot(np.diag(S), Vh, axes=(1, 0))
             else:
                 raise ValueError(f"{mode} is not a valid keyword for mode.")
 
@@ -227,14 +228,17 @@ class TTNO(TreeTensorNetwork):
             r_node = TensorNode(R, identifier=child_id)
 
             # We have to add this node as an additional child to the current node
-            self.add_child_to_parent(r_node, 0, q_node.identifier, q_node.tensor.ndim - 1)
+            self.add_child_to_parent(
+                r_node, 0, q_node.identifier, q_node.tensor.ndim - 1)
 
             if reference_tree.nodes[r_node.identifier].is_leaf():
                 new_r_leg_dict = None
             else:
-                new_r_leg_dict = TTNO._find_new_leg_dict(r_leg_dict, c=1) # Every r_node will have a parent, so c=1
+                # Every r_node will have a parent, so c=1
+                new_r_leg_dict = TTNO._find_new_leg_dict(r_leg_dict, c=1)
 
-            self._from_tensor_rec(reference_tree, r_node, new_r_leg_dict, mode=mode)
+            self._from_tensor_rec(reference_tree, r_node,
+                                  new_r_leg_dict, mode=mode)
 
             # Prepare to repeat for next child
             current_node = self.nodes[current_node.identifier]
@@ -289,7 +293,6 @@ class TTNO(TreeTensorNetwork):
 
         r_leg_dict = {}
         q_leg_dict = {}
-
 
         for node_id_temp in leg_dict:
             if node_id_temp in subtree_list_child:
@@ -370,7 +373,6 @@ class TTNO(TreeTensorNetwork):
 
         """
 
-
         half_leg = len(leg_dict)
         new_leg_dict = {}
 
@@ -393,9 +395,3 @@ class TTNO(TreeTensorNetwork):
             del leg_dict[key_w_min_index]
 
         return new_leg_dict
-
-
-
-
-
-
