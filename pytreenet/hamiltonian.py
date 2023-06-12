@@ -54,10 +54,11 @@ class Hamiltonian(object):
             operator = self.conversion_dictionary[label]
 
             shape = operator.shape
-            assert len(shape) == 2,  f"Operator with label {label} is not a matrix!"
+            assert len(
+                shape) == 2,  f"Operator with label {label} is not a matrix!"
             assert shape[0] == shape[1], f"Matrix with label {label} is not square!"
 
-    def add_term(self, term):
+    def add_term(self, term: dict):
         if not (type(term) == dict):
             try:
                 term = dict(term)
@@ -66,12 +67,12 @@ class Hamiltonian(object):
 
         self.terms.append(term)
 
-    def add_multiple_terms(self, terms):
+    def add_multiple_terms(self, terms: list[dict]):
         if type(terms) == list:
             for term in terms:
                 self.add_term(term)
         else:
-            raise TypeError("'terms' has to be a list of dictionaries")#
+            raise TypeError("'terms' has to be a list of dictionaries")
 
     def pad_with_identity(self, reference_ttn: TreeTensorNetwork, mode: PadMode = PadMode.safe, identity=None):
         """
@@ -107,7 +108,8 @@ class Hamiltonian(object):
 
             if identity == None:
                 site_node = reference_ttn.nodes[site_id]
-                physical_dim = prod(site_node.shape_of_legs(site_node.open_legs))
+                physical_dim = prod(
+                    site_node.shape_of_legs(site_node.open_legs))
                 site_identity = eye(physical_dim)
             else:
                 site_identity = identity
@@ -116,7 +118,7 @@ class Hamiltonian(object):
                 if not (site_id in term):
                     term[site_id] = site_identity
 
-    def is_compatible_with(self, ttn):
+    def is_compatible_with(self, ttn: TreeTensorNetwork):
         """
         Checks if the Hamiltonian is compatible with the givent TTN.
 
@@ -175,12 +177,12 @@ class Hamiltonian(object):
                 full_tensor += term_tensor
 
         # Separating input and output legs
-        permutation = list(range(0,full_tensor.ndim,2))
-        permutation.extend(list(range(1,full_tensor.ndim,2)))
+        permutation = list(range(0, full_tensor.ndim, 2))
+        permutation.extend(list(range(1, full_tensor.ndim, 2)))
         full_tensor = full_tensor.transpose(permutation)
         return full_tensor
 
-    def _to_tensor_rec(self, ttn, node_id, term, tensor):
+    def _to_tensor_rec(self, ttn: TreeTensorNetwork, node_id: str, term: dict, tensor: TensorNode):
         for child_id in ttn.nodes[node_id].children_legs:
             child_tensor = self.conversion_dictionary[term[child_id]]
             tensor = tensordot(tensor, child_tensor, axes=0)
@@ -223,7 +225,7 @@ class Hamiltonian(object):
         dup = [term for term in self.terms if self.terms.count(term) > 1]
         return len(dup) > 0
 
-    def __add__(self, other_hamiltonian):
+    def __add__(self, other_hamiltonian: Hamiltonian):
 
         total_terms = []
         total_terms.extend(self.terms)
@@ -276,7 +278,7 @@ def random_terms(
         A list containing all the random terms.
     """
 
-    rterms= []
+    rterms = []
 
     rng = default_rng()
     number_of_sites = rng.integers(low=min_num_sites, high=max_num_sites + 1,
@@ -338,19 +340,19 @@ def random_symbolic_terms(num_of_terms: int, possible_operators: list[ndarray], 
         A list containing all the random terms.
     """
 
-    rterms= []
+    rterms = []
 
     rng = default_rng(seed=seed)
     number_of_sites = rng.integers(low=min_num_sites, high=max_num_sites + 1,
                                    size=num_of_terms)
 
     for num_sites in number_of_sites:
-        term =random_symbolic_term(possible_operators, sites,
-                                   num_sites=num_sites, seed=rng)
+        term = random_symbolic_term(possible_operators, sites,
+                                    num_sites=num_sites, seed=rng)
 
         while term in rterms:
             term = random_symbolic_term(possible_operators, sites,
-                                 num_sites=num_sites, seed=rng)
+                                        num_sites=num_sites, seed=rng)
 
         rterms.append(term)
 
