@@ -459,3 +459,64 @@ class TreeTensorNetwork(object):
 
         """
         return scalar_product(self)
+
+    def apply_hamiltonian(self, hamiltonian: Hamiltonian, conversion_dict: dict[str, ndarray], skipped_vertices=None):
+        """
+        Applies a Hamiltonian term by term locally to a TTN. Assumes that the input TTN represents a statevector
+        such that each TensorNode has the following memory layout: [parent, child_1, child_2, ..., child_n, output].
+        """
+
+        def allocate_output_tensor(ttn, node_id, state_diagram, conversion_dict):
+            """
+            Allocates output tensor for each node
+            """
+            he = state_diagram.hyperedge_colls[node_id].contained_hyperedges[0]
+            operator_label = he.label
+            operator = conversion_dict[operator_label]
+            # Should be square operators
+            phys_dim = operator.shape[0]
+
+            total_tensor_shape = [0] * len(he.vertices)
+            slice_tensor_shape = [0] * len(he.vertices)
+            total_tensor_shape.extend([phys_dim])
+            slice_tensor_shape.extend([phys_dim])
+            node = self.nodes[node_id]
+            neighbours = node.neighbouring_nodes()
+            for leg_index, neighbour_id in enumerate(neighbours.keys()):
+                vertex_coll = state_diagram.get_vertex_coll_two_ids(
+                    node_id, neighbour_id)
+                for index_value, vertex in enumerate(vertex_coll.contained_vertices):
+                    vertex.index = (leg_index, index_value)
+                # The number of vertices is equal to the number of bond-dimensions required.
+                total_tensor_shape[leg_index] = len(
+                    vertex_coll.contained_vertices) * node.tensor.shape[neighbours[neighbour_id]]
+                slice_tensor_shape[leg_index] = node.tensor.shape[neighbours[neighbour_id]]
+            output_tensor = np.zeros(total_tensor_shape, dtype=np.cdouble)
+            return output_tensor, slice_tensor_shape
+
+        from .ttno.state_diagram import StateDiagram
+        state_diagram = StateDiagram.from_hamiltonian(hamiltonian, self)
+
+        # Adding the operator corresponding to each hyperedge to the tensor
+        for node_id, hyperedge_coll in state_diagram.hyperedge_colls.items():
+            output_tensor, output_slice_shape = allocate_output_tensor(
+                self, node_id, state_diagram, hamiltonian.conversion_dictionary)
+            local_tensor = self._nodes[node_id]
+
+            for he in hyperedge_coll.contained_hyperedges:
+                index_value = [0] * len(he.vertices)
+
+                for vertex in he.vertices:
+                    index_value[vertex.index[0]] = vertex.index[1]
+
+                slice_indexing = [slice(index * size, (index+1) * size, 1)
+                                  for (index, size) in zip(index_value, output_slice_shape)]
+                slice_indexing.extend([slice(None)])
+                slice_indexing = tuple(slice_indexing)
+                operator_label = he.label
+                operator = hamiltonian.conversion_dictionary[operator_label]
+                output_slice = np.tensordot(
+                    local_tensor.tensor, operator, axes=([local_tensor.nlegs()-1], [1]))
+                output_tensor[slice_indexing] += output_slice
+
+            self._nodes[node_id].tensor = output_tensor
