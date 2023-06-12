@@ -1,9 +1,18 @@
+from __future__ import annotations
 import numpy as np
 
 from ..ttn import TreeTensorNetwork
 from ..tensor_util import tensor_qr_decomposition, tensor_svd, truncated_tensor_svd
 from ..tensornode import TensorNode
 from .state_diagram import StateDiagram
+
+from enum import Enum, auto
+
+
+class Decomposition(Enum):
+    SVD = auto()
+    QR = auto()
+    tSVD = auto()
 
 
 class TTNO(TreeTensorNetwork):
@@ -12,13 +21,23 @@ class TTNO(TreeTensorNetwork):
     an operator in tensor network form with an
     underlying tree structure. Every node in this
     TTN has zero or two open legs of equal dimension.
+
+    Attributes
+    ----------
+    hamiltonian : Hamiltonian
+        The Hamiltonian which is to be brought into TTNO form. Should contain
+        a conversion dictionary to allow for better compression.
+    reference_tree : TreeTensorNetwork
+        A TTN which has the same underlying tree topology as the TTNO is
+        supposed to have.
+
     """
 
     def __init__(self, **kwargs):
         TreeTensorNetwork.__init__(self, **kwargs)
 
     @classmethod
-    def from_hamiltonian(cls, hamiltonian, reference_tree):
+    def from_hamiltonian(cls, hamiltonian: Hamiltonian, reference_tree: TreeTensorNetwork):
         """
 
         Parameters
@@ -99,10 +118,10 @@ class TTNO(TreeTensorNetwork):
         return local_tensor, leg_dict
 
     @classmethod
-    def from_tensor(cls, reference_tree, tensor, leg_dict, mode="QR"):
+    def from_tensor(
+            cls, reference_tree: TreeTensorNetwork, tensor: np.nadarray, leg_dict: dict[str, int],
+            mode: Decomposition = Decomposition.QR):
         """
-
-
         Parameters
         ----------
         reference_tree : TreeTensorNetwork
@@ -111,13 +130,16 @@ class TTNO(TreeTensorNetwork):
         tensor : ndarray
             A big numpy array that represents an operator on a lattice of
             quantum systems. Therefore it has to have an even number of legs.
+            Assumed to be a reshape of operator, such that input and output dimensions
+            are clustered as [out_1, out_2, ..., out_n, in_1, in_2, ..., in_n] and
+            out_i == in_i for all dimensions.
         leg_dict : dict
-            A dictionary it contains node_identifiers as keys and leg indices
+            A dictionary containing node_identifiers (str) as keys and leg indices (int)
             as values. It is used to match the legs of tensor to the different
-            nodes. Only the lower half of the legs is to be put in this dict,
+            nodes. Only the lower (smaller) half of the legs is to be put in this dict,
             the others are inferred by ordering.
         mode: str
-            Can be either '' or 'SVD'. Determines the decomposition to use.
+            Can be either 'QR' or 'SVD'. Determines the decomposition to use.
             'SVD' allows for truncation of trivial singular values, while 'QR'
             is faster.
 
@@ -126,9 +148,10 @@ class TTNO(TreeTensorNetwork):
         new_TTNO: TTNO
 
         """
-
+        # Ensure that legs are even
         assert tensor.ndim % 2 == 0
         half_dim = int(tensor.ndim / 2)
+        # Ensure that operator matches number of lattice sites in TTN
         assert half_dim == len(reference_tree.nodes)
 
         root_id = reference_tree.root_id
@@ -140,10 +163,13 @@ class TTNO(TreeTensorNetwork):
         new_TTNO = TTNO()
         new_TTNO.add_root(root_node)
 
-        new_TTNO._from_tensor_rec(reference_tree, root_node, new_leg_dict, mode=mode)
+        new_TTNO._from_tensor_rec(
+            reference_tree, root_node, new_leg_dict, mode=mode)
         return new_TTNO
 
-    def _from_tensor_rec(self, reference_tree, current_node, leg_dict, mode="QR"):
+    def _from_tensor_rec(
+            self, reference_tree: TreeTensorNetwork, current_node: TensorNode, leg_dict: dict[str, int],
+            mode: Decomposition = Decomposition.QR):
         """
         Recursive part to obtain a TTNO from a tensor. For each child of the
         current node a new node is defined via a Matrix-decomposition and the
@@ -222,7 +248,8 @@ class TTNO(TreeTensorNetwork):
         Prepares the lists of legs to be used in the QR-decomposition and
         splits the leg_dict. One of the new dictionary contains the legs
         belonging to the Q-tensor and the other contains the legs belonging to
-        the R-tensor
+        the R-tensor. The legs belonging to the child node are stored in the 
+        R-tensor. The remaining legs are grouped into the Q-tensor.
 
         Parameters
         ----------
@@ -331,6 +358,9 @@ class TTNO(TreeTensorNetwork):
             Subdictionary of leg_dict. Keys are node_ids and the values are
             leg indices of open legs of the tensor in the current node, before
             QR-decomposition
+        c : int
+            Shift when finding leg dict for non-root node. Set `c` to 1 to avoid adding
+            leg connected to parent node to updated leg dict.
 
         Returns
         -------
