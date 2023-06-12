@@ -1,5 +1,7 @@
 import unittest
 import pytreenet as ptn
+import numpy as np
+
 
 class TestTreeTensorNetworkBasics(unittest.TestCase):
 
@@ -122,6 +124,30 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         correct_subtree = ["id8", "id9"]
 
         self.assertEqual(correct_subtree, found_subtree)
+
+    def test_apply_hamiltonian(self):
+        ttns = ptn.TreeTensorNetwork()
+        node1 = ptn.TensorNode(ptn.crandn((2, 3)), identifier="site1")
+        node2 = ptn.TensorNode(ptn.crandn((2, 4)), identifier="site2")
+        ttns.add_root(node1)
+        ttns.add_child_to_parent(node2, 0, "site1", 0)
+
+        full_state = ttns.completely_contract_tree(to_copy=True)._nodes["site1_contr_site2"].tensor
+
+        term1 = {"site1": "11", "site2": "21"}
+        term2 = {"site1": "12", "site2": "22"}
+        conversion_dict = {"11": ptn.crandn((3, 3)), "12": ptn.crandn((3, 3)),
+                           "21": ptn.crandn((4, 4)), "22": ptn.crandn((4, 4))}
+
+        hamiltonian = ptn.Hamiltonian(terms=[term1, term2],
+                                      conversion_dictionary=conversion_dict)
+
+        ttns.apply_hamiltonian(hamiltonian, conversion_dict)
+        test_output = ttns.completely_contract_tree(to_copy=True)._nodes["site1_contr_site2"].tensor
+
+        full_tensor = hamiltonian.to_tensor(ttns)
+        ttno_output = np.tensordot(full_state, full_tensor, axes=([0, 1], [2, 3]))
+        np.allclose(test_output, ttno_output)
 
 
 if __name__ == "__main__":
