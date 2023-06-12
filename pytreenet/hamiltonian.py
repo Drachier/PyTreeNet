@@ -4,6 +4,13 @@ from numpy import prod, eye, tensordot, reshape, transpose, kron
 
 from .ttn_exceptions import NotCompatibleException
 
+from enum import Enum, auto
+
+
+class PadMode(Enum):
+    risky = auto()
+    safe = auto()
+
 
 class Hamiltonian(object):
     """
@@ -66,7 +73,7 @@ class Hamiltonian(object):
         else:
             raise TypeError("'terms' has to be a list of dictionaries")#
 
-    def pad_with_identity(self, reference_ttn, mode="safe", identity=None):
+    def pad_with_identity(self, reference_ttn: TreeTensorNetwork, mode: PadMode = PadMode.safe, identity=None):
         """
         Pads all terms with an identity according to the reference reference_ttn
 
@@ -88,11 +95,13 @@ class Hamiltonian(object):
         None.
 
         """
-        if mode == "safe":
+        if mode == PadMode.safe:
             if not self.is_compatible_with(reference_ttn):
-                raise NotCompatibleException("Hamiltonian and reference_ttn are incompatible")
-        elif mode != "risky":
-            raise ValueError(f"{mode} is not a valied option for 'mode'. (Only 'safe' and 'risky are)!")
+                raise NotCompatibleException(
+                    "Hamiltonian and reference_ttn are incompatible")
+        elif mode != PadMode.risky:
+            raise ValueError(
+                f"{mode} is not a valid option for 'mode'. (Only 'safe' and 'risky are)!")
 
         for site_id in reference_ttn.nodes:
 
