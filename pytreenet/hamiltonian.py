@@ -1,7 +1,9 @@
+from __future__ import annotations
 from numpy.random import default_rng
 from numpy import prod, eye, tensordot, reshape, transpose, kron
 
 from .ttn_exceptions import NotCompatibleException
+
 
 class Hamiltonian(object):
     """
@@ -12,7 +14,7 @@ class Hamiltonian(object):
     that node/site.
     """
 
-    def __init__(self, terms=None, conversion_dictionary=None):
+    def __init__(self, terms: list[dict] = None, conversion_dictionary: dict = None):
         """
         Parameters
         ----------
@@ -128,7 +130,7 @@ class Hamiltonian(object):
 
         return True
 
-    def to_tensor(self, ref_ttn, use_padding=False):
+    def to_tensor(self, ref_ttn: TreeTensorNetwork, use_padding: bool = False):
         """
         Creates a tensor ndarray representing this Hamiltonian assuming it is
         defined on the structure of ttn.
@@ -177,7 +179,7 @@ class Hamiltonian(object):
 
         return tensor
 
-    def to_matrix(self, ttn):
+    def to_matrix(self, ttn: TreeTensorNetwork):
         """
         Creates a matrix ndarray representing this Hamiltonian assuming it is
         defined on the structure of ttn.
@@ -230,8 +232,10 @@ class Hamiltonian(object):
         """
         return self.terms == other_hamiltonian.terms
 
-def random_terms(num_of_terms, possible_operators, sites, min_strength = -1, max_strength = 1,
-                 min_num_sites=2,  max_num_sites=2):
+
+def random_terms(
+        num_of_terms: int, possible_operators: list, sites: list[str],
+        min_strength: float = -1, max_strength: float = 1, min_num_sites: int = 2, max_num_sites: int = 2):
     """
     Creates random interaction terms.
 
@@ -297,8 +301,9 @@ def random_terms(num_of_terms, possible_operators, sites, min_strength = -1, max
 
     return rterms
 
-def random_symbolic_terms(num_of_terms, possible_operators, sites,
-                          min_num_sites=2,  max_num_sites=2, seed=None):
+
+def random_symbolic_terms(num_of_terms: int, possible_operators: list[ndarray], sites: list[str],
+                          min_num_sites: int = 2,  max_num_sites: int = 2, seed=None):
     """
     Creates random interaction terms.
 
@@ -342,7 +347,8 @@ def random_symbolic_terms(num_of_terms, possible_operators, sites,
 
     return rterms
 
-def random_symbolic_term(possible_operators, sites, num_sites=2, seed=None):
+
+def random_symbolic_term(possible_operators: list[ndarray], sites: list[str], num_sites: int = 2, seed=None):
     """
     Creates a random interaction term.
 
