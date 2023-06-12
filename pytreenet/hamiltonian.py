@@ -82,7 +82,7 @@ class Hamiltonian(object):
         reference_ttn : TreeTensorNetwork
             reference_ttn with reference to which the identities are to be padded. From
             here the site_ids and operator dimension is inferred.
-        mode : string, optional
+        mode : Enum, optional
             Whether to perform checks ('safe') or not ('risky').
             For big reference_ttn the checks can take a long time.
             The default is 'safe'.
