@@ -1,3 +1,4 @@
+from __future__ import annotations
 import copy
 
 import numpy as np
@@ -12,6 +13,8 @@ from .tree_contraction import (completely_contract_tree,
                                operator_expectation_value,
                                scalar_product
                                )
+from .util import copy_object
+
 
 class TreeTensorNetwork(object):
     """
@@ -20,9 +23,14 @@ class TreeTensorNetwork(object):
     _nodes of tensor nodes with their identifiers as keys.
 
     General structure and parts of the codes are from treelib.tree
+
+    Attributes
+    -------
+    _nodes: dict[str, TensorNode] mapping node ids (str) to TensorNode objects
+    _root_id: str identifier for root node of TTN
     """
 
-    def __init__(self, original_tree = None, deep = False):
+    def __init__(self, original_tree: TreeTensorNetwork = None, deep: bool = False):
         """
         Initiates a new TreeTensorNetwork or a deep or shallow copy of a
         different one.
