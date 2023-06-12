@@ -44,14 +44,15 @@ class TreeTensorNetwork(object):
 
             if deep:
                 for node_id in original_tree.nodes:
-                    self._nodes[node_id] = copy.deepcopy(original_tree.nodes[node_id])
+                    self._nodes[node_id] = copy.deepcopy(
+                        original_tree.nodes[node_id])
             else:
-                    self._nodes = original_tree.nodes
+                self._nodes = original_tree.nodes
 
     @property
     def nodes(self):
         """
-        A dictionary containing the tensor trees notes via their identifiers.
+        A dictionary containing the tensor trees nodes via their identifiers.
         """
         return self._nodes
 
@@ -97,7 +98,8 @@ class TreeTensorNetwork(object):
         """
         Asserts if node_id already exists in the TTN
         """
-        assert self.check_no_nodeid_dublication(node_id), f"Tensor node with identifier {node_id} already exists in TTN"
+        assert self.check_no_nodeid_dublication(
+            node_id), f"Tensor node with identifier {node_id} already exists in TTN"
 
     def assert_id_in_tree(self, node_id):
         """
@@ -198,7 +200,7 @@ class TreeTensorNetwork(object):
 
         """
         leaf_id_list = [node_id for node_id in self.nodes
-                            if self.nodes[node_id].is_leaf()]
+                        if self.nodes[node_id].is_leaf()]
         return leaf_id_list
 
     def distance_to_node(self, center_node_id):
@@ -218,7 +220,8 @@ class TreeTensorNetwork(object):
 
         """
         distance_dict = {center_node_id: 0}
-        self.distance_of_neighbours(ignore_node_id=None, distance=1, node_id=center_node_id, distance_dict=distance_dict)
+        self.distance_of_neighbours(
+            ignore_node_id=None, distance=1, node_id=center_node_id, distance_dict=distance_dict)
         return distance_dict
 
     def distance_of_neighbours(self, ignore_node_id, distance, node_id, distance_dict):
@@ -243,19 +246,23 @@ class TreeTensorNetwork(object):
 
         """
         node = self.nodes[node_id]
-        non_ignored_children_id = [child_id for child_id in node.children_legs.keys() if child_id != ignore_node_id]
+        non_ignored_children_id = [
+            child_id for child_id in node.children_legs.keys() if child_id != ignore_node_id]
 
-        children_distance_to_center = {child_id: distance for child_id in non_ignored_children_id}
+        children_distance_to_center = {
+            child_id: distance for child_id in non_ignored_children_id}
         distance_dict.update(children_distance_to_center)
 
         for child_id in children_distance_to_center.keys():
-            self.distance_of_neighbours(ignore_node_id=node_id, distance=distance+1, node_id=child_id, distance_dict=distance_dict)
+            self.distance_of_neighbours(
+                ignore_node_id=node_id, distance=distance+1, node_id=child_id, distance_dict=distance_dict)
 
         if not node.is_root():
             parent_id = node.parent_leg[0]
             if not parent_id == ignore_node_id:
                 distance_dict.update({parent_id: distance})
-                self.distance_of_neighbours(ignore_node_id=node_id, distance=distance+1, node_id=parent_id, distance_dict=distance_dict)
+                self.distance_of_neighbours(
+                    ignore_node_id=node_id, distance=distance+1, node_id=parent_id, distance_dict=distance_dict)
 
     # TODO implement similar functions in node class.
     def rewire_only_child(self, parent_id, child_id, new_identifier):
@@ -280,7 +287,8 @@ class TreeTensorNetwork(object):
         parent = self.nodes[parent_id]
         child = self.nodes[child_id]
         assert child_id in parent.children_legs, f"The node with identifier {child_id} is not a child of the node with identifier {parent_id}."
-        assert child.parent_leg[0] == parent_id, f"The node with identifier {parent_id} is not the parent of the node with identifier {child_id}."
+        assert child.parent_leg[
+            0] == parent_id, f"The node with identifier {parent_id} is not the parent of the node with identifier {child_id}."
         child.parent_leg[0] = new_identifier
 
     def rewire_only_parent(self, child_id, new_identifier):
@@ -302,11 +310,13 @@ class TreeTensorNetwork(object):
         """
         child = self.nodes[child_id]
         if child.is_root():
-            warn(f"The node with identifier {child_id} is a tree's root, so its parent cannot be rewired.")
+            warn(
+                f"The node with identifier {child_id} is a tree's root, so its parent cannot be rewired.")
         else:
             parent_id = child.parent_leg[0]
             parent = self.nodes[parent_id]
-            leg_to_child_tensor = {new_identifier: parent.children_legs[child_id]}
+            leg_to_child_tensor = {
+                new_identifier: parent.children_legs[child_id]}
             del parent.children_legs[child_id]
             parent.children_legs.update(leg_to_child_tensor)
 
@@ -336,9 +346,8 @@ class TreeTensorNetwork(object):
 
         children_ids = root_node.get_children_ids()
         for child_id in children_ids:
-            child_subtree_list = self.find_subtree_of_node(child_id)
-
-            subtree_list.extend(child_subtree_list)
+            # child_subtree_list =
+            subtree_list.extend(self.find_subtree_of_node(child_id))
 
         return subtree_list
 
@@ -364,7 +373,7 @@ class TreeTensorNetwork(object):
         """
         canonical_form(self, orthogonality_center_id)
 
-    def completely_contract_tree(self, to_copy=False):
+    def completely_contract_tree(self, to_copy: bool = False):
         """
         Completely contracts the given tree_tensor_network by combining all
         nodes.
@@ -422,7 +431,7 @@ class TreeTensorNetwork(object):
 
         """
         return single_site_operator_expectation_value(self, node_id,
-                                                         operator)
+                                                      operator)
 
     def operator_expectation_value(self, operator_dict):
         """
