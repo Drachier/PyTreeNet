@@ -1,5 +1,7 @@
+from __future__ import annotations
 
 from uuid import uuid1
+from typing import List
 
 class Node(object):
     """
@@ -51,3 +53,15 @@ class Node(object):
         string += "parent: " + self.parent + "\n"
         string += "children: " + self.children + "\n"
         return string
+
+    def is_root(self) -> bool:
+        """
+        Returns whether this node is a root node, i.e. doesn't have a parent.
+        """
+        return self.parent is None
+
+    def is_leaf(self) -> bool:
+        """
+        Returns whether this node is a leaf, i.e. doesn't have children
+        """
+        return len(self.children) == 0
