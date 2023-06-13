@@ -65,3 +65,19 @@ class Node(object):
         Returns whether this node is a leaf, i.e. doesn't have children
         """
         return len(self.children) == 0
+
+    def neighbouring_nodes(self) -> List[str]:
+        """
+        Provides the identifiers of all neighbours, i.e. the parent and all
+            children.
+
+        Returns:
+            List[str]: Contains the neighbour identifiers, if this node is not
+                a root, the parent's identifier is the first identifier.
+        """
+        if self.is_root():
+            neighbour_ids = []
+        else:
+            neighbour_ids = [self.parent]
+        neighbour_ids.extend(self.children)
+        return neighbour_ids
