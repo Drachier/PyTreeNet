@@ -39,4 +39,15 @@ class Node(object):
         Get the identifier.
         """
         return self._identifier
-    
+
+    def __repr__(self) -> str:
+        repr_dict = {"identifier": self._identifier}
+        repr_dict["parent"] = self.parent
+        repr_dict["children"] = self.children
+        return str(repr_dict)
+
+    def __str__(self) -> str:
+        string = "identifier: " + self._identifier + "\n"
+        string += "parent: " + self.parent + "\n"
+        string += "children: " + self.children + "\n"
+        return string
