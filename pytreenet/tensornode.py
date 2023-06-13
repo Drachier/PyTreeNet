@@ -169,7 +169,7 @@ class TensorNode(object):
         string += "open_legs = " + str(self.open_legs) + "\n"
         return string
 
-
+    # Some of it in Node
     def neighbouring_nodes(self, with_legs=True):
         """
         Finds the neighbouring tensor nodes of this node with varying
@@ -558,31 +558,31 @@ class TensorNode(object):
 
         return open_dim
 
-    def is_root(self):
-        """
-        Determines if this node is a root node, i.e., a node without a parent.
-        """
-        if len(self.parent_leg) == 0:
-            return True
-        else:
-            return False
+    # def is_root(self):
+    #     """
+    #     Determines if this node is a root node, i.e., a node without a parent.
+    #     """
+    #     if len(self.parent_leg) == 0:
+    #         return True
+    #     else:
+    #         return False
 
-    def has_x_children(self, x: int):
-        """
-        Determines if the node has at least x-many children
-        """
-        assert x > 0, "The number of children will be at least zero. Choose a bigger number."
+    # def has_x_children(self, x: int):
+    #     """
+    #     Determines if the node has at least x-many children
+    #     """
+    #     assert x > 0, "The number of children will be at least zero. Choose a bigger number."
 
-        if len(self._children_legs) >= x:
-            return True
-        else:
-            return False
+    #     if len(self._children_legs) >= x:
+    #         return True
+    #     else:
+    #         return False
 
-    def is_leaf(self):
-        """
-        Determines if the node is a leaf, i.e., has at least one child.
-        """
-        return not self.has_x_children(x=1)
+    # def is_leaf(self):
+    #     """
+    #     Determines if the node is a leaf, i.e., has at least one child.
+    #     """
+    #     return not self.has_x_children(x=1)
 
     def has_open_leg(self):
         """
@@ -590,19 +590,19 @@ class TensorNode(object):
         """
         return len(self.open_legs) > 0
 
-    def is_child_of(self, other_node_id):
-        """
-        Determines if this instance is the child of the node with identifier
-        other_node_id
-        """
-        return other_node_id in self.parent_leg
+    # def is_child_of(self, other_node_id):
+    #     """
+    #     Determines if this instance is the child of the node with identifier
+    #     other_node_id
+    #     """
+    #     return other_node_id in self.parent_leg
 
-    def is_parent_of(self, other_node_id):
-        """
-        Determines if this instance is the parent of the node with identifier
-        other_node_id
-        """
-        return other_node_id in self.children_legs
+    # def is_parent_of(self, other_node_id):
+    #     """
+    #     Determines if this instance is the parent of the node with identifier
+    #     other_node_id
+    #     """
+    #     return other_node_id in self.children_legs
 
 
 def random_tensor_node(shape, tag=None, identifier=None):
