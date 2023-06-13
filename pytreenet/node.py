@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import uuid1
 from typing import List
 
+
 class Node(object):
     """
     A node is the fundamental building block of a tree.
@@ -24,7 +25,7 @@ class Node(object):
         Returns:
             Node: 
         """
-        
+
         # Setting the identifier
         if identifier == "" or identifier is None:
             self._identifier = str(uuid1())
@@ -59,7 +60,7 @@ class Node(object):
         Returns whether this node is a root node, i.e. doesn't have a parent.
         """
         return self.parent is None
-    
+
     def has_x_children(self, x: int) -> bool:
         """
         Returns whether this node has exactly x-many children.
@@ -87,3 +88,17 @@ class Node(object):
             neighbour_ids = [self.parent]
         neighbour_ids.extend(self.children)
         return neighbour_ids
+
+    def is_child_of(self, other_node_id: str) -> bool:
+        """
+        Determines whether this node is a child of the node with identifier 'other_node_id'.
+        """
+        if self.is_root():
+            return False
+        return self.parent is other_node_id
+
+    def is_parent_of(self, other_node_id: str) -> bool:
+        """
+        Determines whether this node is a parent of the node with identifier 'other_node_id'.
+        """
+        return other_node_id in self.children
