@@ -59,12 +59,18 @@ class Node(object):
         Returns whether this node is a root node, i.e. doesn't have a parent.
         """
         return self.parent is None
+    
+    def has_x_children(self, x: int) -> bool:
+        """
+        Returns whether this node has exactly x-many children.
+        """
+        return len(self.children) == x
 
     def is_leaf(self) -> bool:
         """
         Returns whether this node is a leaf, i.e. doesn't have children
         """
-        return len(self.children) == 0
+        return self.has_x_children(0)
 
     def neighbouring_nodes(self) -> List[str]:
         """
