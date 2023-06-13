@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 class Tree(object):
     """
     A rooted tree that contains nodes, which in turn contain
@@ -25,25 +26,25 @@ class Tree(object):
         A dictionary containing the nodes of the tree via their identifiers.
         """
         return self._nodes
-    
+
     @property
     def root_id(self):
         """
         The identifier of the root node.
         """
         return self._root_id
-    
+
     def __contains__(self, identifier: str):
         """
         Determines if a node with 'identifier' is contained in the Tree.
         """
         return identifier in self.nodes
-    
+
     def add_root(self, node: Node):
         """
         Adds a root Node to this tree
         """
-        assert self.root_id == None, "A tree may only have one root."
+        assert self.root_id is None, "A tree may only have one root."
         self._root_id = node.identifier
         self._nodes[node.identifier] = node
 
@@ -58,7 +59,7 @@ class Tree(object):
         if parent_id not in self._nodes:
             err_str = f"Node with identifier {parent_id} is not in this tree!"
             raise ValueError(err_str)
-        
+
         child_id = child.identifier
         if child_id in self._nodes:
             err_str = f"Tree already contains a node with identifier {child_id}!"
