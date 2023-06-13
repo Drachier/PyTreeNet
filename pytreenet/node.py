@@ -54,6 +54,18 @@ class Node(object):
         string += "parent: " + self.parent + "\n"
         string += "children: " + self.children + "\n"
         return string
+    
+    def add_parent(self, parent_id: str):
+        """
+        Adds 'parent_id' as the new parent.
+        """
+        self.parent = parent_id
+
+    def add_child(self, child_id: str):
+        """
+        Add 'child_id' as a new child.
+        """
+        self.children.append(child_id)
 
     def is_root(self) -> bool:
         """
