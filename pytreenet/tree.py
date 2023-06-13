@@ -31,3 +31,9 @@ class Tree(object):
         The identifier of the root node.
         """
         return self._root_id
+    
+    def __contains__(self, identifier: str):
+        """
+        Determines if a node with 'identifier' is contained in the Tree.
+        """
+        return identifier in self.nodes
