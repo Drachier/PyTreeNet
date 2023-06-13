@@ -1,3 +1,4 @@
+from __future__ import annotations
 import copy
 
 import numpy as np
@@ -12,6 +13,8 @@ from .tree_contraction import (completely_contract_tree,
                                operator_expectation_value,
                                scalar_product
                                )
+from .util import copy_object
+
 
 class TreeTensorNetwork(object):
     """
@@ -20,9 +23,14 @@ class TreeTensorNetwork(object):
     _nodes of tensor nodes with their identifiers as keys.
 
     General structure and parts of the codes are from treelib.tree
+
+    Attributes
+    -------
+    _nodes: dict[str, TensorNode] mapping node ids (str) to TensorNode objects
+    _root_id: str identifier for root node of TTN
     """
 
-    def __init__(self, original_tree = None, deep = False):
+    def __init__(self, original_tree: TreeTensorNetwork = None, deep: bool = False):
         """
         Initiates a new TreeTensorNetwork or a deep or shallow copy of a
         different one.
@@ -36,14 +44,15 @@ class TreeTensorNetwork(object):
 
             if deep:
                 for node_id in original_tree.nodes:
-                    self._nodes[node_id] = copy.deepcopy(original_tree.nodes[node_id])
+                    self._nodes[node_id] = copy.deepcopy(
+                        original_tree.nodes[node_id])
             else:
-                    self._nodes = original_tree.nodes
+                self._nodes = original_tree.nodes
 
     @property
     def nodes(self):
         """
-        A dictionary containing the tensor trees notes via their identifiers.
+        A dictionary containing the tensor trees nodes via their identifiers.
         """
         return self._nodes
 
@@ -89,7 +98,8 @@ class TreeTensorNetwork(object):
         """
         Asserts if node_id already exists in the TTN
         """
-        assert self.check_no_nodeid_dublication(node_id), f"Tensor node with identifier {node_id} already exists in TTN"
+        assert self.check_no_nodeid_dublication(
+            node_id), f"Tensor node with identifier {node_id} already exists in TTN"
 
     def assert_id_in_tree(self, node_id):
         """
@@ -190,7 +200,7 @@ class TreeTensorNetwork(object):
 
         """
         leaf_id_list = [node_id for node_id in self.nodes
-                            if self.nodes[node_id].is_leaf()]
+                        if self.nodes[node_id].is_leaf()]
         return leaf_id_list
 
     def distance_to_node(self, center_node_id):
@@ -210,7 +220,8 @@ class TreeTensorNetwork(object):
 
         """
         distance_dict = {center_node_id: 0}
-        self.distance_of_neighbours(ignore_node_id=None, distance=1, node_id=center_node_id, distance_dict=distance_dict)
+        self.distance_of_neighbours(
+            ignore_node_id=None, distance=1, node_id=center_node_id, distance_dict=distance_dict)
         return distance_dict
 
     def distance_of_neighbours(self, ignore_node_id, distance, node_id, distance_dict):
@@ -235,19 +246,23 @@ class TreeTensorNetwork(object):
 
         """
         node = self.nodes[node_id]
-        non_ignored_children_id = [child_id for child_id in node.children_legs.keys() if child_id != ignore_node_id]
+        non_ignored_children_id = [
+            child_id for child_id in node.children_legs.keys() if child_id != ignore_node_id]
 
-        children_distance_to_center = {child_id: distance for child_id in non_ignored_children_id}
+        children_distance_to_center = {
+            child_id: distance for child_id in non_ignored_children_id}
         distance_dict.update(children_distance_to_center)
 
         for child_id in children_distance_to_center.keys():
-            self.distance_of_neighbours(ignore_node_id=node_id, distance=distance+1, node_id=child_id, distance_dict=distance_dict)
+            self.distance_of_neighbours(
+                ignore_node_id=node_id, distance=distance+1, node_id=child_id, distance_dict=distance_dict)
 
         if not node.is_root():
             parent_id = node.parent_leg[0]
             if not parent_id == ignore_node_id:
                 distance_dict.update({parent_id: distance})
-                self.distance_of_neighbours(ignore_node_id=node_id, distance=distance+1, node_id=parent_id, distance_dict=distance_dict)
+                self.distance_of_neighbours(
+                    ignore_node_id=node_id, distance=distance+1, node_id=parent_id, distance_dict=distance_dict)
 
     # TODO implement similar functions in node class.
     def rewire_only_child(self, parent_id, child_id, new_identifier):
@@ -272,7 +287,8 @@ class TreeTensorNetwork(object):
         parent = self.nodes[parent_id]
         child = self.nodes[child_id]
         assert child_id in parent.children_legs, f"The node with identifier {child_id} is not a child of the node with identifier {parent_id}."
-        assert child.parent_leg[0] == parent_id, f"The node with identifier {parent_id} is not the parent of the node with identifier {child_id}."
+        assert child.parent_leg[
+            0] == parent_id, f"The node with identifier {parent_id} is not the parent of the node with identifier {child_id}."
         child.parent_leg[0] = new_identifier
 
     def rewire_only_parent(self, child_id, new_identifier):
@@ -294,11 +310,13 @@ class TreeTensorNetwork(object):
         """
         child = self.nodes[child_id]
         if child.is_root():
-            warn(f"The node with identifier {child_id} is a tree's root, so its parent cannot be rewired.")
+            warn(
+                f"The node with identifier {child_id} is a tree's root, so its parent cannot be rewired.")
         else:
             parent_id = child.parent_leg[0]
             parent = self.nodes[parent_id]
-            leg_to_child_tensor = {new_identifier: parent.children_legs[child_id]}
+            leg_to_child_tensor = {
+                new_identifier: parent.children_legs[child_id]}
             del parent.children_legs[child_id]
             parent.children_legs.update(leg_to_child_tensor)
 
@@ -328,9 +346,8 @@ class TreeTensorNetwork(object):
 
         children_ids = root_node.get_children_ids()
         for child_id in children_ids:
-            child_subtree_list = self.find_subtree_of_node(child_id)
-
-            subtree_list.extend(child_subtree_list)
+            # child_subtree_list =
+            subtree_list.extend(self.find_subtree_of_node(child_id))
 
         return subtree_list
 
@@ -356,7 +373,7 @@ class TreeTensorNetwork(object):
         """
         canonical_form(self, orthogonality_center_id)
 
-    def completely_contract_tree(self, to_copy=False):
+    def completely_contract_tree(self, to_copy: bool = False):
         """
         Completely contracts the given tree_tensor_network by combining all
         nodes.
@@ -414,7 +431,7 @@ class TreeTensorNetwork(object):
 
         """
         return single_site_operator_expectation_value(self, node_id,
-                                                         operator)
+                                                      operator)
 
     def operator_expectation_value(self, operator_dict):
         """
@@ -451,3 +468,64 @@ class TreeTensorNetwork(object):
 
         """
         return scalar_product(self)
+
+    def apply_hamiltonian(self, hamiltonian: Hamiltonian, conversion_dict: dict[str, ndarray], skipped_vertices=None):
+        """
+        Applies a Hamiltonian term by term locally to a TTN. Assumes that the input TTN represents a statevector
+        such that each TensorNode has the following memory layout: [parent, child_1, child_2, ..., child_n, output].
+        """
+
+        def allocate_output_tensor(ttn, node_id, state_diagram, conversion_dict):
+            """
+            Allocates output tensor for each node
+            """
+            he = state_diagram.hyperedge_colls[node_id].contained_hyperedges[0]
+            operator_label = he.label
+            operator = conversion_dict[operator_label]
+            # Should be square operators
+            phys_dim = operator.shape[0]
+
+            total_tensor_shape = [0] * len(he.vertices)
+            slice_tensor_shape = [0] * len(he.vertices)
+            total_tensor_shape.extend([phys_dim])
+            slice_tensor_shape.extend([phys_dim])
+            node = self.nodes[node_id]
+            neighbours = node.neighbouring_nodes()
+            for leg_index, neighbour_id in enumerate(neighbours.keys()):
+                vertex_coll = state_diagram.get_vertex_coll_two_ids(
+                    node_id, neighbour_id)
+                for index_value, vertex in enumerate(vertex_coll.contained_vertices):
+                    vertex.index = (leg_index, index_value)
+                # The number of vertices is equal to the number of bond-dimensions required.
+                total_tensor_shape[leg_index] = len(
+                    vertex_coll.contained_vertices) * node.tensor.shape[neighbours[neighbour_id]]
+                slice_tensor_shape[leg_index] = node.tensor.shape[neighbours[neighbour_id]]
+            output_tensor = np.zeros(total_tensor_shape, dtype=np.cdouble)
+            return output_tensor, slice_tensor_shape
+
+        from .ttno.state_diagram import StateDiagram
+        state_diagram = StateDiagram.from_hamiltonian(hamiltonian, self)
+
+        # Adding the operator corresponding to each hyperedge to the tensor
+        for node_id, hyperedge_coll in state_diagram.hyperedge_colls.items():
+            output_tensor, output_slice_shape = allocate_output_tensor(
+                self, node_id, state_diagram, hamiltonian.conversion_dictionary)
+            local_tensor = self._nodes[node_id]
+
+            for he in hyperedge_coll.contained_hyperedges:
+                index_value = [0] * len(he.vertices)
+
+                for vertex in he.vertices:
+                    index_value[vertex.index[0]] = vertex.index[1]
+
+                slice_indexing = [slice(index * size, (index+1) * size, 1)
+                                  for (index, size) in zip(index_value, output_slice_shape)]
+                slice_indexing.extend([slice(None)])
+                slice_indexing = tuple(slice_indexing)
+                operator_label = he.label
+                operator = hamiltonian.conversion_dictionary[operator_label]
+                output_slice = np.tensordot(
+                    local_tensor.tensor, operator, axes=([local_tensor.nlegs()-1], [1]))
+                output_tensor[slice_indexing] += output_slice
+
+            self._nodes[node_id].tensor = output_tensor

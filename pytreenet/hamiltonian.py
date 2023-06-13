@@ -1,7 +1,16 @@
+from __future__ import annotations
 from numpy.random import default_rng
 from numpy import prod, eye, tensordot, reshape, transpose, kron
 
 from .ttn_exceptions import NotCompatibleException
+
+from enum import Enum, auto
+
+
+class PadMode(Enum):
+    risky = auto()
+    safe = auto()
+
 
 class Hamiltonian(object):
     """
@@ -12,7 +21,7 @@ class Hamiltonian(object):
     that node/site.
     """
 
-    def __init__(self, terms=None, conversion_dictionary=None):
+    def __init__(self, terms: list[dict] = None, conversion_dictionary: dict = None):
         """
         Parameters
         ----------
@@ -45,10 +54,11 @@ class Hamiltonian(object):
             operator = self.conversion_dictionary[label]
 
             shape = operator.shape
-            assert len(shape) == 2,  f"Operator with label {label} is not a matrix!"
+            assert len(
+                shape) == 2,  f"Operator with label {label} is not a matrix!"
             assert shape[0] == shape[1], f"Matrix with label {label} is not square!"
 
-    def add_term(self, term):
+    def add_term(self, term: dict):
         if not (type(term) == dict):
             try:
                 term = dict(term)
@@ -57,14 +67,14 @@ class Hamiltonian(object):
 
         self.terms.append(term)
 
-    def add_multiple_terms(self, terms):
+    def add_multiple_terms(self, terms: list[dict]):
         if type(terms) == list:
             for term in terms:
                 self.add_term(term)
         else:
-            raise TypeError("'terms' has to be a list of dictionaries")#
+            raise TypeError("'terms' has to be a list of dictionaries")
 
-    def pad_with_identity(self, reference_ttn, mode="safe", identity=None):
+    def pad_with_identity(self, reference_ttn: TreeTensorNetwork, mode: PadMode = PadMode.safe, identity=None):
         """
         Pads all terms with an identity according to the reference reference_ttn
 
@@ -73,7 +83,7 @@ class Hamiltonian(object):
         reference_ttn : TreeTensorNetwork
             reference_ttn with reference to which the identities are to be padded. From
             here the site_ids and operator dimension is inferred.
-        mode : string, optional
+        mode : Enum, optional
             Whether to perform checks ('safe') or not ('risky').
             For big reference_ttn the checks can take a long time.
             The default is 'safe'.
@@ -86,17 +96,20 @@ class Hamiltonian(object):
         None.
 
         """
-        if mode == "safe":
+        if mode == PadMode.safe:
             if not self.is_compatible_with(reference_ttn):
-                raise NotCompatibleException("Hamiltonian and reference_ttn are incompatible")
-        elif mode != "risky":
-            raise ValueError(f"{mode} is not a valied option for 'mode'. (Only 'safe' and 'risky are)!")
+                raise NotCompatibleException(
+                    "Hamiltonian and reference_ttn are incompatible")
+        elif mode != PadMode.risky:
+            raise ValueError(
+                f"{mode} is not a valid option for 'mode'. (Only 'safe' and 'risky are)!")
 
         for site_id in reference_ttn.nodes:
 
             if identity == None:
                 site_node = reference_ttn.nodes[site_id]
-                physical_dim = prod(site_node.shape_of_legs(site_node.open_legs))
+                physical_dim = prod(
+                    site_node.shape_of_legs(site_node.open_legs))
                 site_identity = eye(physical_dim)
             else:
                 site_identity = identity
@@ -105,7 +118,7 @@ class Hamiltonian(object):
                 if not (site_id in term):
                     term[site_id] = site_identity
 
-    def is_compatible_with(self, ttn):
+    def is_compatible_with(self, ttn: TreeTensorNetwork):
         """
         Checks if the Hamiltonian is compatible with the givent TTN.
 
@@ -128,7 +141,7 @@ class Hamiltonian(object):
 
         return True
 
-    def to_tensor(self, ref_ttn, use_padding=False):
+    def to_tensor(self, ref_ttn: TreeTensorNetwork, use_padding: bool = False):
         """
         Creates a tensor ndarray representing this Hamiltonian assuming it is
         defined on the structure of ttn.
@@ -164,12 +177,12 @@ class Hamiltonian(object):
                 full_tensor += term_tensor
 
         # Separating input and output legs
-        permutation = list(range(0,full_tensor.ndim,2))
-        permutation.extend(list(range(1,full_tensor.ndim,2)))
+        permutation = list(range(0, full_tensor.ndim, 2))
+        permutation.extend(list(range(1, full_tensor.ndim, 2)))
         full_tensor = full_tensor.transpose(permutation)
         return full_tensor
 
-    def _to_tensor_rec(self, ttn, node_id, term, tensor):
+    def _to_tensor_rec(self, ttn: TreeTensorNetwork, node_id: str, term: dict, tensor: TensorNode):
         for child_id in ttn.nodes[node_id].children_legs:
             child_tensor = self.conversion_dictionary[term[child_id]]
             tensor = tensordot(tensor, child_tensor, axes=0)
@@ -177,7 +190,7 @@ class Hamiltonian(object):
 
         return tensor
 
-    def to_matrix(self, ttn):
+    def to_matrix(self, ttn: TreeTensorNetwork):
         """
         Creates a matrix ndarray representing this Hamiltonian assuming it is
         defined on the structure of ttn.
@@ -212,7 +225,7 @@ class Hamiltonian(object):
         dup = [term for term in self.terms if self.terms.count(term) > 1]
         return len(dup) > 0
 
-    def __add__(self, other_hamiltonian):
+    def __add__(self, other_hamiltonian: Hamiltonian):
 
         total_terms = []
         total_terms.extend(self.terms)
@@ -230,8 +243,10 @@ class Hamiltonian(object):
         """
         return self.terms == other_hamiltonian.terms
 
-def random_terms(num_of_terms, possible_operators, sites, min_strength = -1, max_strength = 1,
-                 min_num_sites=2,  max_num_sites=2):
+
+def random_terms(
+        num_of_terms: int, possible_operators: list, sites: list[str],
+        min_strength: float = -1, max_strength: float = 1, min_num_sites: int = 2, max_num_sites: int = 2):
     """
     Creates random interaction terms.
 
@@ -263,7 +278,7 @@ def random_terms(num_of_terms, possible_operators, sites, min_strength = -1, max
         A list containing all the random terms.
     """
 
-    rterms= []
+    rterms = []
 
     rng = default_rng()
     number_of_sites = rng.integers(low=min_num_sites, high=max_num_sites + 1,
@@ -297,8 +312,9 @@ def random_terms(num_of_terms, possible_operators, sites, min_strength = -1, max
 
     return rterms
 
-def random_symbolic_terms(num_of_terms, possible_operators, sites,
-                          min_num_sites=2,  max_num_sites=2, seed=None):
+
+def random_symbolic_terms(num_of_terms: int, possible_operators: list[ndarray], sites: list[str],
+                          min_num_sites: int = 2,  max_num_sites: int = 2, seed=None):
     """
     Creates random interaction terms.
 
@@ -324,25 +340,26 @@ def random_symbolic_terms(num_of_terms, possible_operators, sites,
         A list containing all the random terms.
     """
 
-    rterms= []
+    rterms = []
 
     rng = default_rng(seed=seed)
     number_of_sites = rng.integers(low=min_num_sites, high=max_num_sites + 1,
                                    size=num_of_terms)
 
     for num_sites in number_of_sites:
-        term =random_symbolic_term(possible_operators, sites,
-                                   num_sites=num_sites, seed=rng)
+        term = random_symbolic_term(possible_operators, sites,
+                                    num_sites=num_sites, seed=rng)
 
         while term in rterms:
             term = random_symbolic_term(possible_operators, sites,
-                                 num_sites=num_sites, seed=rng)
+                                        num_sites=num_sites, seed=rng)
 
         rterms.append(term)
 
     return rterms
 
-def random_symbolic_term(possible_operators, sites, num_sites=2, seed=None):
+
+def random_symbolic_term(possible_operators: list[ndarray], sites: list[str], num_sites: int = 2, seed=None):
     """
     Creates a random interaction term.
 
