@@ -99,46 +99,6 @@ class Node(object):
         """
         return self._children_legs
 
-    def nlegs(self):
-        """
-        Returns
-        -------
-        num_leg: int
-            The total number of legs of the node. Wrapper of numpy ndim
-        """
-        return len(self.shape)
-
-    def nchild_legs(self):
-        """
-        Returns
-        -------
-        num_child_legs: int
-            The number of  children leg/children of this node.
-        """
-        return len(self.children_legs)
-
-    def nvirt_legs(self):
-        """
-        Returns
-        -------
-        num_virtual_legs: int
-            The number of  virtual legs, i.e. children and parent.
-        """
-        if self.is_root():
-            c = 0
-        else:
-            c = 1
-        return self.nchild_legs() + c
-
-    def nopen_legs(self):
-        """
-        Returns
-        -------
-        num_open_legs: int
-            The number of  open legs.
-        """
-        return len(self.open_legs)
-
     def __eq__(self, other):
         """
         Two nodes are considered equal, if everything is equal, except
@@ -557,7 +517,12 @@ class Node(object):
         The number of children of this node
         """
         return len(self.children)
-
+    
+    def nneighbours(self) -> int:
+        """
+        Returns the number of neighbours of this node.
+        """
+        return self.nchildren + (not self.is_root())
 
 def random_tensor_node(shape, tag=None, identifier=None):
     """

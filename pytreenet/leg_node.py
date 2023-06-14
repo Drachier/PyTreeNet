@@ -3,6 +3,7 @@ from typing import List
 
 from .node import Node
 
+
 class LegNode(Node):
     """ 
     The leg node contains a permutation that is responsible for everything
@@ -85,7 +86,7 @@ class LegNode(Node):
         Args:
             child_id (str): The identifier of the child_nodem to be disconnected.
         """
-        index = super().is_root() + super().child_index(child_id)
+        index = (not super().is_root()) + super().child_index(child_id)
         leg_index = self._leg_permutation.pop(index)
         self._leg_permutation.append(leg_index)
         super().remove_child(child_id)
@@ -100,3 +101,27 @@ class LegNode(Node):
         """
         for child_id in children_id_list:
             self.child_leg_to_open_leg(child_id)
+
+    def nlegs(self) -> int:
+        """
+        Returns the total number of legs of this node.
+        """
+        return len(self._leg_permutation)
+
+    def nchild_legs(self) -> int:
+        """
+        Returns the number of legs connected to child Nodes.
+        """
+        return super().nchildren()
+
+    def nvirt_legs(self):
+        """
+        Returns the total number of legs to other nodes, i.e. parent + children.
+        """
+        return super().nneighbours()
+
+    def nopen_legs(self):
+        """
+        Returns the number of open legs of this node.
+        """
+        return self.nlegs() - self.nvirt_legs()
