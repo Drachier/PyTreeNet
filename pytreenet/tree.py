@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import List, Tuple
 
+
 class Tree(object):
     """
     A rooted tree that contains nodes, which in turn contain
@@ -109,3 +110,10 @@ class Tree(object):
             for child_id in current_node.children:
                 nn_list.append((node_id, child_id))
         return nn_list
+
+    def get_leaf_identifiers(self) -> List[str]:
+        """
+        Returns a list with the identifiers of all leaves.
+        """
+        return [node_id for node_id in self._nodes
+                if self._nodes[node_id].is_leaf()]
