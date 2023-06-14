@@ -1,6 +1,7 @@
 from __future__ import annotations
-from .node import Node
+from typing import List
 
+from .node import Node
 
 class LegNode(Node):
     """ 
