@@ -17,8 +17,6 @@ class Node(object):
 
     def __init__(self, tag=None, identifier=None, tensor=None):
 
-        # self._tensor = np.asarray(tensor)
-
         if identifier == None:
             self._identifier = str(uuid.uuid1())
         else:
@@ -31,10 +29,8 @@ class Node(object):
         # At the beginning all legs are open
         if tensor is not None:
             self._open_legs = list(np.arange(tensor.ndim))
-            self.shape = tensor.shape
         else:
             self._open_legs = None
-            self.shape = None
 
         self._parent_leg = []
         self._children_legs = dict()
@@ -255,15 +251,11 @@ class Node(object):
             for leg_index in open_leg_list:
                 self.check_existence_of_open_legs([leg_index])
 
-    def open_leg_to_parent(self, open_leg, parent_id):
+    def add_parent(self, parent_id: str):
         """
-        Change an open leg to be a leg contracted with the parent node.
+        Adds `parent_id` as the new parent.
         """
-        self.check_existence_of_open_legs([open_leg])
-
-        self._parent_leg.append(parent_id)
-        self._parent_leg.append(open_leg)
-        self._open_legs.remove(open_leg)
+        self.parent = parent_id
 
     def open_legs_to_children(self, open_leg_list, identifier_list):
         """
