@@ -251,12 +251,6 @@ class Node(object):
             for leg_index in open_leg_list:
                 self.check_existence_of_open_legs([leg_index])
 
-    def add_parent(self, parent_id: str):
-        """
-        Adds `parent_id` as the new parent.
-        """
-        self.parent = parent_id
-
     def open_legs_to_children(self, open_leg_list, identifier_list):
         """
         Change a list of open legs to legs contracted with children.
@@ -580,6 +574,20 @@ class Node(object):
         other_node_id
         """
         return other_node_id in self.children_legs
+    
+
+    ######## Newly Added Stuff ########
+    def add_parent(self, parent_id: str):
+        """
+        Adds `parent_id` as the new parent.
+        """
+        self.parent = parent_id
+
+    def nchildren(self) -> int:
+        """
+        The number of children of this node
+        """
+        return len(self.children)
 
 
 def random_tensor_node(shape, tag=None, identifier=None):
