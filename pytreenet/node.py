@@ -251,33 +251,6 @@ class Node(object):
             for leg_index in open_leg_list:
                 self.check_existence_of_open_legs([leg_index])
 
-    def children_legs_to_open_legs(self, children_identifier_list):
-        """
-        Makes legs contracted with children identified in children_identifier_list
-        into open legs.
-        """
-        if type(children_identifier_list) == str:
-            children_identifier_list = [children_identifier_list]
-        else:
-            children_identifier_list = list(children_identifier_list)
-
-        assert all(identifiers in self.children_legs for identifiers in children_identifier_list), "All identifiers must correspond a child of the node."
-
-        children_legs_list = [self.children_legs[identifier] for identifier in children_identifier_list]
-        self._open_legs.extend(children_legs_list)
-
-        for identifier in children_identifier_list:
-            del self._children_legs[identifier]
-
-    def child_leg_to_open_leg(self, child_identifier):
-        """
-        Makes a leg contracted with the child identified by child_identifier
-        into an open leg.
-        """
-        assert child_identifier in self.children_legs, "Identifier should belong to a child of this node."
-
-        self.children_legs_to_open_legs(child_identifier)
-
     # def order_legs(self, last_leg_index=None):
     #     """
     #     It can be very convenient to have the legs in a specific order.
@@ -566,6 +539,18 @@ class Node(object):
         Adds `child_id` as a new child.
         """
         self.children.append(child_id)
+
+    def remove_child(self, child_id: str):
+        """
+        Removes a children identifier from this node's children.
+        """
+        self.children.remove(child_id)
+
+    def child_index(self, child_id: str):
+        """
+        Returns the index of identifier child_id in this Node's children list.
+        """
+        return self.children.index(child_id)
 
     def nchildren(self) -> int:
         """

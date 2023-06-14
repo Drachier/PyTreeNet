@@ -77,3 +77,26 @@ class LegNode(Node):
             leg_index = self._leg_permutation.pop(0)
             self._leg_permutation.append(leg_index)
             super().remove_parent()
+
+    def child_leg_to_open_leg(self, child_id: str):
+        """
+        Changes a leg towards a child Node into an open_leg
+
+        Args:
+            child_id (str): The identifier of the child_nodem to be disconnected.
+        """
+        index = super().is_root() + super().child_index(child_id)
+        leg_index = self._leg_permutation.pop(index)
+        self._leg_permutation.append(leg_index)
+        super().remove_child(child_id)
+
+    def children_legs_to_open_legs(self, children_id_list: List[str]):
+        """
+        Changes multiple child legs into open legs.
+
+        Args:
+            children_id_list (List[str]): A list of the identifiers of the child
+                Nodes which are to be turned into open legs. 
+        """
+        for child_id in children_id_list:
+            self.child_leg_to_open_leg(child_id)
