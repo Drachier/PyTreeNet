@@ -16,6 +16,8 @@ class LegNode(Node):
     Is compatible with `np.transpose`.
     So in the permutation we have the format
         `[leg of tensor corr. to parent, leg of tensor corr. to child0, ...]`
+    The children legs are in the same order as the children node identifiers in 
+    the superclass.
     """
 
     def __init__(self, tensor: ndarray, tag=None, identifier=None):
