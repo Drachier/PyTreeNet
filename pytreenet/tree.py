@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from typing import List, Tuple
 
 class Tree(object):
     """
@@ -91,3 +91,21 @@ class Tree(object):
         current_root.add_parent(new_id)
 
         self._root_id = new_id
+
+    def nearest_neighbour_identifiers(self) -> List[Tuple[str, str]]:
+        """
+        Finds all nearest neighbour pairs in this tree.
+
+        They are found by collecting all parent child pairs in tuples.
+        The first entry is the parent identifier and the second the child identifier.
+
+        Returns:
+            nn_list (List[Tuple[str,str]]) : A list containing the identifiers of all
+                nearest neighbour pairs.
+        """
+        nn_list = []
+        for node_id in self._nodes:
+            current_node = self.nodes[node_id]
+            for child_id in current_node.children:
+                nn_list.append((node_id, child_id))
+        return nn_list
