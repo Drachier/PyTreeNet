@@ -40,6 +40,18 @@ class Tree(object):
         """
         return identifier in self.nodes
 
+    def _add_node(self, new_node: Node):
+        """
+        Adds a node to the dictionary with checks.
+
+        Only for internal use. For external additions use the functions below.
+        """
+        new_node_id = new_node.identifier
+        if new_node_id in self._nodes:
+            err_str = f"Tree already contains a node with identifier {new_node_id}!"
+            raise ValueError(err_str)
+        self.nodes[new_node_id] = new_node
+
     def add_root(self, node: Node):
         """
         Adds a root Node to this tree
@@ -60,13 +72,10 @@ class Tree(object):
             err_str = f"Node with identifier {parent_id} is not in this tree!"
             raise ValueError(err_str)
 
-        child_id = child.identifier
-        if child_id in self._nodes:
-            err_str = f"Tree already contains a node with identifier {child_id}!"
-            raise ValueError(err_str)
-        self._nodes[child_id] = child
+        self._add_node(child)
         child.add_parent(parent_id)
 
+        child_id = child.identifier
         parent = self._nodes[parent_id]
         parent.add_child(child_id)
 
@@ -74,14 +83,11 @@ class Tree(object):
         """
         Adds a parent to the root of this tree, making it the new root.
         """
-        new_id = new_root.identifier
-        if new_id in self._nodes:
-            err_str = f"Tree already contains a node with identifier {new_id}!"
-            raise ValueError(err_str)
-        self._nodes[new_id] = new_root
+        self._add_node(new_root)
         new_root.add_child(self._root_id)
 
         current_root = self._nodes[self._root_id]
+        new_id = new_root.identifier
         current_root.add_parent(new_id)
 
         self._root_id = new_id
