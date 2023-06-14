@@ -13,7 +13,7 @@ class LegNode(Node):
     that the associated tensor transposed with it has the leg ordering:
         `(parent, child0, ..., childN-1, open_leg0, ..., open_legM-1)`
     Is compatible with `np.transpose`.
-    So in the permutatio we have the format
+    So in the permutation we have the format
         `[leg of tensor corr. to parent, leg of tensor corr. to child0, ...]`
     """
 
@@ -28,7 +28,7 @@ class LegNode(Node):
         Get the leg permutation, cf. class docstring.
         """
         return self._leg_permutation
-    
+
     def open_leg_to_parent(self, open_leg: int, parent_id: str):
         """
         Changes an open leg into the leg towards a parent.
@@ -40,3 +40,15 @@ class LegNode(Node):
         # Move value open_leg to front of list
         self._leg_permutation.insert(0, self._leg_permutation.pop(open_leg))
         super().add_parent(parent_id)
+
+    def open_leg_to_child(self, open_leg: int, child_id: str):
+        """
+        Changes an open leg into the leg towards a child.
+
+        Args:
+            open_leg (int): The index of the actual tensor leg
+            child_id (str): The identifier of the to be child node
+        """
+        new_position = super().is_root() + super().nchildren()
+        self._leg_permutation.insert(new_position, self._leg_permutation.pop(open_leg))
+        super().add_child(child_id)

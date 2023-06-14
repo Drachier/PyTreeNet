@@ -265,12 +265,6 @@ class Node(object):
         self._children_legs.update(new_children_legs)
         self._open_legs = [open_leg for open_leg in self._open_legs if open_leg not in open_leg_list]
 
-    def open_leg_to_child(self, open_leg, child_id):
-        """
-        Only changes a single open leg to be contracted with a child
-        """
-        self.open_legs_to_children([open_leg], [child_id])
-
     def parent_leg_to_open_leg(self):
         """
         If existant, changes the leg contracted with a parent node, to an
@@ -582,6 +576,12 @@ class Node(object):
         Adds `parent_id` as the new parent.
         """
         self.parent = parent_id
+
+    def add_child(self, child_id: str):
+        """
+        Adds `child_id` as a new child.
+        """
+        self.children.append(child_id)
 
     def nchildren(self) -> int:
         """
