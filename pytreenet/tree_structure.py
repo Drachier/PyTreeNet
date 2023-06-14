@@ -24,24 +24,14 @@ class TreeStructure(object):
     _root_id: str identifier for root node of TreeStructure
     """
 
-    def __init__(self, original_tree: TreeStructure = None, deep: bool = False):
+    def __init__(self):
         """
         Initiates a new TreeTensorNetwork or a deep or shallow copy of a
         different one.
         """
 
         self._nodes = dict()
-
         self._root_id = None
-        if original_tree is not None:
-            self._root_id = original_tree.root_id
-
-            if deep:
-                for node_id in original_tree.nodes:
-                    self._nodes[node_id] = copy.deepcopy(
-                        original_tree.nodes[node_id])
-            else:
-                self._nodes = original_tree.nodes
 
     @property
     def nodes(self):
@@ -326,41 +316,3 @@ class TreeStructure(object):
             subtree_list.extend(self.find_subtree_of_node(child_id))
 
         return subtree_list
-
-    def absorb_tensor(self, node_id: int, absorbed_tensor: ndarray, absorbed_tensors_leg_indices: tuple[int],
-                      this_tensors_leg_indices: tuple[int]):
-        """
-        Absorbs `absorbed_tensor` into this instance's tensor by contracting
-        the absorbed_tensors_legs of the absorbed_tensor and the legs
-        this_tensors_legs of this instance's tensor'
-
-        Parameters
-        ----------
-        absorbed_tensor: ndarray
-            Tensor to be absorbed.
-        absorbed_tensors_leg_indices: int or tuple of int
-            Legs that are to be contracted with this instance's tensor.
-        this_tensors_leg_indices:
-            The legs of this instance's tensor that are to be contracted with
-            the absorbed tensor.
-        """
-        if type(absorbed_tensors_leg_indices) == int:
-            absorbed_tensors_leg_indices = (absorbed_tensors_leg_indices, )
-
-        if type(this_tensors_leg_indices) == int:
-            this_tensors_leg_indices = (this_tensors_leg_indices, )
-
-        assert len(absorbed_tensors_leg_indices) == len(this_tensors_leg_indices)
-
-        if len(absorbed_tensors_leg_indices) == 1:
-            this_tensors_leg_index = this_tensors_leg_indices[0]
-            new_tensor = np.tensordot(self.tensors[node_id], absorbed_tensor,
-                                      axes=(this_tensors_leg_indices, absorbed_tensors_leg_indices))
-
-            this_tensors_indices = tuple(range(new_tensor.ndim))
-            transpose_perm = (this_tensors_indices[0:this_tensors_leg_index]
-                              + (this_tensors_indices[-1], )
-                              + this_tensors_indices[this_tensors_leg_index:-1])
-            self.tensors[node_id] = new_tensor.transpose(transpose_perm)
-        else:
-            raise NotImplementedError
