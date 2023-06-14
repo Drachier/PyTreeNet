@@ -251,20 +251,6 @@ class Node(object):
             for leg_index in open_leg_list:
                 self.check_existence_of_open_legs([leg_index])
 
-    def open_legs_to_children(self, open_leg_list, identifier_list):
-        """
-        Change a list of open legs to legs contracted with children.
-        """
-        open_leg_list = list(open_leg_list)
-        identifier_list = list(identifier_list)
-
-        self.check_existence_of_open_legs(open_leg_list)
-        assert len(open_leg_list) == len(identifier_list), "Children and identifier list should be the same length"
-
-        new_children_legs = dict(zip(identifier_list, open_leg_list))
-        self._children_legs.update(new_children_legs)
-        self._open_legs = [open_leg for open_leg in self._open_legs if open_leg not in open_leg_list]
-
     def parent_leg_to_open_leg(self):
         """
         If existant, changes the leg contracted with a parent node, to an

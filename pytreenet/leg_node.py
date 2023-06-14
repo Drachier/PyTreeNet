@@ -52,3 +52,14 @@ class LegNode(Node):
         new_position = super().is_root() + super().nchildren()
         self._leg_permutation.insert(new_position, self._leg_permutation.pop(open_leg))
         super().add_child(child_id)
+
+    def open_legs_to_children(self, open_leg_list: List[int], identifier_list: List[str]):
+        """
+        Changes multiple open legs to be legs towards children.
+
+        Args:
+            open_leg_list (List[int]): List of actual tensor leg indices
+            identifier_list (List[str]): List of the to be children nodes
+        """
+        for open_leg, child_id in zip(open_leg_list, identifier_list):
+            self.open_leg_to_child(open_leg, child_id)
