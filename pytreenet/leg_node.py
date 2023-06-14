@@ -41,7 +41,8 @@ class LegNode(Node):
             parent_id (str): The identifier of the to be parent node
         """
         # Move value open_leg to front of list
-        self._leg_permutation.insert(0, self._leg_permutation.pop(open_leg))
+        self._leg_permutation.remove(open_leg)
+        self._leg_permutation.insert(0, open_leg)
         super().add_parent(parent_id)
 
     def open_leg_to_child(self, open_leg: int, child_id: str):
@@ -52,8 +53,9 @@ class LegNode(Node):
             open_leg (int): The index of the actual tensor leg
             child_id (str): The identifier of the to be child node
         """
+        self._leg_permutation.remove(open_leg)
         new_position = super().is_root() + super().nchildren()
-        self._leg_permutation.insert(new_position, self._leg_permutation.pop(open_leg))
+        self._leg_permutation.insert(new_position, open_leg)
         super().add_child(child_id)
 
     def open_legs_to_children(self, open_leg_list: List[int], identifier_list: List[str]):
