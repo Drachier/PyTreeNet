@@ -147,9 +147,8 @@ class TreeStructure(object):
         """
         nn = []
 
-        for node_id in self.nodes:
-            current_node = self.nodes[node_id]
-            for child_id in current_node.children_legs:
+        for node_id, node in self.nodes.items():
+            for child_id in node.children_legs:
                 nn.append((node_id, child_id))
 
         return nn
