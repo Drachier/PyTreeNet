@@ -68,3 +68,12 @@ class LegNode(Node):
         """
         for open_leg, child_id in zip(open_leg_list, identifier_list):
             self.open_leg_to_child(open_leg, child_id)
+
+    def parent_leg_to_open_leg(self):
+        """
+        Changes the parent leg to be an open leg, if it exists.
+        """
+        if not super().is_root:
+            leg_index = self._leg_permutation.pop(0)
+            self._leg_permutation.append(leg_index)
+            super().remove_parent()

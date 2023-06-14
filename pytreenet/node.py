@@ -251,14 +251,6 @@ class Node(object):
             for leg_index in open_leg_list:
                 self.check_existence_of_open_legs([leg_index])
 
-    def parent_leg_to_open_leg(self):
-        """
-        If existant, changes the leg contracted with a parent node, to an
-        open leg. (Note: this will remove any relation of this node to the parent)
-        """
-        self.open_legs.append(self.parent_leg[1])
-        self._parent_leg = []
-
     def children_legs_to_open_legs(self, children_identifier_list):
         """
         Makes legs contracted with children identified in children_identifier_list
@@ -562,6 +554,12 @@ class Node(object):
         Adds `parent_id` as the new parent.
         """
         self.parent = parent_id
+
+    def remove_parent(self):
+        """
+        Removes parent and replaces it by None
+        """
+        self.parent = None
 
     def add_child(self, child_id: str):
         """
