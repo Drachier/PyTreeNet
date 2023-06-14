@@ -28,3 +28,15 @@ class LegNode(Node):
         Get the leg permutation, cf. class docstring.
         """
         return self._leg_permutation
+    
+    def open_leg_to_parent(self, open_leg: int, parent_id: str):
+        """
+        Changes an open leg into the leg towards a parent.
+
+        Args:
+            open_leg (int): The index of the actual tensor leg
+            parent_id (str): The identifier of the to be parent node
+        """
+        # Move value open_leg to front of list
+        self._leg_permutation.insert(0, self._leg_permutation.pop(open_leg))
+        super().add_parent(parent_id)
