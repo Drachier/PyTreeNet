@@ -3,7 +3,7 @@ import numpy as np
 
 from ..ttn import TreeTensorNetwork
 from ..tensor_util import tensor_qr_decomposition, tensor_svd, truncated_tensor_svd
-from ..tensornode import TensorNode
+from ..node import Node
 from .state_diagram import StateDiagram
 
 from enum import Enum, auto
