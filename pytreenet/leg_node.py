@@ -32,7 +32,7 @@ class LegNode(Node):
         Get the leg permutation, cf. class docstring.
         """
         return self._leg_permutation
-    
+
     @property
     def parent_leg(self) -> List[str, int]:
         """
@@ -42,7 +42,7 @@ class LegNode(Node):
             errstring = f"Node with identifier {super().identifier} has no parent!"
             raise ValueError(errstring)
         return {super().parent: 0}
-    
+
     @property
     def children_legs(self) -> Dict[str, int]:
         """ 
@@ -53,8 +53,9 @@ class LegNode(Node):
                 children identifiers and the values are the indices in the permutation list (NOT the
                 actual tensor legs)
         """
-        return {child_id: index + (not super().is_root) for index, child_id in enumerate(super().children)}
-    
+        return {child_id: index + (not super().is_root)
+                for index, child_id in enumerate(super().children)}
+
     @property
     def open_legs(self) -> List[int]:
         """
