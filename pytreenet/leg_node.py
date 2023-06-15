@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List
+from typing import List, Dict
 
 from .node import Node
 
@@ -32,6 +32,35 @@ class LegNode(Node):
         Get the leg permutation, cf. class docstring.
         """
         return self._leg_permutation
+    
+    @property
+    def parent_leg(self) -> List[str, int]:
+        """
+        Returns parent_leg according to original implementation
+        """
+        if super().is_root():
+            errstring = f"Node with identifier {super().identifier} has no parent!"
+            raise ValueError(errstring)
+        return {super().parent: 0}
+    
+    @property
+    def children_legs(self) -> Dict[str, int]:
+        """ 
+        Returns the children_legs according to original implementation.
+
+        Returns:
+            Dict[str, int]: The children_legs according to original implementation. The keys are the
+                children identifiers and the values are the indices in the permutation list (NOT the
+                actual tensor legs)
+        """
+        return {child_id: index + (not super().is_root) for index, child_id in enumerate(super().children)}
+    
+    @property
+    def open_legs(self) -> List[int]:
+        """
+        Returns the indices of the open legs in the permutation list (NOT the actual tensor legs).
+        """
+        return list(range(self.nvirt_legs(), self.nlegs()))
 
     def open_leg_to_parent(self, open_leg: int, parent_id: str):
         """
@@ -49,6 +78,7 @@ class LegNode(Node):
     def open_leg_to_child(self, open_leg: int, child_id: str):
         """
         Changes an open leg into the leg towards a child.
+        Children legs will be assorted in the same way as their ids are in the superclass.
 
         Args:
             open_leg (int): The index of the actual tensor leg
