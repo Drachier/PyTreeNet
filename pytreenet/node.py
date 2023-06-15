@@ -1,8 +1,9 @@
 from __future__ import annotations
-import numpy as np
 import uuid
 
-from copy import deepcopy
+import numpy as np
+
+from typing import List
 
 from .util import crandn, copy_object
 
@@ -27,15 +28,20 @@ class Node():
             identifier (str, optional): A unique identifier assigned
                 to this node. Defaults to "".
         """
-
+        # Setting identifier
         if identifier is None or identifier == "":
             self._identifier = str(uuid.uuid1())
         else:
             self._identifier = str(identifier)
+        # Setting tag
         if tag is None or tag == "":
             self._tag = self.identifier
         else:
             self._tag = tag
+
+        # Information about connectivity
+        self.parent = None
+        self.children = []
 
     @property
     def identifier(self):
@@ -65,87 +71,6 @@ class Node():
         else:
             self._tag = new_tag
 
-    def neighbouring_nodes(self, with_legs=True):
-        """
-        Finds the neighbouring tensor nodes of this node with varying
-        additional information.
-
-        Parameters
-        ----------
-        with_legs : boolean, optional
-            If True the legs of neighbours are also returned. The default is True.
-
-        Returns
-        -------
-        neighbour_legs: dict
-            Is returned, if with_legs=True. A dictionary that contains all the
-            identifiers of tensor nodes that are contracted with this node and
-            the leg they are attached to.
-        neighbour_ids: list of str
-            Is returned if with_legs=False. A list containing the identifiers
-            of all the tensor nodes this node is contracted with.
-        """
-
-        if with_legs:
-            parent_dict = self.parent_leg_dict()
-            neighbour_legs = deepcopy(self.children_legs)
-            neighbour_legs.update(parent_dict)
-            return neighbour_legs
-
-        else:
-            neighbour_ids = list(self.children_legs.keys())
-            if not self.is_root():
-                neighbour_ids.append(self.parent_leg[0])
-            return neighbour_ids
-
-    def is_root(self):
-        """
-        Determines if this node is a root node, i.e., a node without a parent.
-        """
-        if len(self.parent_leg) == 0:
-            return True
-        else:
-            return False
-
-    def has_x_children(self, x: int):
-        """
-        Determines if the node has at least x-many children
-        """
-        assert x > 0, "The number of children will be at least zero. Choose a bigger number."
-
-        if len(self._children_legs) >= x:
-            return True
-        else:
-            return False
-
-    def is_leaf(self):
-        """
-        Determines if the node is a leaf, i.e., has at least one child.
-        """
-        return not self.has_x_children(x=1)
-
-    def has_open_leg(self):
-        """
-        Determines if the node has any open legs.
-        """
-        return len(self.open_legs) > 0
-
-    def is_child_of(self, other_node_id):
-        """
-        Determines if this instance is the child of the node with identifier
-        other_node_id
-        """
-        return other_node_id in self.parent_leg
-
-    def is_parent_of(self, other_node_id):
-        """
-        Determines if this instance is the parent of the node with identifier
-        other_node_id
-        """
-        return other_node_id in self.children_legs
-    
-
-    ######## Newly Added Stuff ########
     def add_parent(self, parent_id: str):
         """
         Adds `parent_id` as the new parent.
@@ -187,6 +112,54 @@ class Node():
         Returns the number of neighbours of this node.
         """
         return self.nchildren + (not self.is_root())
+
+    def is_root(self) -> bool:
+        """
+        Returns whether this node is a root node, i.e. doesn't have a parent.
+        """
+        return self.parent is None
+
+    def has_x_children(self, x: int) -> bool:
+        """
+        Returns whether this node has exactly x-many children.
+        """
+        return len(self.children) == x
+
+    def is_leaf(self) -> bool:
+        """
+        Returns whether this node is a leaf, i.e. doesn't have children
+        """
+        return self.has_x_children(0)
+
+    def neighbouring_nodes(self) -> List[str]:
+        """
+        Provides the identifiers of all neighbours, i.e. the parent and all
+            children.
+
+        Returns:
+            List[str]: Contains the neighbour identifiers, if this node is not
+                a root, the parent's identifier is the first identifier.
+        """
+        if self.is_root():
+            neighbour_ids = []
+        else:
+            neighbour_ids = [self.parent]
+        neighbour_ids.extend(self.children)
+        return neighbour_ids
+
+    def is_child_of(self, other_node_id: str) -> bool:
+        """
+        Determines whether this node is a child of the node with identifier 'other_node_id'.
+        """
+        if self.is_root():
+            return False
+        return self.parent is other_node_id
+
+    def is_parent_of(self, other_node_id: str) -> bool:
+        """
+        Determines whether this node is a parent of the node with identifier 'other_node_id'.
+        """
+        return other_node_id in self.children
 
 def random_tensor_node(shape, tag=None, identifier=None):
     """
