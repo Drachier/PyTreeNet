@@ -7,21 +7,32 @@ from copy import deepcopy
 from .util import crandn, copy_object
 
 
-class Node(object):
+class Node():
     """
-    A node in a tree tensor network and which legs are contracted to which other tensors.
-
-    General structure and parts of the code from treelib.node
-
+    A node is the fundamental building block of a tree.
+    It contains all the information on how it is connected
+    to the rest of the tree.
     """
 
-    def __init__(self, tag=None, identifier=None):
+    def __init__(self, tag="", identifier=""):
+        """
+        Creates a Node. If no identifier is given, a random
+        unique identifier is assigned.
+        Initially no parent or children nodes are assigned.
+        Both attributes would contain the identifier of other nodes.
 
-        if identifier == None:
+        Args:
+            tag (str, optional): A non-unique name of the node.
+                Defaults to "".
+            identifier (str, optional): A unique identifier assigned
+                to this node. Defaults to "".
+        """
+
+        if identifier is None or identifier == "":
             self._identifier = str(uuid.uuid1())
         else:
             self._identifier = str(identifier)
-        if tag == None:
+        if tag is None or tag == "":
             self._tag = self.identifier
         else:
             self._tag = tag
