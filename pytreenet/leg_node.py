@@ -36,7 +36,7 @@ class LegNode(Node):
     @property
     def parent_leg(self) -> List[str, int]:
         """
-        Returns parent_leg according to original implementation
+        Returns parent_leg according to original implementation, but as a dictionary.
         """
         if super().is_root():
             errstring = f"Node with identifier {super().identifier} has no parent!"
