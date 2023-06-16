@@ -11,7 +11,6 @@ from .tree_contraction import (completely_contract_tree,
                                scalar_product
                                )
 
-
 class TreeTensorNetwork(TreeStructure):
     """
     A tree tensor network (TTN) a tree, where each node contains a tensor,
@@ -37,8 +36,22 @@ class TreeTensorNetwork(TreeStructure):
     @property
     def tensors(self):
         """
-        A dict[str, ndarray] mapping the tensor tree node identifiers to the corresponding tensor data.
+        A dict[str, ndarray] mapping the tensor tree node identifiers to
+        the corresponding tensor data.
+
+        Since during addition of nodes the tensors are not actually transposed,
+        this has to be done here. This way whenever tensors are accessed, their
+        leg ordering is
+            (parent_leg, children_legs, open_legs)
         """
+        new_tensors = {}
+        for node_id, tensor in self._tensors.items():
+            node = self.nodes[node_id]
+            transposed_tensor = np.transpose(tensor, node.leg_permutation)
+            new_tensors[node_id] = transposed_tensor
+            node.reset_permutation()
+
+        self._tensors = new_tensors
         return self._tensors
 
     def add_root(self, node, tensor):

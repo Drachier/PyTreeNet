@@ -32,6 +32,14 @@ class LegNode(Node):
         Get the leg permutation, cf. class docstring.
         """
         return self._leg_permutation
+    
+    def reset_permutation(self):
+        """
+        Resets the permutation to the standard.
+        Always call this, when the associated tensor is transposed
+            according to the permutation. This ensures, the legs still match.
+        """
+        self._leg_permutation = list(range(len(self._leg_permutation)))
 
     @property
     def parent_leg(self) -> List[str, int]:
