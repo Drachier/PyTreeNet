@@ -168,61 +168,60 @@ class TreeStructure(object):
             distance_dict.update(neighbour_distances)
         return distance_dict
 
-    # TODO implement similar functions in node class.
-    def rewire_only_child(self, parent_id: str, child_id: str, new_identifier: str):
-        """
-        For the node with identifier child_id the parent_leg is rewired from parent
-        to a node with identifier new_identifier.
+    # def rewire_only_child(self, parent_id: str, child_id: str, new_identifier: str):
+    #     """
+    #     For the node with identifier child_id the parent_leg is rewired from parent
+    #     to a node with identifier new_identifier.
 
-        Parameters
-        ----------
-        parent_id : str
-            Identifier of the parent node for which one child is rewired to a new parent.
-        child_id : str
-            Identifier of the child which is to be rewired.
-        new_identifier : str
-            Identifier of the node to be rewired to.
+    #     Parameters
+    #     ----------
+    #     parent_id : str
+    #         Identifier of the parent node for which one child is rewired to a new parent.
+    #     child_id : str
+    #         Identifier of the child which is to be rewired.
+    #     new_identifier : str
+    #         Identifier of the node to be rewired to.
 
-        Returns
-        -------
-        None.
+    #     Returns
+    #     -------
+    #     None.
 
-        """
-        parent = self.nodes[parent_id]
-        child = self.nodes[child_id]
-        assert child_id in parent.children_legs, f"The node with identifier {child_id} is not a child of the node with identifier {parent_id}."
-        assert child.parent_leg[
-            0] == parent_id, f"The node with identifier {parent_id} is not the parent of the node with identifier {child_id}."
-        child.parent_leg[0] = new_identifier
+    #     """
+    #     parent = self.nodes[parent_id]
+    #     child = self.nodes[child_id]
+    #     assert child_id in parent.children_legs, f"The node with identifier {child_id} is not a child of the node with identifier {parent_id}."
+    #     assert child.parent_leg[
+    #         0] == parent_id, f"The node with identifier {parent_id} is not the parent of the node with identifier {child_id}."
+    #     child.parent_leg[0] = new_identifier
 
-    def rewire_only_parent(self, child_id: str, new_identifier: str):
-        """
-        For the parent of the node child the leg connected to child is rewired to the
-        tensor node with identifier new_identifier.
+    # def rewire_only_parent(self, child_id: str, new_identifier: str):
+    #     """
+    #     For the parent of the node child the leg connected to child is rewired to the
+    #     tensor node with identifier new_identifier.
 
-        Parameters
-        ----------
-        child_id : str
-            Identifier of the node whose parent is to have one leg rewired.
-        new_identifier : str
-            Identifier of the tensor the parent is rewired to.
+    #     Parameters
+    #     ----------
+    #     child_id : str
+    #         Identifier of the node whose parent is to have one leg rewired.
+    #     new_identifier : str
+    #         Identifier of the tensor the parent is rewired to.
 
-        Returns
-        -------
-        None.
+    #     Returns
+    #     -------
+    #     None.
 
-        """
-        child = self.nodes[child_id]
-        if child.is_root():
-            warn(
-                f"The node with identifier {child_id} is a tree's root, so its parent cannot be rewired.")
-        else:
-            parent_id = child.parent_leg[0]
-            parent = self.nodes[parent_id]
-            leg_to_child_tensor = {
-                new_identifier: parent.children_legs[child_id]}
-            del parent.children_legs[child_id]
-            parent.children_legs.update(leg_to_child_tensor)
+    #     """
+    #     child = self.nodes[child_id]
+    #     if child.is_root():
+    #         warn(
+    #             f"The node with identifier {child_id} is a tree's root, so its parent cannot be rewired.")
+    #     else:
+    #         parent_id = child.parent_leg[0]
+    #         parent = self.nodes[parent_id]
+    #         leg_to_child_tensor = {
+    #             new_identifier: parent.children_legs[child_id]}
+    #         del parent.children_legs[child_id]
+    #         parent.children_legs.update(leg_to_child_tensor)
 
     def find_subtree_of_node(self, node_id: str):
         """
