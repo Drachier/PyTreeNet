@@ -26,7 +26,7 @@ class TreeStructure(object):
         different one.
         """
 
-        self._nodes = dict()
+        self._nodes = {}
         self._root_id = None
 
     @property
@@ -65,24 +65,17 @@ class TreeStructure(object):
     def __len__(self):
         return len(self._nodes)
 
-    def check_no_node_id_duplication(self, node_id):
+    def _add_node(self, new_node: Node):
         """
-        Checks if node_id already exists in the TreeStructure
-        """
-        return node_id not in self.nodes
+        Adds a node to the dictionary with checks.
 
-    def assert_no_node_id_duplication(self, node_id):
+        Only for internal use. For external additions use the functions below.
         """
-        Asserts if node_id already exists in the TreeStructure
-        """
-        assert self.check_no_node_id_duplication(
-            node_id), f"Tensor node with identifier {node_id} already exists in TreeStructure"
-
-    def assert_id_in_tree(self, node_id):
-        """
-        Asserts if the node with the identifier node_id is in the tree.
-        """
-        assert node_id in self.nodes, f"Tensor node with identifier {node_id} is not part of the TreeStructure."
+        new_node_id = new_node.identifier
+        if new_node_id in self._nodes:
+            err_str = f"Tree already contains a node with identifier {new_node_id}!"
+            raise ValueError(err_str)
+        self.nodes[new_node_id] = new_node
 
     def add_root(self, node: Node):
         """
