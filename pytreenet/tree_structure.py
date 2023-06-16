@@ -2,12 +2,10 @@ from __future__ import annotations
 
 
 from typing import List, Tuple, Dict
-from warnings import warn
 
-from .node import assert_legs_matching, Node
+from .node import Node
 
-
-class TreeStructure(object):
+class TreeStructure():
     """
     An abstract tree tensor network (TreeStructure) tree, where each node represents a tensor,
     that is part of the network. Here a tree tensor network is a dictionary
@@ -167,6 +165,41 @@ class TreeStructure(object):
                                    in neighbour_distances.items()}
             distance_dict.update(neighbour_distances)
         return distance_dict
+    
+    def find_subtree_of_node(self, node_id: str) -> Dict[str, Node]:
+        """
+        Obtains the subtree from a given node towards the leaves of this tree.
+        This is done recursively.
+
+        Args:
+            node_id (str): The identifier of the node from which the subtree
+                should start.
+
+        Raises:
+            ValueError: If node_id is not in the tree.
+
+        Returns:
+            Dict[str, Node]: Contains the nodes of the subtree, keyed by the
+                identifier. Note that this is not a Tree class object, because the root
+                still has a parent.
+        """
+
+        if node_id not in self._nodes:
+            err_str = f"Node with id {node_id} is not in this tree!"
+            raise ValueError(err_str)
+
+        subtree_root = self._nodes[node_id]
+        subtree = {node_id: subtree_root}
+
+        if subtree_root.is_leaf():
+            # Breaking of recursion
+            return subtree
+
+        for child_id in subtree_root.children:
+            # Recursion
+            subtree.update(self.find_subtree_of_node(child_id))
+
+        return subtree
 
     # def rewire_only_child(self, parent_id: str, child_id: str, new_identifier: str):
     #     """
@@ -222,34 +255,4 @@ class TreeStructure(object):
     #             new_identifier: parent.children_legs[child_id]}
     #         del parent.children_legs[child_id]
     #         parent.children_legs.update(leg_to_child_tensor)
-
-    def find_subtree_of_node(self, node_id: str):
-        """
-        Finds the subtree for which the node with identifier node_id is the
-        root node.
-
-        Parameters
-        ----------
-        node_id : string
-
-        Returns
-        -------
-        subtree_list: list of strings
-            A dictionary that contains the identifiers of node and all its
-            offspring.
-
-        """
-        self.assert_id_in_tree(node_id)
-
-        root_node = self.nodes[node_id]
-        subtree_list = [node_id]
-
-        if root_node.is_leaf():
-            return subtree_list
-
-        children_ids = root_node.get_children_ids()
-        for child_id in children_ids:
-            # child_subtree_list =
-            subtree_list.extend(self.find_subtree_of_node(child_id))
-
-        return subtree_list
+        
