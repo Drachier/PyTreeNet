@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from warnings import warn
 
 from .node import assert_legs_matching, Node
+
 
 class TreeStructure(object):
     """
@@ -142,68 +143,30 @@ class TreeStructure(object):
         return [node_id for node_id, node in self._nodes.items()
                 if node.is_leaf()]
 
-    def distance_to_node(self, center_node_id: str):
+    def distance_to_node(self, center_node_id: str) -> Dict[str, int]:
         """
+        Finds the distance of every node in the tree to a node.
 
-        Parameters
-        ----------
-        center_node_id : str
-            The identifier of the node to which the distance of all other
-            nodes should be determined.
+        The distance between two nodes is the number of edges that have to
+            be traversed to go from one to the other.
 
-        Returns
-        -------
-        distance_dict : dictionary(str : int)
-            A dictionary with the identifiers of the TNN's nodes as keys and
-            their distance to center_node as values
+        Args:
+            center_node_id (str): The identifier of the node to which
+                the distance should be determined.
 
+        Returns:
+            Dict[str, int]: The keys are node identifiers and the values
+                are the corresponding distance.
         """
+        neighbours = self[center_node_id].neighbouring_nodes()
         distance_dict = {center_node_id: 0}
-        self.distance_of_neighbours(
-            ignore_node_id=None, distance=1, node_id=center_node_id, distance_dict=distance_dict)
+        for node_id in neighbours:
+            neighbour_distances = self.distance_to_node(node_id)
+            neighbour_distances = {node_id: distance + 1
+                                   for node_id, distance
+                                   in neighbour_distances.items()}
+            distance_dict.update(neighbour_distances)
         return distance_dict
-
-    def distance_of_neighbours(
-            self, ignore_node_id: list[str],
-            distance: int, node_id: str, distance_dict: dict[str, int]):
-        """
-        Parameters
-        ----------
-        ignore_node_id : str
-            Identifier of the node to be ignored for the recursion, i.e., the
-            distance to it has already been established.
-        distance : int
-            The distance of the node with identifier node_id to the center_node.
-        node_id : str
-            The identifier of the node whose neighbours' distances are to be
-            checked
-        distance_dict : dictionary(str : int)
-            A dictionary with the identifiers of the TNN's nodes as keys and
-            their distance to center_node as values
-
-        Returns
-        -------
-        None.
-
-        """
-        node = self.nodes[node_id]
-        non_ignored_children_id = [
-            child_id for child_id in node.children_legs.keys() if child_id != ignore_node_id]
-
-        children_distance_to_center = {
-            child_id: distance for child_id in non_ignored_children_id}
-        distance_dict.update(children_distance_to_center)
-
-        for child_id in children_distance_to_center.keys():
-            self.distance_of_neighbours(
-                ignore_node_id=node_id, distance=distance+1, node_id=child_id, distance_dict=distance_dict)
-
-        if not node.is_root():
-            parent_id = node.parent_leg[0]
-            if not parent_id == ignore_node_id:
-                distance_dict.update({parent_id: distance})
-                self.distance_of_neighbours(
-                    ignore_node_id=node_id, distance=distance+1, node_id=parent_id, distance_dict=distance_dict)
 
     # TODO implement similar functions in node class.
     def rewire_only_child(self, parent_id: str, child_id: str, new_identifier: str):
