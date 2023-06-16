@@ -41,7 +41,7 @@ class LegNode(Node):
         if super().is_root():
             errstring = f"Node with identifier {super().identifier} has no parent!"
             raise ValueError(errstring)
-        return {super().parent: 0}
+        return {self.parent: 0}
 
     @property
     def children_legs(self) -> Dict[str, int]:
