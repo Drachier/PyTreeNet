@@ -5,6 +5,7 @@ from typing import List, Tuple, Dict
 
 from .node import Node
 
+
 class TreeStructure():
     """
     An abstract tree tensor network (TreeStructure) tree, where each node represents a tensor,
@@ -165,7 +166,7 @@ class TreeStructure():
                                    in neighbour_distances.items()}
             distance_dict.update(neighbour_distances)
         return distance_dict
-    
+
     def find_subtree_of_node(self, node_id: str) -> Dict[str, Node]:
         """
         Obtains the subtree from a given node towards the leaves of this tree.
@@ -255,4 +256,3 @@ class TreeStructure():
     #             new_identifier: parent.children_legs[child_id]}
     #         del parent.children_legs[child_id]
     #         parent.children_legs.update(leg_to_child_tensor)
-        
