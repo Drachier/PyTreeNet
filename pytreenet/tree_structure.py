@@ -135,12 +135,12 @@ class TreeStructure(object):
                 nn_list.append((node_id, child_id))
         return nn_list
 
-    def get_leaf(self) -> List[str]:
+    def get_leaves(self) -> List[str]:
         """
         Returns a list with the identifiers of all leaves.
         """
-        return [node_id for node_id in self._nodes
-                if self._nodes[node_id].is_leaf()]
+        return [node_id for node_id, node in self._nodes.items()
+                if node.is_leaf()]
 
     def distance_to_node(self, center_node_id: str):
         """
