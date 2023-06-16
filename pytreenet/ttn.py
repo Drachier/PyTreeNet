@@ -1,9 +1,7 @@
 from __future__ import annotations
-import copy
 
 import numpy as np
 
-from warnings import warn
 from .tree_structure import TreeStructure, Node
 from .canonical_form import canonical_form
 from .tree_contraction import (completely_contract_tree,
@@ -12,7 +10,6 @@ from .tree_contraction import (completely_contract_tree,
                                operator_expectation_value,
                                scalar_product
                                )
-from .util import copy_object
 
 
 class TreeTensorNetwork(TreeStructure):
