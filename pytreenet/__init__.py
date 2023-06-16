@@ -2,6 +2,7 @@
 
 from .canonical_form import *
 from .hamiltonian import *
+from .leg_node import *
 from .node_contraction import *
 from .tebd import *
 from .tensor_util import *
