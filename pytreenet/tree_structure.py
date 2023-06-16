@@ -1,14 +1,10 @@
 from __future__ import annotations
-import copy
 
-import numpy as np
 
+from typing import List, Tuple
 from warnings import warn
 
 from .node import assert_legs_matching, Node
-from .canonical_form import canonical_form
-from .util import copy_object
-
 
 class TreeStructure(object):
     """
@@ -69,9 +65,6 @@ class TreeStructure(object):
     def __len__(self):
         return len(self._nodes)
 
-    def __setitem__(self, node):
-        "TODO: Once the update methods are established this can be worked on."
-
     def check_no_node_id_duplication(self, node_id):
         """
         Checks if node_id already exists in the TreeStructure
@@ -91,80 +84,70 @@ class TreeStructure(object):
         """
         assert node_id in self.nodes, f"Tensor node with identifier {node_id} is not part of the TreeStructure."
 
-    def add_root(self, node):
+    def add_root(self, node: Node):
         """
-        Adds a root tensor node to the TreeStructure.
+        Adds a root Node to this tree
         """
-        assert self.root_id == None, "A TreeStructure can't have two roots."
+        assert self.root_id is None, "A tree may only have one root."
         self._root_id = node.identifier
-        self.nodes.update({node.identifier: node})
+        self._nodes[node.identifier] = node
 
-    def add_child_to_parent(self, child: Node, child_leg: int, parent_id: str, parent_leg: int):
+    def add_child_to_parent(self, child: Node, parent_id: str):
         """
-        Adds a node to the TreeStructure which is the child of the Node
-        with identifier `parent_id`. The two tensors are contracted along one
-        leg. The child via child_leg and the parent via parent_leg
-        """
-        assert parent_id in self.nodes, f"Parent with identifier {parent_id} has to be part of the TreeStructure."
+        Adds a Node as a child to the specified parent_node.
 
-        parent = self.nodes[parent_id]
+        Args:
+            child (Node): The node to be added
+            parent_id (str): The identifier of the node which is to be the new parent.
+        """
+        if parent_id not in self._nodes:
+            err_str = f"Node with identifier {parent_id} is not in this tree!"
+            raise ValueError(err_str)
+
+        self._add_node(child)
+        child.add_parent(parent_id)
+
         child_id = child.identifier
+        parent = self._nodes[parent_id]
+        parent.add_child(child_id)
 
-        self.assert_no_node_id_duplication(child_id)
-        assert_legs_matching(child, child_leg, parent, parent_leg)
-
-        child.open_leg_to_parent(child_leg, parent_id)
-        parent.open_leg_to_child(parent_leg, child_id)
-        self.nodes.update({child_id: child})
-
-    def add_parent_to_root(self, root_leg: int, parent: Node, parent_leg: int):
+    def add_parent_to_root(self, new_root: Node):
         """
-        Adds the node parent as parent to the TreeStructure's root node. The two
-        are contracted. The root via root_leg and the parent via parent_leg.
-        The root is updated to be the parent.
+        Adds a parent to the root of this tree, making it the new root.
         """
-        parent_id = parent.identifier
-        self.assert_no_node_id_duplication(parent_id)
+        self._add_node(new_root)
+        new_root.add_child(self._root_id)
 
-        root = self.nodes[self.root_id]
-        assert_legs_matching(root, root_leg, parent, parent_leg)
+        current_root = self._nodes[self._root_id]
+        new_id = new_root.identifier
+        current_root.add_parent(new_id)
 
-        root.open_leg_to_parent(root_leg, parent_id)
-        parent.open_leg_to_child(parent_leg, self.root_id)
-        self.nodes.update({parent_id: parent})
-        self._root_id = parent_id
+        self._root_id = new_id
 
-    def nearest_neighbours(self):
+    def nearest_neighbour(self) -> List[Tuple[str, str]]:
         """
-        Finds all nearest neighbouring nodes in a tree.
-        We basically find all parent-child pairs.
+        Finds all nearest neighbour pairs in this tree.
 
-        Returns
-        -------
-        nn: list of tuples of strings.
-            A list containing tuples that contain the two identifiers of
-            nearest neighbour pairs of nodes.
+        They are found by collecting all parent child pairs in tuples.
+        The first entry is the parent identifier and the second the child identifier.
+
+        Returns:
+            nn_list (List[Tuple[str,str]]) : A list containing the identifiers of all
+                nearest neighbour pairs.
         """
-        nn = []
+        nn_list = []
+        for node_id in self._nodes:
+            current_node = self.nodes[node_id]
+            for child_id in current_node.children:
+                nn_list.append((node_id, child_id))
+        return nn_list
 
-        for node_id, node in self.nodes.items():
-            for child_id in node.children_legs:
-                nn.append((node_id, child_id))
-
-        return nn
-
-    def get_leaves(self):
+    def get_leaf(self) -> List[str]:
         """
-        Get the identifiers of all leaves of the TreeStructure
-
-        Returns
-        -------
-        leaf_id_list: list
-
+        Returns a list with the identifiers of all leaves.
         """
-        leaf_id_list = [node_id for node_id in self.nodes
-                        if self.nodes[node_id].is_leaf()]
-        return leaf_id_list
+        return [node_id for node_id in self._nodes
+                if self._nodes[node_id].is_leaf()]
 
     def distance_to_node(self, center_node_id: str):
         """
