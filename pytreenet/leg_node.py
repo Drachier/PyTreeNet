@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import List, Dict
+from copy import copy
 
 from .node import Node
 
@@ -26,13 +27,31 @@ class LegNode(Node):
 
         self._leg_permutation = list(range(tensor.ndim))
 
+    @classmethod
+    def from_node(cls, tensor: ndarray, node: Node) -> LegNode:
+        """
+        Generates a `LegNode` object from a `Node` and a tensor.
+
+        Args:
+            tensor (ndarray): The tensor associated to this node
+            node (Node): A node with the same identifier as this new instance
+
+        Returns:
+            LegNode:
+        """
+        leg_node = cls(tensor, tag=node.tag, identifier=node.identifier)
+        leg_node.parent = node.parent
+        leg_node.children = copy(node.children)
+
+        return leg_node
+
     @property
     def leg_permutation(self):
         """
         Get the leg permutation, cf. class docstring.
         """
         return self._leg_permutation
-    
+
     def reset_permutation(self):
         """
         Resets the permutation to the standard.
@@ -82,7 +101,6 @@ class LegNode(Node):
         # Move value open_leg to front of list
         self._leg_permutation.remove(open_leg)
         self._leg_permutation.insert(0, open_leg)
-        super().add_parent(parent_id)
 
     def open_leg_to_child(self, open_leg: int, child_id: str):
         """
@@ -96,7 +114,6 @@ class LegNode(Node):
         self._leg_permutation.remove(open_leg)
         new_position = super().is_root() + super().nchildren()
         self._leg_permutation.insert(new_position, open_leg)
-        super().add_child(child_id)
 
     def open_legs_to_children(self, open_leg_list: List[int], identifier_list: List[str]):
         """
@@ -116,7 +133,6 @@ class LegNode(Node):
         if not super().is_root:
             leg_index = self._leg_permutation.pop(0)
             self._leg_permutation.append(leg_index)
-            super().remove_parent()
 
     def child_leg_to_open_leg(self, child_id: str):
         """
@@ -128,7 +144,6 @@ class LegNode(Node):
         index = (not super().is_root()) + super().child_index(child_id)
         leg_index = self._leg_permutation.pop(index)
         self._leg_permutation.append(leg_index)
-        super().remove_child(child_id)
 
     def children_legs_to_open_legs(self, children_id_list: List[str]):
         """
