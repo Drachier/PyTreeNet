@@ -37,7 +37,7 @@ class Node():
         if tag is None or tag == "":
             self._tag = self.identifier
         else:
-            self._tag = tag
+            self._tag = str(tag)
 
         # Information about connectivity
         self.parent = None
@@ -74,7 +74,12 @@ class Node():
     def add_parent(self, parent_id: str):
         """
         Adds `parent_id` as the new parent.
+
+        If a parent already exists, remove it and then add the new one.
         """
+        if self.parent is not None:
+            errstr = f"Node {self.identifier} has a parent already"
+            raise ValueError(errstr)
         self.parent = parent_id
 
     def remove_parent(self):
