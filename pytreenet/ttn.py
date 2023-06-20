@@ -164,6 +164,7 @@ class TreeTensorNetwork(TreeStructure):
         The resulting leg order is the following:
             (parent_parent_leg, remaining_parent_children_legs, child_children_legs,
             parent_open_legs, child_open_legs)
+        The resulting node will have the identifier `'parent_id + "contr" + child_id`.
 
         Deletes the originial nodes and tensors from the TTN.
 
@@ -171,7 +172,7 @@ class TreeTensorNetwork(TreeStructure):
             node_id1 (str): Identifier of first tensor
             node_id2 (str): Identifier of second tensor
         """
-        
+
         parent_id, child_id = self.determine_parentage(node_id1, node_id2)
         # Swap child to be the first child -> leg value 1
         parent_node = self.nodes[parent_id]
