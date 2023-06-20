@@ -61,7 +61,13 @@ class LegNode(Node):
         self._leg_permutation = list(range(len(self._leg_permutation)))
 
     @property
-    def parent_leg(self, dtype=list) -> List[str, int]:
+    def parent_leg(self) -> List[str, int]:
+        """
+        Returns parent_leg according to original implementation.
+        """
+        return self.get_parent_leg()
+
+    def get_parent_leg(self, dtype=list):
         """
         Returns parent_leg according to original implementation.
 
