@@ -1,8 +1,8 @@
 from __future__ import annotations
+from typing import Tuple
+from copy import deepcopy
 
 import numpy as np
-
-from copy import deepcopy
 
 from .tree_structure import TreeStructure
 from .leg_node import LegNode
@@ -66,6 +66,12 @@ class TreeTensorNetwork(TreeStructure):
         self._tensors[node_id] = transposed_tensor
         node.reset_permutation()
 
+    def __getitem__(self, key: str) -> Tuple[LegNode, ndarray]:
+        node = super().__getitem__(key)
+        self._transpose_tensor(key)
+        tensor = self._tensors[key]
+        return (node, tensor)
+
     def add_root(self, node: Node, tensor: ndarray):
         """
         Adds a root tensor node to the TreeTensorNetwork
@@ -120,6 +126,34 @@ class TreeTensorNetwork(TreeStructure):
         for node_id, tensor in ttn_conj.tensors.items():
             ttn_conj.tensors[node_id] = tensor.conj()
         return ttn_conj
+
+    def absorb_tensor(self, node_id: str, absorbed_tensor: ndarray,
+                      absorbed_tensors_leg_index: int,
+                      this_tensors_leg_index: int):
+        """
+        Absorbs `absorbed_tensor` into this instance's tensor by contracting
+        the absorbed_tensors_leg of the absorbed_tensor and the leg
+        this_tensors_leg of this instance's tensor'
+
+        Parameters
+        ----------
+        absorbed_tensor: ndarray
+            Tensor to be absorbed.
+        absorbed_tensors_leg_index: int
+            Leg that is to be contracted with this instance's tensor.
+        this_tensors_leg_index:
+            The leg of this instance's tensor that is to be contracted with
+            the absorbed tensor.
+        """
+        _, node_tensor = self[node_id]
+        new_tensor = np.tensordot(node_tensor, absorbed_tensor,
+                                      axes=(this_tensors_leg_index, absorbed_tensors_leg_index))
+
+        this_tensors_indices = tuple(range(new_tensor.ndim))
+        transpose_perm = (this_tensors_indices[0:this_tensors_leg_index]
+                              + (this_tensors_indices[-1], )
+                              + this_tensors_indices[this_tensors_leg_index:-1])
+        self.tensors[node_id] = new_tensor.transpose(transpose_perm)
 
     # Functions below this are just wrappers of external functions that are
     # linked tightly to the TTN and its structure. This allows these functions
@@ -238,44 +272,6 @@ class TreeTensorNetwork(TreeStructure):
 
         """
         return scalar_product(self)
-
-    def absorb_tensor(self, node_id: str, absorbed_tensor: ndarray, absorbed_tensors_leg_indices: tuple[int],
-                      this_tensors_leg_indices: tuple[int]):
-        """
-        Absorbs `absorbed_tensor` into this instance's tensor by contracting
-        the absorbed_tensors_legs of the absorbed_tensor and the legs
-        this_tensors_legs of this instance's tensor'
-
-        Parameters
-        ----------
-        absorbed_tensor: ndarray
-            Tensor to be absorbed.
-        absorbed_tensors_leg_indices: int or tuple of int
-            Legs that are to be contracted with this instance's tensor.
-        this_tensors_leg_indices:
-            The legs of this instance's tensor that are to be contracted with
-            the absorbed tensor.
-        """
-        if type(absorbed_tensors_leg_indices) == int:
-            absorbed_tensors_leg_indices = (absorbed_tensors_leg_indices, )
-
-        if type(this_tensors_leg_indices) == int:
-            this_tensors_leg_indices = (this_tensors_leg_indices, )
-
-        assert len(absorbed_tensors_leg_indices) == len(this_tensors_leg_indices)
-
-        if len(absorbed_tensors_leg_indices) == 1:
-            this_tensors_leg_index = this_tensors_leg_indices[0]
-            new_tensor = np.tensordot(self.tensors[node_id], absorbed_tensor,
-                                      axes=(this_tensors_leg_indices, absorbed_tensors_leg_indices))
-
-            this_tensors_indices = tuple(range(new_tensor.ndim))
-            transpose_perm = (this_tensors_indices[0:this_tensors_leg_index]
-                              + (this_tensors_indices[-1], )
-                              + this_tensors_indices[this_tensors_leg_index:-1])
-            self.tensors[node_id] = new_tensor.transpose(transpose_perm)
-        else:
-            raise NotImplementedError
 
     def apply_hamiltonian(self, hamiltonian: Hamiltonian, conversion_dict: dict[str, ndarray], skipped_vertices=None):
         """
