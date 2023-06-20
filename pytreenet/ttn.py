@@ -78,7 +78,7 @@ class TreeTensorNetwork(TreeStructure):
         child_node.open_leg_to_parent(parent_leg)
         parent_node = self.nodes[parent_id]
         parent_node.open_leg_to_child(child_leg)
-        
+
         self._tensors[child.identifier] = tensor
 
     def add_parent_to_root(self, root_leg: int, parent: Node, tensor: ndarray, parent_leg: int):
@@ -87,7 +87,13 @@ class TreeTensorNetwork(TreeStructure):
         are contracted. The root via root_leg and the parent via parent_leg.
         The root is updated to be the parent.
         """
-        super().add_parent_to_root(root_leg, parent, parent_leg)
+        parent_node = LegNode.from_node(tensor, parent)
+        former_root_node = self.tensors[self.root_id]
+        super().add_parent_to_root(parent_node)
+
+        parent_node.open_leg_to_child(parent_leg)
+        former_root_node.open_leg_to_parent(root_leg)
+
         self.tensors[parent.identifier] = tensor
 
     def conjugate(self):
