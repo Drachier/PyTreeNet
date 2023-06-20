@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from copy import deepcopy
+
 from .tree_structure import TreeStructure
 from .leg_node import LegNode
 from .node import Node
@@ -46,15 +48,23 @@ class TreeTensorNetwork(TreeStructure):
         leg ordering is
             (parent_leg, children_legs, open_legs)
         """
-        new_tensors = {}
-        for node_id, tensor in self._tensors.items():
-            node = self.nodes[node_id]
-            transposed_tensor = np.transpose(tensor, node.leg_permutation)
-            new_tensors[node_id] = transposed_tensor
-            node.reset_permutation()
+        for node_id in self._tensors:
+            self._transpose_tensor(node_id)
 
-        self._tensors = new_tensors
         return self._tensors
+
+    def _transpose_tensor(self, node_id: str):
+        """
+        Since during addition of nodes the tensors are not actually transposed,
+        this has to be done when accesing them. 
+        This way whenever a tensor is accessed, its leg ordering is
+            (parent_leg, children_legs, open_legs)
+        """
+        node = self.nodes[node_id]
+        tensor = self._tensors[node_id]
+        transposed_tensor = np.transpose(tensor, node.leg_permutation)
+        self._tensors[node_id] = transposed_tensor
+        node.reset_permutation()
 
     def add_root(self, node: Node, tensor: ndarray):
         """
@@ -106,14 +116,9 @@ class TreeTensorNetwork(TreeStructure):
             A conjugated copy of the current TTN.
 
         """
-
-        ttn_conj = TreeTensorNetwork(original_tree=self, deep=True)
-
-        for node_id in ttn_conj.nodes:
-
-            node = ttn_conj.nodes[node_id]
-            node.tensor = np.conj(node.tensor)
-
+        ttn_conj = deepcopy(self)
+        for node_id, tensor in ttn_conj.tensors.items():
+            ttn_conj.tensors[node_id] = tensor.conj()
         return ttn_conj
 
     # Functions below this are just wrappers of external functions that are
