@@ -71,6 +71,15 @@ class Node():
         else:
             self._tag = new_tag
 
+    def __eq__(self, other: Node):
+        """
+        Two nodes are the same, if they have the same identifiers and neighbours.
+        """
+        same_id = self.identifier == other.identifier
+        same_parent = self.parent == other.parent
+        same_children = self.children == other.children
+        return same_id and same_parent and same_children        
+
     def add_parent(self, parent_id: str):
         """
         Adds `parent_id` as the new parent.
@@ -93,6 +102,12 @@ class Node():
         Adds `child_id` as a new child.
         """
         self.children.append(child_id)
+
+    def add_children(self, children_ids: List[str]):
+        """
+        Adds all children with identifiers in `children_ids` as children to this node.
+        """
+        self.children.extend(children_ids)
 
     def remove_child(self, child_id: str):
         """
