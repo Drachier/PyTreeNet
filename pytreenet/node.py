@@ -131,7 +131,7 @@ class Node():
         """
         Returns the number of neighbours of this node.
         """
-        return self.nchildren + (not self.is_root())
+        return self.nchildren() + (not self.is_root())
 
     def is_root(self) -> bool:
         """
