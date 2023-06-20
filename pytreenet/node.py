@@ -166,14 +166,6 @@ class Node():
         """
         return other_node_id in self.children
 
-def random_tensor_node(shape, tag=None, identifier=None):
-    """
-    Creates a tensor node with an a random associated tensor with shape=shape.
-    """
-    rand_tensor = crandn(shape)
-    return Node(tensor=rand_tensor, tag=tag, identifier=identifier)
-
-
 def assert_legs_matching(node1, leg1_index, node2, leg2_index):
     """
     Asserts if the dimensions of leg1 of node1 and leg2 of node2 match.
@@ -207,10 +199,9 @@ def conjugate_node(node, deep_copy=True, conj_neighbours=False):
     conj_node.tensor = np.conj(conj_node.tensor)
     return conj_node
 
-
-def random_tensor_node(shape, tag=None, identifier=None):
+def random_tensor_node(shape, tag: str ="" , identifier: str =""):
     """
     Creates a tensor node with an a random associated tensor with shape=shape.
     """
     rand_tensor = crandn(shape)
-    return (Node(tensor=rand_tensor, tag=tag, identifier=identifier), rand_tensor)
+    return (Node(tag=tag, identifier=identifier), rand_tensor)
