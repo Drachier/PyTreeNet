@@ -1,3 +1,5 @@
+# TODO: Potentially delete this. It is now inside the TTN-class
+
 """
 Contains the functions to contract TensorNodes with one another as well as some
 useful contractions.
@@ -17,7 +19,6 @@ def _construct_contracted_identifier(node1_id, node2_id, new_identifier=None):
         new_identifier = str(new_identifier)
 
     return new_identifier
-
 
 def _construct_contracted_tag(node1_tag, node2_tag, new_tag):
     if new_tag == None:
