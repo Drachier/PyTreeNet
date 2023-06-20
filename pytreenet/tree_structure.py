@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-
 from typing import List, Tuple, Dict
 
 from .node import Node
-
 
 class TreeStructure():
     """

@@ -90,41 +90,38 @@ class LegNode(Node):
         """
         return list(range(self.nvirt_legs(), self.nlegs()))
 
-    def open_leg_to_parent(self, open_leg: int, parent_id: str):
+    def open_leg_to_parent(self, open_leg: int):
         """
         Changes an open leg into the leg towards a parent.
 
         Args:
             open_leg (int): The index of the actual tensor leg
-            parent_id (str): The identifier of the to be parent node
         """
         # Move value open_leg to front of list
         self._leg_permutation.remove(open_leg)
         self._leg_permutation.insert(0, open_leg)
 
-    def open_leg_to_child(self, open_leg: int, child_id: str):
+    def open_leg_to_child(self, open_leg: int):
         """
         Changes an open leg into the leg towards a child.
         Children legs will be assorted in the same way as their ids are in the superclass.
 
         Args:
             open_leg (int): The index of the actual tensor leg
-            child_id (str): The identifier of the to be child node
         """
         self._leg_permutation.remove(open_leg)
         new_position = super().is_root() + super().nchildren()
         self._leg_permutation.insert(new_position, open_leg)
 
-    def open_legs_to_children(self, open_leg_list: List[int], identifier_list: List[str]):
+    def open_legs_to_children(self, open_leg_list: List[int]):
         """
         Changes multiple open legs to be legs towards children.
 
         Args:
             open_leg_list (List[int]): List of actual tensor leg indices
-            identifier_list (List[str]): List of the to be children nodes
         """
-        for open_leg, child_id in zip(open_leg_list, identifier_list):
-            self.open_leg_to_child(open_leg, child_id)
+        for open_leg in open_leg_list:
+            self.open_leg_to_child(open_leg)
 
     def parent_leg_to_open_leg(self):
         """

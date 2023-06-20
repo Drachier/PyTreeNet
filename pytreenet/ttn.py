@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from .tree_structure import TreeStructure, Node
+from .tree_structure import TreeStructure
+from .leg_node import LegNode
+from .node import Node
 from .canonical_form import canonical_form
 from .tree_contraction import (completely_contract_tree,
                                contract_two_ttn,
@@ -54,22 +56,30 @@ class TreeTensorNetwork(TreeStructure):
         self._tensors = new_tensors
         return self._tensors
 
-    def add_root(self, node, tensor):
+    def add_root(self, node: Node, tensor: ndarray):
         """
         Adds a root tensor node to the TreeTensorNetwork
         """
-        super().add_root(node)
-        self.tensors[node.identifier] = tensor
+        leg_node = LegNode.from_node(tensor, node)
+        super().add_root(leg_node)
 
-    def add_child_to_parent(
-            self, child: Node, tensor: ndarray, child_leg: int, parent_id: str, parent_leg: int):
+        self.tensors[leg_node.identifier] = tensor
+
+    def add_child_to_parent(self, child: Node, tensor: ndarray,
+                            child_leg: int, parent_id: str, parent_leg: int):
         """
         Adds a Node to the TreeTensorNetwork which is the child of the Node
         with identifier `parent_id`. The two tensors are contracted along one
         leg. The child via child_leg and the parent via parent_leg
         """
+        child_node = LegNode.from_node(tensor, child)
+        super().add_child_to_parent(child_node, parent_id)
+
+        child_node.open_leg_to_parent(parent_leg)
+        parent_node = self.nodes[parent_id]
+        parent_node.open_leg_to_child(child_leg)
+        
         self._tensors[child.identifier] = tensor
-        super().add_child_to_parent(child, child_leg, parent_id, parent_leg)
 
     def add_parent_to_root(self, root_leg: int, parent: Node, tensor: ndarray, parent_leg: int):
         """
