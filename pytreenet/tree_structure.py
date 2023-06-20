@@ -199,6 +199,72 @@ class TreeStructure():
             subtree.update(self.find_subtree_of_node(child_id))
 
         return subtree
+    
+    def determine_parentage(self, node_id1: str, node_id2: str) -> Tuple[str, str]:
+        """
+        Orders two node identifiers by their parentage.
+
+        Args:
+            node_id1 (str): Identifier of a node in self.
+            node_id2 (str): A different identifier of a node in self.
+
+        Raises:
+            ValueError: If the two nodes aren't neighbours
+
+        Returns:
+            Tuple[str, str]: The identifiers in the format (parent_id, child_id)
+        """
+        node1 = self._nodes[node_id1]
+        node2 = self._nodes[node_id2]
+        if node2.is_child_of(node_id1):
+            parent_id = node_id1
+            child_id = node_id2
+        elif node1.is_child_of(node_id2):
+            parent_id = node_id2
+            child_id = node_id2
+        else:
+            errstr = f"Nodes {node_id1} and {node_id2} are no neighbours!"
+            raise ValueError(errstr)
+        return (parent_id, child_id)
+
+    def combine_nodes(self, node_id1: str, node_id2: str):
+        """
+        Combines the two nodes with the given identifiers.
+
+        Args:
+            node_id1 (str): Identifier of the first node.
+            node_id2 (str): Identifier of the second node.
+        """
+        parent_id, child_id = self.determine_parentage(node_id1, node_id2)
+
+        # Find new neighbours
+        ## Parent
+        parent_node = self._nodes[parent_id]
+        parent_parent_id = parent_node.parent
+        ## Children
+        child = self._nodes[child_id]
+        total_children = child.children
+        parent_node.remove_child(child_id)
+        total_children.extend(parent_node.children)
+
+        # Build new node
+        new_node = Node(identifier= parent_id + "contr" + child_id)
+        new_node.add_children(total_children)
+        new_node.add_parent(parent_parent_id)
+
+        # Change connectivity
+        for node_id in new_node.children:
+            node = self._nodes[node_id]
+            node.remove_parent()
+            node.add_parent(new_node.identifier)
+        if parent_parent_id is not None:
+            node = self._nodes[parent_parent_id]
+            node.remove_child(parent_id)
+            node.add_child(new_node.identifier)
+
+        # Remove old nodes
+        self._nodes.pop(parent_id)
+        self._nodes.pop(child_id)
 
     # def rewire_only_child(self, parent_id: str, child_id: str, new_identifier: str):
     #     """
