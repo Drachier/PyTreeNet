@@ -156,6 +156,56 @@ class TreeTensorNetwork(TreeStructure):
                               + this_tensors_indices[this_tensors_leg_index:-1])
         self.tensors[node_id] = new_tensor.transpose(transpose_perm)
 
+    def contract_nodes(self, node_id1: str, node_id2: str):
+        """
+        Contracts two node and inserts a new node with the contracted tensor
+        into the ttn.
+        Note that one of the nodes will be the parent of the other.
+        The resulting leg order is the following:
+            (parent_parent_leg, remaining_parent_children_legs, child_children_legs,
+            parent_open_legs, child_open_legs)
+
+        Deletes the originial nodes and tensors from the TTN.
+
+        Args:
+            node_id1 (str): Identifier of first tensor
+            node_id2 (str): Identifier of second tensor
+        """
+        
+        parent_id, child_id = self.determine_parentage(node_id1, node_id2)
+        # Swap child to be the first child -> leg value 1
+        parent_node = self.nodes[parent_id]
+        parent_node.swap_with_first_child(child_id)
+
+        # Contracting tensors
+        parent_tensor = self.tensors[parent_id]
+        child_tensor = self.tensors[child_id]
+        new_tensor = np.tensordot(parent_tensor, child_tensor,
+                                  axes=(0,1))
+        # Actual tensor leg now have the form
+        # (parent_of_parent, remaining_children_of_parent, open_of_parent, 
+        # children_of_child, open_of_child)
+        parent_nvirt_leg = parent_node.nvirt_legs() - 1
+        parent_nlegs = parent_node.nlegs() - 1
+        child_node = self.nodes[child_id]
+        child_nchild_legs = child_node.nchild_legs
+
+        # Create proper connectivity (Old nodes are deleted)
+        self.combine_nodes(parent_id, child_id)
+
+        # Delete old tensors
+        self.tensors.pop(node_id1)
+        self.tensors.pop(node_id2)
+
+        # Make Node a LegNode
+        new_node = self.nodes[parent_id + "contr" + child_id]
+        new_leg_node = LegNode.from_node(new_tensor, new_node)
+
+        # Building correct permutation (TODO: Move it to LegNode?)
+        child_children_legs = [new_leg_node._leg_permutation.pop(i)
+                               for i in range(parent_nlegs, parent_nlegs + child_nchild_legs)]
+        new_leg_node._leg_permutation[parent_nvirt_leg:parent_nvirt_leg] = child_children_legs
+
     # Functions below this are just wrappers of external functions that are
     # linked tightly to the TTN and its structure. This allows these functions
     # to be overwritten for subclasses of the TTN with more known structure.

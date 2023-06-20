@@ -176,10 +176,13 @@ class LegNode(Node):
         """
         return self.child_index(child_id)
 
-    def swap_two_legs(self, child_id1: str, child_id2: str):
+    def swap_two_child_legs(self, child_id1: str, child_id2: str):
         """
         Swaps the index position of two children.
         """
+        if child_id1 == child_id2:
+            return
+
         child1_index = self.child_index(child_id1)
         child2_index = self.child_index(child_id2)
         # Swap children identifiers
@@ -188,6 +191,12 @@ class LegNode(Node):
         # Swap their leg value
         self._leg_permutation[child1_index], self._leg_permutation[child2_index] =\
             self._leg_permutation[child2_index], self._leg_permutation[child1_index]
+
+    def swap_with_first_child(self, child_id: str):
+        """
+        Makes the leg of the given child the first of all children legs
+        """
+        self.swap_two_child_legs(child_id, self.children[0])
 
     def nlegs(self) -> int:
         """
