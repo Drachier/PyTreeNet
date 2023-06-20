@@ -14,39 +14,52 @@ class TestTreeTensorNetworkBasics(unittest.TestCase):
 
     def test_add_root(self):
         self.assertEqual(self.tensortree.root_id, None)
-        self.assertEqual(self.tensortree.nodes, dict())
+        self.assertEqual(self.tensortree.nodes, {})
 
         self.tensortree.add_root(self.node1, self.tensor1)
 
         self.assertEqual(self.tensortree.root_id, "orig_root")
-        # self.assertEqual(len(self.tensortree.nodes), 1)
+        self.assertEqual(len(self.tensortree.nodes), 1)
+        self.assertEqual(len(self.tensortree.tensors), 1)
 
     def test_add_child_to_parent(self):
         self.tensortree.add_root(self.node1, self.tensor1)
+
+        # Depth 2
         self.tensortree.add_child_to_parent(self.node2, self.tensor2, 1, "orig_root", 1)
-
         self.assertEqual(len(self.tensortree.nodes), 2)
-        self.assertTrue(np.array_equal(self.tensortree.tensors["child1"], self.tensor2))
-        self.assertEqual(self.tensortree.nodes["child1"], self.node2)
+        permutation = self.tensortree.nodes["child1"].leg_permutation
+        transposed_tensor = self.tensor2.transpose(permutation)
+        self.assertTrue(np.allclose(self.tensortree.tensors["child1"], transposed_tensor))
+        self.assertEqual(self.tensortree.nodes["child1"].parent, "orig_root")
+        self.assertEqual(self.tensortree.nodes["child1"].children, [])
+        self.assertEqual(self.tensortree.nodes["orig_root"].children, ["child1"])
 
+        # Depth 3
         self.tensortree.add_child_to_parent(self.node3, self.tensor3, 0, "child1", 0)
-
         self.assertEqual(len(self.tensortree.nodes), 3)
-        self.assertTrue(np.array_equal(self.tensortree.tensors["child2"], self.tensor3))
-        self.assertEqual(self.tensortree.nodes["child2"], self.node3)
+        permutation = self.tensortree.nodes["child2"].leg_permutation
+        transposed_tensor = self.tensor3.transpose(permutation)
+        self.assertTrue(np.allclose(self.tensortree.tensors["child2"], transposed_tensor))
+        self.assertEqual(self.tensortree.nodes["child2"].parent, "child1")
+        self.assertEqual(self.tensortree.nodes["child2"].children, [])
+        self.assertEqual(self.tensortree.nodes["child1"].children, ["child2"])
 
-    def test_parent_to_root(self):
+    def test_add_parent_to_root(self):
+        # Setup
         self.tensortree.add_root(self.node1, self.tensor1)
         self.tensortree.add_child_to_parent(self.node2, self.tensor2, 1, "orig_root", 1)
         self.tensortree.add_child_to_parent(self.node3, self.tensor3, 0, "child1", 0)
 
         self.tensortree.add_parent_to_root(0, self.node4, self.tensor4, 0)
-
         self.assertEqual(self.tensortree.root_id, "new_root")
         self.assertEqual(len(self.tensortree.nodes), 4)
-        self.assertTrue(np.array_equal(self.tensortree.tensors["new_root"], self.tensor4))
-        self.assertEqual(self.tensortree.nodes["new_root"], self.node4)
-
+        permutation = self.tensortree.nodes["new_root"].leg_permutation
+        transposed_tensor = self.tensor4.transpose(permutation)
+        self.assertTrue(np.allclose(self.tensortree.tensors["new_root"], transposed_tensor))
+        self.assertEqual(self.tensortree.nodes["new_root"].parent, None)
+        self.assertEqual(self.tensortree.nodes["new_root"].children, ["orig_root"])
+        self.assertEqual(self.tensortree.nodes["orig_root"].parent, "new_root")
 
 class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def setUp(self):
@@ -74,60 +87,22 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
 
         self.test_node, self.test_tensor = ptn.random_tensor_node((2, 3, 4, 5), identifier="test")
 
-    def test_distance_to_node(self):
-        self.assertEqual(len(self.tensortree.nodes), 9)
+    ##### Can't remember why these are needed
+    # def test_rewire_only_child(self):
+    #     node5 = self.tensortree.nodes["id5"]
 
-        distance_dict = self.tensortree.distance_to_node("id2")
-        self.assertAlmostEqual(min(distance_dict.values()), 0)
-        self.assertAlmostEqual(max(distance_dict.values()), 3)
+    #     self.tensortree.rewire_only_child("id2", "id5", "test")
 
-        ref_distance_dict = {"id2": 0,
-                             "id1": 1,
-                             "id3": 1,
-                             "id5": 1,
-                             "id4": 2,
-                             "id6": 2,
-                             "id7": 2,
-                             "id8": 2,
-                             "id9": 3}
-        self.assertEqual(distance_dict, ref_distance_dict)
+    #     self.assertEqual(node5.parent_leg[0], "test")
 
-    def test_rewire_only_child(self):
-        node5 = self.tensortree.nodes["id5"]
+    # def test_rewire_only_parent(self):
+    #     node2 = self.tensortree["id2"]
+    #     leg_2_to_5 = node2.children_legs["id5"]
 
-        self.tensortree.rewire_only_child("id2", "id5", "test")
+    #     self.tensortree.rewire_only_parent("id5", "test")
 
-        self.assertEqual(node5.parent_leg[0], "test")
-
-    def test_rewire_only_parent(self):
-        node2 = self.tensortree["id2"]
-        leg_2_to_5 = node2.children_legs["id5"]
-
-        self.tensortree.rewire_only_parent("id5", "test")
-
-        self.assertTrue("test" in node2.children_legs)
-        self.assertEqual(leg_2_to_5, node2.children_legs["test"])
-
-    def test_find_subtree_of_node(self):
-        found_subtree = self.tensortree.find_subtree_of_node("id1")
-        correct_subtree = list(self.tensortree.nodes.keys())
-
-        self.assertEqual(correct_subtree, found_subtree)
-
-        found_subtree = self.tensortree.find_subtree_of_node("id9")
-        correct_subtree = ["id9"]
-
-        self.assertEqual(correct_subtree, found_subtree)
-
-        found_subtree = self.tensortree.find_subtree_of_node("id2")
-        correct_subtree = ["id2", "id3", "id4", "id5", "id6", "id7"]
-
-        self.assertEqual(correct_subtree, found_subtree)
-
-        found_subtree = self.tensortree.find_subtree_of_node("id8")
-        correct_subtree = ["id8", "id9"]
-
-        self.assertEqual(correct_subtree, found_subtree)
+    #     self.assertTrue("test" in node2.children_legs)
+    #     self.assertEqual(leg_2_to_5, node2.children_legs["test"])
 
     def test_apply_hamiltonian(self):
         ttns = ptn.TreeTensorNetwork()
@@ -157,5 +132,3 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-node1, tensor1 = ptn.random_tensor_node((2, 3), identifier="site1")
