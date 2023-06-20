@@ -199,13 +199,19 @@ class TreeTensorNetwork(TreeStructure):
         self._tensors.pop(node_id2)
 
         # Make Node a LegNode
-        new_node = self.nodes[parent_id + "contr" + child_id]
+        new_identifier = parent_id + "contr" + child_id
+        new_node = self.nodes[new_identifier]
         new_leg_node = LegNode.from_node(new_tensor, new_node)
 
         # Building correct permutation (TODO: Move it to LegNode?)
         child_children_legs = [new_leg_node._leg_permutation.pop(i)
                                for i in range(parent_nlegs, parent_nlegs + child_nchild_legs)]
         new_leg_node._leg_permutation[parent_nvirt_leg:parent_nvirt_leg] = child_children_legs
+
+        # Delete Node, add LegNode and new tensor
+        self.nodes.pop(new_identifier)
+        self.nodes[new_identifier] = new_leg_node
+        self._tensors[new_identifier] = new_tensor
 
     # Functions below this are just wrappers of external functions that are
     # linked tightly to the TTN and its structure. This allows these functions
