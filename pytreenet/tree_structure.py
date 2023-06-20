@@ -231,6 +231,9 @@ class TreeStructure():
         """
         Combines the two nodes with the given identifiers.
 
+        The children in the new node have the form
+            [parent_children, child_children]
+
         Args:
             node_id1 (str): Identifier of the first node.
             node_id2 (str): Identifier of the second node.

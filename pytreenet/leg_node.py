@@ -170,6 +170,25 @@ class LegNode(Node):
         for child_id in children_id_list:
             self.child_leg_to_open_leg(child_id)
 
+    def get_child_leg(self, child_id: str):
+        """
+        Obtains the leg number of a given child of this node.
+        """
+        return self.child_index(child_id)
+
+    def swap_two_legs(self, child_id1: str, child_id2: str):
+        """
+        Swaps the index position of two children.
+        """
+        child1_index = self.child_index(child_id1)
+        child2_index = self.child_index(child_id2)
+        # Swap children identifiers
+        self.children[child1_index], self.children[child2_index] =\
+            self.children[child2_index], self.children[child1_index]
+        # Swap their leg value
+        self._leg_permutation[child1_index], self._leg_permutation[child2_index] =\
+            self._leg_permutation[child2_index], self._leg_permutation[child1_index]
+
     def nlegs(self) -> int:
         """
         Returns the total number of legs of this node.
