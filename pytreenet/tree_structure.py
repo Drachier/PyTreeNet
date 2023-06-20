@@ -254,6 +254,7 @@ class TreeStructure():
         new_node = Node(identifier= parent_id + "contr" + child_id)
         new_node.add_children(total_children)
         new_node.add_parent(parent_parent_id)
+        self._nodes[new_node.identifier] = new_node
 
         # Change connectivity
         for node_id in new_node.children:

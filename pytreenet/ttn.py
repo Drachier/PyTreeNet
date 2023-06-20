@@ -162,9 +162,9 @@ class TreeTensorNetwork(TreeStructure):
         into the ttn.
         Note that one of the nodes will be the parent of the other.
         The resulting leg order is the following:
-            (parent_parent_leg, remaining_parent_children_legs, child_children_legs,
-            parent_open_legs, child_open_legs)
-        The resulting node will have the identifier `'parent_id + "contr" + child_id`.
+            `(parent_parent_leg, remaining_parent_children_legs, child_children_legs,
+            parent_open_legs, child_open_legs)`
+        The resulting node will have the identifier `parent_id + "contr" + child_id`.
 
         Deletes the originial nodes and tensors from the TTN.
 
@@ -182,21 +182,21 @@ class TreeTensorNetwork(TreeStructure):
         parent_tensor = self.tensors[parent_id]
         child_tensor = self.tensors[child_id]
         new_tensor = np.tensordot(parent_tensor, child_tensor,
-                                  axes=(0,1))
+                                  axes=(1,0))
         # Actual tensor leg now have the form
         # (parent_of_parent, remaining_children_of_parent, open_of_parent, 
         # children_of_child, open_of_child)
         parent_nvirt_leg = parent_node.nvirt_legs() - 1
         parent_nlegs = parent_node.nlegs() - 1
         child_node = self.nodes[child_id]
-        child_nchild_legs = child_node.nchild_legs
+        child_nchild_legs = child_node.nchild_legs()
 
         # Create proper connectivity (Old nodes are deleted)
         self.combine_nodes(parent_id, child_id)
 
         # Delete old tensors
-        self.tensors.pop(node_id1)
-        self.tensors.pop(node_id2)
+        self._tensors.pop(node_id1)
+        self._tensors.pop(node_id2)
 
         # Make Node a LegNode
         new_node = self.nodes[parent_id + "contr" + child_id]
