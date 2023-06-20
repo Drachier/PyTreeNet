@@ -91,20 +91,21 @@ class TreeTensorNetwork(TreeStructure):
         child_node = LegNode.from_node(tensor, child)
         super().add_child_to_parent(child_node, parent_id)
 
-        child_node.open_leg_to_parent(parent_leg)
+        child_node.open_leg_to_parent(child_leg)
         parent_node = self.nodes[parent_id]
-        parent_node.open_leg_to_child(child_leg)
+        parent_node.open_leg_to_child(parent_leg)
 
         self._tensors[child.identifier] = tensor
 
-    def add_parent_to_root(self, root_leg: int, parent: Node, tensor: ndarray, parent_leg: int):
+    def add_parent_to_root(self, root_leg: int, parent: Node, tensor: ndarray,
+                           parent_leg: int):
         """
         Adds the node parent as parent to the TreeTensorNetwork's root node. The two
         are contracted. The root via root_leg and the parent via parent_leg.
         The root is updated to be the parent.
         """
         parent_node = LegNode.from_node(tensor, parent)
-        former_root_node = self.tensors[self.root_id]
+        former_root_node = self.nodes[self.root_id]
         super().add_parent_to_root(parent_node)
 
         parent_node.open_leg_to_child(parent_leg)
