@@ -61,14 +61,25 @@ class LegNode(Node):
         self._leg_permutation = list(range(len(self._leg_permutation)))
 
     @property
-    def parent_leg(self) -> List[str, int]:
+    def parent_leg(self, dtype=list) -> List[str, int]:
         """
-        Returns parent_leg according to original implementation, but as a dictionary.
+        Returns parent_leg according to original implementation.
+
+        Args:
+            dtype: The data format in which to return it.
+                `list` will return a list of the form `[parent_id, parent_leg]`
+                `dict` will return a dictionary of the from `{parent_id: parent_leg}`
         """
         if super().is_root():
-            errstring = f"Node with identifier {super().identifier} has no parent!"
+            errstring = f"Node with identifier {self.identifier} has no parent!"
             raise ValueError(errstring)
-        return {self.parent: 0}
+        if dtype == list:
+            return [self.parent, 0]
+        if dtype == dict:
+            return {self.parent: 0}
+        else:
+            errstring = f"`dtype` can only be `list` or `dict` not {dtype}!"
+            raise ValueError(errstring)
 
     @property
     def children_legs(self) -> Dict[str, int]:
@@ -80,8 +91,8 @@ class LegNode(Node):
                 children identifiers and the values are the indices in the permutation list (NOT the
                 actual tensor legs)
         """
-        return {child_id: index + (not super().is_root)
-                for index, child_id in enumerate(super().children)}
+        return {child_id: index + (not self.is_root())
+                for index, child_id in enumerate(self.children)}
 
     @property
     def open_legs(self) -> List[int]:
