@@ -40,7 +40,7 @@ class TreeTensorNetwork(TreeStructure):
     @property
     def tensors(self):
         """
-        A dict[str, ndarray] mapping the tensor tree node identifiers to
+        A dict[str, np.ndarray] mapping the tensor tree node identifiers to
         the corresponding tensor data.
 
         Since during addition of nodes the tensors are not actually transposed,
@@ -66,13 +66,13 @@ class TreeTensorNetwork(TreeStructure):
         self._tensors[node_id] = transposed_tensor
         node.reset_permutation()
 
-    def __getitem__(self, key: str) -> Tuple[LegNode, ndarray]:
+    def __getitem__(self, key: str) -> Tuple[LegNode, np.ndarray]:
         node = super().__getitem__(key)
         self._transpose_tensor(key)
         tensor = self._tensors[key]
         return (node, tensor)
 
-    def add_root(self, node: Node, tensor: ndarray):
+    def add_root(self, node: Node, tensor: np.ndarray):
         """
         Adds a root tensor node to the TreeTensorNetwork
         """
@@ -81,7 +81,7 @@ class TreeTensorNetwork(TreeStructure):
 
         self.tensors[leg_node.identifier] = tensor
 
-    def add_child_to_parent(self, child: Node, tensor: ndarray,
+    def add_child_to_parent(self, child: Node, tensor: np.ndarray,
                             child_leg: int, parent_id: str, parent_leg: int):
         """
         Adds a Node to the TreeTensorNetwork which is the child of the Node
@@ -97,7 +97,7 @@ class TreeTensorNetwork(TreeStructure):
 
         self._tensors[child.identifier] = tensor
 
-    def add_parent_to_root(self, root_leg: int, parent: Node, tensor: ndarray,
+    def add_parent_to_root(self, root_leg: int, parent: Node, tensor: np.ndarray,
                            parent_leg: int):
         """
         Adds the node parent as parent to the TreeTensorNetwork's root node. The two
@@ -128,7 +128,7 @@ class TreeTensorNetwork(TreeStructure):
             ttn_conj.tensors[node_id] = tensor.conj()
         return ttn_conj
 
-    def absorb_tensor(self, node_id: str, absorbed_tensor: ndarray,
+    def absorb_tensor(self, node_id: str, absorbed_tensor: np.ndarray,
                       absorbed_tensors_leg_index: int,
                       this_tensors_leg_index: int):
         """
@@ -138,7 +138,7 @@ class TreeTensorNetwork(TreeStructure):
 
         Parameters
         ----------
-        absorbed_tensor: ndarray
+        absorbed_tensor: np.ndarray
             Tensor to be absorbed.
         absorbed_tensors_leg_index: int
             Leg that is to be contracted with this instance's tensor.
@@ -209,7 +209,7 @@ class TreeTensorNetwork(TreeStructure):
 
         Returns
         -------
-        result_tensor: ndarray
+        result_tensor: np.ndarray
             The contraction result.
 
         """
@@ -226,7 +226,7 @@ class TreeTensorNetwork(TreeStructure):
         node_id : string
             Identifier of a node in ttn.
             Currently assumes the node has a single open leg..
-        operator : ndarray
+        operator : np.ndarray
             A matrix representing the operator to be evaluated.
 
         Returns
@@ -274,7 +274,7 @@ class TreeTensorNetwork(TreeStructure):
         """
         return scalar_product(self)
 
-    def apply_hamiltonian(self, hamiltonian: Hamiltonian, conversion_dict: dict[str, ndarray], skipped_vertices=None):
+    def apply_hamiltonian(self, hamiltonian: Hamiltonian, conversion_dict: dict[str, np.ndarray], skipped_vertices=None):
         """
         Applies a Hamiltonian term by term locally to a TTN. Assumes that the input TTN represents a statevector
         such that each TensorNode has the following memory layout: [parent, child_1, child_2, ..., child_n, output].
