@@ -179,7 +179,7 @@ class Node():
         """
         if self.is_root():
             return False
-        return self.parent is other_node_id
+        return self.parent == other_node_id
 
     def is_parent_of(self, other_node_id: str) -> bool:
         """
