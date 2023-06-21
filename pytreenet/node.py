@@ -127,6 +127,12 @@ class Node():
         """
         return len(self.children)
 
+    def nparents(self) -> int:
+        """
+        Returns the number of parents of this node.
+        """
+        return int(not self.is_root())
+
     def nneighbours(self) -> int:
         """
         Returns the number of neighbours of this node.
