@@ -200,6 +200,18 @@ class TreeStructure():
 
         return subtree
     
+    def is_child_of(self, node_id1: str, node_id2: str) -> bool:
+        """
+        Returns whether the node with `node_id1` is a child of the node with `node_id2`.
+        """
+        return self._nodes[node_id1].is_child_of(node_id2)
+
+    def is_parent_of(self, node_id1: str, node_id2: str) -> bool:
+        """
+        Returns whether the node with `node_id1` is the parent of the node with `node_id2`.
+        """
+        return self._nodes[node_id1].is_parent_of(node_id2)
+
     def determine_parentage(self, node_id1: str, node_id2: str) -> Tuple[str, str]:
         """
         Orders two node identifiers by their parentage.
