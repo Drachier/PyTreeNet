@@ -189,8 +189,10 @@ class LegNode(Node):
         self.children[child1_index], self.children[child2_index] =\
             self.children[child2_index], self.children[child1_index]
         # Swap their leg value
-        self._leg_permutation[child1_index], self._leg_permutation[child2_index] =\
-            self._leg_permutation[child2_index], self._leg_permutation[child1_index]
+        c1_index = child1_index + self.nparents()
+        c2_index = child2_index + self.nparents()
+        self._leg_permutation[c1_index], self._leg_permutation[c2_index] =\
+            self._leg_permutation[c2_index], self._leg_permutation[c1_index]
 
     def swap_with_first_child(self, child_id: str):
         """
