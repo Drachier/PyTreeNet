@@ -115,7 +115,15 @@ class Node():
         """
         self.children.remove(child_id)
 
-    def child_index(self, child_id: str):
+    def replace_child(self, child_id:str, new_child_id: str):
+        """
+        Replaces one child with another.
+        """
+        if child_id == new_child_id:
+            return
+        self.children[self.child_index(child_id)] = new_child_id
+
+    def child_index(self, child_id: str) -> int:
         """
         Returns the index of identifier child_id in this Node's children list.
         """
