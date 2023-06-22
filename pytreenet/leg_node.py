@@ -137,7 +137,6 @@ class LegNode(Node):
 
         self._leg_permutation.remove(open_leg)
         new_position = self.nparents() + self.nchildren()
-        print("hi")
         self._leg_permutation.insert(new_position, open_leg)
 
     def open_legs_to_children(self, open_leg_list: List[int]):
