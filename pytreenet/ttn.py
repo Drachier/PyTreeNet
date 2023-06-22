@@ -89,11 +89,12 @@ class TreeTensorNetwork(TreeStructure):
         leg. The child via child_leg and the parent via parent_leg
         """
         child_node = LegNode.from_node(tensor, child)
-        super().add_child_to_parent(child_node, parent_id)
 
         child_node.open_leg_to_parent(child_leg)
         parent_node = self.nodes[parent_id]
         parent_node.open_leg_to_child(parent_leg)
+
+        super().add_child_to_parent(child_node, parent_id)
 
         self._tensors[child.identifier] = tensor
 
@@ -106,10 +107,11 @@ class TreeTensorNetwork(TreeStructure):
         """
         parent_node = LegNode.from_node(tensor, parent)
         former_root_node = self.nodes[self.root_id]
-        super().add_parent_to_root(parent_node)
 
         parent_node.open_leg_to_child(parent_leg)
         former_root_node.open_leg_to_parent(root_leg)
+
+        super().add_parent_to_root(parent_node)
 
         self.tensors[parent.identifier] = tensor
 
@@ -182,7 +184,8 @@ class TreeTensorNetwork(TreeStructure):
         parent_tensor = self.tensors[parent_id]
         child_tensor = self.tensors[child_id]
         new_tensor = np.tensordot(parent_tensor, child_tensor,
-                                  axes=(1,0))
+                                  axes=(parent_node.nparents(),0))
+
         # Actual tensor leg now have the form
         # (parent_of_parent, remaining_children_of_parent, open_of_parent, 
         # children_of_child, open_of_child)
@@ -204,8 +207,8 @@ class TreeTensorNetwork(TreeStructure):
         new_leg_node = LegNode.from_node(new_tensor, new_node)
 
         # Building correct permutation (TODO: Move it to LegNode?)
-        child_children_legs = [new_leg_node._leg_permutation.pop(i)
-                               for i in range(parent_nlegs, parent_nlegs + child_nchild_legs)]
+        child_children_legs = [new_leg_node._leg_permutation.pop(parent_nlegs)
+                               for i in range(0, child_nchild_legs)]
         new_leg_node._leg_permutation[parent_nvirt_leg:parent_nvirt_leg] = child_children_legs
 
         # Delete Node, add LegNode and new tensor

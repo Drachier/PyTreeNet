@@ -115,7 +115,7 @@ class LegNode(Node):
         Args:
             open_leg (int): The index of the actual tensor leg
         """
-        if self.nopen_legs() < 1:
+        if self.nopen_legs() == 0:
             errstr = f"Node with identifier {self.identifier} has no open legs!"
             raise ValueError(errstr)
 

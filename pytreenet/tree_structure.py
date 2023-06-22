@@ -199,7 +199,7 @@ class TreeStructure():
             subtree.update(self.find_subtree_of_node(child_id))
 
         return subtree
-    
+
     def is_child_of(self, node_id1: str, node_id2: str) -> bool:
         """
         Returns whether the node with `node_id1` is a child of the node with `node_id2`.
@@ -257,10 +257,10 @@ class TreeStructure():
         parent_node = self._nodes[parent_id]
         parent_parent_id = parent_node.parent
         ## Children
-        child = self._nodes[child_id]
-        total_children = child.children
         parent_node.remove_child(child_id)
-        total_children.extend(parent_node.children)
+        total_children = parent_node.children
+        child = self._nodes[child_id]
+        total_children.extend(child.children)
 
         # Build new node
         new_node = Node(identifier= parent_id + "contr" + child_id)
