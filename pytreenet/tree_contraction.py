@@ -1,14 +1,15 @@
 from __future__ import annotations
-import uuid
+
+from copy import copy
 
 import numpy as np
 
-from .node_contraction import contract_nodes, operator_expectation_value_on_node
+from .node_contraction import operator_expectation_value_on_node
 from .ttn_exceptions import NoConnectionException
 from .canonical_form import canonical_form
 from .util import copy_object, sort_dictionary
 
-def completely_contract_tree(ttn, to_copy=False):
+def completely_contract_tree(ttn: TreeTensorNetwork, to_copy: bool=False) -> TreeTensorNetwork:
     """
     Completely contracts the given tree_tensor_network by combining all nodes.
     (WARNING: Can get very costly very fast. Only use for debugging.)
@@ -23,26 +24,31 @@ def completely_contract_tree(ttn, to_copy=False):
 
     Returns
     -------
-    In case copy is True a deep copy of the completely contracted TTN is
-    returned.
-
+    work_ttn (TreeTensorNetwork): A ttn with a single node containing the contracted tensor.
     """
     work_ttn = copy_object(ttn, deep=to_copy)
 
-    distance_to_root = work_ttn.distance_to_node(work_ttn.root_id)
+    root_id = work_ttn.root_id
+    _completely_contract_tree_rec(work_ttn, root_id)
 
-    for distance in range(1, max(distance_to_root.values())+1):
-        node_id_with_distance = [node_id for node_id in distance_to_root
-                                 if distance_to_root[node_id] == distance]
-        for node_id in node_id_with_distance:
-            contract_nodes_in_tree(work_ttn, work_ttn.root_id, node_id)
+    return work_ttn
 
-    if to_copy:
-        return work_ttn
+def _completely_contract_tree_rec(work_ttn: TreeTensorNetwork, current_node_id: str):
+    """
+    Recursively runs through the tree contracting it from leaf to root.
+
+    Args:
+        work_ttn (TreeTensorNetwork): The TTN to be contracted
+        current_node_id (str): The node into which we want to contract the subtree.
+    """
+    current_node = work_ttn.nodes[current_node_id]
+    children = copy(current_node.children)
+    for child_id in children:
+        # Contracts the complete subtree into this child
+        _completely_contract_tree_rec(work_ttn, child_id)
+        work_ttn.contract_nodes(current_node_id, child_id, new_identifier=current_node_id)
 
 # TODO: Check functions below
-
-
 def _contract_same_structure_nodes(node1, node2, ttn1, ttn2):
     """
     Contracts two nodes with the same structure.
