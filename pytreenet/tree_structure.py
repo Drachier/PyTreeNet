@@ -266,6 +266,10 @@ class TreeStructure():
         child = self._nodes[child_id]
         total_children.extend(child.children)
 
+        # Replace root_id if neccessary
+        if parent_node.is_root():
+            self.root_id = new_identifier
+
         # Remove old nodes
         self._nodes.pop(parent_id)
         self._nodes.pop(child_id)
@@ -283,8 +287,7 @@ class TreeStructure():
             node.add_parent(new_node.identifier)
         if parent_parent_id is not None:
             node = self._nodes[parent_parent_id]
-            node.remove_child(parent_id)
-            node.add_child(new_node.identifier)
+            node.replace_child(parent_id, new_node.identifier)
 
     # def rewire_only_child(self, parent_id: str, child_id: str, new_identifier: str):
     #     """

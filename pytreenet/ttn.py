@@ -158,7 +158,7 @@ class TreeTensorNetwork(TreeStructure):
                               + this_tensors_indices[this_tensors_leg_index:-1])
         self.tensors[node_id] = new_tensor.transpose(transpose_perm)
 
-    def contract_nodes(self, node_id1: str, node_id2: str):
+    def contract_nodes(self, node_id1: str, node_id2: str, new_identifier: str = ""):
         """
         Contracts two node and inserts a new node with the contracted tensor
         into the ttn.
@@ -173,9 +173,13 @@ class TreeTensorNetwork(TreeStructure):
         Args:
             node_id1 (str): Identifier of first tensor
             node_id2 (str): Identifier of second tensor
+            new_identifier (str): A potential new identifier. Otherwise defaults to
+                `parent_id + 'contr' + child_id`
         """
-
         parent_id, child_id = self.determine_parentage(node_id1, node_id2)
+        if new_identifier == "":
+            new_identifier = parent_id + "contr" + child_id
+
         # Swap child to be the first child -> leg value 1
         parent_node = self.nodes[parent_id]
         parent_node.swap_with_first_child(child_id)
@@ -195,14 +199,13 @@ class TreeTensorNetwork(TreeStructure):
         child_nchild_legs = child_node.nchild_legs()
 
         # Create proper connectivity (Old nodes are deleted)
-        self.combine_nodes(parent_id, child_id)
+        self.combine_nodes(parent_id, child_id, new_identifier=new_identifier)
 
         # Delete old tensors
         self._tensors.pop(node_id1)
         self._tensors.pop(node_id2)
 
         # Make Node a LegNode
-        new_identifier = parent_id + "contr" + child_id
         new_node = self.nodes[new_identifier]
         new_leg_node = LegNode.from_node(new_tensor, new_node)
 
