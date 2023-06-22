@@ -98,7 +98,7 @@ class LegNode(Node):
                 children identifiers and the values are the indices in the permutation list (NOT the
                 actual tensor legs)
         """
-        return {child_id: index + (not self.is_root())
+        return {child_id: index + self.nparents()
                 for index, child_id in enumerate(self.children)}
 
     @property
@@ -152,8 +152,10 @@ class LegNode(Node):
     def parent_leg_to_open_leg(self):
         """
         Changes the parent leg to be an open leg, if it exists.
+
+        Moves it to the back.
         """
-        if not super().is_root:
+        if not self.is_root():
             leg_index = self._leg_permutation.pop(0)
             self._leg_permutation.append(leg_index)
 
@@ -164,7 +166,7 @@ class LegNode(Node):
         Args:
             child_id (str): The identifier of the child_nodem to be disconnected.
         """
-        index = (not super().is_root()) + super().child_index(child_id)
+        index = self.nparents() + self.child_index(child_id)
         leg_index = self._leg_permutation.pop(index)
         self._leg_permutation.append(leg_index)
 
@@ -181,9 +183,12 @@ class LegNode(Node):
 
     def get_child_leg(self, child_id: str):
         """
-        Obtains the leg number of a given child of this node.
+        Obtains the leg value of a given child of this node.
+
+        This is the leg of the tensor corresponding to this child after
+        transposing the tensor accordingly
         """
-        return self.child_index(child_id)
+        return self.nparents() + self.child_index(child_id)
 
     def swap_two_child_legs(self, child_id1: str, child_id2: str):
         """
