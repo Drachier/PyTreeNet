@@ -3,7 +3,7 @@ Some useful tools
 """
 import numpy as np
 
-from copy import deepcopy
+from copy import deepcopy, copy
 from collections import Counter
 
 def crandn(size):
@@ -39,7 +39,7 @@ def copy_object(obj, deep=True):
     if deep:
         new_obj = deepcopy(obj)
     else:
-        new_obj = obj
+        new_obj = copy(obj)
 
     return new_obj
 
