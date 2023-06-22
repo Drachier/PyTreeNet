@@ -233,13 +233,13 @@ class TreeStructure():
             child_id = node_id2
         elif node1.is_child_of(node_id2):
             parent_id = node_id2
-            child_id = node_id2
+            child_id = node_id1
         else:
             errstr = f"Nodes {node_id1} and {node_id2} are no neighbours!"
             raise ValueError(errstr)
         return (parent_id, child_id)
 
-    def combine_nodes(self, node_id1: str, node_id2: str):
+    def combine_nodes(self, node_id1: str, node_id2: str, new_identifier: str=""):
         """
         Combines the two nodes with the given identifiers.
 
@@ -249,8 +249,12 @@ class TreeStructure():
         Args:
             node_id1 (str): Identifier of the first node.
             node_id2 (str): Identifier of the second node.
+            new_identifier (str): A potential new identifier. Otherwise defaults to
+                `parent_id + 'contr' + child_id`
         """
         parent_id, child_id = self.determine_parentage(node_id1, node_id2)
+        if new_identifier == "":
+            new_identifier = parent_id + "contr" + child_id
 
         # Find new neighbours
         ## Parent
@@ -262,8 +266,12 @@ class TreeStructure():
         child = self._nodes[child_id]
         total_children.extend(child.children)
 
+        # Remove old nodes
+        self._nodes.pop(parent_id)
+        self._nodes.pop(child_id)
+
         # Build new node
-        new_node = Node(identifier= parent_id + "contr" + child_id)
+        new_node = Node(identifier=new_identifier)
         new_node.add_children(total_children)
         new_node.add_parent(parent_parent_id)
         self._nodes[new_node.identifier] = new_node
@@ -277,10 +285,6 @@ class TreeStructure():
             node = self._nodes[parent_parent_id]
             node.remove_child(parent_id)
             node.add_child(new_node.identifier)
-
-        # Remove old nodes
-        self._nodes.pop(parent_id)
-        self._nodes.pop(child_id)
 
     # def rewire_only_child(self, parent_id: str, child_id: str, new_identifier: str):
     #     """
