@@ -2,8 +2,9 @@ from __future__ import annotations
 from typing import List, Dict
 from copy import copy
 
-from .node import Node
+from numpy import ndarray
 
+from .node import Node
 
 class LegNode(Node):
     """ 
@@ -114,6 +115,10 @@ class LegNode(Node):
         Args:
             open_leg (int): The index of the actual tensor leg
         """
+        if self.nopen_legs() < 1:
+            errstr = f"Node with identifier {self.identifier} has no open legs!"
+            raise ValueError(errstr)
+
         # Move value open_leg to front of list
         self._leg_permutation.remove(open_leg)
         self._leg_permutation.insert(0, open_leg)
@@ -126,8 +131,13 @@ class LegNode(Node):
         Args:
             open_leg (int): The index of the actual tensor leg
         """
+        if self.nopen_legs() < 1:
+            errstr = f"Node with identifier {self.identifier} has no open legs!"
+            raise ValueError(errstr)
+
         self._leg_permutation.remove(open_leg)
-        new_position = super().is_root() + super().nchildren()
+        new_position = self.nparents() + self.nchildren()
+        print("hi")
         self._leg_permutation.insert(new_position, open_leg)
 
     def open_legs_to_children(self, open_leg_list: List[int]):
