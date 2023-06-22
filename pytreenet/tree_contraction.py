@@ -48,7 +48,7 @@ def _completely_contract_tree_rec(work_ttn: TreeTensorNetwork, current_node_id: 
         _completely_contract_tree_rec(work_ttn, child_id)
         work_ttn.contract_nodes(current_node_id, child_id, new_identifier=current_node_id)
 
-# TODO: Check functions below
+# TODO: Do the functions below really fit to the TTN class, or should they go into a TTNS class
 def _contract_same_structure_nodes(node1, node2, ttn1, ttn2):
     """
     Contracts two nodes with the same structure.

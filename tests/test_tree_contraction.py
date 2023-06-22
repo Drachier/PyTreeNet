@@ -119,33 +119,16 @@ class TestTreeContraction(unittest.TestCase):
 
     # def test_contract_two_ttn_simple(self):
     #     # We get the correct result via manual contraction
+    #     result1 = ptn.completely_contract_tree(self.simple_ttn1)
+    #     result2 = ptn.completely_contract_tree(self.simple_ttn2)
+    #     tensor1 = result1[result1.root_id][1]
+    #     tensor2 = result2[result2.root_id][1]
 
-    #     identifiers = ["node2", "node3"]
-    #     axs = [[1, 2], [1]]
-    #     transfer_tensors = []
-
-    #     for i, identifier in enumerate(identifiers):
-    #         tensor1 = self.simple_ttn1.nodes[identifier].tensor
-    #         tensor2 = self.simple_ttn2.nodes[identifier].tensor
-
-    #         result_tensor = np.tensordot(
-    #             tensor1, tensor2, axes=(axs[i], axs[i]))
-
-    #         transfer_tensors.append(result_tensor)
-
-    #     tensor1 = self.simple_ttn1["node1"].tensor
-    #     tensor2 = self.simple_ttn2["node1"].tensor
-
-    #     result = np.tensordot(tensor1, tensor2, axes=0)
-
-    #     result = np.tensordot(
-    #         result, transfer_tensors[0], axes=([0, 2], [0, 1]))
-    #     correct_result = np.tensordot(
-    #         result, transfer_tensors[1], axes=([0, 1], [0, 1]))
+    #     correct_result = np.tensordot(tensor1, tensor2, axes=([0,1,2], [0,1,2]))
 
     #     found_result = ptn.contract_two_ttn(self.simple_ttn1, self.simple_ttn2)
 
-    #     self.assertAlmostEqual(correct_result, found_result)
+    #     self.assertTrue(np.allclose(correct_result, found_result))
 
     # def test_contract_two_ttn_complicated(self):
 
