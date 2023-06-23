@@ -253,7 +253,7 @@ class TreeStructure():
             node = self._nodes[node_id]
             node.remove_parent()
             node.add_parent(new_node.identifier)
-        if not new_node_id.is_root():
+        if not new_node.is_root():
             node = self._nodes[new_node.parent]
             node.replace_child(old_node_id, new_node.identifier)
 

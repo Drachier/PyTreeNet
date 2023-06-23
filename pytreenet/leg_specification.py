@@ -1,6 +1,7 @@
 """
 Intendend for internal use to specify legs before splitting tensors.
 """
+from __future__ import annotations
 from typing import Union, List
 
 class LegSpecification():

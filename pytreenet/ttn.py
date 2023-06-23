@@ -224,6 +224,20 @@ class TreeTensorNetwork(TreeStructure):
     # TODO: Write split tensors
     def split_nodes_qr(self, node_id: str, q_legs: Dict[str, List], r_legs: Dict[str, List],
                        q_identifier: str = "", r_identifier: str = ""):
+        """
+        Splits a node into two nodes via QR-decomposition.
+
+        The legs should be given as a dictionary with the keys
+        "parent_leg", "child_legs" and "open_legs".
+        If there is no parent, it should be denoted by None.
+
+        Args:
+            node_id (str): The node to be split
+            q_legs (Dict[str, List]): The legs which should be part of the Q-tensor
+            r_legs (Dict[str, List]): The legs which should be part of the R-tensor
+            q_identifier (str, optional): An identifier for the Q-tensor. Defaults to "".
+            r_identifier (str, optional): An identifier for the R-tensor. Defaults to "".
+        """
 
         node, tensor = self[node_id]
         q_legs = LegSpecification.from_dict(q_legs, node)
