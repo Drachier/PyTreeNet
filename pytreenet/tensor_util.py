@@ -46,7 +46,7 @@ def tensor_matricization(tensor, output_legs, input_legs,
     correctly_ordered: bool, optional
         If true it is assumed, the tensor does not need to be transposed, i.e.
         this should be activated if the tensor already has the correct order
-        of legs. Else
+        of legs.
 
     Returns
     -------

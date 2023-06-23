@@ -238,6 +238,24 @@ class TreeStructure():
             errstr = f"Nodes {node_id1} and {node_id2} are no neighbours!"
             raise ValueError(errstr)
         return (parent_id, child_id)
+    
+    def _replace_node(self, new_node_id: str, old_node_id: str):
+        """
+        Replaces an old node with a new node for all the neighbours of
+        the new node. Assumes the new node is already in the tree.
+
+        Args:
+            new_node_id (str): Identifier of the node to be added
+            old_node_id (atr): Identifier of the node to be replaced
+        """
+        new_node = self._nodes[new_node_id]
+        for node_id in new_node.children:
+            node = self._nodes[node_id]
+            node.remove_parent()
+            node.add_parent(new_node.identifier)
+        if not new_node_id.is_root():
+            node = self._nodes[new_node.parent]
+            node.replace_child(old_node_id, new_node.identifier)
 
     def combine_nodes(self, node_id1: str, node_id2: str, new_identifier: str=""):
         """
@@ -281,11 +299,61 @@ class TreeStructure():
         self._nodes[new_node.identifier] = new_node
 
         # Change connectivity
-        for node_id in new_node.children:
-            node = self._nodes[node_id]
-            node.remove_parent()
-            node.add_parent(new_node.identifier)
-        if parent_parent_id is not None:
-            node = self._nodes[parent_parent_id]
-            node.replace_child(parent_id, new_node.identifier)
+        self._replace_node(new_identifier, parent_id)
 
+    def split_nodes(self, old_node_id: str, node1_id: str, neighbours1: List[str],
+                    node2_id: str, neighbours2: List[str]):
+        """
+        Splits one node into two.
+
+        Args:
+            old_node_id (str): The identifier of the old.
+            node1_id (str): Identifier of the first node. If the old node is the root
+                this node becomes the parent of the other node.
+            neighbours1 (List[str]): The neighbours of the old node, which are to
+                become the neighbours of the first new node.
+            node2_id (str): Identifier of the second node. If the old node is the root
+                this node becomes the child of the other node.
+            neighbours2 (List[str]): The neighbours of the old node, which are to
+                become the neighbours of the second new node.
+        """
+
+        node = self.nodes[old_node_id]
+        if node.is_root() or node.parent in neighbours1:
+            parent_id = node1_id
+            child_id = node2_id
+            parent_neighbours = neighbours1
+            child_neighbours = neighbours2
+        elif node.parent in neighbours2:
+            child_id = node1_id
+            parent_id = node2_id
+            child_neighbours = neighbours1
+            parent_neighbours = neighbours2
+        else:
+            errstr = f"Parent of Node {old_node_id} missing from new neighbours!"
+            raise AssertionError(errstr)
+
+        # Create new nodes
+        parent_node = Node(identifier=parent_id)
+        if not node.is_root():
+            parent_node.add_parent(node.parent)
+            parent_neighbours.remove(node.parent)
+        else:
+            self.root_id = parent_id
+        parent_node.add_children(parent_neighbours)
+        parent_node.add_child(child_id)
+
+        child_node = Node(identifier=child_id)
+        child_node.add_parent(parent_id)
+        child_node.add_children(child_neighbours)
+
+        # Remove old Node
+        self._nodes.pop(old_node_id)
+
+        # Insert new nodes
+        self._nodes[parent_id] = parent_node
+        self._nodes[child_id] = child_node
+
+        # Change neighbour's connectivity
+        self._replace_node(child_id, None)
+        self._replace_node(parent_id, old_node_id)
