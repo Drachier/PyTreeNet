@@ -158,22 +158,7 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         for child_id in child_ids:
             self.assertTrue(self.tensortree.is_child_of(child_id, contracted_id))
 
-    ##### Can't remember why these are needed
-    # def test_rewire_only_child(self):
-    #     node5 = self.tensortree.nodes["id5"]
-
-    #     self.tensortree.rewire_only_child("id2", "id5", "test")
-
-    #     self.assertEqual(node5.parent_leg[0], "test")
-
-    # def test_rewire_only_parent(self):
-    #     node2 = self.tensortree["id2"]
-    #     leg_2_to_5 = node2.children_legs["id5"]
-
-    #     self.tensortree.rewire_only_parent("id5", "test")
-
-    #     self.assertTrue("test" in node2.children_legs)
-    #     self.assertEqual(leg_2_to_5, node2.children_legs["test"])
+    
 
     # TODO: Reactivate later
     # def test_apply_hamiltonian(self):
