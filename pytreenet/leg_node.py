@@ -54,6 +54,32 @@ class LegNode(Node):
         Get the leg permutation, cf. class docstring.
         """
         return self._leg_permutation
+    
+    def set_leg_permutation(self, leg_dict: Dict[str, int]):
+        """
+        Set a new leg permutation. This might be neccessary, if the tensor
+        corresponding to this node is changed externally and then placed back
+        into the ttn.
+
+        All neighbours are assigned a new leg value, while the open legs are
+         assinged the remaining values. This assumes that the order of open legs
+         was not changed.
+
+        Args:
+            leg_dict (Dict[str, int]): A dictionary containing all the neighbouring
+                nodes as keys and the actual tensor leg value as value.
+        """
+        self.reset_permutation()
+        neighbours = self.neighbouring_nodes()
+        assert len(neighbours) == len(leg_dict)
+        for node_id, leg_value in leg_dict.items():
+            if node_id in neighbours:
+                new_position = self.get_neighbour_leg(node_id)
+                self._leg_permutation.pop(leg_value)
+                self._leg_permutation.insert(new_position, leg_value)
+            else:
+                errstr = f"Nodes {self.identifier} and {node_id} aren't neighbours!"
+                raise ValueError(errstr)
 
     def reset_permutation(self):
         """
@@ -182,6 +208,16 @@ class LegNode(Node):
         """
         for child_id in children_id_list:
             self.child_leg_to_open_leg(child_id)
+
+    def leg_to_last_child_leg(self, leg_value: int):
+        """
+        Sometimes the leg of the last child is not set properly, when something
+        has been done to the tensor. This method takes care of this.
+        Use with care!
+        """
+        self._leg_permutation.remove(leg_value)
+        new_position = self.nparents() + self.nchildren() - 1
+        self._leg_permutation.insert(new_position, leg_value)
 
     def get_child_leg(self, child_id: str) -> int:
         """

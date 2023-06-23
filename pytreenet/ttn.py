@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Tuple
+from typing import Tuple, Dict, List
 from copy import deepcopy
 
 import numpy as np
@@ -7,6 +7,8 @@ import numpy as np
 from .tree_structure import TreeStructure
 from .leg_node import LegNode
 from .node import Node
+from .tensor_util import tensor_qr_decomposition
+from .leg_specification import LegSpecification
 from .canonical_form import canonical_form
 from .tree_contraction import (completely_contract_tree,
                                contract_two_ttn,
@@ -218,6 +220,41 @@ class TreeTensorNetwork(TreeStructure):
         self.nodes.pop(new_identifier)
         self.nodes[new_identifier] = new_leg_node
         self._tensors[new_identifier] = new_tensor
+
+    # TODO: Write split tensors
+    def split_nodes_qr(self, node_id: str, q_legs: Dict[str, List], r_legs: Dict[str, List],
+                       q_identifier: str = "", r_identifier: str = ""):
+
+        node, tensor = self[node_id]
+        q_legs = LegSpecification.from_dict(q_legs, node)
+        r_legs = LegSpecification.from_dict(r_legs, node)
+
+        # Getting the numerical value of the legs
+        q_legs_int = q_legs.find_leg_values()
+        r_legs_int = r_legs.find_leg_values()
+        q_tensor, r_tensor = tensor_qr_decomposition(tensor, q_legs_int, r_legs_int)
+
+        # Changing the ttn-structure (Here the old node is removed)
+        if q_identifier == "":
+            q_identifier = "q_of_" + node_id
+        if r_identifier == "":
+            r_identifier = "r_of_" + node_id
+        self.split_node(node_id, q_identifier, q_legs.find_all_neighbour_ids(),
+                         r_identifier, r_legs.find_all_neighbour_ids())
+        self._tensors.pop("node_id")
+
+        # Currently the tensors q and r have the leg ordering
+        # (new_leg(for q), parent_leg, virtual_leg, open_legs, new_leg(for r))
+        # New LegNodes
+        q_node = LegNode.from_node(q_tensor, self.nodes[q_identifier])
+        r_node = LegNode.from_node(r_tensor, self.nodes[r_identifier])
+        if q_node.parent == r_node.identifier:
+            q_node.open_leg_to_parent(len(q_node.leg_permutation) - 1)
+            r_node.leg_to_last_child_leg(0)
+        else:
+            q_node.leg_to_last_child_leg(len(q_node.leg_permutation) - 1)
+            # The new leg in the r_node is already in the correct place. Yay!
+
 
     # Functions below this are just wrappers of external functions that are
     # linked tightly to the TTN and its structure. This allows these functions

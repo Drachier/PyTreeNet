@@ -45,7 +45,7 @@ class LegSpecification():
                          for i in range(len(self.child_legs))])
         leg_vals.extend(self.open_legs)
         return leg_vals
-    
+
     def find_all_neighbour_ids(self) -> List[str]:
         """
         Returns all identifiers of neighbours of node specified in this instance.
@@ -53,7 +53,6 @@ class LegSpecification():
         Returns:
             List[str]: All identifiers of neighbours of node, the parent is the first.
         """
-
         if self.parent_leg is not None:
             n_ids = [self.parent_leg]
         else:
