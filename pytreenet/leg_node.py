@@ -16,6 +16,8 @@ class LegNode(Node):
     as the associated tensor has dimensions. The associated permutation is such
     that the associated tensor transposed with it has the leg ordering:
         `(parent, child0, ..., childN-1, open_leg0, ..., open_legM-1)`
+    In general legs values will be returned according to this ordering and not according
+    to the actual tensor legs.
     Is compatible with `np.transpose`.
     So in the permutation we have the format
         `[leg of tensor corr. to parent, leg of tensor corr. to child0, ...]`
@@ -181,14 +183,28 @@ class LegNode(Node):
         for child_id in children_id_list:
             self.child_leg_to_open_leg(child_id)
 
-    def get_child_leg(self, child_id: str):
+    def get_child_leg(self, child_id: str) -> int:
         """
         Obtains the leg value of a given child of this node.
 
         This is the leg of the tensor corresponding to this child after
-        transposing the tensor accordingly
+        transposing the tensor accordingly.
         """
         return self.nparents() + self.child_index(child_id)
+
+    def get_neighbour_leg(self, node_id: str) -> int:
+        """
+        Returns the leg value of a given neighbour.
+
+        This is the leg of the tensor corresponding to this neighbour after
+        transposing the tensor accordingly.
+        """
+        if self.is_child_of(node_id):
+            return 0
+        if self.is_parent_of(node_id):
+            return self.get_child_leg(node_id)
+        errstr = f"Node {self.identifier} is not connected to {node_id}!"
+        raise ValueError(errstr)
 
     def swap_two_child_legs(self, child_id1: str, child_id2: str):
         """
