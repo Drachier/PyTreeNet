@@ -301,7 +301,7 @@ class TreeStructure():
         # Change connectivity
         self._replace_node(new_identifier, parent_id)
 
-    def split_nodes(self, old_node_id: str, node1_id: str, neighbours1: List[str],
+    def split_node(self, old_node_id: str, node1_id: str, neighbours1: List[str],
                     node2_id: str, neighbours2: List[str]):
         """
         Splits one node into two.
@@ -317,7 +317,6 @@ class TreeStructure():
             neighbours2 (List[str]): The neighbours of the old node, which are to
                 become the neighbours of the second new node.
         """
-
         node = self.nodes[old_node_id]
         if node.is_root() or node.parent in neighbours1:
             parent_id = node1_id
