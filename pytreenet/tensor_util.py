@@ -2,8 +2,8 @@
 Helpfull functions that work with the tensors of the tensor nodes.
 """
 
-import numpy as np
 from math import prod
+import numpy as np
 
 def transpose_tensor_by_leg_list(tensor, first_legs, last_legs):
     """
@@ -116,7 +116,7 @@ def tensor_qr_decomposition(tensor, q_legs, r_legs, mode='reduced'):
     mode: {'reduced', 'full'}
         'reduced' returns the reduced QR-decomposition and 'full' the full QR-
         decomposition. Refer to the documentation of numpy.linalg.qr for
-        further details. The default is 'full'.
+        further details. The default is 'reduced'.
 
     Returns
     -------
@@ -125,7 +125,9 @@ def tensor_qr_decomposition(tensor, q_legs, r_legs, mode='reduced'):
         documentation of numpy.linalg.qr for further details.
 
     """
-    assert (mode == "reduced") or (mode == "full"), "Only 'reduced' and 'full' are acceptable values for mode."
+    if not mode in {"reduced", "full"}:
+        errstr = f"{mode} is no acceptable value for `mode`, use 'reduced' or 'full'!"
+        raise ValueError(errstr)
     matrix = tensor_matricization(tensor, q_legs, r_legs)
     q, r = np.linalg.qr(matrix, mode=mode)
     shape = tensor.shape
