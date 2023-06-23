@@ -158,7 +158,131 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         for child_id in child_ids:
             self.assertTrue(self.tensortree.is_child_of(child_id, contracted_id))
 
-    
+    def test_tensor_split_leaf_q1parent_vs_r3open(self):
+        q_legs = {"parent_leg": "id8", "child_legs": [], "open_legs": []}
+        r_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1,2,3]}
+        self.tensortree.split_nodes_qr("id9", q_legs, r_legs,
+                                        q_identifier="q9", r_identifier="r9")
+
+        q_node, q_tensor = self.tensortree["q9"]
+        r_node, r_tensor = self.tensortree["r9"]
+
+        # Test Nodes
+        self.assertEqual(10, len(self.tensortree.nodes))
+        self.assertTrue("q9" in self.tensortree.nodes)
+        self.assertTrue("r9" in self.tensortree.nodes)
+        self.assertTrue(q_node.is_parent_of("r9"))
+        self.assertTrue(r_node.is_child_of("q9"))
+
+        # Test Tensors
+        self.assertEqual((4, r_tensor.shape[0]), q_tensor.shape)
+        self.assertEqual((q_tensor.shape[1],2,3,5), r_tensor.shape)
+        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=(1,1))
+        self.assertTrue(np.allclose(np.eye(q_tensor.shape[0]), found_identity))
+
+    def test_tensor_splitqr_leaf_r3open_vs_q1parent(self):
+        r_legs = {"parent_leg": "id8", "child_legs": [], "open_legs": []}
+        q_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1,2,3]}
+        self.tensortree.split_nodes_qr("id9", q_legs, r_legs,
+                                        q_identifier="q9", r_identifier="r9")
+
+        q_node, q_tensor = self.tensortree["q9"]
+        r_node, r_tensor = self.tensortree["r9"]
+
+        # Test Nodes
+        self.assertEqual(10, len(self.tensortree.nodes))
+        self.assertTrue("q9" in self.tensortree.nodes)
+        self.assertTrue("r9" in self.tensortree.nodes)
+        self.assertTrue(q_node.is_child_of("r9"))
+        self.assertTrue(r_node.is_parent_of("q9"))
+
+        # Test Tensors
+        self.assertEqual((4, q_tensor.shape[0]), r_tensor.shape)
+        self.assertEqual((r_tensor.shape[1],2,3,5), q_tensor.shape)
+        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([1,2,3],[1,2,3]))
+        self.assertTrue(np.allclose(np.eye(q_tensor.shape[0]), found_identity))
+
+    def test_tensor_splitqr_node_q1parent1open_vs_r1child1open(self):
+        q_legs = {"parent_leg": "id1", "child_legs": [], "open_legs": [2]}
+        r_legs = {"parent_leg": None, "child_legs": ["id9"], "open_legs": [3]}
+        self.tensortree.split_nodes_qr("id8", q_legs, r_legs,
+                                        q_identifier="q8", r_identifier="r8")
+
+        q_node, q_tensor = self.tensortree["q8"]
+        r_node, r_tensor = self.tensortree["r8"]
+
+        # Test Nodes
+        self.assertEqual(10, len(self.tensortree.nodes))
+        self.assertTrue("q8" in self.tensortree.nodes)
+        self.assertTrue("r8" in self.tensortree.nodes)
+        self.assertTrue(q_node.is_parent_of("r8"))
+        self.assertTrue(q_node.is_child_of("id1"))
+        self.assertTrue(self.tensortree.nodes["id1"].is_parent_of("q8"))
+        self.assertTrue(r_node.is_child_of("q8"))
+        self.assertTrue(r_node.is_parent_of("id9"))
+        self.assertTrue(self.tensortree.nodes["id9"].is_child_of("r8"))
+
+        # Test Tensors
+        self.assertEqual((3, r_tensor.shape[0], 2), q_tensor.shape)
+        self.assertEqual((q_tensor.shape[1],4,5), r_tensor.shape)
+        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([0,2],[0,2]))
+        self.assertTrue(np.allclose(np.eye(q_tensor.shape[1]), found_identity))
+
+    def test_tensor_splitqr_node_q1parent1child_vs_r1child1open(self):
+        q_legs = {"parent_leg": "id2", "child_legs": ["id6"], "open_legs": []}
+        r_legs = {"parent_leg": None, "child_legs": ["id7"], "open_legs": [3]}
+        self.tensortree.split_nodes_qr("id5", q_legs, r_legs,
+                                        q_identifier="q5", r_identifier="r5")
+
+        q_node, q_tensor = self.tensortree["q5"]
+        r_node, r_tensor = self.tensortree["r5"]
+
+        # Test Nodes
+        self.assertEqual(10, len(self.tensortree.nodes))
+        self.assertTrue("q5" in self.tensortree.nodes)
+        self.assertTrue("r5" in self.tensortree.nodes)
+        self.assertTrue(q_node.is_parent_of("r5"))
+        self.assertTrue(q_node.is_child_of("id2"))
+        self.assertTrue(self.tensortree.nodes["id2"].is_parent_of("q5"))
+        self.assertTrue(q_node.is_parent_of("id6"))
+        self.assertTrue(self.tensortree.nodes["id6"].is_child_of("q5"))
+        self.assertTrue(r_node.is_child_of("q5"))
+        self.assertTrue(r_node.is_parent_of("id7"))
+        self.assertTrue(self.tensortree.nodes["id7"].is_child_of("r5"))
+
+        # Test Tensors
+        self.assertEqual((4, 2, r_tensor.shape[0]), q_tensor.shape)
+        self.assertEqual((q_tensor.shape[2], 3, 5), r_tensor.shape)
+        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([0,1],[0,1]))
+        self.assertTrue(np.allclose(np.eye(q_tensor.shape[2]), found_identity))
+
+    def test_tensor_splitqr_root_q1child1open_vs_r1child1open(self):
+        q_legs = {"parent_leg": None, "child_legs": ["id2"], "open_legs": [2]}
+        r_legs = {"parent_leg": None, "child_legs": ["id8"], "open_legs": [3]}
+        self.tensortree.split_nodes_qr("id1", q_legs, r_legs,
+                                        q_identifier="q1", r_identifier="r1")
+
+        q_node, q_tensor = self.tensortree["q1"]
+        r_node, r_tensor = self.tensortree["r1"]
+
+        # Test Nodes
+        self.assertEqual(10, len(self.tensortree.nodes))
+        self.assertTrue("q1" in self.tensortree.nodes)
+        self.assertTrue("r1" in self.tensortree.nodes)
+        self.assertTrue(q_node.is_parent_of("r1"))
+        self.assertTrue(q_node.is_root())
+        self.assertTrue(self.tensortree.root_id == q_node.identifier)
+        self.assertTrue(q_node.is_parent_of("id2"))
+        self.assertTrue(self.tensortree.nodes["id2"].is_child_of("q1"))
+        self.assertTrue(r_node.is_child_of("q1"))
+        self.assertTrue(r_node.is_parent_of("id8"))
+        self.assertTrue(self.tensortree.nodes["id8"].is_child_of("r1"))
+
+        # Test Tensors
+        self.assertEqual((2, r_tensor.shape[0], 4), q_tensor.shape)
+        self.assertEqual((q_tensor.shape[1], 3, 5), r_tensor.shape)
+        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([0,2],[0,2]))
+        self.assertTrue(np.allclose(np.eye(q_tensor.shape[1]), found_identity))
 
     # TODO: Reactivate later
     # def test_apply_hamiltonian(self):

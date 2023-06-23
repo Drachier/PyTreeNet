@@ -354,5 +354,5 @@ class TreeStructure():
         self._nodes[child_id] = child_node
 
         # Change neighbour's connectivity
-        self._replace_node(child_id, None)
+        self._replace_node(child_id, child_id)
         self._replace_node(parent_id, old_node_id)

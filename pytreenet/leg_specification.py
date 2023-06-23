@@ -26,7 +26,7 @@ class LegSpecification():
              and "open_legs"
             node (LegNode): The related node
         """
-        return cls(dictionary["parent_legs"], dictionary["child_legs"],
+        return cls(dictionary["parent_leg"], dictionary["child_legs"],
                    dictionary["open_legs"], node)
 
     def find_leg_values(self) -> List[str]:

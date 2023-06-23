@@ -255,13 +255,20 @@ class TreeTensorNetwork(TreeStructure):
             r_identifier = "r_of_" + node_id
         self.split_node(node_id, q_identifier, q_legs.find_all_neighbour_ids(),
                          r_identifier, r_legs.find_all_neighbour_ids())
-        self._tensors.pop("node_id")
+        self._tensors.pop(node_id)
 
-        # Currently the tensors q and r have the leg ordering
-        # (new_leg(for q), parent_leg, virtual_leg, open_legs, new_leg(for r))
+        # Adding Tensors
+        self._tensors[q_identifier] = q_tensor
+        self._tensors[r_identifier] = r_tensor
+
         # New LegNodes
         q_node = LegNode.from_node(q_tensor, self.nodes[q_identifier])
         r_node = LegNode.from_node(r_tensor, self.nodes[r_identifier])
+        self._nodes[q_identifier] = q_node
+        self._nodes[r_identifier] = r_node
+
+        # Currently the tensors q and r have the leg ordering
+        # (new_leg(for q), parent_leg, virtual_leg, open_legs, new_leg(for r))
         if q_node.parent == r_node.identifier:
             q_node.open_leg_to_parent(len(q_node.leg_permutation) - 1)
             r_node.leg_to_last_child_leg(0)
