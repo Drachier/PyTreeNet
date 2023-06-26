@@ -209,6 +209,15 @@ class LegNode(Node):
         for child_id in children_id_list:
             self.child_leg_to_open_leg(child_id)
 
+    def last_leg_to_parent_leg(self):
+        """
+        Sometimes the leg of the parent is not set properly, when something
+        has been done to the tensor. This method takes care of this.
+        Use with care!
+        """
+        value = self._leg_permutation.pop(-1)
+        self._leg_permutation.insert(0, value)
+
     def leg_to_last_child_leg(self, leg_value: int):
         """
         Sometimes the leg of the last child is not set properly, when something

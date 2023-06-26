@@ -270,7 +270,7 @@ class TreeTensorNetwork(TreeStructure):
         # Currently the tensors q and r have the leg ordering
         # (new_leg(for q), parent_leg, virtual_leg, open_legs, new_leg(for r))
         if q_node.parent == r_node.identifier:
-            q_node.open_leg_to_parent(len(q_node.leg_permutation) - 1)
+            q_node.last_leg_to_parent_leg()
             r_node.leg_to_last_child_leg(0)
         else:
             q_node.leg_to_last_child_leg(len(q_node.leg_permutation) - 1)
