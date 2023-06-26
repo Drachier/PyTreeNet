@@ -160,6 +160,28 @@ class TreeTensorNetwork(TreeStructure):
                               + this_tensors_indices[this_tensors_leg_index:-1])
         self.tensors[node_id] = new_tensor.transpose(transpose_perm)
 
+    def absorb_into_open_legs(self, node_id: str, tensor: np.ndarray):
+        """
+        Absorb a tensor into the open legs of the tensor of a node.
+        This tensor will be absorbed into all open legs and it is assumed, the
+         leg order of the tensor to be absorbed is the same as the order of
+         the open legs of the node.
+        The tensor to be absorbed has to have twice as many open legs as the node tensor.
+         The first half of the legs is contracted with the tensor node's open legs and
+         the second half become the new open legs of the tensor node.
+
+        Args:
+            node_id (str): The identifier of the node which is to be contracted with the tensor
+            tensor (np.ndarray): The tensor to be contracted.
+        """
+        node, node_tensor = self[node_id]
+        assert tensor.ndim == 2 * node.nopen_legs()
+
+        tensor_legs = list(range(node.nopen_legs()))
+        new_tensor = np.tensordot(node_tensor, tensor, axes=(node.open_legs,tensor_legs))
+        # The leg ordering was not changed here
+        self.tensors[node_id] = new_tensor
+
     def contract_nodes(self, node_id1: str, node_id2: str, new_identifier: str = ""):
         """
         Contracts two node and inserts a new node with the contracted tensor

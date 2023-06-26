@@ -132,7 +132,7 @@ class LegNode(Node):
     @property
     def open_legs(self) -> List[int]:
         """
-        Returns the indices of the open legs in the permutation list (NOT the actual tensor legs).
+        Returns the indices of the open legs.
         """
         return list(range(self.nvirt_legs(), self.nlegs()))
 

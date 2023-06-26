@@ -1,7 +1,9 @@
 import unittest
-import pytreenet as ptn
+from copy import deepcopy
+
 import numpy as np
 
+import pytreenet as ptn
 
 class TestTreeTensorNetworkBasics(unittest.TestCase):
 
@@ -84,6 +86,38 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         self.tensortree.add_child_to_parent(node7, tensor7, 1, "id5", 1)
         self.tensortree.add_child_to_parent(node8, tensor8, 1, "id1", 1)
         self.tensortree.add_child_to_parent(node9, tensor9, 2, "id8", 2)
+
+    def test_absorb_into_open_legs(self):
+        tensor_shape_dict = {"id1": (4,5,4,5),
+                             "id2": (3,3),
+                             "id3": (3,4,3,4),
+                             "id4": (3,4,5,3,4,5),
+                             "id5": (5,5),
+                             "id6": (3,4,5,3,4,5),
+                             "id7": (2,4,5,2,4,5),
+                             "id8": (2,5,2,5),
+                             "id9": (2,3,5,2,3,5)}
+        node_open_leg_values = {"id1": [2,3],
+                                "id2": [3],
+                                "id3": [2,3],
+                                "id4": [1,2,3],
+                                "id5": [3],
+                                "id6": [1,2,3],
+                                "id7": [1,2,3],
+                                "id8": [2,3],
+                                "id9": [1,2,3]}
+
+        for node_id, node_tensor in self.tensortree.tensors.items():
+            tensor = ptn.crandn(tensor_shape_dict[node_id])
+            ref_tensor = deepcopy(node_tensor)
+            tensor_legs = list(range(int(tensor.ndim / 2)))
+            ref_tensor = np.tensordot(ref_tensor, tensor,
+                                      axes=(node_open_leg_values[node_id], tensor_legs))
+
+            self.tensortree.absorb_into_open_legs(node_id, tensor)
+            found_tensor = self.tensortree.tensors[node_id]
+
+            self.assertTrue(np.allclose(ref_tensor, found_tensor))
 
     def test_tensor_contraction_leaf_only_child(self):
         self.tensortree.contract_nodes("id8", "id9")
