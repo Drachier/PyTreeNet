@@ -11,11 +11,7 @@ from .tensor_util import tensor_qr_decomposition
 from .leg_specification import LegSpecification
 from .canonical_form import canonical_form
 from .tree_contraction import (completely_contract_tree,
-                               contract_two_ttn,
-                               single_site_operator_expectation_value,
-                               operator_expectation_value,
-                               scalar_product
-                               )
+                               contract_two_ttn)
 
 class TreeTensorNetwork(TreeStructure):
     """
@@ -150,7 +146,7 @@ class TreeTensorNetwork(TreeStructure):
             The leg of this instance's tensor that is to be contracted with
             the absorbed tensor.
         """
-        _, node_tensor = self[node_id]
+        node_tensor = self.tensors[node_id]
         new_tensor = np.tensordot(node_tensor, absorbed_tensor,
                                       axes=(this_tensors_leg_index, absorbed_tensors_leg_index))
 
@@ -159,6 +155,24 @@ class TreeTensorNetwork(TreeStructure):
                               + (this_tensors_indices[-1], )
                               + this_tensors_indices[this_tensors_leg_index:-1])
         self.tensors[node_id] = new_tensor.transpose(transpose_perm)
+
+    def absorb_tensor_into_neighbour_leg(self, node_id: str, neighbour_id: str,
+                                         tensor: np.ndarray, tensor_leg: int):
+        """
+        Absorb a tensor into a node, by contracting one of the tensor's legs with one of the
+        neighbour_legs of the node.
+
+        Args:
+            node_id (str): The identifier of the node into which the tensor is absorbed
+            neighbour_id (str): The identifier of the neighbour to which the leg points, which
+                                 is to be contracted with the tensor
+            tensor (np.ndarray): The tensor to be contracted
+            tensor_leg (int): The leg of the external tensor which is to be contracted
+        """
+        assert tensor.ndim == 2
+        node = self.nodes[node_id]
+        neighbour_leg = node.get_neighbour_leg(neighbour_id)
+        self.absorb_tensor(node_id, tensor, tensor_leg, neighbour_leg)
 
     def absorb_into_open_legs(self, node_id: str, tensor: np.ndarray):
         """
@@ -355,65 +369,6 @@ class TreeTensorNetwork(TreeStructure):
 
         """
         return contract_two_ttn(self, other)
-
-    def single_site_operator_expectation_value(self, node_id, operator):
-        """
-        Assuming ttn represents a quantum state, this function evaluates the
-        expectation value of the operator applied to the node with identifier
-        node_id.
-
-        Parameters
-        ----------
-        node_id : string
-            Identifier of a node in ttn.
-            Currently assumes the node has a single open leg..
-        operator : np.ndarray
-            A matrix representing the operator to be evaluated.
-
-        Returns
-        -------
-        exp_value: complex
-            The resulting expectation value.
-
-        """
-        return single_site_operator_expectation_value(self, node_id,
-                                                      operator)
-
-    def operator_expectation_value(self, operator_dict):
-        """
-        Assuming ttn represents a quantum state, this function evaluates the
-        expectation value of the operator.
-
-        Parameters
-        ----------
-        operator_dict : dict
-            A dictionary representing an operator applied to a quantum state.
-            The keys are node identifiers to which the value, a matrix, is applied.
-
-        Returns
-        -------
-        exp_value: complex
-            The resulting expectation value.
-
-        """
-        return operator_expectation_value(self, operator_dict)
-
-    def scalar_product(self):
-        """
-        Computes the scalar product for a state_like TTN, i.e. one where the open
-        legs represent a quantum state.
-
-        Parameters
-        ----------
-        None
-
-        Returns
-        -------
-        sc_prod: complex
-            The resulting scalar product.
-
-        """
-        return scalar_product(self)
 
     def apply_hamiltonian(self, hamiltonian: Hamiltonian, conversion_dict: dict[str, np.ndarray], skipped_vertices=None):
         """
