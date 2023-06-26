@@ -155,10 +155,27 @@ class TreeStructure():
             Dict[str, int]: The keys are node identifiers and the values
                 are the corresponding distance.
         """
-        neighbours = self[center_node_id].neighbouring_nodes()
+        neighbours = self._nodes[center_node_id].neighbouring_nodes()
         distance_dict = {center_node_id: 0}
         for node_id in neighbours:
-            neighbour_distances = self.distance_to_node(node_id)
+            neighbour_distances = self._distance_to_node_rec(node_id, center_node_id)
+            neighbour_distances = {node_id: distance + 1
+                                   for node_id, distance
+                                   in neighbour_distances.items()}
+            distance_dict.update(neighbour_distances)
+        return distance_dict
+
+    def _distance_to_node_rec(self, center_node_id: str, last_node_id: str) -> Dict[str: int]:
+        """
+        Recursively runs through the tree to determine the distance of all nodes.
+            Determines the distance of all nodes to `center_node_id` that are not in the
+            subtree connecte to this node via the node with identifier `last_node_id`
+        """
+        neighbours = self._nodes[center_node_id].neighbouring_nodes()
+        neighbours.remove(last_node_id)
+        distance_dict = {center_node_id: 0}
+        for node_id in neighbours:
+            neighbour_distances = self._distance_to_node_rec(node_id, center_node_id)
             neighbour_distances = {node_id: distance + 1
                                    for node_id, distance
                                    in neighbour_distances.items()}
@@ -238,7 +255,7 @@ class TreeStructure():
             errstr = f"Nodes {node_id1} and {node_id2} are no neighbours!"
             raise ValueError(errstr)
         return (parent_id, child_id)
-    
+
     def _replace_node(self, new_node_id: str, old_node_id: str):
         """
         Replaces an old node with a new node for all the neighbours of
