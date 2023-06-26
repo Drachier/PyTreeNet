@@ -130,8 +130,7 @@ class TestTreeContraction(unittest.TestCase):
 
         self.assertTrue(np.allclose(correct_result, found_result))
 
-    def test_contract_two_ttn_complicated(self):
-        
+    def test_contract_two_ttn_complicated(self):   
         work_ttn1 = deepcopy(self.tree_tensor_network)
         work_ttn2 = deepcopy(self.tree_tensor_network2)
 
