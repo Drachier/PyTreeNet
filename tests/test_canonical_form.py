@@ -16,9 +16,10 @@ class TestCanonicalFormSimple(unittest.TestCase):
         self.tree_tensor_network.add_root(self.node1, self.tensor1)
         self.tree_tensor_network.add_child_to_parent(self.node2, self.tensor2, 0, "node1", 0)
 
-    def testsimple_find_smallest_distance_neighbout(self):
+    def testsimple_find_smallest_distance_neighbour(self):
         distance_dict = self.tree_tensor_network.distance_to_node("node1")
-        minimum_distance_neighbour_id = _find_smallest_distance_neighbour(self.node2, distance_dict)
+        node2 = self.tree_tensor_network.nodes["node2"]
+        minimum_distance_neighbour_id = _find_smallest_distance_neighbour(node2, distance_dict)
         self.assertEqual("node1", minimum_distance_neighbour_id)
 
     def testsimple_canonical_form(self):
@@ -39,8 +40,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
         self.assertFalse(result_ttn == reference_ttn)
         self.assertTrue(np.allclose(ref_tensor, result_tensor))
 
-        node2 = self.tree_tensor_network.nodes["node2"]
-        tensor2 = self.tree_tensor_network.tensors["node2"]
+        node2, tensor2 = self.tree_tensor_network["node2"]
         parent_leg2 = node2.parent_leg
         parent_dimension2 = tensor2.shape[parent_leg2[1]]
         identity = np.eye(parent_dimension2)
@@ -50,7 +50,6 @@ class TestCanonicalFormSimple(unittest.TestCase):
 
         self.assertEqual(transfer_tensor.shape, (2, 2))
         self.assertTrue(np.allclose(identity, transfer_tensor))
-
 
 class TestCanonicalFormComplicated(unittest.TestCase):
     def setUp(self):
@@ -84,10 +83,9 @@ class TestCanonicalFormComplicated(unittest.TestCase):
 
         self.assertTrue(np.allclose(ref_tensor, result_tensor))
 
-        for node_id in self.tree_tensor_network.nodes:
-            if node_id != self.tree_tensor_network.root_id:
-                node = self.tree_tensor_network.nodes[node_id]
-                tensor = self.tree_tensor_network.tensors[node_id]
+        for node_id, tensor in self.tree_tensor_network.tensors.items():
+            node = self.tree_tensor_network.nodes[node_id]
+            if node.identifier != self.tree_tensor_network.root_id:
 
                 open_leg_indices = tuple(node.open_legs)
                 children_leg_indices = tuple(node.children_legs.values())
@@ -103,16 +101,14 @@ class TestCanonicalFormComplicated(unittest.TestCase):
     def _check_node(self, ttn, node, id_neighbour_towards_center):
         node_neighbour_legs = node.neighbouring_nodes()
 
-        non_center_indices = [node_neighbour_legs[neighbour_id]
-                              for neighbour_id in node_neighbour_legs
-                              if neighbour_id != id_neighbour_towards_center]
-        non_center_indices.extend(node.open_legs)
+        non_center_indices = list(range(node.nlegs()))
+        non_center_indices.pop(node.get_neighbour_leg(id_neighbour_towards_center))
 
         tensor = ttn.tensors[node.identifier]
         transfer_tensor = ptn.compute_transfer_tensor(tensor, non_center_indices)
 
         # Dimension of leg towards the neighbour nearest to the orth. center
-        dimension_to_center = tensor.shape[node_neighbour_legs[id_neighbour_towards_center]]
+        dimension_to_center = tensor.shape[node.get_neighbour_leg(id_neighbour_towards_center)]
 
         identity = np.eye(dimension_to_center)
 
@@ -138,8 +134,12 @@ class TestCanonicalFormComplicated(unittest.TestCase):
             # Test, if both TTN represent the same tensor network
             result_ttn = ptn.completely_contract_tree(canon_ttn, to_copy=True)
             result_tensor = result_ttn.tensors[result_ttn.root_id]
+            perm = []
+            for i in result_tensor.shape:
+                perm.append(ref_tensor.shape.index(i))
+            ref_tensor2 = ref_tensor.transpose(perm)
 
-            self.assertTrue(np.allclose(ref_tensor, result_tensor))
+            self.assertTrue(np.allclose(ref_tensor2, result_tensor))
 
             # Test, if we actually have a canonical form
             center_node = canon_ttn.nodes[node_id_center]

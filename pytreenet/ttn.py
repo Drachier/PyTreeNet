@@ -221,7 +221,6 @@ class TreeTensorNetwork(TreeStructure):
         self.nodes[new_identifier] = new_leg_node
         self._tensors[new_identifier] = new_tensor
 
-    # TODO: Write split tensors
     def split_nodes_qr(self, node_id: str, q_legs: Dict[str, List], r_legs: Dict[str, List],
                        q_identifier: str = "", r_identifier: str = ""):
         """
@@ -276,11 +275,10 @@ class TreeTensorNetwork(TreeStructure):
             q_node.leg_to_last_child_leg(len(q_node.leg_permutation) - 1)
             # The new leg in the r_node is already in the correct place. Yay!
 
-
     # Functions below this are just wrappers of external functions that are
     # linked tightly to the TTN and its structure. This allows these functions
     # to be overwritten for subclasses of the TTN with more known structure.
-    # The additional sturcture allows for more efficent algorithms than the
+    # The additional structure allows for more efficent algorithms than the
     # general case.
 
     def canonical_form(self, orthogonality_center_id):
