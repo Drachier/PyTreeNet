@@ -115,7 +115,7 @@ class TreeStructure():
 
         self._root_id = new_id
 
-    def nearest_neighbour(self) -> List[Tuple[str, str]]:
+    def nearest_neighbours(self) -> List[Tuple[str, str]]:
         """
         Finds all nearest neighbour pairs in this tree.
 
