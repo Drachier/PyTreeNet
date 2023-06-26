@@ -117,39 +117,37 @@ class TestTreeContraction(unittest.TestCase):
         self.assertTrue(result_node.is_root())
         self.assertTrue(result_node.is_leaf())
 
-    # def test_contract_two_ttn_simple(self):
-    #     # We get the correct result via manual contraction
-    #     result1 = ptn.completely_contract_tree(self.simple_ttn1)
-    #     result2 = ptn.completely_contract_tree(self.simple_ttn2)
-    #     tensor1 = result1[result1.root_id][1]
-    #     tensor2 = result2[result2.root_id][1]
+    def test_contract_two_ttn_simple(self):
+        # We get the correct result via manual contraction
+        result1 = ptn.completely_contract_tree(self.simple_ttn1)
+        result2 = ptn.completely_contract_tree(self.simple_ttn2)
+        tensor1 = result1[result1.root_id][1]
+        tensor2 = result2[result2.root_id][1]
 
-    #     correct_result = np.tensordot(tensor1, tensor2, axes=([0,1,2], [0,1,2]))
+        correct_result = np.tensordot(tensor1, tensor2, axes=([0,1,2], [0,1,2]))
 
-    #     found_result = ptn.contract_two_ttn(self.simple_ttn1, self.simple_ttn2)
+        found_result = ptn.contract_two_ttn(self.simple_ttn1, self.simple_ttn2)
 
-    #     self.assertTrue(np.allclose(correct_result, found_result))
+        self.assertTrue(np.allclose(correct_result, found_result))
 
-    # def test_contract_two_ttn_complicated(self):
+    def test_contract_two_ttn_complicated(self):
+        
+        work_ttn1 = deepcopy(self.tree_tensor_network)
+        work_ttn2 = deepcopy(self.tree_tensor_network2)
 
-    #     found_result = ptn.contract_two_ttn(self.tree_tensor_network,
-    #                                         self.tree_tensor_network2)
+        found_result = ptn.contract_two_ttn(work_ttn1, work_ttn2)
 
-    #     # Since both have the same structure, we can completely contract them and take the scalar product
-    #     ttn1_contr = ptn.completely_contract_tree(self.tree_tensor_network,
-    #                                               to_copy=True)
-    #     ttn1_tensor = ttn1_contr.nodes[ttn1_contr.root_id].tensor
-
-    #     ttn2_contr = ptn.completely_contract_tree(self.tree_tensor_network2,
-    #                                               to_copy=True)
-    #     ttn2_tensor = ttn2_contr.nodes[ttn2_contr.root_id].tensor
-
-    #     all_axes = range(ttn1_tensor.ndim)
-
-    #     correct_result = np.tensordot(ttn1_tensor, ttn2_tensor,
-    #                                   axes=(all_axes, all_axes))
-
-    #     self.assertAlmostEqual(correct_result.item(), found_result.item())
+        # Since both have the same structure, we can completely contract them and take the scalar product
+        ttn1_contr = ptn.completely_contract_tree(self.tree_tensor_network,
+                                                  to_copy=True)
+        ttn1_tensor = ttn1_contr.tensors[ttn1_contr.root_id]
+        ttn2_contr = ptn.completely_contract_tree(self.tree_tensor_network2,
+                                                  to_copy=True)
+        ttn2_tensor = ttn2_contr.tensors[ttn2_contr.root_id]
+        all_axes = range(ttn1_tensor.ndim)
+        correct_result = np.tensordot(ttn1_tensor, ttn2_tensor,
+                                      axes=(all_axes, all_axes))
+        self.assertTrue(np.allclose(correct_result, found_result))
 
     # def test_single_site_operator_expectation_value(self):
 

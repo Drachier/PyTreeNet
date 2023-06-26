@@ -47,100 +47,62 @@ def _completely_contract_tree_rec(work_ttn: TreeTensorNetwork, current_node_id: 
         _completely_contract_tree_rec(work_ttn, child_id)
         work_ttn.contract_nodes(current_node_id, child_id, new_identifier=current_node_id)
 
-# TODO: Do the functions below really fit to the TTN class, or should they go into a TTNS class
-def _contract_same_structure_nodes(node1, node2, ttn1, ttn2):
+def _contract_same_structure_nodes(node_id: str, ttn1: TreeTensorNetwork, ttn2: TreeTensorNetwork) -> np.ndarray:
     """
-    Contracts two nodes with the same structure.
+    Contracts the two nodes in the tensor networks that correspond to the same identifier.
 
-    Parameters
-    ----------
-    node1 : TensorNode
-    node2 : TensorNode
-    ttn1 : TreeTensorNetwork
-        TTN containing node1
-    ttn2 : TreeTensorNetwork
-        TTN containing node2
+    Args:
+        node_id (str): The identifier giving the position in the TTNs.
+        ttn1 (TreeTensorNetwork): One TTN to be contracted
+        ttn2 (TreeTensorNetwork): Second TTN to be contracted
 
-    Returns
-    -------
-    resulting_tensor : ndarray
-        resulting tensor
-
+    Returns:
+        (np.ndarray) : The contraction result
     """
-
+    node1 = ttn1.nodes[node_id]
     if node1.is_leaf():
         open_legs = node1.open_legs
-
-        resulting_tensor = np.tensordot(node1.tensor, node2.tensor,
+        resulting_tensor = np.tensordot(ttn1.tensors[node_id], ttn2.tensors[node_id],
                                         axes=(open_legs, open_legs))
-
         return resulting_tensor
 
+    children = node1.children
+    result_tensors = {}
+    for child_id in children:
+        # This tensor will have exactly two legs.
+        # Leg 0 is contracted with node1 and leg 1 with node2.
+        child_tensor = _contract_same_structure_nodes(child_id, ttn1, ttn2)
+        result_tensors[child_id] = child_tensor
+
+    open_legs = node1.open_legs
+    for child_id in children:
+        result_tensor = result_tensors[child_id]
+        ttn1.absorb_tensor_into_neighbour_leg(node_id, child_id, result_tensor, 0)
+    # Now the tensor of node1 contains all the children results
+    n_legs = node1.nlegs()
+    if node1.is_root():
+        contracting_legs = list(range(n_legs))
     else:
-        children_legs = node1.children_legs
+        contracting_legs = list(range(1, n_legs))
+    resulting_tensor = np.tensordot(ttn1.tensors[node_id], ttn2.tensors[node_id],
+                                    axes=(contracting_legs, contracting_legs))
+    return resulting_tensor
 
-        result_tensors = dict()
-        for child_id in children_legs:
-
-            child1 = ttn1.nodes[child_id]
-            child2 = ttn2.nodes[child_id]
-
-            # This tensor will have exactly two legs.
-            # Leg 0 is contracted with node1 and leg 1 with node2.
-            child_tensor = _contract_same_structure_nodes(child1, child2,
-                                                          ttn1, ttn2)
-
-            result_tensors[child_id] = child_tensor
-
-        # Make children the first legs
-        node1.order_legs()
-        node2.order_legs()
-
-        # To call children in increasing order of leg index
-        sorted_children = sort_dictionary(node1.children_legs)
-
-        open_legs = node1.open_legs
-
-        resulting_tensor = np.tensordot(node1.tensor, node2.tensor,
-                                        axes=(open_legs, open_legs))
-
-        for child_id in sorted_children:
-            child_result = result_tensors[child_id]
-
-            leg2 = int(resulting_tensor.ndim / 2)
-
-            resulting_tensor = np.tensordot(resulting_tensor, child_result,
-                                            axes=([0, leg2], [0, 1]))
-
-        return resulting_tensor
-
-
-def contract_two_ttn(ttn1, ttn2):
+def contract_two_ttn(ttn1: TreeTensorNetwork, ttn2: TreeTensorNetwork) -> complex:
     """
-    Contracts two TTN with the same structure. Assumes both TTN use the same
-    identifiers for the nodes.
+    Contracts two TTN with the same structure.
+    Assumes both TTN use the same identifiers for the nodes.
 
-    Parameters
-    ----------
-    ttn1 : TreeTensorNetwork
-    ttn2 : TreeTensorNetwork
+    Args:
+        ttn1 (TreeTensorNetwork): One TTN to be contracted
+        ttn2 (TreeTensorNetwork): Second TTN to be contracted
 
-    Returns
-    -------
-    result_tensor: ndarray
-        The contraction result.
-
+    Returns:
+        complex: The contraction result.
     """
-    root_id = ttn1.root_id
+    return complex(_contract_same_structure_nodes(ttn1.root_id, ttn1, ttn2))
 
-    root1 = ttn1.nodes[root_id]
-    root2 = ttn2.nodes[root_id]
-
-    result_tensor = _contract_same_structure_nodes(root1, root2, ttn1, ttn2)
-
-    return result_tensor
-
-
+# TODO: Do the functions below really fit to the TTN class, or should they go into a TTNS class
 def single_site_operator_expectation_value(ttn, node_id, operator):
     """
     Assuming ttn represents a quantum state, this function evaluates the 
