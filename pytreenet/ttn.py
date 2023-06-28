@@ -272,6 +272,41 @@ class TreeTensorNetwork(TreeStructure):
         self.nodes[new_identifier] = new_leg_node
         self._tensors[new_identifier] = new_tensor
 
+    def legs_before_combination(self, node1_id: str, node2_id: str) -> Tuple[LegSpecification, LegSpecification]:
+        """
+        When combining two nodes, the information about their legs is lost.
+         However, sometimes one wants to split the two nodes again, as they were
+         before. This function provides the required leg specification for the
+         splitting.
+
+        Args:
+            node1_id (str): _description_
+            node2_id (str): _description_
+
+        Returns:
+            Tuple[LegSpecification, LegSpecification]: _description_
+        """
+        
+        node1 = self.nodes[node1_id]
+        node2 = self.nodes[node2_id]
+        tot_nvirt_legs = node1.nvirt_legs() + node2.nvirt_legs() - 2
+        tot_nlegs = node1.nlegs() + node2.nlegs() - 2
+        open_legs1 = list(range(tot_nvirt_legs, tot_nvirt_legs + node1.nopen_legs()))
+        open_legs2 = list(range(tot_nvirt_legs + node1.nopen_legs(), tot_nlegs))
+        spec1 = LegSpecification(parent_leg=None,
+                                 child_legs=copy(node1.children),
+                                 open_legs=open_legs1,
+                                 node=None)
+        spec2 = LegSpecification(parent_leg=None,
+                                 child_legs=copy(node2.children),
+                                 open_legs=open_legs2,
+                                 node=None)
+        temp = [(spec1, node1), (spec2, node2)]
+        if node2.is_parent_of(node1_id):
+            temp.reverse()
+        temp[0][0].parent_leg = temp[0][1].parent
+        temp[0][0].child_legs.remove(temp[1][1].identifier)
+
     def _split_nodes(self, node_id: str, out_legs: Dict[str, List], in_legs: Dict[str, List],
                      splitting_function: Callable, out_identifier: str = "", in_identifier = "",
                      **kwargs):
