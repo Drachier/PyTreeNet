@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Tuple, Dict, List
+from typing import Tuple, Dict, List, Callable
 from copy import deepcopy
 
 import numpy as np
@@ -7,7 +7,8 @@ import numpy as np
 from .tree_structure import TreeStructure
 from .leg_node import LegNode
 from .node import Node
-from .tensor_util import tensor_qr_decomposition
+from .tensor_util import (tensor_qr_decomposition,
+                          contr_truncated_svd_splitting)
 from .leg_specification import LegSpecification
 from .canonical_form import canonical_form
 from .tree_contraction import (completely_contract_tree,
@@ -257,7 +258,63 @@ class TreeTensorNetwork(TreeStructure):
         self.nodes[new_identifier] = new_leg_node
         self._tensors[new_identifier] = new_tensor
 
-    def split_nodes_qr(self, node_id: str, q_legs: Dict[str, List], r_legs: Dict[str, List],
+    def _split_nodes(self, node_id: str, out_legs: Dict[str, List], in_legs: Dict[str, List],
+                     splitting_function: Callable, out_identifier: str = "", in_identifier = "",
+                     **kwargs):
+        """
+        Splits an node into two nodes using a specified function
+
+        Args:
+            node_id (str): The identifier of the node to be split.
+            out_legs (Dict[str, List]): The legs associated to the output of the matricised
+                node tensor. (The Q legs for QR and U legs for SVD)
+            in_legs (Dict[str, List]): The legs associated to the input of the matricised
+                node tensor: (The R legs for QR and the SVh legs for SVD)
+            splitting_function (Callable): The function to be used for the splitting
+            out_identifier (str, optional): An identifier for the tensor with the output
+                legs. Defaults to "".
+            in_identifier (str, optional): An identifier for the tensor with the input
+                legs. Defaults to "".
+
+        """
+        node, tensor = self[node_id]
+        out_legs = LegSpecification.from_dict(out_legs, node)
+        in_legs = LegSpecification.from_dict(in_legs, node)
+
+        # Getting the numerical value of the legs
+        out_legs_int = out_legs.find_leg_values()
+        in_legs_int = in_legs.find_leg_values()
+        out_tensor, in_tensor = splitting_function(tensor, out_legs_int, in_legs_int, **kwargs)
+
+        # Changing the ttn-structure (Here the old node is removed)
+        if out_identifier == "":
+            out_identifier = "out_of_" + node_id
+        if in_identifier == "":
+            in_identifier = "in_of_" + node_id
+        self.split_node(node_id, out_identifier, out_legs.find_all_neighbour_ids(),
+                         in_identifier, in_legs.find_all_neighbour_ids())
+        self._tensors.pop(node_id)
+
+        # Adding Tensors
+        self._tensors[out_identifier] = out_tensor
+        self._tensors[in_identifier] = in_tensor
+
+        # New LegNodes
+        out_node = LegNode.from_node(out_tensor, self.nodes[out_identifier])
+        in_node = LegNode.from_node(in_tensor, self.nodes[in_identifier])
+        self._nodes[out_identifier] = out_node
+        self._nodes[in_identifier] = in_node
+
+        # Currently the tensors q and r have the leg ordering
+        # (new_leg(for out), parent_leg, virtual_leg, open_legs, new_leg(for in))
+        if out_node.parent == in_node.identifier:
+            out_node.last_leg_to_parent_leg()
+            in_node.leg_to_last_child_leg(0)
+        else:
+            out_node.leg_to_last_child_leg(len(out_node.leg_permutation) - 1)
+            # The new leg in the in_node is already in the correct place. Yay!
+
+    def split_node_qr(self, node_id: str, q_legs: Dict[str, List], r_legs: Dict[str, List],
                        q_identifier: str = "", r_identifier: str = ""):
         """
         Splits a node into two nodes via QR-decomposition.
@@ -273,43 +330,27 @@ class TreeTensorNetwork(TreeStructure):
             q_identifier (str, optional): An identifier for the Q-tensor. Defaults to "".
             r_identifier (str, optional): An identifier for the R-tensor. Defaults to "".
         """
+        self._split_nodes(node_id, q_legs, r_legs, tensor_qr_decomposition,
+                          out_identifier=q_identifier, in_identifier=r_identifier)
 
-        node, tensor = self[node_id]
-        q_legs = LegSpecification.from_dict(q_legs, node)
-        r_legs = LegSpecification.from_dict(r_legs, node)
+    def split_node_svd(self, node_id: str, u_legs: Dict, v_legs: Dict,
+                       u_identifier: str = "", v_identifier: str = "",
+                       **truncation_param):
+        """
+        Splits a node in two using singular value decomposition. In the process the tensors
+         are truncated as specified by truncation parameters. The singular values
+         are absorbed into the v_legs.
 
-        # Getting the numerical value of the legs
-        q_legs_int = q_legs.find_leg_values()
-        r_legs_int = r_legs.find_leg_values()
-        q_tensor, r_tensor = tensor_qr_decomposition(tensor, q_legs_int, r_legs_int)
-
-        # Changing the ttn-structure (Here the old node is removed)
-        if q_identifier == "":
-            q_identifier = "q_of_" + node_id
-        if r_identifier == "":
-            r_identifier = "r_of_" + node_id
-        self.split_node(node_id, q_identifier, q_legs.find_all_neighbour_ids(),
-                         r_identifier, r_legs.find_all_neighbour_ids())
-        self._tensors.pop(node_id)
-
-        # Adding Tensors
-        self._tensors[q_identifier] = q_tensor
-        self._tensors[r_identifier] = r_tensor
-
-        # New LegNodes
-        q_node = LegNode.from_node(q_tensor, self.nodes[q_identifier])
-        r_node = LegNode.from_node(r_tensor, self.nodes[r_identifier])
-        self._nodes[q_identifier] = q_node
-        self._nodes[r_identifier] = r_node
-
-        # Currently the tensors q and r have the leg ordering
-        # (new_leg(for q), parent_leg, virtual_leg, open_legs, new_leg(for r))
-        if q_node.parent == r_node.identifier:
-            q_node.last_leg_to_parent_leg()
-            r_node.leg_to_last_child_leg(0)
-        else:
-            q_node.leg_to_last_child_leg(len(q_node.leg_permutation) - 1)
-            # The new leg in the r_node is already in the correct place. Yay!
+        Args:
+            node_id (str): Identifier of the nodes to be split
+            u_legs (Dict): The legs which should be part of the U tensor
+            v_legs (Dict): The legs which should be part of the V tensor
+            u_identifier (str): An identifier for the U-tensor. Defaults to "".
+            v_identifier (str): An identifier for the V-tensor. Defaults to "".
+        """
+        self._split_nodes(node_id, u_legs, v_legs, contr_truncated_svd_splitting,
+                          out_identifier=u_identifier, in_identifier=v_identifier,
+                          **truncation_param)
 
     # Functions below this are just wrappers of external functions that are
     # linked tightly to the TTN and its structure. This allows these functions

@@ -253,6 +253,15 @@ def truncated_tensor_svd(tensor, u_legs, v_legs,
 
     return u, np.asarray(s), vh
 
+def contr_truncated_svd_splitting(tensor, u_legs, v_legs, **truncation_param):
+    """
+    Performs a truncated svd, but the singular values are contracted with
+    the V tensor.
+    """
+    u, s, vh =truncated_tensor_svd(tensor, u_legs, v_legs, **truncation_param)
+    svh = np.tensordot(np.diag(s), vh, axes=(1,0))
+    return u, svh
+
 def compute_transfer_tensor(tensor, open_indices):
     """
 
