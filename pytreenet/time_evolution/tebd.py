@@ -2,7 +2,7 @@ import numpy as np
 
 from tqdm import tqdm
 
-from .tensor_util import (transpose_tensor_by_leg_list,
+from ..tensor_util import (transpose_tensor_by_leg_list,
                           tensor_matricization,
                           truncated_tensor_svd)
 
@@ -64,7 +64,7 @@ class TEBD:
 
         self._exponents = self._exponentiate_splitting()
 
-        if type(operators) == dict:
+        if operators.isinstance(dict):
             # In this case a single operator has been provided
             self.operators = [operators]
         else:
@@ -73,7 +73,7 @@ class TEBD:
         # Place to hold the results obtained during computation
         # Each row contains the data obtained during the run and the last row
         # contains the time_steps
-        if operators != None:
+        if operators is not None:
             self._results = np.zeros((len(self.operators) + 1,
                                      self.num_time_steps + 1), dtype=complex)
         else:
@@ -370,7 +370,7 @@ class TEBD:
             If results are to be saved in an external file a path can be given
             here.     
         """
-        if filepath == None:
+        if filepath is None:
             print("No filepath given. Data wasn't saved.")
             return
 
@@ -400,7 +400,7 @@ class TEBD:
 
         """
 
-        for i in tqdm(range(self.num_time_steps + 1), disable=(not pgbar)):
+        for i in tqdm(range(self.num_time_steps + 1), disable=not pgbar):
             if i != 0:  # We also measure the initial expectation_values
                 self.run_one_time_step()
 
@@ -411,5 +411,5 @@ class TEBD:
                 # Save current time
                 self.results[-1, i] = i*self.time_step_size
 
-        if filepath != None:
+        if filepath is not None:
             self.save_results(filepath)
