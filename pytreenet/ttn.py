@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Tuple, Dict, List, Callable
-from copy import deepcopy
+from copy import copy, deepcopy
+from itertools import chain
 
 import numpy as np
 
@@ -203,8 +204,8 @@ class TreeTensorNetwork(TreeStructure):
         into the ttn.
         Note that one of the nodes will be the parent of the other.
         The resulting leg order is the following:
-            `(parent_parent_leg, remaining_parent_children_legs, child_children_legs,
-            parent_open_legs, child_open_legs)`
+            `(parent_parent_leg, node1_children_legs, node2_children_legs,
+            node1_open_legs, node2_open_legs)`
         The resulting node will have the identifier `parent_id + "contr" + child_id`.
 
         Deletes the originial nodes and tensors from the TTN.
@@ -237,6 +238,7 @@ class TreeTensorNetwork(TreeStructure):
         # children_of_child, open_of_child)
         parent_nvirt_leg = parent_node.nvirt_legs() - 1
         parent_nlegs = parent_node.nlegs() - 1
+        parent_nplegs = parent_node.nparents()
         child_node = self.nodes[child_id]
         child_nchild_legs = child_node.nchild_legs()
 
@@ -252,9 +254,18 @@ class TreeTensorNetwork(TreeStructure):
         new_leg_node = LegNode.from_node(new_tensor, new_node)
 
         # Building correct permutation (TODO: Move it to LegNode?)
-        child_children_legs = [new_leg_node._leg_permutation.pop(parent_nlegs)
-                               for i in range(0, child_nchild_legs)]
-        new_leg_node._leg_permutation[parent_nvirt_leg:parent_nvirt_leg] = child_children_legs
+        p_children = list(range(parent_nplegs, parent_nvirt_leg))
+        p_open = list(range(parent_nvirt_leg, parent_nlegs))
+        c_children = list(range(parent_nlegs, parent_nlegs + child_nchild_legs))
+        c_open = list(range(parent_nlegs + child_nchild_legs, new_leg_node.nlegs()))
+        children = [p_children, c_children]
+        open_legs = [p_open, c_open]
+        if parent_id != node_id1:
+            children.reverse()
+            open_legs.reverse()
+        children.extend(open_legs)
+        children = list(chain.from_iterable(children))
+        new_leg_node._leg_permutation[new_node.nparents():] = children
 
         # Delete Node, add LegNode and new tensor
         self.nodes.pop(new_identifier)
@@ -283,8 +294,12 @@ class TreeTensorNetwork(TreeStructure):
         node, tensor = self[node_id]
         if isinstance(out_legs, dict):
             out_legs = LegSpecification.from_dict(out_legs, node)
+        elif out_legs.node is None:
+            out_legs.node = node
         if isinstance(in_legs, dict):
             in_legs = LegSpecification.from_dict(in_legs, node)
+        elif in_legs.node is None:
+            in_legs.node = node
 
         # Getting the numerical value of the legs
         out_legs_int = out_legs.find_leg_values()

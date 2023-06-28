@@ -49,7 +49,7 @@ class LegSpecification():
 
     def find_all_neighbour_ids(self) -> List[str]:
         """
-        Returns all identifiers of neighbours of node specified in this instance.
+        Returns all identifiers of neighbours of the node specified in this instance.
 
         Returns:
             List[str]: All identifiers of neighbours of node, the parent is the first.
