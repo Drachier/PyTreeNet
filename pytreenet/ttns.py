@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Dict
 
 from copy import deepcopy
 import numpy as np
@@ -16,7 +17,8 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         """
         super().__init__()
 
-    def single_site_operator_expectation_value(self, node_id: str, operator: np.ndarray, canon: bool=False) -> complex:
+    def single_site_operator_expectation_value(self, node_id: str, operator: np.ndarray,
+                                               canon: bool=False) -> complex:
         """
         Find the expectation value of this TTNS given the single-site operator acting on the node specified.
         Assumes the node has only one open leg.
@@ -38,44 +40,34 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             return complex(np.tensordot(tensor_op, tensor_conj, axes=(legs,legs)))
 
         # Very inefficient, fix later without copy
-        ttns_conj = deepcopy(self)
-        for node_id2, tensor in ttns_conj.tensors.items():
-            ttns_conj.tensors[node_id2] = tensor.conj()
+        ttns_conj = self.conjugate()
         self.absorb_into_open_legs(node_id, operator)
         return self.contract_two_ttn(ttns_conj)
 
-    def operator_expectation_value(self, operator_dict):
+    def operator_expectation_value(self, operator_dict: Dict) -> complex:
         """
-        Assuming ttn represents a quantum state, this function evaluates the
-        expectation value of the operator.
+        Finds the expectation value of the operator specified given this TTNS.
 
-        Parameters
-        ----------
-        operator_dict : dict
-            A dictionary representing an operator applied to a quantum state.
-            The keys are node identifiers to which the value, a matrix, is applied.
+        Args:
+            operator_dict (Dict): A dictionary containing node_ids as keys and
+                                    the operators applied to the respective node
+                                    as arrays.
 
-        Returns
-        -------
-        exp_value: complex
-            The resulting expectation value.
-
+        Returns:
+            complex: The resulting expectation value < TTNS | operator | TTNS>
         """
-        return operator_expectation_value(self, operator_dict)
+        # Very inefficient, fix later without copy
+        conj_ttn = self.conjugate()
+        for node_id, operator in operator_dict.items():
+            self.absorb_into_open_legs(node_id, operator)
+        return self.contract_two_ttn(conj_ttn)
 
-    def scalar_product(self):
+    def scalar_product(self) -> complex:
         """
-        Computes the scalar product for a state_like TTN, i.e. one where the open
-        legs represent a quantum state.
+        Computes the scalar product of this TTNS
 
-        Parameters
-        ----------
-        None
-
-        Returns
-        -------
-        sc_prod: complex
-            The resulting scalar product.
-
+        Returns:
+            complex: The resulting scalar product <TTNS|TTNS>
         """
-        return scalar_product(self)
+        # Very inefficient, fix later without copy
+        return self.contract_two_ttn(self.conjugate())
