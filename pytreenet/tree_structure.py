@@ -279,17 +279,17 @@ class TreeStructure():
         Combines the two nodes with the given identifiers.
 
         The children in the new node have the form
-            [parent_children, child_children]
+            [node1_children, node2_children]
 
         Args:
             node_id1 (str): Identifier of the first node.
             node_id2 (str): Identifier of the second node.
             new_identifier (str): A potential new identifier. Otherwise defaults to
-                `parent_id + 'contr' + child_id`
+                `node_id1 + 'contr' + node:id2`
         """
         parent_id, child_id = self.determine_parentage(node_id1, node_id2)
         if new_identifier == "":
-            new_identifier = parent_id + "contr" + child_id
+            new_identifier = node_id1 + "contr" + node_id2
 
         # Find new neighbours
         ## Parent
@@ -297,9 +297,12 @@ class TreeStructure():
         parent_parent_id = parent_node.parent
         ## Children
         parent_node.remove_child(child_id)
-        total_children = parent_node.children
-        child = self._nodes[child_id]
-        total_children.extend(child.children)
+        child_node = self._nodes[child_id]
+        temp = [parent_node, child_node]
+        if parent_id != node_id1:
+            temp.reverse()
+        total_children = temp[0].children
+        total_children.extend(temp[1].children)
 
         # Replace root_id if neccessary
         if parent_node.is_root():
