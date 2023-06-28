@@ -1,58 +1,51 @@
-import numpy as np
+from __future__ import annotations
+from typing import Dict, List, Union
 
-from tqdm import tqdm
+import numpy as np
 
 from ..tensor_util import (transpose_tensor_by_leg_list,
                           tensor_matricization,
                           truncated_tensor_svd)
+from .time_evolution import TimeEvolution
 
-
-class TEBD:
+class TEBD(TimeEvolution):
     """
     Runs the TEBD algorithm on a TTN
     """
 
-    def __init__(self, state, trotter_splitting, time_step_size, final_time,
-                 operators=None, max_bond_dim=100, rel_tol=1e-10, total_tol=1e-15):
+    def __init__(self, initial_state: TreeTensorNetworkState,
+                 trotter_splitting: TrotterSplitting, time_step_size: float,
+                 final_time: float, operators: Union[List[Dict], Dict],
+                 max_bond_dim: int = 100, rel_tol: float =1e-10,
+                 total_tol: float = 1e-15):
         """
-        The state is a TreeTensorNetwork representing an initial state which is
-        to be time-evolved under the `trotter_splitting` until `final_time`,
-        where each time step has size time_step_size.
+        A class that can be used to time evolve an initial state in the form
+         a tree tensor network state via the TEBD algorithm.
 
         If no truncation is desired set max_bond_dim = inf, rel_tol = -inf,
-        and total_tol = -inf.
+         and total_tol = -inf.
 
-        Parameters
-        ----------
-        state : TreeTensorNetwork
-            A TTN representing a quantum state.
-        trotter_splitting: TrotterSplitting
-            The Trotter splitting to be used for time-evolution.
-        time_step_size: float
-            The time difference that the state is propagated by every time step.
-        final_time: float
-            The final time to which the simulation is to be run.
-        operators: list of dict
-            A list containing dictionaries that contain node identifiers as keys and single-site
-            operators as values. Each represents an operator that will be
-            evaluated after every time step.
-        max_bond_dim: int
-            The maximum bond dimension allowed between nodes. Default is 100.
-        rel_tol: float
-            singular values s for which ( s / largest singular value) < rel_tol
-            are truncated. Default is 0.01.
-        total_tol: float
-            singular values s for which s < total_tol are truncated.
-            Defaults to 1e-15.
+        Args:
+            initial_state (TreeTensorNetworkState)): The initial state of our
+             time-evolution
+            trotter_splitting (TrotterSplitting): The Trotter splitting to be
+             used for time-evolution.
+            time_step_size (float): The time step size to be used.
+            final_time (float): The final time until which to run.
+            operators (Union[List[Dict], Dict]): Operators for which expectation values
+             should be determined
+            max_bond_dim (int, optional): The maximum bond dimension allowed between
+            nodes. Defaults to 100.
+            rel_tol (float, optional): singular values s for which
+             ( s / largest singular value) < rel_tol are truncated. Defaults to 1e-10.
+            total_tol (float, optional): singular values s for which s < total_tol
+             are truncated. Defaults to 1e-15.
 
+        Raises:
+            ValueError: If the trotter splitting and TTNS are not compatible.
         """
-
-        self.state = state
+        super().__init__(initial_state, time_step_size, final_time, operators)
         self._trotter_splitting = trotter_splitting
-
-        self._time_step_size = time_step_size
-        self.final_time = final_time
-        self.num_time_steps = int(np.ceil(final_time / time_step_size))
 
         self.max_bond_dim = max_bond_dim
         self.rel_tol = rel_tol
@@ -62,38 +55,8 @@ class TEBD:
             raise ValueError(
                 "State TTN and Trotter Splitting are not compatible!")
 
-        self._exponents = self._exponentiate_splitting()
-
-        if operators.isinstance(dict):
-            # In this case a single operator has been provided
-            self.operators = [operators]
-        else:
-            self.operators = operators
-
-        # Place to hold the results obtained during computation
-        # Each row contains the data obtained during the run and the last row
-        # contains the time_steps
-        if operators is not None:
-            self._results = np.zeros((len(self.operators) + 1,
-                                     self.num_time_steps + 1), dtype=complex)
-        else:
-            self._results = np.asarray([], dtype=complex)
-
-    def _exponentiate_splitting(self):
-        """
-        Wraps the exponentiate splitting in the TrotterSplitting class.
-        """
-        return self._trotter_splitting.exponentiate_splitting(self.state,
+        self._exponents = self._trotter_splitting.exponentiate_splitting(self.state,
                                                               self._time_step_size)
-
-    @property
-    def time_step_size(self):
-        return self._time_step_size
-
-    @time_step_size.setter
-    def time_step_size(self, new_time_step_size):
-        self._time_step_size = new_time_step_size
-        self._exponents = self._exponentiate_splitting()
 
     @property
     def exponents(self):
@@ -335,81 +298,3 @@ class TEBD:
         """
         for unitary in self.exponents:
             self._apply_one_trotter_step(unitary)
-
-    def evaluate_operators(self):
-        """
-        Evaluates the expectation value for all operators given in
-        self.operators for the current TNS.
-
-        Returns
-        -------
-        current_results : list
-            The expectation values with indeces corresponding to those in
-            operators.
-
-        """
-        if self.operators is not None:
-            current_results = np.zeros(len(self.operators), dtype=complex)
-
-            for i, operator_dict in enumerate(self.operators):
-                exp_val = self.state.operator_expectation_value(operator_dict)
-
-                current_results[i] = exp_val
-
-            return current_results
-        else:
-            return []
-
-    def save_results(self, filepath):
-        """
-        Saves the data in `self.results` into a .npz file.
-
-        Parameters
-        ----------
-        filepath : str
-            If results are to be saved in an external file a path can be given
-            here.     
-        """
-        if filepath is None:
-            print("No filepath given. Data wasn't saved.")
-            return
-
-        # We have to lable our data
-        kwarg_dict = {}
-        for i, operator in enumerate(self.operators):
-            kwarg_dict["operator" + str(i)] = operator
-
-            kwarg_dict["operator" + str(i) + "results"] = self.results[i]
-
-        kwarg_dict["time"] = self.results[-1]
-
-        np.savez(filepath, **kwarg_dict)
-
-    def run(self, filepath=None, pgbar=True):
-        """
-        Runs the TEBD algorithm for the given parameters and saves the computed
-        expectation values in `self.results`.
-
-        Parameters
-        ----------
-        filepath : str
-            If results are to be saved in an external file a path can be given
-            here. Default is None.
-        pgbar: bool
-            Toggles the progress bar on (True) or off (False). Default is True.
-
-        """
-
-        for i in tqdm(range(self.num_time_steps + 1), disable=not pgbar):
-            if i != 0:  # We also measure the initial expectation_values
-                self.run_one_time_step()
-
-            if len(self.results) > 0:
-                current_results = self.evaluate_operators()
-
-                self.results[0:-1, i] = current_results
-                # Save current time
-                self.results[-1, i] = i*self.time_step_size
-
-        if filepath is not None:
-            self.save_results(filepath)
