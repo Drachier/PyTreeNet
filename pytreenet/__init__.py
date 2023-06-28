@@ -5,7 +5,7 @@ from .hamiltonian import *
 from .leg_node import *
 from .leg_specification import *
 from .node_contraction import *
-from .tebd import *
+from .time_evolution import *
 from .tensor_util import *
 from .tree_contraction import *
 from .trotter import *

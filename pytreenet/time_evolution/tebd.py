@@ -2,10 +2,10 @@ import numpy as np
 
 from tqdm import tqdm
 
-from .node_contraction import contract_tensors_of_nodes
 from .tensor_util import (transpose_tensor_by_leg_list,
                           tensor_matricization,
                           truncated_tensor_svd)
+
 
 class TEBD:
     """
@@ -59,7 +59,8 @@ class TEBD:
         self.total_tol = total_tol
 
         if not self._trotter_splitting.is_compatible_with_ttn(self.state):
-            raise ValueError("State TTN and Trotter Splitting are not compatible!")
+            raise ValueError(
+                "State TTN and Trotter Splitting are not compatible!")
 
         self._exponents = self._exponentiate_splitting()
 
@@ -129,7 +130,6 @@ class TEBD:
 
         node.absorb_tensor(operator, (1, ), (node.open_legs[0], ))
 
-
     @staticmethod
     def _find_node_for_legs_of_two_site_tensor(node1, node2):
         """
@@ -142,18 +142,19 @@ class TEBD:
         node1_open_leg_indices = range(0, current_max_leg_num)
 
         current_max_leg_num += node2.nopen_legs()
-        node2_open_leg_indices = range(len(node1_open_leg_indices),current_max_leg_num)
+        node2_open_leg_indices = range(
+            len(node1_open_leg_indices), current_max_leg_num)
 
         # One virtual leg was lost in the contraction
         num_virt_legs1 = node1.nvirt_legs() - 1
         temp_leg_num = current_max_leg_num
-        current_max_leg_num  += num_virt_legs1
+        current_max_leg_num += num_virt_legs1
         node1_virt_leg_indices = range(temp_leg_num, current_max_leg_num)
 
         # One virtual leg was lost in the contraction
         num_virt_legs2 = node2.nvirt_legs() - 1
         temp_leg_num = current_max_leg_num
-        current_max_leg_num  += num_virt_legs2
+        current_max_leg_num += num_virt_legs2
         node2_virt_leg_indices = range(temp_leg_num, current_max_leg_num)
 
         node1_leg_indices = list(node1_open_leg_indices)
@@ -183,9 +184,10 @@ class TEBD:
             permutation is the new leg index.
         """
         num_open_legs = node.nopen_legs()
-        permutation = list(range(num_open_legs, num_open_legs + node.nvirt_legs() -1))
-        permutation.extend(range(0,num_open_legs))
-        permutation.append(node.nlegs() -1)
+        permutation = list(
+            range(num_open_legs, num_open_legs + node.nvirt_legs() - 1))
+        permutation.extend(range(0, num_open_legs))
+        permutation.append(node.nlegs() - 1)
 
         return permutation
 
@@ -208,35 +210,37 @@ class TEBD:
             permutation is the new leg index.
         """
         num_open_legs = node.nopen_legs()
-        permutation = list(range(num_open_legs + 1, num_open_legs + 1 + node.nvirt_legs() -1))
+        permutation = list(
+            range(num_open_legs + 1, num_open_legs + 1 + node.nvirt_legs() - 1))
         permutation.extend(range(1, num_open_legs + 1))
         permutation.append(0)
 
         return permutation
 
     def _split_two_site_tensors(self, two_site_tensor, node1, node2):
-            # Split the tensor in two via svd
-            # Currently the leg order is
-            # (open_legs1, open_legs2, virtual_legs1, virtual_legs2)
-            node1_leg_indices, node2_leg_indices = self._find_node_for_legs_of_two_site_tensor(node1, node2)
+        # Split the tensor in two via svd
+        # Currently the leg order is
+        # (open_legs1, open_legs2, virtual_legs1, virtual_legs2)
+        node1_leg_indices, node2_leg_indices = self._find_node_for_legs_of_two_site_tensor(
+            node1, node2)
 
-            node1_tensor, s, node2_tensor = truncated_tensor_svd(two_site_tensor,
-                                                        node1_leg_indices,
-                                                        node2_leg_indices,
-                                                        max_bond_dim=self.max_bond_dim,
-                                                        rel_tol=self.rel_tol,
-                                                        total_tol=self.total_tol)
+        node1_tensor, s, node2_tensor = truncated_tensor_svd(two_site_tensor,
+                                                             node1_leg_indices,
+                                                             node2_leg_indices,
+                                                             max_bond_dim=self.max_bond_dim,
+                                                             rel_tol=self.rel_tol,
+                                                             total_tol=self.total_tol)
 
-            permutation1 = TEBD._permutation_svdresult_u_to_fit_node(node1)
-            node1_tensor = node1_tensor.transpose(permutation1)
-            node1.tensor = node1_tensor
+        permutation1 = TEBD._permutation_svdresult_u_to_fit_node(node1)
+        node1_tensor = node1_tensor.transpose(permutation1)
+        node1.tensor = node1_tensor
 
-            permutation2 = TEBD._permutation_svdresult_v_to_fit_node(node2)
-            node2_tensor = node2_tensor.transpose(permutation2)
-            # We absorb the singular values into this second tensor
-            node2_tensor = np.tensordot(node2_tensor, np.diag(s), axes=(-1,1))
+        permutation2 = TEBD._permutation_svdresult_v_to_fit_node(node2)
+        node2_tensor = node2_tensor.transpose(permutation2)
+        # We absorb the singular values into this second tensor
+        node2_tensor = np.tensordot(node2_tensor, np.diag(s), axes=(-1, 1))
 
-            node2.tensor = node2_tensor
+        node2.tensor = node2_tensor
 
     def _apply_one_trotter_step_two_site(self, two_site_exponent):
         """
@@ -271,9 +275,9 @@ class TEBD:
 
         # Input legs are the combined virtual legs
         input_legs = [leg_index for leg_index in
-                       leg_dict[node1.identifier + "virtual"]]
+                      leg_dict[node1.identifier + "virtual"]]
         input_legs.extend([leg_index for leg_index in
-                            leg_dict[node2.identifier + "virtual"]])
+                           leg_dict[node2.identifier + "virtual"]])
 
         # Save original shape for later
         two_site_tensor = transpose_tensor_by_leg_list(two_site_tensor,
@@ -320,7 +324,8 @@ class TEBD:
         elif num_of_sites_acted_upon == 2:
             self._apply_one_trotter_step_two_site(unitary)
         else:
-            raise NotImplementedError("More than two-site interactions are not yet implemented.")
+            raise NotImplementedError(
+                "More than two-site interactions are not yet implemented.")
 
     def run_one_time_step(self):
         """
@@ -330,7 +335,7 @@ class TEBD:
         """
         for unitary in self.exponents:
             self._apply_one_trotter_step(unitary)
-            
+
     def evaluate_operators(self):
         """
         Evaluates the expectation value for all operators given in
@@ -343,7 +348,7 @@ class TEBD:
             operators.
 
         """
-        if self.operators != None:
+        if self.operators is not None:
             current_results = np.zeros(len(self.operators), dtype=complex)
 
             for i, operator_dict in enumerate(self.operators):
@@ -358,7 +363,7 @@ class TEBD:
     def save_results(self, filepath):
         """
         Saves the data in `self.results` into a .npz file.
-        
+
         Parameters
         ----------
         filepath : str
@@ -368,24 +373,23 @@ class TEBD:
         if filepath == None:
             print("No filepath given. Data wasn't saved.")
             return
-        
+
         # We have to lable our data
         kwarg_dict = {}
         for i, operator in enumerate(self.operators):
             kwarg_dict["operator" + str(i)] = operator
-            
-            kwarg_dict["operator" + str(i) + "results"] = self.results[i]
-            
-        kwarg_dict["time"] = self.results[-1]
-        
-        np.savez(filepath, **kwarg_dict)
 
+            kwarg_dict["operator" + str(i) + "results"] = self.results[i]
+
+        kwarg_dict["time"] = self.results[-1]
+
+        np.savez(filepath, **kwarg_dict)
 
     def run(self, filepath=None, pgbar=True):
         """
         Runs the TEBD algorithm for the given parameters and saves the computed
         expectation values in `self.results`.
-        
+
         Parameters
         ----------
         filepath : str
@@ -393,19 +397,19 @@ class TEBD:
             here. Default is None.
         pgbar: bool
             Toggles the progress bar on (True) or off (False). Default is True.
-        
+
         """
 
         for i in tqdm(range(self.num_time_steps + 1), disable=(not pgbar)):
-            if i != 0: # We also measure the initial expectation_values
+            if i != 0:  # We also measure the initial expectation_values
                 self.run_one_time_step()
 
             if len(self.results) > 0:
                 current_results = self.evaluate_operators()
-    
-                self.results[0:-1,i] = current_results
+
+                self.results[0:-1, i] = current_results
                 # Save current time
-                self.results[-1,i] = i*self.time_step_size
-                
+                self.results[-1, i] = i*self.time_step_size
+
         if filepath != None:
             self.save_results(filepath)
