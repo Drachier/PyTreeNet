@@ -70,14 +70,14 @@ class TrotterSplitting:
      Different kinds of splitting lead to different error sizes.
     """
 
-    def __init__(self, operators: List[Operator],
+    def __init__(self, terms: List[term],
                  splitting: Union[List[Tuple[int, int], int], None] = None,
                  swaps_before: Union[List[SWAPlist], None] = None,
                  swaps_after: Union[List[SWAPlist], None] = None):
         """Initialises a TrotterSplitting instance.
 
         Args:
-            operators (List[Operator]): The operators to be considered.
+            terms (List[Term]): The terms to be considered.
             splitting (Union[List[Tuple[int, int], int], None], optional): Gives the order
              of the splitting. The first tuple entry is a the index of an operator in
              operators and the second entry is a factor, which will be multiplied to the
@@ -97,8 +97,7 @@ class TrotterSplitting:
         Raises:
             TypeError: Raised if the splitting contains unallowed types.
         """
- 
-        self.operators = operators
+        self.terms = term
 
         if splitting is None:
             # Default splitting
@@ -119,7 +118,7 @@ class TrotterSplitting:
         else:
             self.swaps_before = swaps_before
         if swaps_after is None:
-            self.swaps_after = [SWAPlist([])] * len(operators)
+            self.swaps_after = [SWAPlist([])] * len(self.splitting)
         else:
             self.swaps_after = swaps_after
 
@@ -167,7 +166,8 @@ class TrotterSplitting:
 
         return True
 
-    def exponentiate_splitting(self, ttn, delta_time, dim=None):
+    def exponentiate_splitting(self, ttn: TreeTensorNetwork, delta_time: float,
+                               dim: Union[int, None] = None):
         """
         Computes all operators, which are to actually be applied in a time-
         evolution algorithm. This includes SWAP gates and exponentiated
@@ -197,9 +197,7 @@ class TrotterSplitting:
             """
 
         unitary_operators = [] # Includes the neccessary SWAPs
-
         for i, term in enumerate(self.splitting):
-
             interaction_operator = self.operators[term[0]]
             factor = term[1]
 
