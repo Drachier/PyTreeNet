@@ -2,7 +2,7 @@ import numpy as np
 
 from scipy.linalg import expm
 
-from .util import build_swap_gate
+from ..util import build_swap_gate
 
 class SWAPlist(list):
 
@@ -45,13 +45,13 @@ class SWAPlist(list):
         """
         for swap_pair in self:
             # Check if the first swap node is in the TTN
-            if not (swap_pair[0] in ttn.nodes):
+            if swap_pair[0] not in ttn.nodes:
                 return False
 
             # If it is check, if the other is actually connected and thus also
             #  in the TTN
             node1 = ttn.nodes[swap_pair[0]]
-            if not (swap_pair[1] in node1.neighbouring_nodes(with_legs=False)):
+            if not swap_pair[1] not in node1.neighbouring_nodes(with_legs=False):
                 return False
 
             # Finally check if both have the same total physical dimension.
@@ -91,7 +91,7 @@ class TrotterSplitting:
 
         self.operators = operators
 
-        if splitting == None:
+        if splitting is None:
             self.splitting = [(index, 1) for index in range(len(operators))]
         else:
             self.splitting = []
