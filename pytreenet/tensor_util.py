@@ -5,6 +5,7 @@ Helpfull functions that work with the tensors of the tensor nodes.
 from math import prod
 import numpy as np
 
+
 def transpose_tensor_by_leg_list(tensor, first_legs, last_legs):
     """
     Transposes a tensor according to two lists of legs. All legs in first_legs
