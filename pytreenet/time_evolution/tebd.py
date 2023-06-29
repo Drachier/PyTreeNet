@@ -1,11 +1,7 @@
 from __future__ import annotations
 from typing import Dict, List, Union
 
-import numpy as np
-
-from ..tensor_util import (transpose_tensor_by_leg_list,
-                          tensor_matricization,
-                          truncated_tensor_svd)
+from ..ttns import TreeTensorNetworkState
 from .time_evolution import TimeEvolution
 
 class TEBD(TimeEvolution):
@@ -66,144 +62,19 @@ class TEBD(TimeEvolution):
     def trotter_splitting(self):
         return self._trotter_splitting
 
-    @property
-    def results(self):
-        return self._results
-
-    def _apply_one_trotter_step_single_site(self, single_site_exponent):
+    def _apply_one_trotter_step_single_site(self, single_site_exponent: Dict):
         """
-        Applies the single-site exponential operator of the Trotter splitting.
+        Applies a single-site exponential operator of the Trotter splitting.
 
-        Parameters
-        ----------
-        single_site_exponent: dict
-            A dictionary with representing a single-site unitary operator.
-            The operator is saved with key "operator" and the site to which it
-            is applied is saved via node identifiers in the key "site_ids"
-
-        Returns
-        -------
-        None.
-
+        Args:
+            single_site_exponent (Dict): A dictionary with representing a
+            single-site unitary operator. The operator is saved with key
+            `"operator"` and the site to which it is applied is saved via
+            node identifiers under the key `"site_ids"`
         """
         operator = single_site_exponent["operator"]
-        identifiers = single_site_exponent["site_ids"]
-
-        node = self.state.nodes[identifiers[0]]
-
-        node.absorb_tensor(operator, (1, ), (node.open_legs[0], ))
-
-    @staticmethod
-    def _find_node_for_legs_of_two_site_tensor(node1, node2):
-        """
-        From the leg order
-        (open_legs1, open_legs2, virtual_legs1, virtual_legs2),
-        where the connecting legs are not included, we want to find the
-        legs belonging to each individual node.
-        """
-        current_max_leg_num = node1.nopen_legs()
-        node1_open_leg_indices = range(0, current_max_leg_num)
-
-        current_max_leg_num += node2.nopen_legs()
-        node2_open_leg_indices = range(
-            len(node1_open_leg_indices), current_max_leg_num)
-
-        # One virtual leg was lost in the contraction
-        num_virt_legs1 = node1.nvirt_legs() - 1
-        temp_leg_num = current_max_leg_num
-        current_max_leg_num += num_virt_legs1
-        node1_virt_leg_indices = range(temp_leg_num, current_max_leg_num)
-
-        # One virtual leg was lost in the contraction
-        num_virt_legs2 = node2.nvirt_legs() - 1
-        temp_leg_num = current_max_leg_num
-        current_max_leg_num += num_virt_legs2
-        node2_virt_leg_indices = range(temp_leg_num, current_max_leg_num)
-
-        node1_leg_indices = list(node1_open_leg_indices)
-        node1_leg_indices.extend(node1_virt_leg_indices)
-
-        node2_leg_indices = list(node2_open_leg_indices)
-        node2_leg_indices.extend(node2_virt_leg_indices)
-
-        return node1_leg_indices, node2_leg_indices
-
-    @staticmethod
-    def _permutation_svdresult_u_to_fit_node(node):
-        """
-        After the SVD the two tensors associated to each site have an incorrect
-        leg ordering. This function finds the permutation of legs to correct
-        this. In more detail:
-        The nodes currently have shape
-        (virtual-legs, open-legs, contracted leg)
-        and the tensor u from the svd has the leg order
-        (open-legs, virtual-legs, contracted leg)
-
-        Returns
-        -------
-        permutation: list of int
-            Permutation to find correct legs. Compatible with numpy transpose,
-            i.e. the entries are the old leg index and the position in the
-            permutation is the new leg index.
-        """
-        num_open_legs = node.nopen_legs()
-        permutation = list(
-            range(num_open_legs, num_open_legs + node.nvirt_legs() - 1))
-        permutation.extend(range(0, num_open_legs))
-        permutation.append(node.nlegs() - 1)
-
-        return permutation
-
-    @staticmethod
-    def _permutation_svdresult_v_to_fit_node(node):
-        """
-        After the SVD the two tensors associated to each site have an incorrect
-        leg ordering. This function finds the permutation of legs to correct
-        this. In more detail:
-        The nodes currently have shape
-        (virtual-legs, open-legs, contracted leg)
-        and the tensor v from the svd has the leg order
-        (contracted leg, open-legs, virtual-legs)
-
-        Returns
-        -------
-        permutation: list of int
-            Permutation to find correct legs. Compatible with numpy transpose,
-            i.e. the entries are the old leg index and the position in the
-            permutation is the new leg index.
-        """
-        num_open_legs = node.nopen_legs()
-        permutation = list(
-            range(num_open_legs + 1, num_open_legs + 1 + node.nvirt_legs() - 1))
-        permutation.extend(range(1, num_open_legs + 1))
-        permutation.append(0)
-
-        return permutation
-
-    def _split_two_site_tensors(self, two_site_tensor, node1, node2):
-        # Split the tensor in two via svd
-        # Currently the leg order is
-        # (open_legs1, open_legs2, virtual_legs1, virtual_legs2)
-        node1_leg_indices, node2_leg_indices = self._find_node_for_legs_of_two_site_tensor(
-            node1, node2)
-
-        node1_tensor, s, node2_tensor = truncated_tensor_svd(two_site_tensor,
-                                                             node1_leg_indices,
-                                                             node2_leg_indices,
-                                                             max_bond_dim=self.max_bond_dim,
-                                                             rel_tol=self.rel_tol,
-                                                             total_tol=self.total_tol)
-
-        permutation1 = TEBD._permutation_svdresult_u_to_fit_node(node1)
-        node1_tensor = node1_tensor.transpose(permutation1)
-        node1.tensor = node1_tensor
-
-        permutation2 = TEBD._permutation_svdresult_v_to_fit_node(node2)
-        node2_tensor = node2_tensor.transpose(permutation2)
-        # We absorb the singular values into this second tensor
-        node2_tensor = np.tensordot(node2_tensor, np.diag(s), axes=(-1, 1))
-
-        node2.tensor = node2_tensor
+        identifier = single_site_exponent["site_ids"][0]
+        self.state.absorb_tensor_into_open_legs(identifier, operator)
 
     def _apply_one_trotter_step_two_site(self, two_site_exponent):
         """
@@ -224,41 +95,17 @@ class TEBD(TimeEvolution):
         operator = two_site_exponent["operator"]
         identifiers = two_site_exponent["site_ids"]
 
-        node1 = self.state.nodes[identifiers[0]]
-        node2 = self.state.nodes[identifiers[1]]
-
-        two_site_tensor, leg_dict = contract_tensors_of_nodes(node1, node2)
-
-        # Matricise site_tensor
-        # Output legs will be the combined physical legs
-        output_legs = [leg_index for leg_index in
-                       leg_dict[node1.identifier + "open"]]
-        output_legs.extend([leg_index for leg_index in
-                            leg_dict[node2.identifier + "open"]])
-
-        # Input legs are the combined virtual legs
-        input_legs = [leg_index for leg_index in
-                      leg_dict[node1.identifier + "virtual"]]
-        input_legs.extend([leg_index for leg_index in
-                           leg_dict[node2.identifier + "virtual"]])
-
-        # Save original shape for later
-        two_site_tensor = transpose_tensor_by_leg_list(two_site_tensor,
-                                                       output_legs,
-                                                       input_legs)
-        orig_shape = two_site_tensor.shape
-
-        two_site_tensor = tensor_matricization(two_site_tensor,
-                                               output_legs,
-                                               input_legs,
-                                               correctly_ordered=True)
-
-        # exp(-H dt) * |psi_loc>
-        new_two_site_tensor = operator @ two_site_tensor
-
-        new_two_site_tensor = new_two_site_tensor.reshape(orig_shape)
-
-        self._split_two_site_tensors(new_two_site_tensor, node1, node2)
+        u_legs, v_legs = self.state.legs_before_combination(identifiers[0],
+                                                            identifiers[1])
+        self.state.contract_nodes(identifiers[0], identifiers[1],
+                           new_identifier="contr")
+        self.state.absorb_into_open_legs("contr", operator)
+        self.state.split_node_svd("contr", u_legs, v_legs,
+                                  u_identifier=identifiers[0],
+                                  v_identifier=identifiers[1],
+                                  max_bond_dim=self.max_bond_dim,
+                                  rel_tol=self.rel_tol,
+                                  total_tol=self.total_tol)
 
     def _apply_one_trotter_step(self, unitary):
         """
