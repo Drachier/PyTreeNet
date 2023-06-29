@@ -5,71 +5,65 @@ import numpy as np
 
 import pytreenet as ptn
 
-<<<<<<< HEAD
 
 class TestTreeTensorNetworkBasics(unittest.TestCase):
-=======
->>>>>>> 5855448 (Format test_ttn.py)
 
-# class TestTreeTensorNetworkBasics(unittest.TestCase):
+    def setUp(self):
+        self.tensortree = ptn.TreeTensorNetwork()
+        self.node1, self.tensor1 = ptn.random_tensor_node((2, 3, 4, 5), identifier="orig_root")
+        self.node2, self.tensor2 = ptn.random_tensor_node((2, 3), identifier="child1")
+        self.node3, self.tensor3 = ptn.random_tensor_node((2, 3, 4, 5), identifier="child2")
+        self.node4, self.tensor4 = ptn.random_tensor_node((2, 3, 4, 5), identifier="new_root")
 
-#     def setUp(self):
-#         self.tensortree = ptn.TreeTensorNetwork()
-#         self.node1, self.tensor1 = ptn.random_tensor_node((2, 3, 4, 5), identifier="orig_root")
-#         self.node2, self.tensor2 = ptn.random_tensor_node((2, 3), identifier="child1")
-#         self.node3, self.tensor3 = ptn.random_tensor_node((2, 3, 4, 5), identifier="child2")
-#         self.node4, self.tensor4 = ptn.random_tensor_node((2, 3, 4, 5), identifier="new_root")
+    def test_add_root(self):
+        self.assertEqual(self.tensortree.root_id, None)
+        self.assertEqual(self.tensortree.nodes, {})
 
-#     def test_add_root(self):
-#         self.assertEqual(self.tensortree.root_id, None)
-#         self.assertEqual(self.tensortree.nodes, {})
+        self.tensortree.add_root(self.node1, self.tensor1)
 
-#         self.tensortree.add_root(self.node1, self.tensor1)
+        self.assertEqual(self.tensortree.root_id, "orig_root")
+        self.assertEqual(len(self.tensortree.nodes), 1)
+        self.assertEqual(len(self.tensortree.tensors), 1)
 
-#         self.assertEqual(self.tensortree.root_id, "orig_root")
-#         self.assertEqual(len(self.tensortree.nodes), 1)
-#         self.assertEqual(len(self.tensortree.tensors), 1)
+    def test_add_child_to_parent(self):
+        self.tensortree.add_root(self.node1, self.tensor1)
 
-#     def test_add_child_to_parent(self):
-#         self.tensortree.add_root(self.node1, self.tensor1)
+        # Depth 2
+        self.tensortree.add_child_to_parent(self.node2, self.tensor2, 1, "orig_root", 1)
+        self.assertEqual(len(self.tensortree.nodes), 2)
+        permutation = self.tensortree.nodes["child1"].leg_permutation
 
-#         # Depth 2
-#         self.tensortree.add_child_to_parent(self.node2, self.tensor2, 1, "orig_root", 1)
-#         self.assertEqual(len(self.tensortree.nodes), 2)
-#         permutation = self.tensortree.nodes["child1"].leg_permutation
+        transposed_tensor = self.tensor2.transpose(permutation)
+        self.assertTrue(np.allclose(self.tensortree.tensors["child1"], transposed_tensor))
+        self.assertEqual(self.tensortree.nodes["child1"].parent, "orig_root")
+        self.assertEqual(self.tensortree.nodes["child1"].children, [])
+        self.assertEqual(self.tensortree.nodes["orig_root"].children, ["child1"])
 
-#         transposed_tensor = self.tensor2.transpose(permutation)
-#         self.assertTrue(np.allclose(self.tensortree.tensors["child1"], transposed_tensor))
-#         self.assertEqual(self.tensortree.nodes["child1"].parent, "orig_root")
-#         self.assertEqual(self.tensortree.nodes["child1"].children, [])
-#         self.assertEqual(self.tensortree.nodes["orig_root"].children, ["child1"])
+        # Depth 3
+        self.tensortree.add_child_to_parent(self.node3, self.tensor3, 0, "child1", 0)
+        self.assertEqual(len(self.tensortree.nodes), 3)
+        permutation = self.tensortree.nodes["child2"].leg_permutation
+        transposed_tensor = self.tensor3.transpose(permutation)
+        self.assertTrue(np.allclose(self.tensortree.tensors["child2"], transposed_tensor))
+        self.assertEqual(self.tensortree.nodes["child2"].parent, "child1")
+        self.assertEqual(self.tensortree.nodes["child2"].children, [])
+        self.assertEqual(self.tensortree.nodes["child1"].children, ["child2"])
 
-#         # Depth 3
-#         self.tensortree.add_child_to_parent(self.node3, self.tensor3, 0, "child1", 0)
-#         self.assertEqual(len(self.tensortree.nodes), 3)
-#         permutation = self.tensortree.nodes["child2"].leg_permutation
-#         transposed_tensor = self.tensor3.transpose(permutation)
-#         self.assertTrue(np.allclose(self.tensortree.tensors["child2"], transposed_tensor))
-#         self.assertEqual(self.tensortree.nodes["child2"].parent, "child1")
-#         self.assertEqual(self.tensortree.nodes["child2"].children, [])
-#         self.assertEqual(self.tensortree.nodes["child1"].children, ["child2"])
+    def test_add_parent_to_root(self):
+        # Setup
+        self.tensortree.add_root(self.node1, self.tensor1)
+        self.tensortree.add_child_to_parent(self.node2, self.tensor2, 1, "orig_root", 1)
+        self.tensortree.add_child_to_parent(self.node3, self.tensor3, 0, "child1", 0)
 
-#     def test_add_parent_to_root(self):
-#         # Setup
-#         self.tensortree.add_root(self.node1, self.tensor1)
-#         self.tensortree.add_child_to_parent(self.node2, self.tensor2, 1, "orig_root", 1)
-#         self.tensortree.add_child_to_parent(self.node3, self.tensor3, 0, "child1", 0)
-
-#         self.tensortree.add_parent_to_root(0, self.node4, self.tensor4, 0)
-#         self.assertEqual(self.tensortree.root_id, "new_root")
-#         self.assertEqual(len(self.tensortree.nodes), 4)
-#         permutation = self.tensortree.nodes["new_root"].leg_permutation
-#         transposed_tensor = self.tensor4.transpose(permutation)
-#         self.assertTrue(np.allclose(self.tensortree.tensors["new_root"], transposed_tensor))
-#         self.assertEqual(self.tensortree.nodes["new_root"].parent, None)
-#         self.assertEqual(self.tensortree.nodes["new_root"].children, ["orig_root"])
-#         self.assertEqual(self.tensortree.nodes["orig_root"].parent, "new_root")
-
+        self.tensortree.add_parent_to_root(0, self.node4, self.tensor4, 0)
+        self.assertEqual(self.tensortree.root_id, "new_root")
+        self.assertEqual(len(self.tensortree.nodes), 4)
+        permutation = self.tensortree.nodes["new_root"].leg_permutation
+        transposed_tensor = self.tensor4.transpose(permutation)
+        self.assertTrue(np.allclose(self.tensortree.tensors["new_root"], transposed_tensor))
+        self.assertEqual(self.tensortree.nodes["new_root"].parent, None)
+        self.assertEqual(self.tensortree.nodes["new_root"].children, ["orig_root"])
+        self.assertEqual(self.tensortree.nodes["orig_root"].parent, "new_root")
 
 
 class TestTreeTensorNetworkBigTree(unittest.TestCase):
