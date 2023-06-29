@@ -15,3 +15,4 @@ from .ttn import *
 from .ttno import *
 from .ttns import *
 from .util import *
+from .operators import *
