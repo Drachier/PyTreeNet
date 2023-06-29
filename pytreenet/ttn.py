@@ -71,8 +71,6 @@ class TreeTensorNetwork(TreeStructure):
         leg ordering is
             (parent_leg, children_legs, open_legs)
         """
-        # for node_id in self._tensors:
-        #     self._transpose_tensor(node_id)
 
         return self._tensors
 
@@ -91,7 +89,6 @@ class TreeTensorNetwork(TreeStructure):
 
     def __getitem__(self, key: str) -> Tuple[Node, np.ndarray]:
         node = super().__getitem__(key)
-        # self._transpose_tensor(key)
         tensor = self._tensors[key]
         return (node, tensor)
 
