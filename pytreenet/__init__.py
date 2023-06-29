@@ -2,7 +2,7 @@
 
 from .canonical_form import *
 from .hamiltonian import *
-from .leg_node import *
+from .graph_node import *
 from .leg_specification import *
 from .node_contraction import *
 from .time_evolution import *
