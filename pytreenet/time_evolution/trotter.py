@@ -92,39 +92,28 @@ class TrotterSplitting:
         self.operators = operators
 
         if splitting is None:
+            # Default splitting
             self.splitting = [(index, 1) for index in range(len(operators))]
         else:
             self.splitting = []
             for item in splitting:
-                if type(item) == int:
+                if isinstance(item, int):
                     self.splitting.append((item, 1))
-                elif type(item) == tuple:
-                    if len(item) == 1:
-                        self.splitting.append((item[0],1))
-                    elif len(item) == 2:
-                        self.splitting.append(item)
-                    else:
-                        raise TypeError("Items in the `splitting` list may only be int or tuple with len 2")
+                elif isinstance(item, tuple):
+                    self.splitting.append(item)
                 else:
-                    raise TypeError("Items in the `splitting` list may only be int or tuple with len 2")
+                    errstr = "Items in the `splitting` list may only be int or tuple with length 2!"
+                    raise TypeError(errstr)
 
-
-        if swaps_before == None:
-            if splitting == None:
-                self.swaps_before = [SWAPlist([]) for i in range(len(operators))]
-            else:
-                self.swaps_before = [SWAPlist([]) for i in splitting]
+        if swaps_before is None:
+            self.swaps_before = [SWAPlist([])] * len(self.splitting)
         else:
             self.swaps_before = swaps_before
 
-        if swaps_after == None:
-            if splitting == None:
-                self.swaps_after = [SWAPlist([]) for i in range(len(operators))]
-            else:
-                self.swaps_after = [SWAPlist([]) for i in splitting]
+        if swaps_after is None:
+            self.swaps_after = [SWAPlist([])] * len(operators)
         else:
             self.swaps_after = swaps_after
-
 
     def is_compatible_with_ttn(self, ttn):
         """
