@@ -3,11 +3,12 @@ import numpy as np
 
 import pytreenet as ptn
 
+
 class TestTTNOBasics(unittest.TestCase):
 
     def _find_permutation_rec(self, ttno, leg_dict, node_id, perm):
 
-        node = ttno.nodes[node_id]
+        node, tensor = ttno[node_id]
 
         input_index = leg_dict[node_id]
         output_index = input_index + len(ttno.nodes)
@@ -24,12 +25,12 @@ class TestTTNOBasics(unittest.TestCase):
         perm.extend([input_index, output_index])
 
         for distance in range(1, max(distance_to_root.values())+1):
-                node_id_with_distance = [node_id for node_id in distance_to_root
-                                         if distance_to_root[node_id] == distance]
-                for node_id in node_id_with_distance:
-                    input_index = leg_dict[node_id]
-                    output_index = input_index + len(ttno.nodes)
-                    perm.extend([input_index, output_index])
+            node_id_with_distance = [node_id for node_id in distance_to_root
+                                     if distance_to_root[node_id] == distance]
+            for node_id in node_id_with_distance:
+                input_index = leg_dict[node_id]
+                output_index = input_index + len(ttno.nodes)
+                perm.extend([input_index, output_index])
 
     def test_from_tensorA(self):
         reference_tree = ptn.TreeTensorNetwork()
@@ -186,30 +187,30 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
         ttno = ptn.TTNO.from_hamiltonian(hamiltonian, self.ref_tree)
 
         for node_id in ttno.nodes:
-            node = ttno.nodes[node_id]
-            tensor = ttno.tensors[node_id]
+            node, tensor = ttno[node_id]
 
             shape = tensor.shape
             # All open legs should have dimension 2
-            print(f"tensor shape: {shape}")
             for open_leg_index in node.open_legs:
                 self.assertEqual(2, shape[open_leg_index])
 
             # All other legs should have dimension 1
-            neighbours = node.neighbouring_nodes()
-            for neighbour_id in neighbours:
-                self.assertEqual(1, shape[neighbours[neighbour_id]])
+            for children_leg in node.children_legs.values():
+                self.assertEqual(1, shape[children_leg])
+
+            if node.nparents() != 0:
+                self.assertEqual(1, shape[node.parent_leg[1]])
 
     def test_from_hamiltonian_one_term_different_phys_dim(self):
-        self.ref_tree.nodes["site2"].tensor = ptn.crandn((2,2,2,5))
+        self.ref_tree.nodes["site2"].tensor = ptn.crandn((2, 2, 2, 5))
 
-        conversion_dictionary = {"1": ptn.crandn((2,2)),
-                                 "2": ptn.crandn((5,5)),
-                                 "3": ptn.crandn((2,2)),
-                                 "4": ptn.crandn((2,2)),
-                                 "5": ptn.crandn((2,2)),
-                                 "6": ptn.crandn((2,2)),
-                                 "7": ptn.crandn((2,2)),
+        conversion_dictionary = {"1": ptn.crandn((2, 2)),
+                                 "2": ptn.crandn((5, 5)),
+                                 "3": ptn.crandn((2, 2)),
+                                 "4": ptn.crandn((2, 2)),
+                                 "5": ptn.crandn((2, 2)),
+                                 "6": ptn.crandn((2, 2)),
+                                 "7": ptn.crandn((2, 2)),
                                  }
         hamiltonian = ptn.Hamiltonian(terms=[self.term],
                                       conversion_dictionary=conversion_dictionary)
@@ -217,9 +218,9 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
         ttno = ptn.TTNO.from_hamiltonian(hamiltonian, self.ref_tree)
 
         for node_id in ttno.nodes:
-            node = ttno.nodes[node_id]
+            node, tensor = ttno[node_id]
 
-            shape = node.tensor.shape
+            shape = tensor.shape
             # Physical dimension at one site should be different
             for open_leg_index in node.open_legs:
                 if node_id == "site2":
@@ -228,19 +229,21 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
                     self.assertEqual(2, shape[open_leg_index])
 
             # All other legs should have dimension 1
-            neighbours = node.neighbouring_nodes()
-            for neighbour_id in neighbours:
-                self.assertEqual(1, shape[neighbours[neighbour_id]])
+            for children_leg in node.children_legs.values():
+                self.assertEqual(1, shape[children_leg])
+
+            if node.nparents() != 0:
+                self.assertEqual(1, shape[node.parent_leg[1]])
 
     def test_from_hamiltonian_two_terms_one_operator_different(self):
-        conversion_dictionary = {"1": ptn.crandn((2,2)),
-                                 "2": ptn.crandn((2,2)),
-                                 "3": ptn.crandn((2,2)),
-                                 "4": ptn.crandn((2,2)),
-                                 "5": ptn.crandn((2,2)),
-                                 "6": ptn.crandn((2,2)),
-                                 "7": ptn.crandn((2,2)),
-                                 "22": ptn.crandn((2,2))
+        conversion_dictionary = {"1": ptn.crandn((2, 2)),
+                                 "2": ptn.crandn((2, 2)),
+                                 "3": ptn.crandn((2, 2)),
+                                 "4": ptn.crandn((2, 2)),
+                                 "5": ptn.crandn((2, 2)),
+                                 "6": ptn.crandn((2, 2)),
+                                 "7": ptn.crandn((2, 2)),
+                                 "22": ptn.crandn((2, 2))
                                  }
         term2 = {"site1": "1",
                  "site2": "22",
@@ -256,37 +259,39 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
         ttno = ptn.TTNO.from_hamiltonian(hamiltonian, self.ref_tree)
 
         for node_id in ttno.nodes:
-            node = ttno.nodes[node_id]
+            node, tensor = ttno[node_id]
 
-            shape = node.tensor.shape
+            shape = tensor.shape
             # All open legs should have dimension 2
             for open_leg_index in node.open_legs:
                 self.assertEqual(2, shape[open_leg_index])
 
             # All other legs should have dimension 1
-            neighbours = node.neighbouring_nodes()
-            for neighbour_id in neighbours:
-                self.assertEqual(1, shape[neighbours[neighbour_id]])
+            for children_leg in node.children_legs.values():
+                self.assertEqual(1, shape[children_leg])
+
+            if node.nparents() != 0:
+                self.assertEqual(1, shape[node.parent_leg[1]])
 
         # The operators at site 2 should be added
         ref_operator = conversion_dictionary["2"] + conversion_dictionary["22"]
-        self.assertTrue(np.allclose(ref_operator, ttno.nodes["site2"].tensor))
+        self.assertTrue(np.allclose(ref_operator, ttno.tensors["site2"]))
 
     def test_from_hamiltonian_two_terms_completely_different(self):
-        conversion_dictionary = {"1": ptn.crandn((2,2)),
-                                 "2": ptn.crandn((2,2)),
-                                 "3": ptn.crandn((2,2)),
-                                 "4": ptn.crandn((2,2)),
-                                 "5": ptn.crandn((2,2)),
-                                 "6": ptn.crandn((2,2)),
-                                 "7": ptn.crandn((2,2)),
-                                 "12": ptn.crandn((2,2)),
-                                 "22": ptn.crandn((2,2)),
-                                 "32": ptn.crandn((2,2)),
-                                 "42": ptn.crandn((2,2)),
-                                 "52": ptn.crandn((2,2)),
-                                 "62": ptn.crandn((2,2)),
-                                 "72": ptn.crandn((2,2)),
+        conversion_dictionary = {"1": ptn.crandn((2, 2)),
+                                 "2": ptn.crandn((2, 2)),
+                                 "3": ptn.crandn((2, 2)),
+                                 "4": ptn.crandn((2, 2)),
+                                 "5": ptn.crandn((2, 2)),
+                                 "6": ptn.crandn((2, 2)),
+                                 "7": ptn.crandn((2, 2)),
+                                 "12": ptn.crandn((2, 2)),
+                                 "22": ptn.crandn((2, 2)),
+                                 "32": ptn.crandn((2, 2)),
+                                 "42": ptn.crandn((2, 2)),
+                                 "52": ptn.crandn((2, 2)),
+                                 "62": ptn.crandn((2, 2)),
+                                 "72": ptn.crandn((2, 2)),
                                  }
         term2 = {"site1": "12",
                  "site2": "22",
@@ -302,32 +307,34 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
         ttno = ptn.TTNO.from_hamiltonian(hamiltonian, self.ref_tree)
 
         for node_id in ttno.nodes:
-            node = ttno.nodes[node_id]
+            node, tensor = ttno[node_id]
 
-            shape = node.tensor.shape
+            shape = tensor.shape
             # All open legs should have dimension 2
             for open_leg_index in node.open_legs:
                 self.assertEqual(2, shape[open_leg_index])
 
             # All other legs should have dimension 2
-            neighbours = node.neighbouring_nodes()
-            for neighbour_id in neighbours:
-                self.assertEqual(2, shape[neighbours[neighbour_id]])
+            for children_leg in node.children_legs.values():
+                self.assertEqual(2, shape[children_leg])
+
+            if node.nparents() != 0:
+                self.assertEqual(2, shape[node.parent_leg[1]])
 
     def test_from_hamiltonian_two_terms_all_but_root_different(self):
-        conversion_dictionary = {"1": ptn.crandn((2,2)),
-                                 "2": ptn.crandn((2,2)),
-                                 "3": ptn.crandn((2,2)),
-                                 "4": ptn.crandn((2,2)),
-                                 "5": ptn.crandn((2,2)),
-                                 "6": ptn.crandn((2,2)),
-                                 "7": ptn.crandn((2,2)),
-                                 "22": ptn.crandn((2,2)),
-                                 "32": ptn.crandn((2,2)),
-                                 "42": ptn.crandn((2,2)),
-                                 "52": ptn.crandn((2,2)),
-                                 "62": ptn.crandn((2,2)),
-                                 "72": ptn.crandn((2,2)),
+        conversion_dictionary = {"1": ptn.crandn((2, 2)),
+                                 "2": ptn.crandn((2, 2)),
+                                 "3": ptn.crandn((2, 2)),
+                                 "4": ptn.crandn((2, 2)),
+                                 "5": ptn.crandn((2, 2)),
+                                 "6": ptn.crandn((2, 2)),
+                                 "7": ptn.crandn((2, 2)),
+                                 "22": ptn.crandn((2, 2)),
+                                 "32": ptn.crandn((2, 2)),
+                                 "42": ptn.crandn((2, 2)),
+                                 "52": ptn.crandn((2, 2)),
+                                 "62": ptn.crandn((2, 2)),
+                                 "72": ptn.crandn((2, 2)),
                                  }
         term2 = {"site1": "1",
                  "site2": "22",
@@ -343,17 +350,20 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
         ttno = ptn.TTNO.from_hamiltonian(hamiltonian, self.ref_tree)
 
         for node_id in ttno.nodes:
-            node = ttno.nodes[node_id]
+            node, tensor = ttno[node_id]
 
-            shape = node.tensor.shape
+            shape = tensor.shape
             # All open legs should have dimension 2
             for open_leg_index in node.open_legs:
                 self.assertEqual(2, shape[open_leg_index])
 
             # All other legs should have dimension 2
-            neighbours = node.neighbouring_nodes()
-            for neighbour_id in neighbours:
-                self.assertEqual(2, shape[neighbours[neighbour_id]])
+            for children_leg in node.children_legs.values():
+                self.assertEqual(2, shape[children_leg])
+
+            if node.nparents() != 0:
+                self.assertEqual(2, shape[node.parent_leg[1]])
+
 
 if __name__ == "__main__":
     unittest.main()
