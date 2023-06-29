@@ -7,7 +7,7 @@ useful contractions.
 from __future__ import annotations
 import numpy as np
 
-from .node import Node, conjugate_node
+from .node import Node
 from .ttn_exceptions import NoConnectionException
 from .util import copy_object
 
@@ -19,6 +19,7 @@ def _construct_contracted_identifier(node1_id, node2_id, new_identifier=None):
         new_identifier = str(new_identifier)
 
     return new_identifier
+
 
 def _construct_contracted_tag(node1_tag, node2_tag, new_tag):
     if new_tag == None:
