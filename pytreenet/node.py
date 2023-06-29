@@ -1,236 +1,319 @@
 from __future__ import annotations
-import uuid
+from typing import List, Dict
+from copy import copy
 
-import numpy as np
+from numpy import ndarray
 
-from typing import List
+from pytreenet.util import crandn
 
-from .util import crandn, copy_object
+from .graph_node import GraphNode
 
 
-class Node():
+class Node(GraphNode):
+    """ 
+    The Node contains a permutation that is responsible for everything
+    that has to do with legs. 
+    The superclass AbstractNode contains all that has to do with tree connectivity.
+
+    The attribute `leg_permutation` is a list of integers with the same length
+    as the associated tensor has dimensions. The associated permutation is such
+    that the associated tensor transposed with it has the leg ordering:
+        `(parent, child0, ..., childN-1, open_leg0, ..., open_legM-1)`
+    In general legs values will be returned according to this ordering and not according
+    to the actual tensor legs.
+    Is compatible with `np.transpose`.
+    So in the permutation we have the format
+        `[leg of tensor corr. to parent, leg of tensor corr. to child0, ...]`
+    The children legs are in the same order as the children node identifiers in 
+    the superclass.
     """
-    A node is the fundamental building block of a tree.
-    It contains all the information on how it is connected
-    to the rest of the tree.
-    """
 
-    def __init__(self, tag="", identifier=""):
+    def __init__(self, tensor=None, tag=None, identifier=None):
+        super().__init__(tag, identifier)
+        if tensor is not None:
+            self._leg_permutation = list(range(tensor.ndim))
+            self._shape = tensor.shape
+        else:
+            self._leg_permutation = None
+            self._shape = None
+
+    @classmethod
+    def from_node(cls, tensor: ndarray, node: GraphNode) -> Node:
         """
-        Creates a Node. If no identifier is given, a random
-        unique identifier is assigned.
-        Initially no parent or children nodes are assigned.
-        Both attributes would contain the identifier of other nodes.
+        Generates a `Node` object from a `AbstractNode` and a tensor.
 
         Args:
-            tag (str, optional): A non-unique name of the node.
-                Defaults to "".
-            identifier (str, optional): A unique identifier assigned
-                to this node. Defaults to "".
-        """
-        # Setting identifier
-        if identifier is None or identifier == "":
-            self._identifier = str(uuid.uuid1())
-        else:
-            self._identifier = str(identifier)
-        # Setting tag
-        if tag is None or tag == "":
-            self._tag = self.identifier
-        else:
-            self._tag = str(tag)
-
-        # Information about connectivity
-        self.parent = None
-        self.children = []
-
-    @property
-    def identifier(self):
-        """
-        A string that is unique to this node.
-        """
-        return self._identifier
-
-    @identifier.setter
-    def identifier(self, new_identifier):
-        if new_identifier is None or new_identifier == "":
-            self._identifier = str(uuid.uuid1())
-        else:
-            self._identifier = str(new_identifier)
-
-    @property
-    def tag(self):
-        """
-        A human readable tag for this node.
-        """
-        return self._tag
-
-    @tag.setter
-    def tag(self, new_tag):
-        if new_tag is None or new_tag == "":
-            self._tag = self.identifier
-        else:
-            self._tag = new_tag
-
-    def __eq__(self, other: Node):
-        """
-        Two nodes are the same, if they have the same identifiers and neighbours.
-        """
-        same_id = self.identifier == other.identifier
-        same_parent = self.parent == other.parent
-        same_children = self.children == other.children
-        return same_id and same_parent and same_children        
-
-    def add_parent(self, parent_id: str):
-        """
-        Adds `parent_id` as the new parent.
-
-        If a parent already exists, remove it and then add the new one.
-        """
-        if self.parent is not None:
-            errstr = f"Node {self.identifier} has a parent already"
-            raise ValueError(errstr)
-        self.parent = parent_id
-
-    def remove_parent(self):
-        """
-        Removes parent and replaces it by None
-        """
-        self.parent = None
-
-    def add_child(self, child_id: str):
-        """
-        Adds `child_id` as a new child.
-        """
-        self.children.append(child_id)
-
-    def add_children(self, children_ids: List[str]):
-        """
-        Adds all children with identifiers in `children_ids` as children to this node.
-        """
-        self.children.extend(children_ids)
-
-    def remove_child(self, child_id: str):
-        """
-        Removes a children identifier from this node's children.
-        """
-        self.children.remove(child_id)
-
-    def replace_child(self, child_id:str, new_child_id: str):
-        """
-        Replaces one child with another.
-        """
-        if child_id == new_child_id:
-            return
-        self.children[self.child_index(child_id)] = new_child_id
-
-    def child_index(self, child_id: str) -> int:
-        """
-        Returns the index of identifier child_id in this Node's children list.
-        """
-        return self.children.index(child_id)
-
-    def nchildren(self) -> int:
-        """
-        The number of children of this node
-        """
-        return len(self.children)
-
-    def nparents(self) -> int:
-        """
-        Returns the number of parents of this node.
-        """
-        return int(not self.is_root())
-
-    def nneighbours(self) -> int:
-        """
-        Returns the number of neighbours of this node.
-        """
-        return self.nchildren() + (not self.is_root())
-
-    def is_root(self) -> bool:
-        """
-        Returns whether this node is a root node, i.e. doesn't have a parent.
-        """
-        return self.parent is None
-
-    def has_x_children(self, x: int) -> bool:
-        """
-        Returns whether this node has exactly x-many children.
-        """
-        return len(self.children) == x
-
-    def is_leaf(self) -> bool:
-        """
-        Returns whether this node is a leaf, i.e. doesn't have children
-        """
-        return self.has_x_children(0)
-
-    def neighbouring_nodes(self) -> List[str]:
-        """
-        Provides the identifiers of all neighbours, i.e. the parent and all
-            children.
+            tensor (ndarray): The tensor associated to this node
+            node (Node): A node with the same identifier as this new instance
 
         Returns:
-            List[str]: Contains the neighbour identifiers, if this node is not
-                a root, the parent's identifier is the first identifier.
+            LegNode:
+        """
+        leg_node = cls(tensor=tensor, tag=node.tag, identifier=node.identifier)
+        leg_node.parent = node.parent
+        leg_node.children = copy(node.children)
+
+        return leg_node
+
+    @property
+    def leg_permutation(self):
+        """
+        Get the leg permutation, cf. class docstring.
+        """
+        return self._leg_permutation
+
+    def set_leg_permutation(self, leg_dict: Dict[str, int]):
+        """
+        Set a new leg permutation. This might be neccessary, if the tensor
+        corresponding to this node is changed externally and then placed back
+        into the ttn.
+
+        All neighbours are assigned a new leg value, while the open legs are
+         assinged the remaining values. This assumes that the order of open legs
+         was not changed.
+
+        Args:
+            leg_dict (Dict[str, int]): A dictionary containing all the neighbouring
+                nodes as keys and the actual tensor leg value as value.
+        """
+        self.reset_permutation()
+        neighbours = self.neighbouring_nodes()
+        assert len(neighbours) == len(leg_dict)
+        for node_id, leg_value in leg_dict.items():
+            if node_id in neighbours:
+                new_position = self.get_neighbour_leg(node_id)
+                self._leg_permutation.pop(leg_value)
+                self._leg_permutation.insert(new_position, leg_value)
+            else:
+                errstr = f"Nodes {self.identifier} and {node_id} aren't neighbours!"
+                raise ValueError(errstr)
+
+    def link_tensor(self, tensor: ndarray):
+        self._leg_permutation = list(range(tensor.ndim))
+        self._shape = tensor.shape
+
+    def _reset_permutation(self):
+        """
+        Resets the permutation to the standard.
+        Always call this, when the associated tensor is transposed
+            according to the permutation. This ensures, the legs still match.
+        """
+        self._leg_permutation = list(range(len(self._leg_permutation)))
+
+    @property
+    def parent_leg(self) -> List[str, int]:
+        """
+        Returns parent_leg according to original implementation.
+        """
+        return self.get_parent_leg()
+
+    def get_parent_leg(self, dtype=list):
+        """
+        Returns parent_leg according to original implementation.
+
+        Args:
+            dtype: The data format in which to return it.
+                `list` will return a list of the form `[parent_id, parent_leg]`
+                `dict` will return a dictionary of the from `{parent_id: parent_leg}`
         """
         if self.is_root():
-            neighbour_ids = []
+            errstring = f"Node with identifier {self.identifier} has no parent!"
+            raise ValueError(errstring)
+        if dtype == list:
+            return [self.parent, 0]
+        if dtype == dict:
+            return {self.parent: 0}
         else:
-            neighbour_ids = [self.parent]
-        neighbour_ids.extend(self.children)
-        return neighbour_ids
+            errstring = f"`dtype` can only be `list` or `dict` not {dtype}!"
+            raise ValueError(errstring)
 
-    def is_child_of(self, other_node_id: str) -> bool:
+    @property
+    def children_legs(self) -> Dict[str, int]:
+        """ 
+        Returns the children_legs according to original implementation.
+
+        Returns:
+            Dict[str, int]: The children_legs according to original implementation. The keys are the
+                children identifiers and the values are the indices in the permutation list (NOT the
+                actual tensor legs)
         """
-        Determines whether this node is a child of the node with identifier 'other_node_id'.
+        return {child_id: index + self.nparents()
+                for index, child_id in enumerate(self.children)}
+
+    @property
+    def open_legs(self) -> List[int]:
         """
-        if self.is_root():
-            return False
-        return self.parent == other_node_id
-
-    def is_parent_of(self, other_node_id: str) -> bool:
+        Returns the indices of the open legs.
         """
-        Determines whether this node is a parent of the node with identifier 'other_node_id'.
+        return list(range(self.nvirt_legs(), self.nlegs()))
+
+    def open_leg_to_parent(self, open_leg: int):
         """
-        return other_node_id in self.children
+        Changes an open leg into the leg towards a parent.
 
-def assert_legs_matching(node1, leg1_index, node2, leg2_index):
-    """
-    Asserts if the dimensions of leg1 of node1 and leg2 of node2 match.
-    """
-    leg1_dimension = node1.shape[leg1_index]
-    leg2_dimension = node2.shape[leg2_index]
-    assert leg1_dimension == leg2_dimension
+        Args:
+            open_leg (int): The index of the actual tensor leg
+        """
+        if self.nopen_legs() == 0:
+            errstr = f"Node with identifier {self.identifier} has no open legs!"
+            raise ValueError(errstr)
+
+        # Move value open_leg to front of list
+        self._leg_permutation.remove(open_leg)
+        self._leg_permutation.insert(0, open_leg)
+
+    def open_leg_to_child(self, open_leg: int):
+        """
+        Changes an open leg into the leg towards a child.
+        Children legs will be assorted in the same way as their ids are in the superclass.
+
+        Args:
+            open_leg (int): The index of the actual tensor leg
+        """
+        if self.nopen_legs() < 1:
+            errstr = f"Node with identifier {self.identifier} has no open legs!"
+            raise ValueError(errstr)
+
+        self._leg_permutation.remove(open_leg)
+        new_position = self.nparents() + self.nchildren()
+        self._leg_permutation.insert(new_position, open_leg)
+
+    def open_legs_to_children(self, open_leg_list: List[int]):
+        """
+        Changes multiple open legs to be legs towards children.
+
+        Args:
+            open_leg_list (List[int]): List of actual tensor leg indices
+        """
+        for open_leg in open_leg_list:
+            self.open_leg_to_child(open_leg)
+
+    def parent_leg_to_open_leg(self):
+        """
+        Changes the parent leg to be an open leg, if it exists.
+
+        Moves it to the back.
+        """
+        if not self.is_root():
+            leg_index = self._leg_permutation.pop(0)
+            self._leg_permutation.append(leg_index)
+
+    def child_leg_to_open_leg(self, child_id: str):
+        """
+        Changes a leg towards a child Node into an open_leg
+
+        Args:
+            child_id (str): The identifier of the child_nodem to be disconnected.
+        """
+        index = self.nparents() + self.child_index(child_id)
+        leg_index = self._leg_permutation.pop(index)
+        self._leg_permutation.append(leg_index)
+
+    def children_legs_to_open_legs(self, children_id_list: List[str]):
+        """
+        Changes multiple child legs into open legs.
+
+        Args:
+            children_id_list (List[str]): A list of the identifiers of the child
+                Nodes which are to be turned into open legs. 
+        """
+        for child_id in children_id_list:
+            self.child_leg_to_open_leg(child_id)
+
+    def last_leg_to_parent_leg(self):
+        """
+        Sometimes the leg of the parent is not set properly, when something
+        has been done to the tensor. This method takes care of this.
+        Use with care!
+        """
+        value = self._leg_permutation.pop(-1)
+        self._leg_permutation.insert(0, value)
+
+    def leg_to_last_child_leg(self, leg_value: int):
+        """
+        Sometimes the leg of the last child is not set properly, when something
+        has been done to the tensor. This method takes care of this.
+        Use with care!
+        """
+        self._leg_permutation.remove(leg_value)
+        new_position = self.nparents() + self.nchildren() - 1
+        self._leg_permutation.insert(new_position, leg_value)
+
+    def get_child_leg(self, child_id: str) -> int:
+        """
+        Obtains the leg value of a given child of this node.
+
+        This is the leg of the tensor corresponding to this child after
+        transposing the tensor accordingly.
+        """
+        return self.nparents() + self.child_index(child_id)
+
+    def get_neighbour_leg(self, node_id: str) -> int:
+        """
+        Returns the leg value of a given neighbour.
+
+        This is the leg of the tensor corresponding to this neighbour after
+        transposing the tensor accordingly.
+        """
+        if self.is_child_of(node_id):
+            return 0
+        if self.is_parent_of(node_id):
+            return self.get_child_leg(node_id)
+        errstr = f"Node {self.identifier} is not connected to {node_id}!"
+        raise ValueError(errstr)
+
+    def swap_two_child_legs(self, child_id1: str, child_id2: str):
+        """
+        Swaps the index position of two children.
+        """
+        if child_id1 == child_id2:
+            return
+
+        child1_index = self.child_index(child_id1)
+        child2_index = self.child_index(child_id2)
+        # Swap children identifiers
+        self.children[child1_index], self.children[child2_index] =\
+            self.children[child2_index], self.children[child1_index]
+        # Swap their leg value
+        c1_index = child1_index + self.nparents()
+        c2_index = child2_index + self.nparents()
+        self._leg_permutation[c1_index], self._leg_permutation[c2_index] =\
+            self._leg_permutation[c2_index], self._leg_permutation[c1_index]
+
+    def swap_with_first_child(self, child_id: str):
+        """
+        Makes the leg of the given child the first of all children legs
+        """
+        self.swap_two_child_legs(child_id, self.children[0])
+
+    def nlegs(self) -> int:
+        """
+        Returns the total number of legs of this node.
+        """
+        return len(self._leg_permutation)
+
+    def nchild_legs(self) -> int:
+        """
+        Returns the number of legs connected to child Nodes.
+        """
+        return super().nchildren()
+
+    def nvirt_legs(self):
+        """
+        Returns the total number of legs to other nodes, i.e. parent + children.
+        """
+        return super().nneighbours()
+
+    def nopen_legs(self):
+        """
+        Returns the number of open legs of this node.
+        """
+        return self.nlegs() - self.nvirt_legs()
 
 
-def conjugate_node(node, deep_copy=True, conj_neighbours=False):
-    """
-    Returns a copy of the same node but with all entries complex conjugated
-    and with a new identifier and tag. If conj_neighbours all the identifiers
-    in node's legs will have ann added "conj_" in front.
-    """
-    conj_node = copy_object(node, deep=deep_copy)
-    new_identifier = "conj_" + conj_node.identifier
-    new_tag = "conj_" + conj_node.tag
-
-    conj_node.identifier = new_identifier
-    conj_node.tag = new_tag
-
-    if conj_neighbours:
-        if not node.is_root():
-            conj_node.parent_leg[0] = "conj_" + conj_node.parent_leg[0]
-        children_legs = conj_node.children_legs
-        conj_children_legs = {("conj_" + child_id): children_legs[child_id]
-                              for child_id in children_legs}
-        conj_node.children_legs = conj_children_legs
-
-    conj_node.tensor = np.conj(conj_node.tensor)
-    return conj_node
-
-def random_tensor_node(shape, tag: str ="" , identifier: str =""):
+def random_tensor_node(shape, tag: str = "", identifier: str = ""):
     """
     Creates a tensor node with an a random associated tensor with shape=shape.
     """
     rand_tensor = crandn(shape)
-    return (Node(tag=tag, identifier=identifier), rand_tensor)
+    return (Node(tensor=rand_tensor, tag=tag, identifier=identifier), rand_tensor)
