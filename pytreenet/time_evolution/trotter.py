@@ -5,7 +5,8 @@ import numpy as np
 
 from scipy.linalg import expm
 
-from ..util import build_swap_gate
+from ..operators.common_operators import swap_gate
+
 
 class SWAPlist(list):
 
@@ -63,6 +64,7 @@ class SWAPlist(list):
                 return False
 
         return True
+
 
 class TrotterSplitting:
     """
@@ -196,17 +198,17 @@ class TrotterSplitting:
             they key `"site_ids"`.
             """
 
-        unitary_operators = [] # Includes the neccessary SWAPs
+        unitary_operators = []  # Includes the neccessary SWAPs
         for i, term in enumerate(self.splitting):
             interaction_operator = self.operators[term[0]]
             factor = term[1]
 
-            total_operator = 1 # Saves the total operator
-            site_ids = [] # Saves the ids of nodes to which the operator is applied
+            total_operator = 1  # Saves the total operator
+            site_ids = []  # Saves the ids of nodes to which the operator is applied
 
             for site in interaction_operator:
                 total_operator = np.kron(total_operator,
-                                              interaction_operator[site])
+                                         interaction_operator[site])
 
                 site_ids.append(site)
 
@@ -252,4 +254,3 @@ class TrotterSplitting:
             unitary_operators.extend(swaps_after)
 
         return unitary_operators
-
