@@ -6,7 +6,6 @@ from itertools import chain
 import numpy as np
 
 from .tree_structure import TreeStructure
-from .leg_node import LegNode
 from .node import Node
 from .tensor_util import (tensor_qr_decomposition,
                           contr_truncated_svd_splitting)
@@ -14,6 +13,30 @@ from .leg_specification import LegSpecification
 from .canonical_form import canonical_form
 from .tree_contraction import (completely_contract_tree,
                                contract_two_ttn)
+from collections import UserDict
+
+
+class TensorDict(UserDict):
+    def __init__(self, nodes, inpt=None):
+        if inpt is None:
+            inpt = {}
+        super().__init__(inpt)
+        self.nodes = nodes
+
+    def __getitem__(self, node_id: str):
+        """
+        Since during addition of nodes the tensors are not actually transposed,
+        this has to be done when accesing them. 
+        This way whenever a tensor is accessed, its leg ordering is
+            (parent_leg, children_legs, open_legs)
+        """
+        permutation = self.nodes[node_id].leg_permutation
+        tensor = super().__getitem__(node_id)
+        transposed_tensor = np.transpose(tensor, permutation)
+        self.nodes[node_id]._reset_permutation()
+        super().__setitem__(node_id, transposed_tensor)
+        return transposed_tensor
+
 
 class TreeTensorNetwork(TreeStructure):
     """
@@ -25,7 +48,8 @@ class TreeTensorNetwork(TreeStructure):
 
     Attributes
     -------
-    _nodes: dict[str, TensorNode] mapping node ids (str) to TensorNode objects
+    _nodes: dict[str, Node] mapping node ids (str) to Node objects
+    _tensors: dict[str, ndarray] mapping node ids (str) to numpy ndarray objects
     _root_id: str identifier for root node of TTN
     """
 
@@ -35,7 +59,7 @@ class TreeTensorNetwork(TreeStructure):
         different one.
         """
         super().__init__()
-        self._tensors = {}
+        self._tensors = TensorDict(self._nodes)
 
     @property
     def tensors(self):
@@ -48,8 +72,8 @@ class TreeTensorNetwork(TreeStructure):
         leg ordering is
             (parent_leg, children_legs, open_legs)
         """
-        for node_id in self._tensors:
-            self._transpose_tensor(node_id)
+        # for node_id in self._tensors:
+        #     self._transpose_tensor(node_id)
 
         return self._tensors
 
@@ -66,9 +90,9 @@ class TreeTensorNetwork(TreeStructure):
         self._tensors[node_id] = transposed_tensor
         node.reset_permutation()
 
-    def __getitem__(self, key: str) -> Tuple[LegNode, np.ndarray]:
+    def __getitem__(self, key: str) -> Tuple[Node, np.ndarray]:
         node = super().__getitem__(key)
-        self._transpose_tensor(key)
+        # self._transpose_tensor(key)
         tensor = self._tensors[key]
         return (node, tensor)
 
@@ -76,42 +100,43 @@ class TreeTensorNetwork(TreeStructure):
         """
         Adds a root tensor node to the TreeTensorNetwork
         """
-        leg_node = LegNode.from_node(tensor, node)
-        super().add_root(leg_node)
+        # leg_node = LegNode.from_node(tensor, node)
+        node.link_tensor(tensor)
+        super().add_root(node)
 
-        self.tensors[leg_node.identifier] = tensor
+        self.tensors[node.identifier] = tensor
 
     def add_child_to_parent(self, child: Node, tensor: np.ndarray,
                             child_leg: int, parent_id: str, parent_leg: int):
         """
         Adds a Node to the TreeTensorNetwork which is the child of the Node
         with identifier `parent_id`. The two tensors are contracted along one
-        leg. The child via child_leg and the parent via parent_leg
+        leg; the child via child_leg and the parent via parent_leg
         """
-        child_node = LegNode.from_node(tensor, child)
+        child.link_tensor(tensor)
+        child.open_leg_to_parent(child_leg)
 
-        child_node.open_leg_to_parent(child_leg)
         parent_node = self.nodes[parent_id]
         parent_node.open_leg_to_child(parent_leg)
 
-        super().add_child_to_parent(child_node, parent_id)
+        super().add_child_to_parent(child, parent_id)
 
-        self._tensors[child.identifier] = tensor
+        self.tensors[child.identifier] = tensor
 
     def add_parent_to_root(self, root_leg: int, parent: Node, tensor: np.ndarray,
                            parent_leg: int):
         """
-        Adds the node parent as parent to the TreeTensorNetwork's root node. The two
-        are contracted. The root via root_leg and the parent via parent_leg.
+        Adds the Node `parent` as parent to the TreeTensorNetwork's root node. The two
+        nodes are connected: the root via root_leg and the parent via parent_leg.
         The root is updated to be the parent.
         """
-        parent_node = LegNode.from_node(tensor, parent)
+        # parent_node = LegNode.from_node(tensor, parent)
         former_root_node = self.nodes[self.root_id]
 
-        parent_node.open_leg_to_child(parent_leg)
+        parent.open_leg_to_child(parent_leg)
         former_root_node.open_leg_to_parent(root_leg)
 
-        super().add_parent_to_root(parent_node)
+        super().add_parent_to_root(parent)
 
         self.tensors[parent.identifier] = tensor
 
@@ -150,12 +175,12 @@ class TreeTensorNetwork(TreeStructure):
         """
         node_tensor = self.tensors[node_id]
         new_tensor = np.tensordot(node_tensor, absorbed_tensor,
-                                      axes=(this_tensors_leg_index, absorbed_tensors_leg_index))
+                                  axes=(this_tensors_leg_index, absorbed_tensors_leg_index))
 
         this_tensors_indices = tuple(range(new_tensor.ndim))
         transpose_perm = (this_tensors_indices[0:this_tensors_leg_index]
-                              + (this_tensors_indices[-1], )
-                              + this_tensors_indices[this_tensors_leg_index:-1])
+                          + (this_tensors_indices[-1], )
+                          + this_tensors_indices[this_tensors_leg_index:-1])
         self.tensors[node_id] = new_tensor.transpose(transpose_perm)
 
     def absorb_tensor_into_neighbour_leg(self, node_id: str, neighbour_id: str,
@@ -194,7 +219,7 @@ class TreeTensorNetwork(TreeStructure):
         assert tensor.ndim == 2 * node.nopen_legs()
 
         tensor_legs = list(range(node.nopen_legs()))
-        new_tensor = np.tensordot(node_tensor, tensor, axes=(node.open_legs,tensor_legs))
+        new_tensor = np.tensordot(node_tensor, tensor, axes=(node.open_legs, tensor_legs))
         # The leg ordering was not changed here
         self.tensors[node_id] = new_tensor
 
@@ -208,7 +233,7 @@ class TreeTensorNetwork(TreeStructure):
             node1_open_legs, node2_open_legs)`
         The resulting node will have the identifier `parent_id + "contr" + child_id`.
 
-        Deletes the originial nodes and tensors from the TTN.
+        Deletes the original nodes and tensors from the TTN.
 
         Args:
             node_id1 (str): Identifier of first tensor
@@ -223,54 +248,41 @@ class TreeTensorNetwork(TreeStructure):
         if new_identifier == "":
             new_identifier = parent_id + "contr" + child_id
 
-        # Swap child to be the first child -> leg value 1
+        child_node = self.nodes[child_id]
         parent_node = self.nodes[parent_id]
+
+        # Swap child to be the first child -> leg value 1
         parent_node.swap_with_first_child(child_id)
 
         # Contracting tensors
         parent_tensor = self.tensors[parent_id]
         child_tensor = self.tensors[child_id]
+
+        np.transpose(parent_tensor, axes=parent_node.leg_permutation)
+
         new_tensor = np.tensordot(parent_tensor, child_tensor,
-                                  axes=(parent_node.nparents(),0))
+                                  axes=(parent_node.nparents(), 0))
+        # remove old tensors
+        self.tensors.pop(node_id1)
+        self.tensors.pop(node_id2)
+        # add new tensor
+        self.tensors[new_identifier] = new_tensor
 
         # Actual tensor leg now have the form
-        # (parent_of_parent, remaining_children_of_parent, open_of_parent, 
+        # (parent_of_parent, remaining_children_of_parent, open_of_parent,
         # children_of_child, open_of_child)
         parent_nvirt_leg = parent_node.nvirt_legs() - 1
         parent_nlegs = parent_node.nlegs() - 1
-        parent_nplegs = parent_node.nparents()
-        child_node = self.nodes[child_id]
         child_nchild_legs = child_node.nchild_legs()
 
-        # Create proper connectivity (Old nodes are deleted)
+        # Create proper connectivity (old nodes are deleted)
         self.combine_nodes(parent_id, child_id, new_identifier=new_identifier)
-
-        # Delete old tensors
-        self._tensors.pop(node_id1)
-        self._tensors.pop(node_id2)
-
-        # Make Node a LegNode
-        new_node = self.nodes[new_identifier]
-        new_leg_node = LegNode.from_node(new_tensor, new_node)
+        self.nodes[new_identifier].link_tensor(new_tensor)
 
         # Building correct permutation (TODO: Move it to LegNode?)
-        p_children = list(range(parent_nplegs, parent_nvirt_leg))
-        p_open = list(range(parent_nvirt_leg, parent_nlegs))
-        c_children = list(range(parent_nlegs, parent_nlegs + child_nchild_legs))
-        c_open = list(range(parent_nlegs + child_nchild_legs, new_leg_node.nlegs()))
-        children = [p_children, c_children]
-        open_legs = [p_open, c_open]
-        if parent_id != node_id1:
-            children.reverse()
-            open_legs.reverse()
-        children.extend(open_legs)
-        children = list(chain.from_iterable(children))
-        new_leg_node._leg_permutation[new_node.nparents():] = children
-
-        # Delete Node, add LegNode and new tensor
-        self.nodes.pop(new_identifier)
-        self.nodes[new_identifier] = new_leg_node
-        self._tensors[new_identifier] = new_tensor
+        child_children_legs = [self.nodes[new_identifier]._leg_permutation.pop(parent_nlegs)
+                               for i in range(0, child_nchild_legs)]
+        self.nodes[new_identifier]._leg_permutation[parent_nvirt_leg:parent_nvirt_leg] = child_children_legs
 
     def legs_before_combination(self, node1_id: str, node2_id: str) -> Tuple[LegSpecification, LegSpecification]:
         """
@@ -286,7 +298,7 @@ class TreeTensorNetwork(TreeStructure):
         Returns:
             Tuple[LegSpecification, LegSpecification]: _description_
         """
-        
+
         node1 = self.nodes[node1_id]
         node2 = self.nodes[node2_id]
         tot_nvirt_legs = node1.nvirt_legs() + node2.nvirt_legs() - 2
@@ -308,7 +320,7 @@ class TreeTensorNetwork(TreeStructure):
         temp[0][0].child_legs.remove(temp[1][1].identifier)
 
     def _split_nodes(self, node_id: str, out_legs: Dict[str, List], in_legs: Dict[str, List],
-                     splitting_function: Callable, out_identifier: str = "", in_identifier = "",
+                     splitting_function: Callable, out_identifier: str = "", in_identifier="",
                      **kwargs):
         """
         Splits an node into two nodes using a specified function
@@ -346,17 +358,17 @@ class TreeTensorNetwork(TreeStructure):
             out_identifier = "out_of_" + node_id
         if in_identifier == "":
             in_identifier = "in_of_" + node_id
+        # split _node removes old node
         self.split_node(node_id, out_identifier, out_legs.find_all_neighbour_ids(),
-                         in_identifier, in_legs.find_all_neighbour_ids())
-        self._tensors.pop(node_id)
+                        in_identifier, in_legs.find_all_neighbour_ids())
 
         # Adding Tensors
         self._tensors[out_identifier] = out_tensor
         self._tensors[in_identifier] = in_tensor
 
-        # New LegNodes
-        out_node = LegNode.from_node(out_tensor, self.nodes[out_identifier])
-        in_node = LegNode.from_node(in_tensor, self.nodes[in_identifier])
+        # New Nodes
+        out_node = Node.from_node(out_tensor, self.nodes[out_identifier])
+        in_node = Node.from_node(in_tensor, self.nodes[in_identifier])
         self._nodes[out_identifier] = out_node
         self._nodes[in_identifier] = in_node
 
@@ -370,7 +382,7 @@ class TreeTensorNetwork(TreeStructure):
             # The new leg in the in_node is already in the correct place. Yay!
 
     def split_node_qr(self, node_id: str, q_legs: Dict[str, List], r_legs: Dict[str, List],
-                       q_identifier: str = "", r_identifier: str = ""):
+                      q_identifier: str = "", r_identifier: str = ""):
         """
         Splits a node into two nodes via QR-decomposition.
 
@@ -466,7 +478,9 @@ class TreeTensorNetwork(TreeStructure):
         """
         return contract_two_ttn(self, other)
 
-    def apply_hamiltonian(self, hamiltonian: Hamiltonian, conversion_dict: dict[str, np.ndarray], skipped_vertices=None):
+    def apply_hamiltonian(
+            self, hamiltonian: Hamiltonian, conversion_dict: dict[str, np.ndarray],
+            skipped_vertices=None):
         """
         Applies a Hamiltonian term by term locally to a TTN. Assumes that the input TTN represents a statevector
         such that each TensorNode has the following memory layout: [parent, child_1, child_2, ..., child_n, output].
