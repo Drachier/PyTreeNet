@@ -4,13 +4,15 @@ Intendend for internal use to specify legs before splitting tensors.
 from __future__ import annotations
 from typing import Union, List
 
+
 class LegSpecification():
     """
-    Contains usefull function and all required data to specify which legs
+    Contains useful function and all required data to specify which legs
      are part of which tensor in case of a tensor splitting.
     """
+
     def __init__(self, parent_leg: Union[str, None], child_legs: List[str],
-                 open_legs: List[str], node: LegNode):
+                 open_legs: List[str], node: Node):
         self.parent_leg = parent_leg
         self.child_legs = child_legs
         self.open_legs = open_legs
@@ -24,7 +26,7 @@ class LegSpecification():
         Args:
             dictionary (Dict): Has to have the keywords "parent_legs", "child_legs",
              and "open_legs"
-            node (LegNode): The related node
+            node (Node): The related node
         """
         return cls(dictionary["parent_leg"], dictionary["child_legs"],
                    dictionary["open_legs"], node)
@@ -60,4 +62,3 @@ class LegSpecification():
             n_ids = []
         n_ids.extend(self.child_legs)
         return n_ids
-    
