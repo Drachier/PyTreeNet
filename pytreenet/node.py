@@ -40,7 +40,7 @@ class Node(GraphNode):
     @classmethod
     def from_node(cls, tensor: ndarray, node: GraphNode) -> Node:
         """
-        Generates a `Node` object from a `AbstractNode` and a tensor.
+        Generates a `Node` object from a `GraphNode` and a tensor.
 
         Args:
             tensor (ndarray): The tensor associated to this node
@@ -165,7 +165,7 @@ class Node(GraphNode):
     def open_leg_to_child(self, open_leg: int):
         """
         Changes an open leg into the leg towards a child.
-        Children legs will be assorted in the same way as their ids are in the superclass.
+        Children legs will be sorted in the same way as their ids are in the superclass.
 
         Args:
             open_leg (int): The index of the actual tensor leg
