@@ -33,8 +33,8 @@ class TTNO(TreeTensorNetwork):
 
     """
 
-    def __init__(self, **kwargs):
-        TreeTensorNetwork.__init__(self, **kwargs)
+    def __init__(self):
+        super().__init__()
 
     @classmethod
     def from_hamiltonian(cls, hamiltonian: Hamiltonian, reference_tree: TreeTensorNetwork):
