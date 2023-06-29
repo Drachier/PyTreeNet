@@ -4,6 +4,7 @@ from typing import List, Tuple, Dict
 
 from .node import Node
 
+
 class TreeStructure():
     """
     An abstract tree tensor network (TreeStructure) tree, where each node represents a tensor,
@@ -217,6 +218,34 @@ class TreeStructure():
 
         return subtree
 
+    def find_subtree_size_of_node(self, node_id: str, size=0) -> int:
+        """
+        Obtains the subtree size from a given node
+
+        Args:
+            node_id (str): The identifier of the node from which the subtree
+                should start.
+
+        Raises:
+            ValueError: If node_id is not in the tree.
+
+        Returns:
+            int: Size of subtree at node
+        """
+
+        if node_id not in self._nodes:
+            err_str = f"Node with id {node_id} is not in this tree!"
+            raise ValueError(err_str)
+        current_node = self.nodes[node_id]
+
+        if current_node.is_leaf():
+            return 1
+        size += 1
+        for children_id in current_node.children:
+            size += self.find_subtree_size_of_node(children_id)
+
+        return size
+
     def is_child_of(self, node_id1: str, node_id2: str) -> bool:
         """
         Returns whether the node with `node_id1` is a child of the node with `node_id2`.
@@ -274,7 +303,7 @@ class TreeStructure():
             node = self._nodes[new_node.parent]
             node.replace_child(old_node_id, new_node.identifier)
 
-    def combine_nodes(self, node_id1: str, node_id2: str, new_identifier: str=""):
+    def combine_nodes(self, node_id1: str, node_id2: str, new_identifier: str = ""):
         """
         Combines the two nodes with the given identifiers.
 
@@ -292,10 +321,10 @@ class TreeStructure():
             new_identifier = node_id1 + "contr" + node_id2
 
         # Find new neighbours
-        ## Parent
+        # Parent
         parent_node = self._nodes[parent_id]
         parent_parent_id = parent_node.parent
-        ## Children
+        # Children
         parent_node.remove_child(child_id)
         child_node = self._nodes[child_id]
         temp = [parent_node, child_node]
@@ -322,7 +351,7 @@ class TreeStructure():
         self._replace_node(new_identifier, parent_id)
 
     def split_node(self, old_node_id: str, node1_id: str, neighbours1: List[str],
-                    node2_id: str, neighbours2: List[str]):
+                   node2_id: str, neighbours2: List[str]):
         """
         Splits one node into two.
 
