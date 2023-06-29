@@ -272,7 +272,7 @@ class StateDiagram():
 
     def _find_vertices_connecting_to_he(self, node_id):
         node = self.reference_tree.nodes[node_id]
-        neighbour_ids = node.neighbouring_nodes(with_legs=False)
+        neighbour_ids = node.neighbouring_nodes()
 
         vertices_to_connect_to_new_he = []
         for neighbour_id in neighbour_ids:
