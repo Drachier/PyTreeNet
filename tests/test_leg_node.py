@@ -2,150 +2,152 @@ import unittest
 
 import pytreenet as ptn
 
-class TestLegNodeInit(unittest.TestCase):
+
+class TestNodeInit(unittest.TestCase):
 
     def test_init(self):
-        shapes = [(), (2, ), (2,2), (2,3,4,5)]
+        shapes = [(), (2, ), (2, 2), (2, 3, 4, 5)]
         for shape in shapes:
             random_tensor = ptn.crandn(shape)
-            leg_node = ptn.LegNode(random_tensor)
+            leg_node = ptn.Node(tensor=random_tensor)
             self.assertEqual(len(shape), len(leg_node.leg_permutation))
             self.assertEqual(list(range(len(shape))), leg_node.leg_permutation)
 
     def test_from_node(self):
-        ## All are tested with exactly two open legs
+        # All are tested with exactly two open legs
         # Test empty
-        tensor = ptn.crandn((2,2))
+        tensor = ptn.crandn((2, 2))
         node = ptn.Node()
-        leg_node = ptn.LegNode.from_node(tensor, node)
+        leg_node = ptn.Node.from_node(tensor, node)
 
         self.assertTrue(leg_node.is_root())
         self.assertTrue(leg_node.is_leaf())
         self.assertEqual(list(range(len(tensor.shape))), leg_node.leg_permutation)
 
         # Test leaf
-        tensor = ptn.crandn((2,3,4))
+        tensor = ptn.crandn((2, 3, 4))
         node = ptn.Node()
         parent_id = "parent_id"
         node.add_parent(parent_id)
-        leg_node = ptn.LegNode.from_node(tensor, node)
+        leg_node = ptn.Node.from_node(tensor, node)
 
         self.assertEqual(leg_node.parent, parent_id)
         self.assertTrue(leg_node.is_leaf())
         self.assertEqual(list(range(len(tensor.shape))), leg_node.leg_permutation)
 
         # Test 1 parent 1 child
-        tensor = ptn.crandn((2,3,4,5))
-        node = ptn.Node()
+        tensor = ptn.crandn((2, 3, 4, 5))
+        node = ptn.GraphNode()
         parent_id = "parent_id"
         child_id = "child_id"
         node.add_parent(parent_id)
         node.add_child(child_id)
-        leg_node = ptn.LegNode.from_node(tensor, node)
+        leg_node = ptn.Node.from_node(tensor, node)
 
         self.assertEqual(leg_node.parent, parent_id)
         self.assertEqual(leg_node.children, [child_id])
         self.assertEqual(list(range(len(tensor.shape))), leg_node.leg_permutation)
 
         # Test 1 parent 2 children
-        tensor = ptn.crandn((2,3,4,5))
-        node = ptn.Node()
+        tensor = ptn.crandn((2, 3, 4, 5))
+        node = ptn.GraphNode()
         parent_id = "parent_id"
         children_ids = ["child_id", "child2"]
         node.add_parent(parent_id)
         node.add_children(children_ids)
-        leg_node = ptn.LegNode.from_node(tensor, node)
+        leg_node = ptn.Node.from_node(tensor, node)
 
         self.assertEqual(leg_node.parent, parent_id)
         self.assertEqual(leg_node.children, children_ids)
         self.assertEqual(list(range(len(tensor.shape))), leg_node.leg_permutation)
 
         # Test root 1 child
-        tensor = ptn.crandn((2,3,4,5))
-        node = ptn.Node()
+        tensor = ptn.crandn((2, 3, 4, 5))
+        node = ptn.GraphNode()
         child_id = "child2"
         node.add_child(child_id)
-        leg_node = ptn.LegNode.from_node(tensor, node)
+        leg_node = ptn.Node.from_node(tensor, node)
 
         self.assertTrue(leg_node.is_root())
         self.assertTrue(leg_node.is_parent_of(child_id))
         self.assertEqual(list(range(len(tensor.shape))), leg_node.leg_permutation)
 
         # Test root 2 children
-        tensor = ptn.crandn((2,3,4,5))
-        node = ptn.Node()
+        tensor = ptn.crandn((2, 3, 4, 5))
+        node = ptn.GraphNode()
         children_ids = ["child_id", "child2"]
         node.add_children(children_ids)
-        leg_node = ptn.LegNode.from_node(tensor, node)
+        leg_node = ptn.Node.from_node(tensor, node)
 
         self.assertTrue(leg_node.is_root())
         for child_id in children_ids:
             self.assertTrue(leg_node.is_parent_of(child_id))
         self.assertEqual(list(range(len(tensor.shape))), leg_node.leg_permutation)
 
-class TestLegNodeMethods(unittest.TestCase):
+
+class TestNodeMethods(unittest.TestCase):
 
     def setUp(self):
-        ## All are tested with no and two open legs
+        # All are tested with no and two open legs
         self.nodes = {}
         self.ids = ["empty0", "empty2", "leaf0", "leaf2", "node1p1c0", "node1p1c2",
                     "node1p2c0", "node1p2c2", "root1c0", "root1c2", "root2c0", "root2c2"]
 
         # Empty
         tensor0 = ptn.crandn(())
-        tensor2 = ptn.crandn((2,2))
-        node = ptn.Node()
-        self.nodes["empty0"] = ptn.LegNode.from_node(tensor0, node)
-        self.nodes["empty2"] = ptn.LegNode.from_node(tensor2, node)
+        tensor2 = ptn.crandn((2, 2))
+        node = ptn.GraphNode()
+        self.nodes["empty0"] = ptn.Node.from_node(tensor0, node)
+        self.nodes["empty2"] = ptn.Node.from_node(tensor2, node)
 
         # Leaf
         tensor0 = ptn.crandn((2,))
-        tensor2 = ptn.crandn((2,3,4))
-        node = ptn.Node()
+        tensor2 = ptn.crandn((2, 3, 4))
+        node = ptn.GraphNode()
         parent_id = "parent_id"
         node.add_parent(parent_id)
-        self.nodes["leaf0"] = ptn.LegNode.from_node(tensor0, node)
-        self.nodes["leaf2"] = ptn.LegNode.from_node(tensor2, node)
+        self.nodes["leaf0"] = ptn.Node.from_node(tensor0, node)
+        self.nodes["leaf2"] = ptn.Node.from_node(tensor2, node)
 
         # 1 parent 1 child
-        tensor0 = ptn.crandn((2,3))
-        tensor2 = ptn.crandn((2,3,4,5))
-        node = ptn.Node()
+        tensor0 = ptn.crandn((2, 3))
+        tensor2 = ptn.crandn((2, 3, 4, 5))
+        node = ptn.GraphNode()
         parent_id = "parent_id"
         node.add_parent(parent_id)
         child_id = "child_id"
         node.add_child(child_id)
-        self.nodes["node1p1c0"] = ptn.LegNode.from_node(tensor0, node)
-        self.nodes["node1p1c2"] = ptn.LegNode.from_node(tensor2, node)
+        self.nodes["node1p1c0"] = ptn.Node.from_node(tensor0, node)
+        self.nodes["node1p1c2"] = ptn.Node.from_node(tensor2, node)
 
         # 1 parent 2 children
-        tensor0 = ptn.crandn((2,3,4))
-        tensor2 = ptn.crandn((2,3,4,5,6))
-        node = ptn.Node()
+        tensor0 = ptn.crandn((2, 3, 4))
+        tensor2 = ptn.crandn((2, 3, 4, 5, 6))
+        node = ptn.GraphNode()
         parent_id = "parent_id"
         node.add_parent(parent_id)
         children_ids = ["child_id", "child2"]
         node.add_children(children_ids)
-        self.nodes["node1p2c0"] = ptn.LegNode.from_node(tensor0, node)
-        self.nodes["node1p2c2"] = ptn.LegNode.from_node(tensor2, node)
+        self.nodes["node1p2c0"] = ptn.Node.from_node(tensor0, node)
+        self.nodes["node1p2c2"] = ptn.Node.from_node(tensor2, node)
 
         # Root 1 child
         tensor0 = ptn.crandn((2))
-        tensor2 = ptn.crandn((2,3,4))
-        node = ptn.Node()
+        tensor2 = ptn.crandn((2, 3, 4))
+        node = ptn.GraphNode()
         child_id = "child_id"
         node.add_child(child_id)
-        self.nodes["root1c0"] = ptn.LegNode.from_node(tensor0, node)
-        self.nodes["root1c2"] = ptn.LegNode.from_node(tensor2, node)
+        self.nodes["root1c0"] = ptn.Node.from_node(tensor0, node)
+        self.nodes["root1c2"] = ptn.Node.from_node(tensor2, node)
 
         # Root 2 children
-        tensor0 = ptn.crandn((2,3))
-        tensor2 = ptn.crandn((2,3,4,5))
-        node = ptn.Node()
+        tensor0 = ptn.crandn((2, 3))
+        tensor2 = ptn.crandn((2, 3, 4, 5))
+        node = ptn.GraphNode()
         children_ids = ["child_id", "child2"]
         node.add_children(children_ids)
-        self.nodes["root2c0"] = ptn.LegNode.from_node(tensor0, node)
-        self.nodes["root2c2"] = ptn.LegNode.from_node(tensor2, node)
+        self.nodes["root2c0"] = ptn.Node.from_node(tensor0, node)
+        self.nodes["root2c2"] = ptn.Node.from_node(tensor2, node)
 
     def test_nlegs(self):
         correct_numbers = [0, 2, 1, 3, 2, 4, 3, 5, 1, 3, 2, 4]
@@ -288,7 +290,7 @@ class TestLegNodeMethods(unittest.TestCase):
         leg_value1 = [self.nodes[ids].get_child_leg("child_id")
                       for ids in id_list]
         leg_value2 = [self.nodes[ids].get_child_leg("child2")
-                       for ids in id_list]
+                      for ids in id_list]
         leg_values = zip(leg_value1, leg_value2)
         leg_values = dict(zip(id_list, leg_values))
 
