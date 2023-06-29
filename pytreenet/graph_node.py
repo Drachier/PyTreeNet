@@ -203,28 +203,3 @@ def assert_legs_matching(node1: GraphNode, leg1_index: int, node2: GraphNode, le
     leg1_dimension = node1.shape[leg1_index]
     leg2_dimension = node2.shape[leg2_index]
     assert leg1_dimension == leg2_dimension
-
-
-# def conjugate_node(node, deep_copy=True, conj_neighbours=False):
-#     """
-#     Returns a copy of the same node but with all entries complex conjugated
-#     and with a new identifier and tag. If conj_neighbours all the identifiers
-#     in node's legs will have ann added "conj_" in front.
-#     """
-#     conj_node = copy_object(node, deep=deep_copy)
-#     new_identifier = "conj_" + conj_node.identifier
-#     new_tag = "conj_" + conj_node.tag
-
-#     conj_node.identifier = new_identifier
-#     conj_node.tag = new_tag
-
-#     if conj_neighbours:
-#         if not node.is_root():
-#             conj_node.parent_leg[0] = "conj_" + conj_node.parent_leg[0]
-#         children_legs = conj_node.children_legs
-#         conj_children_legs = {("conj_" + child_id): children_legs[child_id]
-#                               for child_id in children_legs}
-#         conj_node.children_legs = conj_children_legs
-
-#     conj_node.tensor = np.conj(conj_node.tensor)
-#     return conj_node
