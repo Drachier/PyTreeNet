@@ -5,6 +5,7 @@ import numpy as np
 
 import pytreenet as ptn
 
+
 class TestTreeTensorNetworkBasics(unittest.TestCase):
 
     def setUp(self):
@@ -63,6 +64,7 @@ class TestTreeTensorNetworkBasics(unittest.TestCase):
         self.assertEqual(self.tensortree.nodes["new_root"].children, ["orig_root"])
         self.assertEqual(self.tensortree.nodes["orig_root"].parent, "new_root")
 
+
 class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def setUp(self):
         self.tensortree = ptn.TreeTensorNetwork()
@@ -88,24 +90,24 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         self.tensortree.add_child_to_parent(node9, tensor9, 2, "id8", 2)
 
     def test_absorb_into_open_legs(self):
-        tensor_shape_dict = {"id1": (4,5,4,5),
-                             "id2": (3,3),
-                             "id3": (3,4,3,4),
-                             "id4": (3,4,5,3,4,5),
-                             "id5": (5,5),
-                             "id6": (3,4,5,3,4,5),
-                             "id7": (2,4,5,2,4,5),
-                             "id8": (2,5,2,5),
-                             "id9": (2,3,5,2,3,5)}
-        node_open_leg_values = {"id1": [2,3],
+        tensor_shape_dict = {"id1": (4, 5, 4, 5),
+                             "id2": (3, 3),
+                             "id3": (3, 4, 3, 4),
+                             "id4": (3, 4, 5, 3, 4, 5),
+                             "id5": (5, 5),
+                             "id6": (3, 4, 5, 3, 4, 5),
+                             "id7": (2, 4, 5, 2, 4, 5),
+                             "id8": (2, 5, 2, 5),
+                             "id9": (2, 3, 5, 2, 3, 5)}
+        node_open_leg_values = {"id1": [2, 3],
                                 "id2": [3],
-                                "id3": [2,3],
-                                "id4": [1,2,3],
+                                "id3": [2, 3],
+                                "id4": [1, 2, 3],
                                 "id5": [3],
-                                "id6": [1,2,3],
-                                "id7": [1,2,3],
-                                "id8": [2,3],
-                                "id9": [1,2,3]}
+                                "id6": [1, 2, 3],
+                                "id7": [1, 2, 3],
+                                "id8": [2, 3],
+                                "id9": [1, 2, 3]}
 
         for node_id, node_tensor in self.tensortree.tensors.items():
             tensor = ptn.crandn(tensor_shape_dict[node_id])
@@ -124,12 +126,12 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         contracted_node, contracted_tensor = self.tensortree["id8contrid9"]
 
         # Test Node
-        self.assertTrue(isinstance(contracted_node, ptn.LegNode))
+        self.assertTrue(isinstance(contracted_node, ptn.Node))
         self.assertEqual(contracted_node.children, [])
         self.assertEqual(contracted_node.parent, "id1")
 
         # Test Tensor
-        correct_shape = (3,2,5,2,3,5)
+        correct_shape = (3, 2, 5, 2, 3, 5)
         self.assertEqual(correct_shape, contracted_tensor.shape)
 
         # Test Connectivity
@@ -141,12 +143,12 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         contracted_node, contracted_tensor = self.tensortree[contracted_id]
 
         # Test Node
-        self.assertTrue(isinstance(contracted_node, ptn.LegNode))
+        self.assertTrue(isinstance(contracted_node, ptn.Node))
         self.assertEqual(contracted_node.children, ["id6"])
         self.assertEqual(contracted_node.parent, "id2")
 
         # Test Tensor
-        correct_shape = (4,2,5,2,4,5)
+        correct_shape = (4, 2, 5, 2, 4, 5)
         self.assertEqual(correct_shape, contracted_tensor.shape)
 
         # Test Connectivity
@@ -159,13 +161,13 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         contracted_node, contracted_tensor = self.tensortree[contracted_id]
 
         # Test Node
-        child_ids = ["id3","id6","id7"]
-        self.assertTrue(isinstance(contracted_node, ptn.LegNode))
+        child_ids = ["id3", "id6", "id7"]
+        self.assertTrue(isinstance(contracted_node, ptn.Node))
         self.assertEqual(contracted_node.children, child_ids)
         self.assertEqual(contracted_node.parent, "id1")
 
         # Test Tensor
-        correct_shape = (2,5,2,3,3,5)
+        correct_shape = (2, 5, 2, 3, 3, 5)
         self.assertEqual(correct_shape, contracted_tensor.shape)
 
         # Test Connectivity
@@ -179,13 +181,13 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         contracted_node, contracted_tensor = self.tensortree[contracted_id]
 
         # Test Node
-        child_ids = ["id8","id3","id5"]
-        self.assertTrue(isinstance(contracted_node, ptn.LegNode))
+        child_ids = ["id8", "id3", "id5"]
+        self.assertTrue(isinstance(contracted_node, ptn.Node))
         self.assertEqual(contracted_node.children, child_ids)
         self.assertTrue(contracted_node.is_root())
 
         # Test Tensor
-        correct_shape = (3,5,4,4,5,3)
+        correct_shape = (3, 5, 4, 4, 5, 3)
         self.assertEqual(correct_shape, contracted_tensor.shape)
 
         # Test Connectivity
@@ -194,9 +196,9 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
 
     def test_tensor_split_leaf_q1parent_vs_r3open(self):
         q_legs = {"parent_leg": "id8", "child_legs": [], "open_legs": []}
-        r_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1,2,3]}
+        r_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1, 2, 3]}
         self.tensortree.split_node_qr("id9", q_legs, r_legs,
-                                        q_identifier="q9", r_identifier="r9")
+                                      q_identifier="q9", r_identifier="r9")
 
         q_node, q_tensor = self.tensortree["q9"]
         r_node, r_tensor = self.tensortree["r9"]
@@ -210,15 +212,15 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
 
         # Test Tensors
         self.assertEqual((4, r_tensor.shape[0]), q_tensor.shape)
-        self.assertEqual((q_tensor.shape[1],2,3,5), r_tensor.shape)
-        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=(1,1))
+        self.assertEqual((q_tensor.shape[1], 2, 3, 5), r_tensor.shape)
+        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=(1, 1))
         self.assertTrue(np.allclose(np.eye(q_tensor.shape[0]), found_identity))
 
     def test_tensor_splitqr_leaf_r3open_vs_q1parent(self):
         r_legs = {"parent_leg": "id8", "child_legs": [], "open_legs": []}
-        q_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1,2,3]}
+        q_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1, 2, 3]}
         self.tensortree.split_node_qr("id9", q_legs, r_legs,
-                                        q_identifier="q9", r_identifier="r9")
+                                      q_identifier="q9", r_identifier="r9")
 
         q_node, q_tensor = self.tensortree["q9"]
         r_node, r_tensor = self.tensortree["r9"]
@@ -232,15 +234,15 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
 
         # Test Tensors
         self.assertEqual((4, q_tensor.shape[0]), r_tensor.shape)
-        self.assertEqual((r_tensor.shape[1],2,3,5), q_tensor.shape)
-        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([1,2,3],[1,2,3]))
+        self.assertEqual((r_tensor.shape[1], 2, 3, 5), q_tensor.shape)
+        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([1, 2, 3], [1, 2, 3]))
         self.assertTrue(np.allclose(np.eye(q_tensor.shape[0]), found_identity))
 
     def test_tensor_splitqr_node_q1parent1open_vs_r1child1open(self):
         q_legs = {"parent_leg": "id1", "child_legs": [], "open_legs": [2]}
         r_legs = {"parent_leg": None, "child_legs": ["id9"], "open_legs": [3]}
         self.tensortree.split_node_qr("id8", q_legs, r_legs,
-                                        q_identifier="q8", r_identifier="r8")
+                                      q_identifier="q8", r_identifier="r8")
 
         q_node, q_tensor = self.tensortree["q8"]
         r_node, r_tensor = self.tensortree["r8"]
@@ -258,15 +260,15 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
 
         # Test Tensors
         self.assertEqual((3, r_tensor.shape[0], 2), q_tensor.shape)
-        self.assertEqual((q_tensor.shape[1],4,5), r_tensor.shape)
-        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([0,2],[0,2]))
+        self.assertEqual((q_tensor.shape[1], 4, 5), r_tensor.shape)
+        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([0, 2], [0, 2]))
         self.assertTrue(np.allclose(np.eye(q_tensor.shape[1]), found_identity))
 
     def test_tensor_splitqr_node_q1parent1child_vs_r1child1open(self):
         q_legs = {"parent_leg": "id2", "child_legs": ["id6"], "open_legs": []}
         r_legs = {"parent_leg": None, "child_legs": ["id7"], "open_legs": [3]}
         self.tensortree.split_node_qr("id5", q_legs, r_legs,
-                                        q_identifier="q5", r_identifier="r5")
+                                      q_identifier="q5", r_identifier="r5")
 
         q_node, q_tensor = self.tensortree["q5"]
         r_node, r_tensor = self.tensortree["r5"]
@@ -287,14 +289,14 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         # Test Tensors
         self.assertEqual((4, 2, r_tensor.shape[0]), q_tensor.shape)
         self.assertEqual((q_tensor.shape[2], 3, 5), r_tensor.shape)
-        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([0,1],[0,1]))
+        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([0, 1], [0, 1]))
         self.assertTrue(np.allclose(np.eye(q_tensor.shape[2]), found_identity))
 
     def test_tensor_splitqr_root_q1child1open_vs_r1child1open(self):
         q_legs = {"parent_leg": None, "child_legs": ["id2"], "open_legs": [2]}
         r_legs = {"parent_leg": None, "child_legs": ["id8"], "open_legs": [3]}
         self.tensortree.split_node_qr("id1", q_legs, r_legs,
-                                        q_identifier="q1", r_identifier="r1")
+                                      q_identifier="q1", r_identifier="r1")
 
         q_node, q_tensor = self.tensortree["q1"]
         r_node, r_tensor = self.tensortree["r1"]
@@ -315,14 +317,14 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         # Test Tensors
         self.assertEqual((2, r_tensor.shape[0], 4), q_tensor.shape)
         self.assertEqual((q_tensor.shape[1], 3, 5), r_tensor.shape)
-        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([0,2],[0,2]))
+        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([0, 2], [0, 2]))
         self.assertTrue(np.allclose(np.eye(q_tensor.shape[1]), found_identity))
 
     def test_tensor_splitsvd_leaf_q1parent_vs_r3open(self):
         u_legs = {"parent_leg": "id8", "child_legs": [], "open_legs": []}
-        v_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1,2,3]}
+        v_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1, 2, 3]}
         self.tensortree.split_node_svd("id9", u_legs, v_legs,
-                                        u_identifier="q9", v_identifier="r9")
+                                       u_identifier="q9", v_identifier="r9")
 
         u_node, u_tensor = self.tensortree["q9"]
         v_node, v_tensor = self.tensortree["r9"]
@@ -336,15 +338,15 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
 
         # Test Tensors
         self.assertEqual((4, v_tensor.shape[0]), u_tensor.shape)
-        self.assertEqual((u_tensor.shape[1],2,3,5), v_tensor.shape)
-        found_identity = np.tensordot(u_tensor, u_tensor.conj(), axes=(1,1))
+        self.assertEqual((u_tensor.shape[1], 2, 3, 5), v_tensor.shape)
+        found_identity = np.tensordot(u_tensor, u_tensor.conj(), axes=(1, 1))
         self.assertTrue(np.allclose(np.eye(u_tensor.shape[0]), found_identity))
 
     def test_tensor_splitsvd_leaf_r3open_vs_q1parent(self):
         v_legs = {"parent_leg": "id8", "child_legs": [], "open_legs": []}
-        u_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1,2,3]}
+        u_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1, 2, 3]}
         self.tensortree.split_node_svd("id9", u_legs, v_legs,
-                                        u_identifier="q9", v_identifier="r9")
+                                       u_identifier="q9", v_identifier="r9")
 
         u_node, u_tensor = self.tensortree["q9"]
         v_node, v_tensor = self.tensortree["r9"]
@@ -358,15 +360,15 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
 
         # Test Tensors
         self.assertEqual((4, u_tensor.shape[0]), v_tensor.shape)
-        self.assertEqual((v_tensor.shape[1],2,3,5), u_tensor.shape)
-        found_identity = np.tensordot(u_tensor, u_tensor.conj(), axes=([1,2,3],[1,2,3]))
+        self.assertEqual((v_tensor.shape[1], 2, 3, 5), u_tensor.shape)
+        found_identity = np.tensordot(u_tensor, u_tensor.conj(), axes=([1, 2, 3], [1, 2, 3]))
         self.assertTrue(np.allclose(np.eye(u_tensor.shape[0]), found_identity))
 
     def test_tensor_splitsvd_node_q1parent1open_vs_r1child1open(self):
         u_legs = {"parent_leg": "id1", "child_legs": [], "open_legs": [2]}
         v_legs = {"parent_leg": None, "child_legs": ["id9"], "open_legs": [3]}
         self.tensortree.split_node_svd("id8", u_legs, v_legs,
-                                        u_identifier="q8", v_identifier="r8")
+                                       u_identifier="q8", v_identifier="r8")
 
         u_node, u_tensor = self.tensortree["q8"]
         v_node, v_tensor = self.tensortree["r8"]
@@ -384,15 +386,15 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
 
         # Test Tensors
         self.assertEqual((3, v_tensor.shape[0], 2), u_tensor.shape)
-        self.assertEqual((u_tensor.shape[1],4,5), v_tensor.shape)
-        found_identity = np.tensordot(u_tensor, u_tensor.conj(), axes=([0,2],[0,2]))
+        self.assertEqual((u_tensor.shape[1], 4, 5), v_tensor.shape)
+        found_identity = np.tensordot(u_tensor, u_tensor.conj(), axes=([0, 2], [0, 2]))
         self.assertTrue(np.allclose(np.eye(u_tensor.shape[1]), found_identity))
 
     def test_tensor_splitsvd_node_q1parent1child_vs_r1child1open(self):
         u_legs = {"parent_leg": "id2", "child_legs": ["id6"], "open_legs": []}
         v_legs = {"parent_leg": None, "child_legs": ["id7"], "open_legs": [3]}
         self.tensortree.split_node_svd("id5", u_legs, v_legs,
-                                        u_identifier="q5", v_identifier="r5")
+                                       u_identifier="q5", v_identifier="r5")
 
         u_node, u_tensor = self.tensortree["q5"]
         v_node, v_tensor = self.tensortree["r5"]
@@ -413,14 +415,14 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         # Test Tensors
         self.assertEqual((4, 2, v_tensor.shape[0]), u_tensor.shape)
         self.assertEqual((u_tensor.shape[2], 3, 5), v_tensor.shape)
-        found_identity = np.tensordot(u_tensor, u_tensor.conj(), axes=([0,1],[0,1]))
+        found_identity = np.tensordot(u_tensor, u_tensor.conj(), axes=([0, 1], [0, 1]))
         self.assertTrue(np.allclose(np.eye(u_tensor.shape[2]), found_identity))
 
     def test_tensor_splitsvd_root_q1child1open_vs_r1child1open(self):
         u_legs = {"parent_leg": None, "child_legs": ["id2"], "open_legs": [2]}
         v_legs = {"parent_leg": None, "child_legs": ["id8"], "open_legs": [3]}
         self.tensortree.split_node_svd("id1", u_legs, v_legs,
-                                        u_identifier="q1", v_identifier="r1")
+                                       u_identifier="q1", v_identifier="r1")
 
         u_node, u_tensor = self.tensortree["q1"]
         v_node, v_tensor = self.tensortree["r1"]
@@ -441,7 +443,7 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         # Test Tensors
         self.assertEqual((2, v_tensor.shape[0], 4), u_tensor.shape)
         self.assertEqual((u_tensor.shape[1], 3, 5), v_tensor.shape)
-        found_identity = np.tensordot(u_tensor, u_tensor.conj(), axes=([0,2],[0,2]))
+        found_identity = np.tensordot(u_tensor, u_tensor.conj(), axes=([0, 2], [0, 2]))
         self.assertTrue(np.allclose(np.eye(u_tensor.shape[1]), found_identity))
 
     # TODO: Reactivate later
