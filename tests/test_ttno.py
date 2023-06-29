@@ -6,19 +6,15 @@ import pytreenet as ptn
 class TestTTNOBasics(unittest.TestCase):
 
     def _find_permutation_rec(self, ttno, leg_dict, node_id, perm):
-        """
-        Working Code, but for a wrong contraction order. Might get usefull once
-        we rework contract_completely to work recursively
-        """
+
         node = ttno.nodes[node_id]
 
         input_index = leg_dict[node_id]
         output_index = input_index + len(ttno.nodes)
         perm.extend([input_index, output_index])
-
         if not node.is_leaf():
-            for child_id in node.children_legs:
-                self._find_permutation(ttno, leg_dict, child_id, perm)
+            for child_id in node.children:
+                self._find_permutation_rec(ttno, leg_dict, child_id, perm)
 
     def _find_permutation(self, ttno, leg_dict, node_id, perm):
         distance_to_root = ttno.distance_to_node(ttno.root_id)
