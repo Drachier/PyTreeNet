@@ -32,8 +32,9 @@ def transpose_tensor_by_leg_list(tensor, first_legs, last_legs):
     transposed_tensor = np.transpose(tensor, axes=correct_leg_order)
     return transposed_tensor
 
-def tensor_matricization(tensor, output_legs, input_legs,
-                         correctly_ordered=False):
+
+def tensor_matricization(tensor: np.ndarray, output_legs: tuple[int], input_legs: tuple[int],
+                         correctly_ordered: bool = False):
     """
     Parameters
     ----------
@@ -59,8 +60,8 @@ def tensor_matricization(tensor, output_legs, input_legs,
         tensor_correctly_ordered = tensor
     else:
         tensor_correctly_ordered = transpose_tensor_by_leg_list(tensor,
-                                                            output_legs,
-                                                            input_legs)
+                                                                output_legs,
+                                                                input_legs)
     shape = tensor_correctly_ordered.shape
     output_dimension = prod(shape[0:len(output_legs)])
     input_dimension = prod(shape[len(output_legs):])
@@ -68,7 +69,8 @@ def tensor_matricization(tensor, output_legs, input_legs,
     matrix = np.reshape(tensor_correctly_ordered, (output_dimension, input_dimension))
     return matrix
 
-def _determine_tensor_shape(old_shape, matrix, legs, output = True):
+
+def _determine_tensor_shape(old_shape, matrix, legs, output=True):
     """
     Determines the new shape a matrix is to be reshaped to after a decomposition
     of a tensor of old_shape.
@@ -101,6 +103,7 @@ def _determine_tensor_shape(old_shape, matrix, legs, output = True):
 
     return tuple(new_shape)
 
+
 def tensor_qr_decomposition(tensor, q_legs, r_legs, mode='reduced'):
     """
     Parameters
@@ -128,14 +131,21 @@ def tensor_qr_decomposition(tensor, q_legs, r_legs, mode='reduced'):
     if not mode in {"reduced", "full"}:
         errstr = f"{mode} is no acceptable value for `mode`, use 'reduced' or 'full'!"
         raise ValueError(errstr)
-    matrix = tensor_matricization(tensor, q_legs, r_legs)
+    if q_legs + r_legs == list(range(len(q_legs) + len(r_legs))):
+        correctly_order = True
+    else:
+        correctly_order = False
+    matrix = tensor_matricization(tensor, q_legs, r_legs, correctly_ordered=correctly_order)
     q, r = np.linalg.qr(matrix, mode=mode)
     shape = tensor.shape
-    q_shape = _determine_tensor_shape(shape, q, q_legs, output = True)
-    r_shape = _determine_tensor_shape(shape, r, r_legs, output = False)
+
+    q_shape = _determine_tensor_shape(shape, q, q_legs, output=True)
+    r_shape = _determine_tensor_shape(shape, r, r_legs, output=False)
+
     q = np.reshape(q, q_shape)
     r = np.reshape(r, r_shape)
     return q, r
+
 
 def tensor_svd(tensor, u_legs, v_legs, mode='reduced'):
     """
@@ -165,32 +175,37 @@ def tensor_svd(tensor, u_legs, v_legs, mode='reduced'):
     """
     if (mode != "reduced") and (mode != "full"):
         raise ValueError(f"'mode' may only be 'full' or 'reduced' not {mode}!")
-
+    if u_legs + v_legs == list(range(len(u_legs) + len(v_legs))):
+        correctly_order = True
+    else:
+        correctly_order = False
     # Cases to deal with input format of numpy function
     if mode == 'full':
         full_matrices = True
     elif mode == 'reduced':
         full_matrices = False
 
-    matrix = tensor_matricization(tensor, u_legs, v_legs)
+    matrix = tensor_matricization(tensor, u_legs, v_legs, correctly_ordered=correctly_order)
     u, s, vh = np.linalg.svd(matrix, full_matrices=full_matrices)
     shape = tensor.shape
-    u_shape = _determine_tensor_shape(shape, u, u_legs, output = True)
-    vh_shape = _determine_tensor_shape(shape, vh, v_legs, output = False)
+    u_shape = _determine_tensor_shape(shape, u, u_legs, output=True)
+    vh_shape = _determine_tensor_shape(shape, vh, v_legs, output=False)
     u = np.reshape(u, u_shape)
     vh = np.reshape(vh, vh_shape)
 
     return u, s, vh
 
+
 def check_truncation_parameters(max_bond_dim, rel_tol, total_tol):
     if (type(max_bond_dim) != int) and (max_bond_dim != float("inf")):
         raise TypeError(f"'max_bond_dim' has to be int not {type(max_bond_dim)}!")
     elif max_bond_dim < 0:
-        raise  ValueError("'max_bond_dim' has to be positive.")
+        raise ValueError("'max_bond_dim' has to be positive.")
     elif (rel_tol < 0) and (rel_tol != float("-inf")):
         raise ValueError("'rel_tol' has to be positive or -inf.")
     elif (total_tol < 0) and (total_tol != float("-inf")):
         raise ValueError("'total_tol' has to be positive or -inf.")
+
 
 def truncated_tensor_svd(tensor, u_legs, v_legs,
                          max_bond_dim=100, rel_tol=0.01, total_tol=1e-15):
@@ -226,8 +241,12 @@ def truncated_tensor_svd(tensor, u_legs, v_legs,
         values.
     """
     check_truncation_parameters(max_bond_dim, rel_tol, total_tol)
+    if u_legs + v_legs == list(range(len(u_legs) + len(v_legs))):
+        correctly_order = True
+    else:
+        correctly_order = False
 
-    matrix = tensor_matricization(tensor, u_legs, v_legs)
+    matrix = tensor_matricization(tensor, u_legs, v_legs, correctly_ordered=correctly_order)
     u, s, vh = np.linalg.svd(matrix)
 
     # Here the truncation happens
@@ -242,25 +261,27 @@ def truncated_tensor_svd(tensor, u_legs, v_legs,
         s = [s[0]]
 
     new_bond_dim = len(s)
-    u = u[:,:new_bond_dim]
-    vh = vh[:new_bond_dim,:]
+    u = u[:, :new_bond_dim]
+    vh = vh[:new_bond_dim, :]
 
     shape = tensor.shape
-    u_shape = _determine_tensor_shape(shape, u, u_legs, output = True)
-    vh_shape = _determine_tensor_shape(shape, vh, v_legs, output = False)
+    u_shape = _determine_tensor_shape(shape, u, u_legs, output=True)
+    vh_shape = _determine_tensor_shape(shape, vh, v_legs, output=False)
     u = np.reshape(u, u_shape)
     vh = np.reshape(vh, vh_shape)
 
     return u, np.asarray(s), vh
+
 
 def contr_truncated_svd_splitting(tensor, u_legs, v_legs, **truncation_param):
     """
     Performs a truncated svd, but the singular values are contracted with
     the V tensor.
     """
-    u, s, vh =truncated_tensor_svd(tensor, u_legs, v_legs, **truncation_param)
-    svh = np.tensordot(np.diag(s), vh, axes=(1,0))
+    u, s, vh = truncated_tensor_svd(tensor, u_legs, v_legs, **truncation_param)
+    svh = np.tensordot(np.diag(s), vh, axes=(1, 0))
     return u, svh
+
 
 def compute_transfer_tensor(tensor, open_indices):
     """
