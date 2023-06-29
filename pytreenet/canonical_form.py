@@ -2,16 +2,18 @@ from __future__ import annotations
 
 from copy import copy
 
+
 def canonical_form(ttn: TreeTensorNetwork, orthogonality_center_id: str):
     """
-    Brings the tree_tensor_network in canonical form with
+    Modifies the TreeTensorNetwork (ttn) into canonical form with the center of orthogonality at
+    node with node_id `orthogonality_center_id`.
 
     Parameters
     ----------
     tree_tensor_network : TreeTensorNetwork
         The TTN for which to find the canonical form
     orthogonality_center_id : str
-        The id of the tensor node, which sould be the orthogonality center for
+        The id of the tensor node which is the orthogonality center for
         the canonical form
 
     Returns
@@ -44,15 +46,16 @@ def canonical_form(ttn: TreeTensorNetwork, orthogonality_center_id: str):
             else:
                 q_legs["parent_leg"] = node.parent
                 q_legs["child_legs"].remove(minimum_distance_neighbour_id)
-                r_legs =  {"parent_leg": None,
+                r_legs = {"parent_leg": None,
                           "child_legs": [minimum_distance_neighbour_id],
                           "open_legs": []}
 
             ttn.split_nodes_qr(node_id, q_legs, r_legs,
-                                q_identifier=node_id, r_identifier="R_tensor")
+                               q_identifier=node_id, r_identifier="R_tensor")
 
             ttn.contract_nodes(minimum_distance_neighbour_id, "R_tensor",
                                new_identifier=minimum_distance_neighbour_id)
+
 
 def _find_smallest_distance_neighbour(node: Node, distance_dict: dict[str, int]) -> str:
     """
@@ -61,8 +64,8 @@ def _find_smallest_distance_neighbour(node: Node, distance_dict: dict[str, int])
 
     Parameters
     ----------
-    node : TensorNode
-        TensorNode for which to search.
+    node : Node
+        Node for which to search.
     distance_dict : dict
         Dictionary with the distance of every node to the orthogonality center.
 
