@@ -76,7 +76,7 @@ class Node(GraphNode):
             leg_dict (Dict[str, int]): A dictionary containing all the neighbouring
                 nodes as keys and the actual tensor leg value as value.
         """
-        self.reset_permutation()
+        self._reset_permutation()
         neighbours = self.neighbouring_nodes()
         assert len(neighbours) == len(leg_dict)
         for node_id, leg_value in leg_dict.items():
