@@ -30,8 +30,8 @@ def bosonic_operators(dimension: int = 2) -> Tuple[np.ndarray]:
     don't have the numerically correct entries, but only 1s as entries.
 
     Args:
-        dimension (int, optional): The dimension of the bosonics space to be considers. This determines
-        the size of all the operators.. Defaults to 2.
+        dimension (int, optional): The dimension of the bosonics space to be considers.
+        This determines the size of all the operators. Defaults to 2.
 
     Returns:
         Tuple[np.ndarray]:
