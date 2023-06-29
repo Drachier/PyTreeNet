@@ -50,8 +50,8 @@ def canonical_form(ttn: TreeTensorNetwork, orthogonality_center_id: str):
                           "child_legs": [minimum_distance_neighbour_id],
                           "open_legs": []}
 
-            ttn.split_nodes_qr(node_id, q_legs, r_legs,
-                               q_identifier=node_id, r_identifier="R_tensor")
+            ttn.split_node_qr(node_id, q_legs, r_legs,
+                              q_identifier=node_id, r_identifier="R_tensor")
 
             ttn.contract_nodes(minimum_distance_neighbour_id, "R_tensor",
                                new_identifier=minimum_distance_neighbour_id)

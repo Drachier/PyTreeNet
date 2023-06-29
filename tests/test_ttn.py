@@ -204,8 +204,8 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def test_tensor_split_leaf_q1parent_vs_r3open(self):
         q_legs = {"parent_leg": "id8", "child_legs": [], "open_legs": []}
         r_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1, 2, 3]}
-        self.ttn.split_nodes_qr("id9", q_legs, r_legs,
-                                q_identifier="q9", r_identifier="r9")
+        self.ttn.split_node_qr("id9", q_legs, r_legs,
+                               q_identifier="q9", r_identifier="r9")
 
         q_node, q_tensor = self.ttn["q9"]
         r_node, r_tensor = self.ttn["r9"]
@@ -226,8 +226,8 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def test_tensor_splitqr_leaf_r3open_vs_q1parent(self):
         r_legs = {"parent_leg": "id8", "child_legs": [], "open_legs": []}
         q_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1, 2, 3]}
-        self.ttn.split_nodes_qr("id9", q_legs, r_legs,
-                                q_identifier="q9", r_identifier="r9")
+        self.ttn.split_node_qr("id9", q_legs, r_legs,
+                               q_identifier="q9", r_identifier="r9")
 
         q_node, q_tensor = self.ttn["q9"]
         r_node, r_tensor = self.ttn["r9"]
@@ -248,8 +248,8 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def test_tensor_splitqr_node_q1parent1open_vs_r1child1open(self):
         q_legs = {"parent_leg": "id1", "child_legs": [], "open_legs": [2]}
         r_legs = {"parent_leg": None, "child_legs": ["id9"], "open_legs": [3]}
-        self.ttn.split_nodes_qr("id8", q_legs, r_legs,
-                                q_identifier="q8", r_identifier="r8")
+        self.ttn.split_node_qr("id8", q_legs, r_legs,
+                               q_identifier="q8", r_identifier="r8")
 
         q_node, q_tensor = self.ttn["q8"]
         r_node, r_tensor = self.ttn["r8"]
@@ -274,8 +274,8 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def test_tensor_splitqr_node_q1parent1child_vs_r1child1open(self):
         q_legs = {"parent_leg": "id2", "child_legs": ["id6"], "open_legs": []}
         r_legs = {"parent_leg": None, "child_legs": ["id7"], "open_legs": [3]}
-        self.ttn.split_nodes_qr("id5", q_legs, r_legs,
-                                q_identifier="q5", r_identifier="r5")
+        self.ttn.split_node_qr("id5", q_legs, r_legs,
+                               q_identifier="q5", r_identifier="r5")
 
         q_node, q_tensor = self.ttn["q5"]
         r_node, r_tensor = self.ttn["r5"]
@@ -302,8 +302,8 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def test_tensor_splitqr_root_q1child1open_vs_r1child1open(self):
         q_legs = {"parent_leg": None, "child_legs": ["id2"], "open_legs": [2]}
         r_legs = {"parent_leg": None, "child_legs": ["id8"], "open_legs": [3]}
-        self.ttn.split_nodes_qr("id1", q_legs, r_legs,
-                                q_identifier="q1", r_identifier="r1")
+        self.ttn.split_node_qr("id1", q_legs, r_legs,
+                               q_identifier="q1", r_identifier="r1")
 
         q_node, q_tensor = self.ttn["q1"]
         r_node, r_tensor = self.ttn["r1"]
