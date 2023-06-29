@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Tuple, Dict, List, Callable
 from copy import copy, deepcopy
-from itertools import chain
+from collections import UserDict
 
 import numpy as np
 
@@ -13,7 +13,6 @@ from .leg_specification import LegSpecification
 from .canonical_form import canonical_form
 from .tree_contraction import (completely_contract_tree,
                                contract_two_ttn)
-from collections import UserDict
 
 
 class TensorDict(UserDict):
