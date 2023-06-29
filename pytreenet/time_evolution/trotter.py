@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import List, Union, List, Tuple
+
 import numpy as np
 
 from scipy.linalg import expm
@@ -62,33 +65,39 @@ class SWAPlist(list):
         return True
 
 class TrotterSplitting:
-    def __init__(self, operators, splitting=None, swaps_before=None, swaps_after=None):
-        """
+    """
+    A trotter splitting allows the approximate breaking of exponentials of operators.
+     Different kinds of splitting lead to different error sizes.
+    """
 
-        Parameters
-        ----------
-        operators : list of dict
-            A list of dictionaries, where each dictionary represents an operator
-            with finite support. The values are local single_site operators and
-            the corresponding keys are the identifiers of the sites to which
-            they are to be applied.
-        splitting : list of tuples and tuple, optional
-            A list of tuples which considers the order of the Trotter splitting.
-            The first entry of each tuple is the index of an operator in the
-            operators list. The second entry is a factor.
-            The order in which the tuples appear is the order in which the
-            operators appear in the splitting, while the factor is a factor
-            multiplied to the time in the exponential. If 'splitting' is a list
-            of int every factor is assumed to be 1. If no splitting is provided
-            the order is taken as the order in operators.
-            Defualt is None.
-        swaps_before, swaps_after : list of SWAPlist, optional
-            A list of all the SWAPSlists that are to happen before/after each Trotter
-            step. The index of the SWAPlist corresponds to the index of the
-            tuple in 'splitting' before/after which it is to be applied.
-            The default is None.
-        """
+    def __init__(self, operators: List[Operator],
+                 splitting: Union[List[Tuple[int, int], int], None] = None,
+                 swaps_before: Union[List[SWAPlist], None] = None,
+                 swaps_after: Union[List[SWAPlist], None] = None):
+        """Initialises a TrotterSplitting instance.
 
+        Args:
+            operators (List[Operator]): The operators to be considered.
+            splitting (Union[List[Tuple[int, int], int], None], optional): Gives the order
+             of the splitting. The first tuple entry is a the index of an operator in
+             operators and the second entry is a factor, which will be multiplied to the
+             operator once exponentiated. If only an integer is given, it is assumed to be
+             the index in the operator list and the factor is set to 1. In case of no given
+             splitting the splitting is assumed to be in the order as given in the operator
+             list and all factors are set to 1. Defaults to None.
+            swaps_before (Union[List[SWAPlist], None], optional): The swaps to be applied
+             before an exponentiated operator is applied. The indices are the same as in the
+             splitting. So the SWAP gates given with index `i` will be applied before the
+             operator specified with the `i`th element of splitting happens. Defaults to None.
+            swaps_after (Union[List[SWAPlist], None], optional): The swaps to be applied
+             after an exponentiated operator is applied. The indices are the same as in the
+             splitting. So the SWAP gates given with index `i` will be applied after the
+             operator specified with the `i`th element of splitting happens. Defaults to None.
+
+        Raises:
+            TypeError: Raised if the splitting contains unallowed types.
+        """
+ 
         self.operators = operators
 
         if splitting is None:
@@ -109,7 +118,6 @@ class TrotterSplitting:
             self.swaps_before = [SWAPlist([])] * len(self.splitting)
         else:
             self.swaps_before = swaps_before
-
         if swaps_after is None:
             self.swaps_after = [SWAPlist([])] * len(operators)
         else:
