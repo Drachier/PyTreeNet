@@ -48,3 +48,32 @@ def bosonic_operators(dimension: int = 2) -> Tuple[np.ndarray]:
     number_vector = np.asarray(range(0,dimension))
     number_op = np.diag(number_vector)
     return (creation_op, annihilation_op, number_op)
+
+def swap_gate(dimension: int = 2) -> np.ndarray:
+    """
+    A SWAP gate acts on two systems with the same pysical dimension and swaps
+    their states.
+
+    Args:
+        dimension (int, optional): Physical dimension of the two sites,
+         which has to be the same for both. Defaults to 2.
+
+    Returns:
+        np.ndarray: A SWAP-gate for two `dimension`-dimensional systems.
+    """
+    swap = np.zeros((dimension**2, dimension**2), dtype=complex)
+
+    for i in range(dimension**2):
+        for j in range(dimension**2):
+
+            # Basically find the indices in base dimension
+            output_sys1 = int(i / dimension)
+            output_sys2 = int(i % dimension)
+
+            input_sys1 = int(j / dimension)
+            input_sys2 = int(j % dimension)
+
+            if (output_sys1 == input_sys2) and (input_sys1 == output_sys2):
+                swap[i,j] = 1
+
+    return swap
