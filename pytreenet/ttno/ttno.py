@@ -5,6 +5,7 @@ from ..ttn import TreeTensorNetwork
 from ..tensor_util import tensor_qr_decomposition, tensor_svd, truncated_tensor_svd
 from ..node import Node
 from .state_diagram import StateDiagram
+from ..util import copy_object
 
 from enum import Enum, auto
 
@@ -37,7 +38,7 @@ class TTNO(TreeTensorNetwork):
         super().__init__()
 
     @classmethod
-    def from_hamiltonian(cls, hamiltonian: Hamiltonian, reference_tree: TreeTensorNetwork):
+    def from_hamiltonian(cls, hamiltonian: Hamiltonian, reference_tree: TreeStructure):
         """
 
         Parameters
@@ -57,13 +58,13 @@ class TTNO(TreeTensorNetwork):
 
         state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
                                                       reference_tree)
-        ttno = TTNO(original_tree=reference_tree)
+        ttno = TTNO()
+        ttno._nodes = ttno.tensors.nodes = reference_tree.nodes
         for node_id, hyperedge_coll in state_diagram.hyperedge_colls.items():
             local_tensor, leg_dict = ttno._setup_for_from_hamiltonian(node_id,
                                                                       state_diagram,
                                                                       hamiltonian.conversion_dictionary)
             # Adding the operator corresponding to each hyperedge to the tensor
-
             for he in hyperedge_coll.contained_hyperedges:
                 operator_label = he.label
                 operator = hamiltonian.conversion_dictionary[operator_label]
@@ -76,16 +77,12 @@ class TTNO(TreeTensorNetwork):
                 index_value = tuple(index_value)
                 local_tensor[index_value] += operator
 
-            new_node = TensorNode(local_tensor, identifier=node_id)
-
             node = reference_tree.nodes[node_id]
-            if not node.is_root():
-                parent_id = node.get_parent_id()
-                new_node.open_leg_to_parent(leg_dict[parent_id], parent_id)
-                del leg_dict[parent_id]
+            new_node = copy_object(node, deep=True)
+            new_node.link_tensor(local_tensor)
 
-            new_node.open_legs_to_children(leg_dict.values(), leg_dict.keys())
             ttno.nodes[node_id] = new_node
+            ttno.tensors[node_id] = local_tensor
 
         return ttno
 
@@ -100,13 +97,12 @@ class TTNO(TreeTensorNetwork):
         total_tensor_shape.extend([phys_dim, phys_dim])
 
         node = self.nodes[node_id]
-        neighbours = node.neighbouring_nodes(with_legs=False)
+        neighbours = node.neighbouring_nodes()
         leg_dict = {}
         for leg_index, neighbour_id in enumerate(neighbours):
             leg_dict[neighbour_id] = leg_index
 
-            vertex_coll = state_diagram.get_vertex_coll_two_ids(
-                node_id, neighbour_id)
+            vertex_coll = state_diagram.get_vertex_coll_two_ids(node_id, neighbour_id)
             for index_value, vertex in enumerate(vertex_coll.contained_vertices):
                 vertex.index = (leg_index, index_value)
             # The number of vertices is equal to the number of bond-dimensions required.
