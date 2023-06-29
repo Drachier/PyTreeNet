@@ -35,40 +35,6 @@ def random_hermitian_matrix(size=2):
     matrix = crandn((size,size))
     return matrix + matrix.T
 
-def create_bosonic_operators(dimension=2):
-    """
-    Supplies the common bosonic operators. The creation and anihilation operators
-    don't have the numerically correct entries, but only 1s as entries,
-
-    Parameters
-    ----------
-    dimension : int, optional
-        The dimension of the bosonics space to be considers. This determines
-        the size of all the operators. The default is 2.
-
-    Returns
-    -------
-    creation_op : ndarray
-        Bosonic creation operator, i.e. a matrix with the subdiagonal entries
-        equal to 1 and all others 0.
-    annihilation_op : ndarray
-        Bosonic anihilation operator, i.e. a matrix with the superdiagonal
-        entries equal to 1 and all other 0.
-    number_op : ndarray
-        The bosonic number operator, i.e. a diagonal matrix with increasing
-        integers on the diagonal from 0 to dimension-1.
-
-    """
-
-
-    creation_op = np.eye(dimension, k=-1)
-    annihilation_op = np.conj(creation_op.T)
-
-    number_vector = np.asarray(range(0,dimension))
-    number_op = np.diag(number_vector)
-
-    return creation_op, annihilation_op, number_op
-
 def build_swap_gate(dimension=2):
     """
     A SWAP gate acts on two systems with the same pysical dimension and swappes
