@@ -42,7 +42,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
 
         node2, tensor2 = self.tree_tensor_network["node2"]
         parent_leg2 = node2.parent_leg
-        parent_dimension2 = tensor2.shape[parent_leg2[1]]
+        parent_dimension2 = tensor2.shape[parent_leg2]
         identity = np.eye(parent_dimension2)
 
         open_indices2 = node2.open_legs
@@ -50,6 +50,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
 
         self.assertEqual(transfer_tensor.shape, (2, 2))
         self.assertTrue(np.allclose(identity, transfer_tensor))
+
 
 class TestCanonicalFormComplicated(unittest.TestCase):
     def setUp(self):
@@ -88,12 +89,12 @@ class TestCanonicalFormComplicated(unittest.TestCase):
             if node.identifier != self.tree_tensor_network.root_id:
 
                 open_leg_indices = tuple(node.open_legs)
-                children_leg_indices = tuple(node.children_legs.values())
+                children_leg_indices = tuple(node.children_legs)
                 total_non_center_indices = open_leg_indices + children_leg_indices
 
                 transfer_tensor = ptn.compute_transfer_tensor(tensor, total_non_center_indices)
 
-                dimension_to_center = tensor.shape[node.parent_leg[1]]
+                dimension_to_center = tensor.shape[node.parent_leg]
                 identity = np.eye(dimension_to_center)
 
                 self.assertTrue(np.allclose(identity, transfer_tensor))

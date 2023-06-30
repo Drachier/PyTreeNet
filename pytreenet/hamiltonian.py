@@ -183,7 +183,7 @@ class Hamiltonian(object):
         return full_tensor
 
     def _to_tensor_rec(self, ttn: TreeTensorNetwork, node_id: str, term: dict, tensor: TensorNode):
-        for child_id in ttn.nodes[node_id].children_legs:
+        for child_id in ttn.nodes[node_id].children:
             child_tensor = self.conversion_dictionary[term[child_id]]
             tensor = tensordot(tensor, child_tensor, axes=0)
             tensor = self._to_tensor_rec(ttn, child_id, term, tensor)
