@@ -101,34 +101,35 @@ class Node(GraphNode):
         self._leg_permutation = list(range(len(self._leg_permutation)))
 
     @property
-    def parent_leg(self) -> List[str, int]:
+    def parent_leg(self) -> int:
         """
         Returns parent_leg according to original implementation.
         """
-        return self.get_parent_leg()
+        return 0
+        # return self.get_parent_leg()
 
-    def get_parent_leg(self, dtype=list):
-        """
-        Returns parent_leg according to original implementation.
+    # def get_parent_leg(self, dtype=list):
+    #     """
+    #     Returns parent_leg according to original implementation.
 
-        Args:
-            dtype: The data format in which to return it.
-                `list` will return a list of the form `[parent_id, parent_leg]`
-                `dict` will return a dictionary of the from `{parent_id: parent_leg}`
-        """
-        if self.is_root():
-            errstring = f"Node with identifier {self.identifier} has no parent!"
-            raise ValueError(errstring)
-        if dtype == list:
-            return [self.parent, 0]
-        if dtype == dict:
-            return {self.parent: 0}
-        else:
-            errstring = f"`dtype` can only be `list` or `dict` not {dtype}!"
-            raise ValueError(errstring)
+    #     Args:
+    #         dtype: The data format in which to return it.
+    #             `list` will return a list of the form `[parent_id, parent_leg]`
+    #             `dict` will return a dictionary of the from `{parent_id: parent_leg}`
+    #     """
+    #     if self.is_root():
+    #         errstring = f"Node with identifier {self.identifier} has no parent!"
+    #         raise ValueError(errstring)
+    #     if dtype == list:
+    #         return [self.parent, 0]
+    #     if dtype == dict:
+    #         return {self.parent: 0}
+    #     else:
+    #         errstring = f"`dtype` can only be `list` or `dict` not {dtype}!"
+    #         raise ValueError(errstring)
 
     @property
-    def children_legs(self) -> Dict[str, int]:
+    def children_legs(self) -> list[int]:
         """ 
         Returns the children_legs according to original implementation.
 
@@ -137,8 +138,9 @@ class Node(GraphNode):
                 children identifiers and the values are the indices in the permutation list (NOT the
                 actual tensor legs)
         """
-        return {child_id: index + self.nparents()
-                for index, child_id in enumerate(self.children)}
+        return list(range(self.nparents(), self.nparents() + self.nchildren()))
+        # return {child_id: index + self.nparents()
+        #         for index, child_id in enumerate(self.children)}
 
     @property
     def open_legs(self) -> List[int]:
