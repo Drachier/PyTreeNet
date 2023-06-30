@@ -64,8 +64,9 @@ class SWAPlist(list):
                 return False
 
         return True
-    
-    def into_operators(self, ttn: Union[TreeTensorNetwork, None] = None, dim: Union[int, None] = None) -> List[NumericOperator]:
+
+    def into_operators(self, ttn: Union[TreeTensorNetwork, None] = None,
+                       dim: Union[int, None] = None) -> List[NumericOperator]:
         """
         Turns the list of abstract swaps into a list of numeric operators.
 
@@ -174,7 +175,6 @@ class TrotterSplitting:
         if not.
 
         """
-
         for interaction_operator in self.operators:
             for site_id in interaction_operator:
                 # Check if all operator sites are in the TTN
@@ -232,7 +232,7 @@ class TrotterSplitting:
         for i, split in enumerate(self.splitting):
             term = self.terms[split[0]]
             factor = split[1]
-            numerical_term = 1 # Saves the total operator
+            total_operator = 1 # Saves the total operator
             site_ids = [] # Saves the ids of nodes to which the operator is applied
             for node_id, single_site_operator in term.items():
                 total_operator = np.kron(total_operator,
@@ -242,35 +242,9 @@ class TrotterSplitting:
             exponentiated_operator = NumericOperator(exponentiated_operator, site_ids)
 
             # Build required swaps for befor trotter term
-            swaps_before = []
-            for swap_pair in self.swaps_before[i]:
-                if dim is None:
-                    dimension = ttn.nodes[swap_pair[0]].open_dimension()
-                else:
-                    dimension = dim
-
-                swap_gate = swap_gate(dimension=dimension)
-
-                swap_operator = {"operator": swap_gate,
-                                 "site_ids": list(swap_pair)}
-
-                swaps_before.append(swap_operator)
-
+            swaps_before = self.swaps_before[i].into_operators(ttn=ttn, dim=dim)
             # Build required swaps for after trotter term
-            swaps_after = []
-
-            for swap_pair in self.swaps_after[i]:
-                if dim == None:
-                    dimension = ttn.nodes[swap_pair[0]].open_dimension()
-                else:
-                    dimension = dim
-
-                swap_gate = build_swap_gate(dimension=dimension)
-
-                swap_operator = {"operator": swap_gate,
-                                 "site_ids": list(swap_pair)}
-
-                swaps_after.append(swap_operator)
+            swaps_after = self.swaps_after[i].into_operators(ttn=ttn, dim=dim)
 
             # Add all operators associated with this term to the list of unitaries
             unitary_operators.extend(swaps_before)
