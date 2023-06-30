@@ -5,8 +5,8 @@ import numpy as np
 
 from scipy.linalg import expm
 
+from ..operators.operator import NumericOperator
 from ..operators.common_operators import swap_gate
-
 
 class SWAPlist(list):
 
@@ -64,7 +64,37 @@ class SWAPlist(list):
                 return False
 
         return True
+    
+    def into_operators(self, ttn: Union[TreeTensorNetwork, None] = None, dim: Union[int, None] = None) -> List[NumericOperator]:
+        """
+        Turns the list of abstract swaps into a list of numeric operators.
 
+        Args:
+            ttn (TreeTensorNetwork): A tree tensor network from which the dimensions can
+             be determined. Default to None.
+            dim (Union[int, None], optional): Can be given, if all nodes that have
+             to be swapped have the same dimension. Defaults to None.
+
+        Returns:
+            List[NumericOperator]: A list of numeric operators corresponding to the
+             swaps defined in this instance.
+
+        Raises:
+            ValueError: If ttn and dim are both None.
+        """
+        if ttn is None and dim is None:
+            errstr = "`ttn` and `dim` cannot both be `None`!"
+            raise ValueError(errstr)
+        operator_list = []
+        if dim is not None:
+            swap_matrix = swap_gate(dimension=dim)
+        for swap_pair in self:
+            if ttn is not None:
+                dim = ttn.nodes[swap_pair[0]].open_dimension()
+                swap_matrix = swap_gate(dimension=dim)
+            swap_operator = NumericOperator(swap_matrix, list(swap_pair))
+            operator_list.append(swap_operator)
+        return operator_list
 
 class TrotterSplitting:
     """
@@ -72,7 +102,7 @@ class TrotterSplitting:
      Different kinds of splitting lead to different error sizes.
     """
 
-    def __init__(self, terms: List[term],
+    def __init__(self, terms: List[Term],
                  splitting: Union[List[Tuple[int, int], int], None] = None,
                  swaps_before: Union[List[SWAPlist], None] = None,
                  swaps_after: Union[List[SWAPlist], None] = None):
@@ -99,11 +129,11 @@ class TrotterSplitting:
         Raises:
             TypeError: Raised if the splitting contains unallowed types.
         """
-        self.terms = term
+        self.terms = terms
 
         if splitting is None:
             # Default splitting
-            self.splitting = [(index, 1) for index in range(len(operators))]
+            self.splitting = [(index, 1) for index in range(len(terms))]
         else:
             self.splitting = []
             for item in splitting:
@@ -184,7 +214,7 @@ class TrotterSplitting:
             The time step size for the trotter-splitting.
         dim : int, optional
             If all nodes have the same physical dimension, it can be provided
-            herer. Speeds up the computation especially for big TTN.
+            here. Speeds up the computation especially for big TTN.
             The default is None.
 
         Returns
@@ -198,34 +228,28 @@ class TrotterSplitting:
             they key `"site_ids"`.
             """
 
-        unitary_operators = []  # Includes the neccessary SWAPs
-        for i, term in enumerate(self.splitting):
-            interaction_operator = self.operators[term[0]]
-            factor = term[1]
-
-            total_operator = 1  # Saves the total operator
-            site_ids = []  # Saves the ids of nodes to which the operator is applied
-
-            for site in interaction_operator:
+        unitary_operators = [] # Includes the neccessary SWAPs
+        for i, split in enumerate(self.splitting):
+            term = self.terms[split[0]]
+            factor = split[1]
+            numerical_term = 1 # Saves the total operator
+            site_ids = [] # Saves the ids of nodes to which the operator is applied
+            for node_id, single_site_operator in term.items():
                 total_operator = np.kron(total_operator,
-                                         interaction_operator[site])
-
-                site_ids.append(site)
-
+                                              single_site_operator)
+                site_ids.append(node_id)
             exponentiated_operator = expm((-1j*factor*delta_time) * total_operator)
-            exponentiated_operator = {"operator": exponentiated_operator,
-                                      "site_ids": site_ids}
+            exponentiated_operator = NumericOperator(exponentiated_operator, site_ids)
 
             # Build required swaps for befor trotter term
             swaps_before = []
-
             for swap_pair in self.swaps_before[i]:
-                if dim == None:
+                if dim is None:
                     dimension = ttn.nodes[swap_pair[0]].open_dimension()
                 else:
                     dimension = dim
 
-                swap_gate = build_swap_gate(dimension=dimension)
+                swap_gate = swap_gate(dimension=dimension)
 
                 swap_operator = {"operator": swap_gate,
                                  "site_ids": list(swap_pair)}
