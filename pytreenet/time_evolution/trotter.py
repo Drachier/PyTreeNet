@@ -250,5 +250,4 @@ class TrotterSplitting:
             unitary_operators.extend(swaps_before)
             unitary_operators.append(exponentiated_operator)
             unitary_operators.extend(swaps_after)
-
         return unitary_operators

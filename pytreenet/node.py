@@ -106,27 +106,6 @@ class Node(GraphNode):
         Returns parent_leg according to original implementation.
         """
         return 0
-        # return self.get_parent_leg()
-
-    # def get_parent_leg(self, dtype=list):
-    #     """
-    #     Returns parent_leg according to original implementation.
-
-    #     Args:
-    #         dtype: The data format in which to return it.
-    #             `list` will return a list of the form `[parent_id, parent_leg]`
-    #             `dict` will return a dictionary of the from `{parent_id: parent_leg}`
-    #     """
-    #     if self.is_root():
-    #         errstring = f"Node with identifier {self.identifier} has no parent!"
-    #         raise ValueError(errstring)
-    #     if dtype == list:
-    #         return [self.parent, 0]
-    #     if dtype == dict:
-    #         return {self.parent: 0}
-    #     else:
-    #         errstring = f"`dtype` can only be `list` or `dict` not {dtype}!"
-    #         raise ValueError(errstring)
 
     @property
     def children_legs(self) -> list[int]:
@@ -139,8 +118,6 @@ class Node(GraphNode):
                 actual tensor legs)
         """
         return list(range(self.nparents(), self.nparents() + self.nchildren()))
-        # return {child_id: index + self.nparents()
-        #         for index, child_id in enumerate(self.children)}
 
     @property
     def open_legs(self) -> List[int]:
