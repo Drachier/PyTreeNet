@@ -198,8 +198,8 @@ class TrotterSplitting:
 
         return True
 
-    def exponentiate_splitting(self, ttn: TreeTensorNetwork, delta_time: float,
-                               dim: Union[int, None] = None):
+    def exponentiate_splitting(self, delta_time: float, ttn: TreeTensorNetwork = None,
+                               dim: Union[int, None] = None) -> List[NumericOperator]:
         """
         Computes all operators, which are to actually be applied in a time-
         evolution algorithm. This includes SWAP gates and exponentiated
@@ -219,7 +219,7 @@ class TrotterSplitting:
 
         Returns
         -------
-        unitary_operators : list of dict
+        unitary_operators : list of Operator
             All operators that make up one time-step of the Trotter splitting.
             They are to be applied according to their index order in the list.
             Each operator is saved as a dictionary, where the actual operator
