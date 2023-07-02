@@ -30,6 +30,20 @@ class SymbolicOperator(Operator):
     def __init__(self, operator: str, node_identifiers: List[str]):
         super().__init__(operator, node_identifiers)
 
+    def to_numeric(self, conversion_dict: Dict[str, np.ndarray]) -> NumericOperator:
+        """
+        Converts a symbolic operator into an equivalent numeric operator.
+
+        Args:
+            conversion_dict (Dict[str, np.ndarray]): The numeric values in the form of
+             an array for the symbol.
+
+        Returns:
+            NumericOperator: The converted operator.
+        """
+        return NumericOperator(conversion_dict[self.operator],
+                               self.node_identifiers)
+
 class Term(UserDict):
     """
     Contains multiple single site matrices and the identifiers of the nodes they are applied
@@ -45,7 +59,7 @@ class Term(UserDict):
     @classmethod
     def from_operators(cls, operators: List[Operator]) -> Term:
         """
-        Obtain a term from a list of operators.
+        Obtain a term from a list of single site operators.
         """
         term = Term()
         for operator in operators:
