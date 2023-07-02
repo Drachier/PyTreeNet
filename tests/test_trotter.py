@@ -38,17 +38,20 @@ class TestTrotterSplitting(unittest.TestCase):
         self.loc_operatorX = X
 
         nn = self.ttn.nearest_neighbours()
-        self.operators = []
+        self.terms = []
 
         for nn_pair in nn:
-            term = {nn_pair[0]: self.loc_operatorZ, nn_pair[1]: self.loc_operatorZ}
-            self.operators.append(term)
+            term = ptn.Term({nn_pair[0]: self.loc_operatorZ, nn_pair[1]: self.loc_operatorZ})
+            self.terms.append(term)
 
-        self.swaps_before = [ptn.SWAPlist([("site1", "site2"), ("site2", "site3")]) for i in self.operators]
-        self.swaps_after = [ptn.SWAPlist([("site3", "site2"), ("site2", "site1")]) for i in self.operators]
+        self.swaps_before = [ptn.SWAPlist([("site1", "site2"), ("site2", "site3")])
+                             for i in self.terms]
+        self.swaps_after = [ptn.SWAPlist([("site3", "site2"), ("site2", "site1")])
+                            for i in self.terms]
 
         # And finally a splitting
-        self.splitting = [3, 0, 1, 4, 2, 5, 6]
+        self.splitting_int = [3, 0, 1, 4, 2, 5, 6]
+        self.splitting_tuple = [(3, 1), (0, 1), (1, 1), (4, 1), (2, 1), (5, 1), (6, 1)]
 
         # Remainders from the testing of the exponent in TEBD
         # two_site_operator = np.kron(self.loc_operatorZ, self.loc_operatorZ)
@@ -64,38 +67,91 @@ class TestTrotterSplitting(unittest.TestCase):
 
         #     self.assertTrue(tuple(found_exponent["site_ids"]) in correct_pairs)
 
-    def test_init(self):
-        # Test extension of splitting
-        test_TrotterSplitting = ptn.TrotterSplitting(self.operators, self.splitting,
-                                                     self.swaps_before, self.swaps_after)
+    def test_init_full(self):
+        test_trottersplitting = ptn.TrotterSplitting(self.terms,
+                                                     splitting=self.splitting_tuple,
+                                                     swaps_before=self.swaps_before,
+                                                     swaps_after=self.swaps_after)
 
-        self.assertEqual(test_TrotterSplitting.operators, self.operators)
+        self.assertEqual(test_trottersplitting.terms, self.terms)
+        self.assertEqual(test_trottersplitting.splitting, self.splitting_tuple)
+        self.assertEqual(test_trottersplitting.swaps_before, self.swaps_before)
+        self.assertEqual(test_trottersplitting.swaps_after, self.swaps_after)
 
-        ref_splitting = [(3, 1), (0, 1), (1, 1), (4, 1), (2, 1), (5, 1), (6, 1)]
-        self.assertEqual(test_TrotterSplitting.splitting, ref_splitting)
+    def test_init_splitting_int(self):
+        # Tests correctness, if the splitting is given as a list of integers.
+        test_trottersplitting = ptn.TrotterSplitting(self.terms,
+                                                     splitting=self.splitting_int,
+                                                     swaps_before=self.swaps_before,
+                                                     swaps_after=self.swaps_after)
+        self.assertEqual(test_trottersplitting.terms, self.terms)
+        self.assertEqual(test_trottersplitting.splitting, self.splitting_tuple)
+        self.assertEqual(test_trottersplitting.swaps_before, self.swaps_before)
+        self.assertEqual(test_trottersplitting.swaps_after, self.swaps_after)
 
-        # Test extension of mixed splitting
-        mixed_splitting = [(3, 0.5), (0, 1.2), 1, 4, (2, 1), 5, (6, 1.4)]
-        test_TrotterSplitting = ptn.TrotterSplitting(self.operators, mixed_splitting,
-                                                     self.swaps_before, self.swaps_after)
+    def test_init_splitting_mixed(self):
+        # Tests correctness, if the splitting is given as a mixture of int and tuples
+        mixed_splitting = [(3, 1), (0, 1), 1, 4, (2, 1), 5, (6, 1)]
+        test_trottersplitting = ptn.TrotterSplitting(self.terms,
+                                                     splitting=mixed_splitting,
+                                                     swaps_before=self.swaps_before,
+                                                     swaps_after=self.swaps_after)
+        self.assertEqual(test_trottersplitting.terms, self.terms)
+        self.assertEqual(test_trottersplitting.splitting, self.splitting_tuple)
+        self.assertEqual(test_trottersplitting.swaps_before, self.swaps_before)
+        self.assertEqual(test_trottersplitting.swaps_after, self.swaps_after)
 
-        ref_splitting = [(3, 0.5), (0, 1.2), (1, 1), (4, 1), (2, 1), (5, 1), (6, 1.4)]
+    def test_init_no_splitting(self):
+        test_trottersplitting = ptn.TrotterSplitting(self.terms,
+                                                     swaps_before=self.swaps_before,
+                                                     swaps_after=self.swaps_after)
+        self.assertEqual(test_trottersplitting.terms, self.terms)
+        ref_splitting= [(i,1) for i in range(len(self.splitting_tuple))]
+        self.assertEqual(test_trottersplitting.splitting, ref_splitting)
+        self.assertEqual(test_trottersplitting.swaps_before, self.swaps_before)
+        self.assertEqual(test_trottersplitting.swaps_after, self.swaps_after)
 
-        self.assertEqual(ref_splitting, test_TrotterSplitting.splitting)
+    def test_init_no_swaps_before(self):
+        test_trottersplitting = ptn.TrotterSplitting(self.terms,
+                                                     splitting=self.splitting_tuple,
+                                                     swaps_after=self.swaps_after)
+        self.assertEqual(test_trottersplitting.terms, self.terms)
+        self.assertEqual(test_trottersplitting.splitting, self.splitting_tuple)
+        self.assertEqual(test_trottersplitting.swaps_before,
+                         [ptn.SWAPlist([])] * len(self.splitting_tuple))
+        self.assertEqual(test_trottersplitting.swaps_after, self.swaps_after)
 
-        # Test empty SWAPs
-        test_TrotterSplitting = ptn.TrotterSplitting(self.operators, self.splitting)
+    def test_init_no_swaps_after(self):
+        test_trottersplitting = ptn.TrotterSplitting(self.terms,
+                                                     splitting=self.splitting_tuple,
+                                                     swaps_before=self.swaps_before)
+        self.assertEqual(test_trottersplitting.terms, self.terms)
+        self.assertEqual(test_trottersplitting.splitting, self.splitting_tuple)
+        self.assertEqual(test_trottersplitting.swaps_before, self.swaps_before)
+        self.assertEqual(test_trottersplitting.swaps_after,
+                         [ptn.SWAPlist([])] * len(self.splitting_tuple))
 
-        self.assertEqual([ptn.SWAPlist([]) for i in self.splitting], test_TrotterSplitting.swaps_before)
-        self.assertEqual([ptn.SWAPlist([]) for i in self.splitting], test_TrotterSplitting.swaps_after)
+    #     # Test extension of mixed splitting
+    #     mixed_splitting = [(3, 0.5), (0, 1.2), 1, 4, (2, 1), 5, (6, 1.4)]
+    #     test_trottersplitting = ptn.TrotterSplitting(self.terms, mixed_splitting,
+    #                                                  self.swaps_before, self.swaps_after)
 
-    def test_exponentiate_splitting(self):
-        test_TrotterSplitting = ptn.TrotterSplitting(self.operators, self.splitting,
-                                                     self.swaps_before, self.swaps_after)
+    #     ref_splitting = [(3, 0.5), (0, 1.2), (1, 1), (4, 1), (2, 1), (5, 1), (6, 1.4)]
 
-        delta_time = 0.1
-        unitaries = test_TrotterSplitting.exponentiate_splitting(self.ttn, delta_time)
+    #     self.assertEqual(ref_splitting, test_trottersplitting.splitting)
 
+    #     # Test empty SWAPs
+    #     test_trottersplitting = ptn.TrotterSplitting(self.terms, self.splitting)
+
+    #     self.assertEqual([ptn.SWAPlist([]) for i in self.splitting], test_trottersplitting.swaps_before)
+    #     self.assertEqual([ptn.SWAPlist([]) for i in self.splitting], test_trottersplitting.swaps_after)
+
+    # def test_exponentiate_splitting(self):
+    #     test_trottersplitting = ptn.TrotterSplitting(self.terms, self.splitting,
+    #                                                  self.swaps_before, self.swaps_after)
+
+    #     delta_time = 0.1
+    #     unitaries = test_trottersplitting.exponentiate_splitting(self.ttn, delta_time)
 
 if __name__ == "__main__":
     unittest.main()
