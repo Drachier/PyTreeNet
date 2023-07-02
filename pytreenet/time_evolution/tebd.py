@@ -3,6 +3,8 @@ from typing import Dict, List, Union
 
 from ..ttns import TreeTensorNetworkState
 from .time_evolution import TimeEvolution
+from .trotter import TrotterSplitting
+from ..operators.operator import NumericOperator
 
 class TEBD(TimeEvolution):
     """
@@ -11,7 +13,7 @@ class TEBD(TimeEvolution):
 
     def __init__(self, initial_state: TreeTensorNetworkState,
                  trotter_splitting: TrotterSplitting, time_step_size: float,
-                 final_time: float, operators: Union[List[Dict], Dict],
+                 final_time: float, operators: Union[List[TensorProduct], TensorProduct],
                  max_bond_dim: int = 100, rel_tol: float =1e-10,
                  total_tol: float = 1e-15):
         """
@@ -28,8 +30,8 @@ class TEBD(TimeEvolution):
              used for time-evolution.
             time_step_size (float): The time step size to be used.
             final_time (float): The final time until which to run.
-            operators (Union[List[Dict], Dict]): Operators for which expectation values
-             should be determined
+            operators (Union[List[TensorProduct], TensorProduct]): Operators in the form of single site
+             tensor product for which expectation values should be determined.
             max_bond_dim (int, optional): The maximum bond dimension allowed between
             nodes. Defaults to 100.
             rel_tol (float, optional): singular values s for which
@@ -62,21 +64,21 @@ class TEBD(TimeEvolution):
     def trotter_splitting(self):
         return self._trotter_splitting
 
-    def _apply_one_trotter_step_single_site(self, single_site_exponent: Dict):
+    def _apply_one_trotter_step_single_site(self, single_site_exponent: NumericOperator):
         """
         Applies a single-site exponential operator of the Trotter splitting.
 
         Args:
-            single_site_exponent (Dict): A dictionary with representing a
+            single_site_exponent (NumericOperator): An operator representing a
             single-site unitary operator. The operator is saved with key
             `"operator"` and the site to which it is applied is saved via
             node identifiers under the key `"site_ids"`
         """
-        operator = single_site_exponent["operator"]
-        identifier = single_site_exponent["site_ids"][0]
+        operator = single_site_exponent.operator
+        identifier = single_site_exponent.identifiers[0]
         self.state.absorb_tensor_into_open_legs(identifier, operator)
 
-    def _apply_one_trotter_step_two_site(self, two_site_exponent):
+    def _apply_one_trotter_step_two_site(self, two_site_exponent: NumericOperator):
         """
         Applies the two-site exponential operator of the Trotter splitting.
 
@@ -92,8 +94,8 @@ class TEBD(TimeEvolution):
         None.
 
         """
-        operator = two_site_exponent["operator"]
-        identifiers = two_site_exponent["site_ids"]
+        operator = two_site_exponent.operator
+        identifiers = two_site_exponent.identifiers
 
         u_legs, v_legs = self.state.legs_before_combination(identifiers[0],
                                                             identifiers[1])
@@ -107,7 +109,7 @@ class TEBD(TimeEvolution):
                                   rel_tol=self.rel_tol,
                                   total_tol=self.total_tol)
 
-    def _apply_one_trotter_step(self, unitary):
+    def _apply_one_trotter_step(self, unitary: NumericOperator):
         """
         Applies the exponential operator of the Trotter splitting that is
         chosen via index
@@ -125,7 +127,7 @@ class TEBD(TimeEvolution):
         None.
 
         """
-        num_of_sites_acted_upon = len(unitary["site_ids"])
+        num_of_sites_acted_upon = len(unitary.identifiers)
 
         if num_of_sites_acted_upon == 0:
             pass

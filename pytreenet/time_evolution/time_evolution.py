@@ -1,11 +1,13 @@
 from __future__ import annotations
-from typing import Dict, List, Union
+from typing import List, Union
 
 from copy import deepcopy
 
 import numpy as np
 from tqdm import tqdm
 
+from ..ttns import TreeTensorNetworkState
+from ..operators.tensorproduct import TensorProduct
 
 class TimeEvolution:
     """
@@ -13,7 +15,7 @@ class TimeEvolution:
     """
 
     def __init__(self, initial_state: TreeTensorNetworkState, time_step_size: float,
-                 final_time: float, operators: Union[List[Dict], Dict]):
+                 final_time: float, operators: Union[List[TensorProduct], TensorProduct]):
         """
         A time evolution starting from an initial state and running to a final
          time with a given time step size.
@@ -23,15 +25,15 @@ class TimeEvolution:
              time-evolution
             time_step_size (float): The time step size to be used.
             final_time (float): The final time until which to run.
-            operators (Union[List[Dict], Dict]): Operators for which expectation values
-             should be determined
+            operators (Union[List[TensorProduct], TensorProduct]): Operators in the form of single site
+             tensor product for which expectation values should be determined.
         """
         self.intital_state = initial_state
         self.state = deepcopy(initial_state)
         self._time_step_size = time_step_size
         self._final_time = final_time
         self._num_time_steps = self._compute_num_time_steps()
-        if operators.isinstance(dict):
+        if operators.isinstance(TensorProduct):
             # A single operator was provided
             self.operators = [operators]
         else:
@@ -76,7 +78,6 @@ class TimeEvolution:
         """
         self._final_time = new_time
         self._num_time_steps = self._compute_num_time_steps()
-        return
 
     @property
     def num_time_steps(self) -> int:
@@ -102,12 +103,11 @@ class TimeEvolution:
         """
         if self.operators is not None:
             current_results = np.zeros(len(self.operators), dtype=complex)
-            for i, operator_dict in enumerate(self.operators):
-                exp_val = self.state.operator_expectation_value(operator_dict)
+            for i, tensor_product in enumerate(self.operators):
+                exp_val = self.state.operator_expectation_value(tensor_product)
                 current_results[i] = exp_val
             return current_results
-        else:
-            return []
+        return []
 
     def save_results_to_file(self, filepath: str):
         """

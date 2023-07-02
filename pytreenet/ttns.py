@@ -1,10 +1,10 @@
 from __future__ import annotations
-from typing import Dict
 
 from copy import deepcopy
 import numpy as np
 
 from .ttn import TreeTensorNetwork
+from .operators.tensorproduct import TensorProduct
 
 class TreeTensorNetworkState(TreeTensorNetwork):
     """
@@ -20,7 +20,8 @@ class TreeTensorNetworkState(TreeTensorNetwork):
     def single_site_operator_expectation_value(self, node_id: str, operator: np.ndarray,
                                                canon: bool=False) -> complex:
         """
-        Find the expectation value of this TTNS given the single-site operator acting on the node specified.
+        Find the expectation value of this TTNS given the single-site operator acting on
+         the node specified.
         Assumes the node has only one open leg.
 
         Args:
@@ -44,22 +45,21 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         self.absorb_into_open_legs(node_id, operator)
         return self.contract_two_ttn(ttns_conj)
 
-    def operator_expectation_value(self, operator_dict: Dict) -> complex:
+    def operator_expectation_value(self, operator: TensorProduct) -> complex:
         """
-        Finds the expectation value of the operator specified given this TTNS.
+        Finds the expectation value of the operator specified, given this TTNS.
 
         Args:
-            operator_dict (Dict): A dictionary containing node_ids as keys and
-                                    the operators applied to the respective node
-                                    as arrays.
+            operator (TensorProduct): A TensorProduct representing the operator
+             as many single site operators.
 
         Returns:
             complex: The resulting expectation value < TTNS | operator | TTNS>
         """
         # Very inefficient, fix later without copy
         conj_ttn = self.conjugate()
-        for node_id, operator in operator_dict.items():
-            self.absorb_into_open_legs(node_id, operator)
+        for node_id, single_site_operator in operator.items():
+            self.absorb_into_open_legs(node_id, single_site_operator)
         return self.contract_two_ttn(conj_ttn)
 
     def scalar_product(self) -> complex:
