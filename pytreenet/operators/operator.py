@@ -20,6 +20,13 @@ class NumericOperator(Operator):
     def __init__(self, operator: np.ndarray, node_identifiers: List[str]):
         super().__init__(operator, node_identifiers)
 
+    def is_unitary(self) -> bool:
+        """
+        Returns whether this operator is unitary or not.
+        """
+        identity = np.eye(self.operator.shape[0])
+        return np.allclose(identity, self.operator @ self.operator.conj().T)
+
 class SymbolicOperator(Operator):
     """
     An operator that holds the operator associated with it only as a symbolic value.
