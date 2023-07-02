@@ -2,9 +2,10 @@
 Helpfull functions that work with the tensors of the tensor nodes.
 """
 
+from typing import Tuple
+
 from math import prod
 import numpy as np
-
 
 def transpose_tensor_by_leg_list(tensor, first_legs, last_legs):
     """
@@ -34,7 +35,7 @@ def transpose_tensor_by_leg_list(tensor, first_legs, last_legs):
     return transposed_tensor
 
 
-def tensor_matricization(tensor: np.ndarray, output_legs: tuple[int], input_legs: tuple[int],
+def tensor_matricization(tensor: np.ndarray, output_legs: Tuple[int, ...], input_legs: Tuple[int, ...],
                          correctly_ordered: bool = False):
     """
     Parameters
