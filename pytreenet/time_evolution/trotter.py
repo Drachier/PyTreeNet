@@ -6,6 +6,7 @@ import numpy as np
 from scipy.linalg import expm
 
 from ..operators.operator import NumericOperator
+from ..operators.tensorproduct import TensorProduct
 from ..operators.common_operators import swap_gate
 
 class SWAPlist(list):
@@ -103,14 +104,14 @@ class TrotterSplitting:
      Different kinds of splitting lead to different error sizes.
     """
 
-    def __init__(self, terms: List[Term],
+    def __init__(self, tensor_products: List[TensorProduct],
                  splitting: Union[List[Tuple[int, int], int], None] = None,
                  swaps_before: Union[List[SWAPlist], None] = None,
                  swaps_after: Union[List[SWAPlist], None] = None):
         """Initialises a TrotterSplitting instance.
 
         Args:
-            terms (List[Term]): The terms to be considered.
+            tensor_products (List[TensorProduct]): The tensor_products to be considered.
             splitting (Union[List[Tuple[int, int], int], None], optional): Gives the order
              of the splitting. The first tuple entry is a the index of an operator in
              operators and the second entry is a factor, which will be multiplied to the
@@ -130,11 +131,11 @@ class TrotterSplitting:
         Raises:
             TypeError: Raised if the splitting contains unallowed types.
         """
-        self.terms = terms
+        self.tensor_products = tensor_products
 
         if splitting is None:
             # Default splitting
-            self.splitting = [(index, 1) for index in range(len(terms))]
+            self.splitting = [(index, 1) for index in range(len(tensor_products))]
         else:
             self.splitting = []
             for item in splitting:
@@ -155,48 +156,48 @@ class TrotterSplitting:
         else:
             self.swaps_after = swaps_after
 
-    def is_compatible_with_ttn(self, ttn):
-        """
-        Checks, if this splitting is compatible with a given TreeTensorNetwork.
-        This means it checks if all sites to which operators should be applied
-        are in the TTN and have correct physicial dimension.
-        Furthermoe checks if all nodes in the SWAP-list are actually neighbours
-        with the same open leg dimension.
+    # def is_compatible_with_ttn(self, ttn):
+    #     """
+    #     Checks, if this splitting is compatible with a given TreeTensorNetwork.
+    #     This means it checks if all sites to which operators should be applied
+    #     are in the TTN and have correct physicial dimension.
+    #     Furthermoe checks if all nodes in the SWAP-list are actually neighbours
+    #     with the same open leg dimension.
 
-        Parameters
-        ----------
-        ttn : TreeTensorNetwork
-            A TTN for which to check compatability.
+    #     Parameters
+    #     ----------
+    #     ttn : TreeTensorNetwork
+    #         A TTN for which to check compatability.
 
-        Returns
-        -------
-        compatible: bool
-        True if the TrotterSplitting is compatible with the TTN and False,
-        if not.
+    #     Returns
+    #     -------
+    #     compatible: bool
+    #     True if the TrotterSplitting is compatible with the TTN and False,
+    #     if not.
 
-        """
-        for interaction_operator in self.operators:
-            for site_id in interaction_operator:
-                # Check if all operator sites are in the TTN
-                if not (site_id in ttn.nodes):
-                    return False
+    #     """
+    #     for interaction_operator in self.operators:
+    #         for site_id in interaction_operator:
+    #             # Check if all operator sites are in the TTN
+    #             if not (site_id in ttn.nodes):
+    #                 return False
 
-                # Check dimensional compatability
-                node = ttn.nodes[site_id]
-                local_operator = interaction_operator[site_id]
-                if node.open_dimension() != local_operator.shape[0]:
-                    return False
+    #             # Check dimensional compatability
+    #             node = ttn.nodes[site_id]
+    #             local_operator = interaction_operator[site_id]
+    #             if node.open_dimension() != local_operator.shape[0]:
+    #                 return False
 
-        # Check compatability of all SWAP lists
-        for swap_list in self.swaps_before:
-            if not swap_list.is_compatible_with_ttn(ttn):
-                return False
+    #     # Check compatability of all SWAP lists
+    #     for swap_list in self.swaps_before:
+    #         if not swap_list.is_compatible_with_ttn(ttn):
+    #             return False
 
-        for swap_list in self.swaps_after:
-            if not swap_list.is_compatible_with_ttn(ttn):
-                return False
+    #     for swap_list in self.swaps_after:
+    #         if not swap_list.is_compatible_with_ttn(ttn):
+    #             return False
 
-        return True
+    #     return True
 
     def exponentiate_splitting(self, delta_time: float, ttn: TreeTensorNetwork = None,
                                dim: Union[int, None] = None) -> List[NumericOperator]:
@@ -230,23 +231,23 @@ class TrotterSplitting:
 
         unitary_operators = [] # Includes the neccessary SWAPs
         for i, split in enumerate(self.splitting):
-            term = self.terms[split[0]]
+            tensor_product = self.tensor_products[split[0]]
             factor = split[1]
             total_operator = 1 # Saves the total operator
             site_ids = [] # Saves the ids of nodes to which the operator is applied
-            for node_id, single_site_operator in term.items():
+            for node_id, single_site_operator in tensor_product.items():
                 total_operator = np.kron(total_operator,
                                               single_site_operator)
                 site_ids.append(node_id)
             exponentiated_operator = expm((-1j*factor*delta_time) * total_operator)
             exponentiated_operator = NumericOperator(exponentiated_operator, site_ids)
 
-            # Build required swaps for befor trotter term
+            # Build required swaps for befor trotter tensor_product
             swaps_before = self.swaps_before[i].into_operators(ttn=ttn, dim=dim)
-            # Build required swaps for after trotter term
+            # Build required swaps for after trotter tensor_product
             swaps_after = self.swaps_after[i].into_operators(ttn=ttn, dim=dim)
 
-            # Add all operators associated with this term to the list of unitaries
+            # Add all operators associated with this tensor_product to the list of unitaries
             unitary_operators.extend(swaps_before)
             unitary_operators.append(exponentiated_operator)
             unitary_operators.extend(swaps_after)
