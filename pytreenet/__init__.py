@@ -1,5 +1,6 @@
 from .models import *
 from .time_evolution import *
+from .quantum_circuits import *
 
 from .canonical_form import *
 from .hamiltonian import *
