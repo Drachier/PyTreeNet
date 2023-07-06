@@ -108,15 +108,16 @@ class TreeTensorNetwork(TreeStructure):
         with identifier `parent_id`. The two tensors are contracted along one
         leg; the child via child_leg and the parent via parent_leg
         """
+        self.ensure_existence(parent_id)
         child.link_tensor(tensor)
-        child.open_leg_to_parent(child_leg)
+        self._add_node(child)
+        child.open_leg_to_parent(parent_id, child_leg)
 
-        parent_node = self.nodes[parent_id]
-        parent_node.open_leg_to_child(parent_leg)
+        child_id = child.identifier
+        parent_node = self._nodes[parent_id]
+        parent_node.open_leg_to_child(child_id, parent_leg)
 
-        super().add_child_to_parent(child, parent_id)
-
-        self.tensors[child.identifier] = tensor
+        self.tensors[child_id] = tensor
 
     def add_parent_to_root(self, root_leg: int, parent: Node, tensor: np.ndarray,
                            parent_leg: int):
