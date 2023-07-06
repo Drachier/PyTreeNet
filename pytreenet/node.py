@@ -126,11 +126,12 @@ class Node(GraphNode):
         """
         return list(range(self.nvirt_legs(), self.nlegs()))
 
-    def open_leg_to_parent(self, open_leg: int):
+    def open_leg_to_parent(self, parent_id: str, open_leg: int):
         """
         Changes an open leg into the leg towards a parent.
 
         Args:
+            parent_id (str): The identifier of the to be parent node
             open_leg (int): The index of the actual tensor leg
         """
         if self.nopen_legs() == 0:
@@ -140,6 +141,8 @@ class Node(GraphNode):
         # Move value open_leg to front of list
         self._leg_permutation.remove(open_leg)
         self._leg_permutation.insert(0, open_leg)
+
+        self.add_parent(parent_id)
 
     def open_leg_to_child(self, open_leg: int):
         """
