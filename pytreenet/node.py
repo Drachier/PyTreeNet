@@ -144,12 +144,13 @@ class Node(GraphNode):
 
         self.add_parent(parent_id)
 
-    def open_leg_to_child(self, open_leg: int):
+    def open_leg_to_child(self, child_id: str, open_leg: int):
         """
         Changes an open leg into the leg towards a child.
         Children legs will be sorted in the same way as their ids are in the superclass.
 
         Args:
+            child_id (str): The identifier of the to be child node
             open_leg (int): The index of the actual tensor leg
         """
         if self.nopen_legs() < 1:
@@ -160,15 +161,19 @@ class Node(GraphNode):
         new_position = self.nparents() + self.nchildren()
         self._leg_permutation.insert(new_position, open_leg)
 
-    def open_legs_to_children(self, open_leg_list: List[int]):
+        self.add_child(child_id)
+
+    def open_legs_to_children(self, child_dict: Dict[str, int]):
         """
         Changes multiple open legs to be legs towards children.
 
         Args:
-            open_leg_list (List[int]): List of actual tensor leg indices
+            child_dict (Dict[str, int]): A dictionary that contains the identifiers of
+             the to be children nodes as keys and the open leg that they should contract
+             to as values.
         """
-        for open_leg in open_leg_list:
-            self.open_leg_to_child(open_leg)
+        for child_id, open_leg in child_dict.items():
+            self.open_leg_to_child(child_id, open_leg)
 
     def parent_leg_to_open_leg(self):
         """
@@ -180,6 +185,8 @@ class Node(GraphNode):
             leg_index = self._leg_permutation.pop(0)
             self._leg_permutation.append(leg_index)
 
+        self.remove_parent()
+
     def child_leg_to_open_leg(self, child_id: str):
         """
         Changes a leg towards a child Node into an open_leg
@@ -190,6 +197,8 @@ class Node(GraphNode):
         index = self.nparents() + self.child_index(child_id)
         leg_index = self._leg_permutation.pop(index)
         self._leg_permutation.append(leg_index)
+
+        self.remove_child(child_id)
 
     def children_legs_to_open_legs(self, children_id_list: List[str]):
         """
