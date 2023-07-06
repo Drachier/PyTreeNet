@@ -25,10 +25,12 @@ def bosonic_tree_operator(num_spins, num_bosons_per_spin, boson_dimension, J, g,
     
     s_shape = [3, 3, 2, 2] + [3] * num_bosons_per_spin
     S = np.zeros(s_shape, dtype=complex)
+
+    index = [0] * num_bosons_per_spin
+    idx = tuple([Ellipsis] + index)
+    S[idx] = ss
     for b in range(num_bosons_per_spin):
         index = [0] * num_bosons_per_spin
-        idx = tuple([Ellipsis] + index)
-        S[idx] = ss
         index[b] = 1
         idx = tuple([Ellipsis] + index)
         S[idx] = bo
