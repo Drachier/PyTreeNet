@@ -209,7 +209,7 @@ class TestComplicatedTensorNode(unittest.TestCase):
         self.assertEqual(self.node.tensor.shape, correct_tensor_shape)
         
     def test_shape(self):
-        found_shape = self.node.shape()
+        found_shape = self.node.shape
         correct_shape = (2,3,4,5,6,7)
         
         self.assertEqual(found_shape, correct_shape)

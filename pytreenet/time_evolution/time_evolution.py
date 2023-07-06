@@ -9,7 +9,7 @@ from copy import deepcopy
 Implements a wrapper for different time evolution algorithms.
 """
 class TimeEvolutionAlgorithm:
-    def __init__(self, state: TreeTensorNetwork, operators, time_step_size, final_time, save_every=1) -> None:
+    def __init__(self, state: TreeTensorNetwork, operators, time_step_size, final_time, initial_time=0, save_every=1) -> None:
         """
         Parameters
         ----------
@@ -28,7 +28,8 @@ class TimeEvolutionAlgorithm:
 
         self._time_step_size = time_step_size
         self.final_time = final_time
-        self.num_time_steps = int(np.ceil(final_time / time_step_size))
+        self.initial_time = initial_time
+        self.num_time_steps = int(np.ceil((final_time-initial_time) / time_step_size))
         self.save_every = save_every
 
         if type(operators) == dict:
@@ -178,7 +179,7 @@ class TimeEvolutionAlgorithm:
     
                 self.results[0:-1,i//self.save_every] = current_results
                 # Save current time
-                self.results[-1,i//self.save_every] = i*self.time_step_size
+                self.results[-1,i//self.save_every] = i*self.time_step_size + self.initial_time
                 
         if filepath != None:
             self.save_results(filepath)

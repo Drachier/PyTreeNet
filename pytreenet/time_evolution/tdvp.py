@@ -8,6 +8,7 @@ from .time_evolution import TimeEvolutionAlgorithm, time_evolve
 from ..tensor_util import (tensor_qr_decomposition, tensor_matricization, tensor_multidot)
 from ..ttn import TreeTensorNetwork
 from ..canonical_form import _correct_ordering_of_q_legs
+from ..cn import ContractionNetwork
 
 """
 Implements the time-dependent variational principle TDVP for tree tensor
@@ -20,11 +21,11 @@ Reference:
 
 
 class TDVP(object):
-    def __new__(cls, tdvp_type, *args, **kwargs) -> TimeEvolutionAlgorithm:
+    def __new__(cls, tdvp_type, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, initial_time=0, operators=None, save_every=1) -> TimeEvolutionAlgorithm:
         if tdvp_type == "FirstOrder,OneSite":
-            return FirstOrderOneSiteTDVP(*args, **kwargs)
+            return FirstOrderOneSiteTDVP(state, hamiltonian, time_step_size, final_time, initial_time, operators, save_every)
         elif tdvp_type == "SecondOrder,OneSite":
-            return SecondOrderOneSiteTDVP(*args, **kwargs)
+            return SecondOrderOneSiteTDVP(state, hamiltonian, time_step_size, final_time, initial_time, operators, save_every)
         elif tdvp_type == "FirstOrder,TwoSite":
             raise NotImplementedError  # return FirstOrderTwoSiteTDVP(*args, **kwargs)
         elif tdvp_type == "SecondOrder,Twosite":
@@ -34,7 +35,7 @@ class TDVP(object):
         
 
 class TDVPAlgorithm(TimeEvolutionAlgorithm):
-    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None, save_every=1) -> None:
+    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, initial_time=0, operators=None, save_every=1) -> None:
         """
         Parameters
         ----------
@@ -60,7 +61,10 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
 
         self.print_debugging_warnings = False
 
-        super().__init__(state, operators, time_step_size, final_time, save_every)
+        self._contraction_mode_list = ["by_site", "by_dimension"]
+        self._contraction_mode = self._contraction_mode_list[0]
+
+        super().__init__(state, operators, time_step_size, final_time, initial_time, save_every)
 
         #     LEG ORDER: PARENT CHILDREN PHYSICAL
 
@@ -79,6 +83,19 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
         self.neighbouring_nodes = dict()
         for node_id in self.state.nodes.keys():
             self.neighbouring_nodes[node_id] = deepcopy(self.state[node_id].neighbouring_nodes())
+
+    @property
+    def contraction_mode(self):
+        return self._contraction_mode
+    
+    @contraction_mode.setter
+    def contraction_mode(self, val):
+        if val=="by_dimension":
+            self.contraction_mode = val
+            # TODO disable caching
+        elif val=="by_site":
+            self.contraction_mode = val
+            # TODO enable caching
     
     def _init_site_cache(self):
         """
@@ -233,7 +250,7 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
         # Step 1: Check if node has parents and if yes build parent tree
         if target_node_id != self.state.root_id:
             parent_part = self._contract_partial_tree(start=self.state.root_id, end=target_node_id)
-            parent_part = parent_part.reshape([target_node.shape()[target_node.parent_leg[1]], target_hamiltonian.shape()[target_hamiltonian.parent_leg[1]], target_node.shape()[target_node.parent_leg[1]]])
+            parent_part = parent_part.reshape([target_node.shape[target_node.parent_leg[1]], target_hamiltonian.shape[target_hamiltonian.parent_leg[1]], target_node.shape[target_node.parent_leg[1]]])
 
             tensor = np.tensordot(parent_part, tensor, axes=(1, target_hamiltonian.parent_leg[1]))
             parent_part_added = True
@@ -247,7 +264,7 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
         children_trees = []
         for child_id in self.state[target_node_id].children_legs.keys():
             child_part = self._contract_partial_tree(start=child_id, end=None)
-            child_part = child_part.reshape([target_node.shape()[target_node.children_legs[child_id]], target_hamiltonian.shape()[target_hamiltonian.children_legs[child_id]], target_node.shape()[target_node.children_legs[child_id]]])
+            child_part = child_part.reshape([target_node.shape[target_node.children_legs[child_id]], target_hamiltonian.shape[target_hamiltonian.children_legs[child_id]], target_node.shape[target_node.children_legs[child_id]]])
             children_trees.append((target_hamiltonian.children_legs[child_id] + parent_part_added, child_part, 1))
 
         if children_trees != []:
@@ -275,55 +292,58 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
         """
         return tensor
 
-
     def _get_effective_site_hamiltonian(self, node_id):
-        tensor = self._contract_all_except_node(node_id)
+        if self._contraction_mode == "by_site":
+            tensor = self._contract_all_except_node(node_id)
+            bra_legs = [2*i for i in range(tensor.ndim//2)] 
+            ket_legs = [2*i+1 for i in range(tensor.ndim//2)]
+            return tensor_matricization(tensor, bra_legs, ket_legs, correctly_ordered=False)
+        elif self._contraction_mode == "by_dimension":
+            return None
 
-        
-        bra_legs = [2*i for i in range(tensor.ndim//2)] 
-        ket_legs = [2*i+1 for i in range(tensor.ndim//2)]
-
-        return tensor_matricization(tensor, bra_legs, ket_legs, correctly_ordered=False)
     
     def _get_effective_link_hamiltonian(self, node_id, next_node_id):
-        tensor = self._contract_all_except_node(node_id)
-        
-        """
-        leg order is:
-            parent (bra, ket), children (bra, ket), physical (bra, ket)
-        """
+        if self._contraction_mode == "by_site":
+            tensor = self._contract_all_except_node(node_id)
+            
+            """
+            leg order is:
+                parent (bra, ket), children (bra, ket), physical (bra, ket)
+            """
 
-        bra_legs = [2*i for i in range(tensor.ndim//2)] 
-        ket_legs = [2*i+1 for i in range(tensor.ndim//2)]
-        tensor = tensor.transpose(bra_legs + ket_legs)
+            bra_legs = [2*i for i in range(tensor.ndim//2)] 
+            ket_legs = [2*i+1 for i in range(tensor.ndim//2)]
+            tensor = tensor.transpose(bra_legs + ket_legs)
 
-        """
-        leg order is:
-            bra: parent, children, physical; ket: parent, children, physical
-        """
+            """
+            leg order is:
+                bra: parent, children, physical; ket: parent, children, physical
+            """
 
-        tensor_bra_legs = [i for i in range(tensor.ndim//2)] 
-        node_leg_of_next_node = self.neighbouring_nodes[node_id][next_node_id]
-        tensor_bra_legs_without_next_node = [i for i in tensor_bra_legs if i != node_leg_of_next_node]
-        site_bra_legs_without_next_node = [i for i in range(self.state[node_id].tensor.ndim) if i != node_leg_of_next_node]
+            tensor_bra_legs = [i for i in range(tensor.ndim//2)] 
+            node_leg_of_next_node = self.neighbouring_nodes[node_id][next_node_id]
+            tensor_bra_legs_without_next_node = [i for i in tensor_bra_legs if i != node_leg_of_next_node]
+            site_bra_legs_without_next_node = [i for i in range(self.state[node_id].tensor.ndim) if i != node_leg_of_next_node]
 
-        tensor = np.tensordot(tensor, self.state[node_id].tensor.conj(), axes=(tensor_bra_legs_without_next_node, site_bra_legs_without_next_node))
+            tensor = np.tensordot(tensor, self.state[node_id].tensor.conj(), axes=(tensor_bra_legs_without_next_node, site_bra_legs_without_next_node))
 
-        """
-        leg order is:
-            bra: link_next_node; ket: parent, children, physical; bra: link_node
-        """
+            """
+            leg order is:
+                bra: link_next_node; ket: parent, children, physical; bra: link_node
+            """
 
-        tensor_ket_legs_without_next_node = [i+1 for i in site_bra_legs_without_next_node]
-        site_ket_legs_without_next_node = site_bra_legs_without_next_node
-        tensor = np.tensordot(tensor, self.state[node_id].tensor, axes=(tensor_ket_legs_without_next_node, site_ket_legs_without_next_node))
+            tensor_ket_legs_without_next_node = [i+1 for i in site_bra_legs_without_next_node]
+            site_ket_legs_without_next_node = site_bra_legs_without_next_node
+            tensor = np.tensordot(tensor, self.state[node_id].tensor, axes=(tensor_ket_legs_without_next_node, site_ket_legs_without_next_node))
 
-        """
-        leg order is:
-            bra: link_next_node; ket: link_next_node; bra: link_node; ket: link_node
-        """
-        
-        return tensor_matricization(tensor, (2, 0), (3, 1), correctly_ordered=False)
+            """
+            leg order is:
+                bra: link_next_node; ket: link_next_node; bra: link_node; ket: link_node
+            """
+            
+            return tensor_matricization(tensor, (2, 0), (3, 1), correctly_ordered=False)
+        elif self._contraction_mode == "by_dimension":
+            return None
     
     def _update_site_and_get_link(self, node_id, next_node_id):
         node = self.state[node_id]
@@ -361,8 +381,8 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
 
 
 class FirstOrderOneSiteTDVP(TDVPAlgorithm):
-    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None, save_every=1) -> None:
-        super().__init__(state, hamiltonian, time_step_size, final_time, operators, save_every)
+    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, initial_time=0, operators=None, save_every=1) -> None:
+        super().__init__(state, hamiltonian, time_step_size, final_time, initial_time, operators, save_every)
 
     def __repr__(self):
         return self.__str__()
@@ -398,8 +418,8 @@ class FirstOrderOneSiteTDVP(TDVPAlgorithm):
 
 
 class SecondOrderOneSiteTDVP(TDVPAlgorithm):
-    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, operators=None, save_every=1) -> None:
-        super().__init__(state, hamiltonian, time_step_size, final_time, operators, save_every)
+    def __init__(self, state: TreeTensorNetwork, hamiltonian: TreeTensorNetwork, time_step_size, final_time, initial_time=0, operators=None, save_every=1) -> None:
+        super().__init__(state, hamiltonian, time_step_size, final_time, initial_time, operators, save_every)
 
     def __repr__(self):
         return self.__str__()
