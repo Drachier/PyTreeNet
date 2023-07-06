@@ -83,10 +83,10 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         self.ttn.add_root(node1, tensor1)
         self.ttn.add_child_to_parent(node2, tensor2, 0, "id1", 0)
         self.ttn.add_child_to_parent(node3, tensor3, 3, "id2", 3)
-        self.ttn.add_child_to_parent(node4, tensor4, 0, "id3", 0)
-        self.ttn.add_child_to_parent(node5, tensor5, 2, "id2", 2)
-        self.ttn.add_child_to_parent(node6, tensor6, 0, "id5", 0)
-        self.ttn.add_child_to_parent(node7, tensor7, 1, "id5", 1)
+        self.ttn.add_child_to_parent(node4, tensor4, 0, "id3", 1)
+        self.ttn.add_child_to_parent(node5, tensor5, 2, "id2", 3)
+        self.ttn.add_child_to_parent(node6, tensor6, 0, "id5", 1)
+        self.ttn.add_child_to_parent(node7, tensor7, 1, "id5", 2)
         self.ttn.add_child_to_parent(node8, tensor8, 1, "id1", 1)
         self.ttn.add_child_to_parent(node9, tensor9, 2, "id8", 2)
 
@@ -123,6 +123,7 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
             self.assertTrue(np.allclose(ref_tensor, found_tensor))
 
     def test_tensor_contraction_leaf_only_child(self):
+        print("-----")
         self.ttn.contract_nodes("id8", "id9")
         contracted_node, contracted_tensor = self.ttn["id8contrid9"]
 
