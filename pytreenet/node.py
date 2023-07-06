@@ -132,15 +132,15 @@ class Node(GraphNode):
 
         Args:
             parent_id (str): The identifier of the to be parent node
-            open_leg (int): The index of the actual tensor leg
+            open_leg (int): The index of the tensor leg
         """
         if self.nopen_legs() == 0:
             errstr = f"Node with identifier {self.identifier} has no open legs!"
             raise ValueError(errstr)
 
         # Move value open_leg to front of list
-        self._leg_permutation.remove(open_leg)
-        self._leg_permutation.insert(0, open_leg)
+        actual_value = self._leg_permutation.pop(open_leg)
+        self._leg_permutation.insert(0, actual_value)
 
         self.add_parent(parent_id)
 
@@ -151,15 +151,15 @@ class Node(GraphNode):
 
         Args:
             child_id (str): The identifier of the to be child node
-            open_leg (int): The index of the actual tensor leg
+            open_leg (int): The index of the tensor leg
         """
         if self.nopen_legs() < 1:
             errstr = f"Node with identifier {self.identifier} has no open legs!"
             raise ValueError(errstr)
 
-        self._leg_permutation.remove(open_leg)
+        actual_value = self._leg_permutation.pop(open_leg)
         new_position = self.nparents() + self.nchildren()
-        self._leg_permutation.insert(new_position, open_leg)
+        self._leg_permutation.insert(new_position, actual_value)
 
         self.add_child(child_id)
 
