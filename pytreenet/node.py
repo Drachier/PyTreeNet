@@ -216,6 +216,27 @@ class Node(GraphNode):
         for child_id in children_id_list:
             self.child_leg_to_open_leg(child_id)
 
+    def exchange_open_leg_ranges(self, open_1: range, open_2: range):
+        """
+        Exchanges two continuous batches of open legs, with one another.
+
+        Args:
+            open_1, open_2 (range): Each is one batch of open legs.
+        """
+        if open_2.start > open_1.start:
+            open_1, open_2 = open_2, open_1
+        assert open_1.stop <= open_2.start
+
+        values2 = [self._leg_permutation.pop(open_2.start)
+                   for _ in open_2]
+        values1 = [self._leg_permutation.pop(open_1.start)
+                   for _ in open_1]
+        self._leg_permutation[open_1.start:open_1.start] = values2
+        difference = open_2.start - open_1.stop
+        new_position = open_1.start + len(open_2) - 1 + difference
+        self._leg_permutation[new_position:new_position] = values1
+
+
     def last_leg_to_parent_leg(self):
         """
         Sometimes the leg of the parent is not set properly, when something
