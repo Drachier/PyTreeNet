@@ -2,7 +2,6 @@ import unittest
 
 import pytreenet as ptn
 
-
 class TestNodeInit(unittest.TestCase):
 
     def test_init(self):
@@ -185,13 +184,14 @@ class TestNodeMethods(unittest.TestCase):
 
         for ids in id_list:
             node = self.nodes[ids]
-            node.open_leg_to_parent(open_leg_value[ids])
+            node.open_leg_to_parent("parent_id", open_leg_value[ids])
             self.assertEqual(open_leg_value[ids], node.leg_permutation[0])
+            self.assertEqual("parent_id", node.parent)
 
         # Have no parent but no open leg
         id_list = ["empty0", "root1c0", "root2c0"]
         for ids in id_list:
-            self.assertRaises(ValueError, self.nodes[ids].open_leg_to_parent, 0)
+            self.assertRaises(ValueError, self.nodes[ids].open_leg_to_parent, "Any", 0)
 
     def test_open_leg_to_parent_2nd_open_leg(self):
         # Haven an open leg and no parent
@@ -201,8 +201,9 @@ class TestNodeMethods(unittest.TestCase):
 
         for ids in id_list:
             node = self.nodes[ids]
-            node.open_leg_to_parent(open_leg_value[ids])
+            node.open_leg_to_parent("parent_id", open_leg_value[ids])
             self.assertEqual(open_leg_value[ids], node.leg_permutation[0])
+            self.assertEqual("parent_id", node.parent)
 
     def test_open_leg_to_child_1st_open_leg(self):
         # Haven an open leg
@@ -212,9 +213,10 @@ class TestNodeMethods(unittest.TestCase):
 
         for ids in id_list:
             node = self.nodes[ids]
-            node.open_leg_to_child(open_leg_value[ids])
+            node.open_leg_to_child("new_child_id", open_leg_value[ids])
             # 1st open leg stays in the same position
             self.assertEqual(open_leg_value[ids], node.leg_permutation[open_leg_value[ids]])
+            self.assertTrue("new_child_id" in node.children)
 
     def test_open_leg_to_child_2nd_open_leg(self):
         # Haven an open leg
@@ -226,8 +228,9 @@ class TestNodeMethods(unittest.TestCase):
 
         for ids in id_list:
             node = self.nodes[ids]
-            node.open_leg_to_child(open_leg_value[ids])
+            node.open_leg_to_child("new_child_id", open_leg_value[ids])
             self.assertEqual(open_leg_value[ids], node.leg_permutation[new_position[ids]])
+            self.assertTrue("new_child_id" in node.children)
 
     def test_parent_leg_to_open_leg(self):
         # Have a parent leg
