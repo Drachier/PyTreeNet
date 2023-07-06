@@ -235,9 +235,6 @@ class TreeTensorNetwork(TreeStructure):
             new_identifier (str): A potential new identifier. Otherwise defaults to
                 `parent_id + 'contr' + child_id`
         """
-        # TODO: Rewrite, such that the resulting leg order is
-        #  `(parent_parent_leg, remaining_node1_children_legs, remaining_node2_children_legs,
-        #    node1_open_legs, node2_open_legs)`
         parent_id, child_id = self.determine_parentage(node_id1, node_id2)
         if new_identifier == "":
             new_identifier = parent_id + "contr" + child_id
