@@ -232,6 +232,32 @@ class TestNodeMethods(unittest.TestCase):
             self.assertEqual(open_leg_value[ids], node.leg_permutation[new_position[ids]])
             self.assertTrue("new_child_id" in node.children)
 
+    def test_open_legs_to_children_legs(self):
+        tensor = ptn.crandn((2,2,2,2,2))
+        children_ids = ["id1", "id2", "id3"]
+
+        # Tests with root
+        root = ptn.Node(tensor=tensor, identifier="root")
+        open_legs = [0,1,2]
+        child_dict = dict(zip(children_ids, open_legs))
+        root.open_legs_to_children(child_dict)
+        self.assertEqual([0,1,2,3,4], root.leg_permutation)
+        self.assertEqual(children_ids, root.children)
+
+        root = ptn.Node(tensor=tensor, identifier="root")
+        open_legs = [2,3,4]
+        child_dict = dict(zip(children_ids, open_legs))
+        root.open_legs_to_children(child_dict)
+        self.assertEqual([2,3,4,0,1], root.leg_permutation)
+        self.assertEqual(children_ids, root.children)
+
+        root = ptn.Node(tensor=tensor, identifier="root")
+        open_legs = [0,3,2]
+        child_dict = dict(zip(children_ids, open_legs))
+        root.open_legs_to_children(child_dict)
+        self.assertEqual([0,3,2,1,4], root.leg_permutation)
+        self.assertEqual(children_ids, root.children)
+
     def test_parent_leg_to_open_leg(self):
         # Have a parent leg
         id_list = ["leaf0", "leaf2", "node1p1c0", "node1p1c2", "node1p2c0", "node1p2c2"]
