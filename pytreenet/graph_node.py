@@ -71,7 +71,7 @@ class GraphNode:
         else:
             self._tag = new_tag
 
-    def __eq__(self, other: Node):
+    def __eq__(self, other: GraphNode):
         """
         Two nodes are the same, if they have the same identifiers and neighbours.
         """
