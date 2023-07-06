@@ -96,7 +96,6 @@ class TreeTensorNetwork(TreeStructure):
         """
         Adds a root tensor node to the TreeTensorNetwork
         """
-        # leg_node = LegNode.from_node(tensor, node)
         node.link_tensor(tensor)
         super().add_root(node)
 
@@ -126,7 +125,6 @@ class TreeTensorNetwork(TreeStructure):
         nodes are connected: the root via root_leg and the parent via parent_leg.
         The root is updated to be the parent.
         """
-        # parent_node = LegNode.from_node(tensor, parent)
         former_root_node = self.nodes[self.root_id]
 
         parent.open_leg_to_child(parent_leg)
