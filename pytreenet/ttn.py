@@ -248,32 +248,43 @@ class TreeTensorNetwork(TreeStructure):
         # Contracting tensors
         parent_tensor = self.tensors[parent_id]
         child_tensor = self.tensors[child_id]
-
         np.transpose(parent_tensor, axes=parent_node.leg_permutation)
-
         new_tensor = np.tensordot(parent_tensor, child_tensor,
                                   axes=(parent_node.nparents(), 0))
+
         # remove old tensors
         self.tensors.pop(node_id1)
         self.tensors.pop(node_id2)
+
         # add new tensor
         self.tensors[new_identifier] = new_tensor
+        new_node = Node(tensor=new_tensor, identifier=new_identifier)
 
         # Actual tensor leg now have the form
         # (parent_of_parent, remaining_children_of_parent, open_of_parent,
         # children_of_child, open_of_child)
-        parent_nvirt_leg = parent_node.nvirt_legs() - 1
-        parent_nlegs = parent_node.nlegs() - 1
-        child_nchild_legs = child_node.nchild_legs()
+        if parent_node.is_root():
+            self._root_id = new_identifier
+        else:
+            new_node.open_leg_to_parent(parent_node.parent, 0)
+        parent_children = parent_node.children
+        parent_children.remove(child_id)
+        parent_child_dict = {identifier: leg_value + parent_node.nparents()
+                             for leg_value, identifier in enumerate(parent_children)}
+        child_children_dict = {identifier: leg_value + parent_node.nlegs() - 1
+                               for leg_value, identifier in enumerate(child_node.children)}
+        if parent_id == node_id1:
+            new_node.open_legs_to_children(parent_child_dict)
+            new_node.open_legs_to_children(child_children_dict)
+        else:
+            new_node.open_legs_to_children(child_children_dict)
+            new_node.open_legs_to_children(parent_child_dict)
+        if node_id1 != parent_id:
+            new_nvirt = new_node.nvirt_legs()
+            range_parent = range(new_nvirt, new_nvirt + parent_node.nopen_legs())
+            range_child = range(new_nvirt + parent_node.nopen_legs(), new_node.nlegs())
+            new_node.exchange_open_leg_ranges(range_parent, range_child)
 
-        # Create proper connectivity (old nodes are deleted)
-        self.combine_nodes(parent_id, child_id, new_identifier=new_identifier)
-        self.nodes[new_identifier].link_tensor(new_tensor)
-
-        # Building correct permutation (TODO: Move it to LegNode?)
-        child_children_legs = [self.nodes[new_identifier]._leg_permutation.pop(parent_nlegs)
-                               for i in range(0, child_nchild_legs)]
-        self.nodes[new_identifier]._leg_permutation[parent_nvirt_leg:parent_nvirt_leg] = child_children_legs
 
     def legs_before_combination(self, node1_id: str, node2_id: str) -> Tuple[LegSpecification, LegSpecification]:
         """
