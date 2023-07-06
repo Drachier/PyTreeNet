@@ -126,14 +126,13 @@ class TreeTensorNetwork(TreeStructure):
         nodes are connected: the root via root_leg and the parent via parent_leg.
         The root is updated to be the parent.
         """
+        self._add_node(parent)
+        parent.open_leg_to_child(self.root_id, parent_leg)
+        new_root_id = parent.identifier
         former_root_node = self.nodes[self.root_id]
-
-        parent.open_leg_to_child(parent_leg)
-        former_root_node.open_leg_to_parent(root_leg)
-
-        super().add_parent_to_root(parent)
-
-        self.tensors[parent.identifier] = tensor
+        former_root_node.open_leg_to_parent(new_root_id, root_leg)
+        self._root_id = new_root_id
+        self.tensors[new_root_id] = tensor
 
     def conjugate(self):
         """
