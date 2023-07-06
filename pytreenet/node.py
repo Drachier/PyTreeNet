@@ -172,8 +172,13 @@ class Node(GraphNode):
              the to be children nodes as keys and the open leg that they should contract
              to as values.
         """
-        for child_id, open_leg in child_dict.items():
-            self.open_leg_to_child(child_id, open_leg)
+        actual_value = {child_id: self._leg_permutation[open_leg]
+                        for child_id, open_leg in child_dict.items()}
+        for child_id, value in actual_value.items():
+            self._leg_permutation.remove(value)
+            new_position = self.nparents() + self.nchildren()
+            self._leg_permutation.insert(new_position, value)
+            self.add_child(child_id)
 
     def parent_leg_to_open_leg(self):
         """
