@@ -47,6 +47,18 @@ class TensorNode(object):
         assert self._tensor.ndim == new_tensor.ndim, "Tensors at the same node should have the same number of dimensions/legs."
         self._tensor = new_tensor
 
+    def __add__(self, val):
+        """
+        Add val to tensor. Still works if the added value has a different number of trivial legs than the current tensor.
+        This will not affect the shape of the tensor.
+        """
+        assert np.prod(self.shape) == np.prod(val.shape)
+        self.tensor = self.tensor + val
+        return self
+    
+    def add(self, val):
+        return self.__add__(val)
+
     @property
     def identifier(self):
         """
@@ -426,6 +438,7 @@ class TensorNode(object):
         else:
             raise NotImplementedError
 
+    @property
     def shape(self):
         """
         Wraps the numpy function
