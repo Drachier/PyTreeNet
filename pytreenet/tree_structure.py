@@ -63,6 +63,34 @@ class TreeStructure():
 
     def __len__(self):
         return len(self._nodes)
+    
+    def ensure_uniqueness(self, node_id: str):
+        """
+        Ensures that the given identifier is not already in use.
+
+        Args:
+            node_id (str): Identifer to check.
+
+        Raises:
+            ValueError: Raised if the a node in this tree already has this identifier.
+        """
+        if node_id in self._nodes:
+            err_str = f"Tree already contains a node with identifier {node_id}!"
+            raise ValueError(err_str)
+        
+    def ensure_existence(self, node_id: str):
+        """
+        Ensures that an identifier is already in this tree.
+
+        Args:
+            node_id (str): Identifier to check.
+
+        Raises:
+            ValueError: Raised if there is no node with the identifier in this tree.
+        """
+        if node_id not in self._nodes:
+            err_str = f"Node with identifier {node_id} is not in this tree!"
+            raise ValueError(err_str)
 
     def _add_node(self, new_node: Node):
         """
@@ -71,9 +99,7 @@ class TreeStructure():
         Only for internal use. For external additions use the functions below.
         """
         new_node_id = new_node.identifier
-        if new_node_id in self._nodes:
-            err_str = f"Tree already contains a node with identifier {new_node_id}!"
-            raise ValueError(err_str)
+        self.ensure_uniqueness(new_node_id)
         self.nodes[new_node_id] = new_node
 
     def add_root(self, node: Node):
@@ -92,10 +118,7 @@ class TreeStructure():
             child (Node): The node to be added
             parent_id (str): The identifier of the node which is to be the new parent.
         """
-        if parent_id not in self._nodes:
-            err_str = f"Node with identifier {parent_id} is not in this tree!"
-            raise ValueError(err_str)
-
+        self.ensure_existence(parent_id)
         self._add_node(child)
         child.add_parent(parent_id)
 
