@@ -263,11 +263,9 @@ class TreeTensorNetwork(TreeStructure):
         # Actual tensor leg now have the form
         # (parent_of_parent, remaining_children_of_parent, open_of_parent,
         # children_of_child, open_of_child)
-        if parent_node.is_root():
-            self._root_id = new_identifier
-        else:
+        if not parent_node.is_root():
             new_node.open_leg_to_parent(parent_node.parent, 0)
-        parent_children = parent_node.children
+        parent_children = copy(parent_node.children)
         parent_children.remove(child_id)
         parent_child_dict = {identifier: leg_value + parent_node.nparents()
                              for leg_value, identifier in enumerate(parent_children)}
@@ -285,6 +283,10 @@ class TreeTensorNetwork(TreeStructure):
             range_child = range(new_nvirt + parent_node.nopen_legs(), new_node.nlegs())
             new_node.exchange_open_leg_ranges(range_parent, range_child)
 
+        # Change connectivity
+        self._nodes[new_identifier] = new_node
+        self.replace_node(new_identifier, parent_id)
+        self.replace_node(new_identifier, child_id)
 
     def legs_before_combination(self, node1_id: str, node2_id: str) -> Tuple[LegSpecification, LegSpecification]:
         """

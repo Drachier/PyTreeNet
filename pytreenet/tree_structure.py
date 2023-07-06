@@ -318,13 +318,15 @@ class TreeStructure():
             old_node_id (atr): Identifier of the node to be replaced
         """
         old_node = self._nodes[old_node_id]
-        for child_id in old_node.childre:
+        for child_id in old_node.children:
             if child_id != new_node_id: # Otherwise the new node might neighbour itself
                 self._nodes[child_id].parent = new_node_id
-        if old_node_id.is_root():
+        if old_node.is_root():
             self._root_id = new_node_id
         else:
-            self._nodes[old_node.parent].replace_child(old_node_id, new_node_id)
+            if old_node.parent != new_node_id:
+                self._nodes[old_node.parent].replace_child(old_node_id, new_node_id)
+        self._nodes.pop(old_node_id)
 
     def _replace_node(self, new_node_id: str, old_node_id: str):
         """
