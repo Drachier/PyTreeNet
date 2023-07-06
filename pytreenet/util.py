@@ -7,6 +7,7 @@ from scipy.linalg import expm
 from scipy.sparse.linalg import expm_multiply
 
 from copy import deepcopy
+from tqdm import tqdm
 
 def crandn(size):
     """
@@ -168,7 +169,7 @@ def state_vector_time_evolution(state, hamiltonian, final_time, time_step_size, 
     num_time_steps = int(np.ceil(final_time / time_step_size))
     results = np.zeros((len(operators) + 1, num_time_steps + 1), dtype=complex)
 
-    for time_step in range(num_time_steps + 1):
+    for time_step in tqdm(range(num_time_steps + 1)):
         if time_step != 0:
             state = fast_exp_action(-1j*time_step_size*hamiltonian, state)
         
@@ -178,4 +179,14 @@ def state_vector_time_evolution(state, hamiltonian, final_time, time_step_size, 
             
         results[-1,time_step] = time_step * time_step_size
 
+    print(state)
     return results
+
+def multikron(*args):
+    op = args
+    operators = list(reversed(op))
+    result = operators[0]
+    for i, o in enumerate(operators):
+        if i>0:
+            result = np.kron(o, result)
+    return result
