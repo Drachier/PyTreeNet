@@ -123,7 +123,6 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
             self.assertTrue(np.allclose(ref_tensor, found_tensor))
 
     def test_tensor_contraction_leaf_only_child(self):
-        print("-----")
         self.ttn.contract_nodes("id8", "id9")
         contracted_node, contracted_tensor = self.ttn["id8contrid9"]
 
