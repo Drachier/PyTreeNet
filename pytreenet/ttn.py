@@ -284,9 +284,9 @@ class TreeTensorNetwork(TreeStructure):
             new_node.exchange_open_leg_ranges(range_parent, range_child)
 
         # Change connectivity
-        self._nodes[new_identifier] = new_node
         self.replace_node_in_neighbours(new_identifier, parent_id)
         self.replace_node_in_neighbours(new_identifier, child_id)
+        self._nodes[new_identifier] = new_node
 
     def legs_before_combination(self, node1_id: str, node2_id: str) -> Tuple[LegSpecification, LegSpecification]:
         """
