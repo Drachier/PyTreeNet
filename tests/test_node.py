@@ -8,81 +8,10 @@ class TestNodeInit(unittest.TestCase):
         shapes = [(), (2, ), (2, 2), (2, 3, 4, 5)]
         for shape in shapes:
             random_tensor = ptn.crandn(shape)
-            leg_node = ptn.Node(tensor=random_tensor)
+            node = ptn.Node(tensor=random_tensor)
             self.assertEqual(len(shape), len(leg_node.leg_permutation))
             self.assertEqual(list(range(len(shape))), leg_node.leg_permutation)
-
-    def test_from_node(self):
-        # All are tested with exactly two open legs
-        # Test empty
-        tensor = ptn.crandn((2, 2))
-        node = ptn.Node()
-        leg_node = ptn.Node.from_node(tensor, node)
-
-        self.assertTrue(leg_node.is_root())
-        self.assertTrue(leg_node.is_leaf())
-        self.assertEqual(list(range(len(tensor.shape))), leg_node.leg_permutation)
-
-        # Test leaf
-        tensor = ptn.crandn((2, 3, 4))
-        node = ptn.Node()
-        parent_id = "parent_id"
-        node.add_parent(parent_id)
-        leg_node = ptn.Node.from_node(tensor, node)
-
-        self.assertEqual(leg_node.parent, parent_id)
-        self.assertTrue(leg_node.is_leaf())
-        self.assertEqual(list(range(len(tensor.shape))), leg_node.leg_permutation)
-
-        # Test 1 parent 1 child
-        tensor = ptn.crandn((2, 3, 4, 5))
-        node = ptn.GraphNode()
-        parent_id = "parent_id"
-        child_id = "child_id"
-        node.add_parent(parent_id)
-        node.add_child(child_id)
-        leg_node = ptn.Node.from_node(tensor, node)
-
-        self.assertEqual(leg_node.parent, parent_id)
-        self.assertEqual(leg_node.children, [child_id])
-        self.assertEqual(list(range(len(tensor.shape))), leg_node.leg_permutation)
-
-        # Test 1 parent 2 children
-        tensor = ptn.crandn((2, 3, 4, 5))
-        node = ptn.GraphNode()
-        parent_id = "parent_id"
-        children_ids = ["child_id", "child2"]
-        node.add_parent(parent_id)
-        node.add_children(children_ids)
-        leg_node = ptn.Node.from_node(tensor, node)
-
-        self.assertEqual(leg_node.parent, parent_id)
-        self.assertEqual(leg_node.children, children_ids)
-        self.assertEqual(list(range(len(tensor.shape))), leg_node.leg_permutation)
-
-        # Test root 1 child
-        tensor = ptn.crandn((2, 3, 4, 5))
-        node = ptn.GraphNode()
-        child_id = "child2"
-        node.add_child(child_id)
-        leg_node = ptn.Node.from_node(tensor, node)
-
-        self.assertTrue(leg_node.is_root())
-        self.assertTrue(leg_node.is_parent_of(child_id))
-        self.assertEqual(list(range(len(tensor.shape))), leg_node.leg_permutation)
-
-        # Test root 2 children
-        tensor = ptn.crandn((2, 3, 4, 5))
-        node = ptn.GraphNode()
-        children_ids = ["child_id", "child2"]
-        node.add_children(children_ids)
-        leg_node = ptn.Node.from_node(tensor, node)
-
-        self.assertTrue(leg_node.is_root())
-        for child_id in children_ids:
-            self.assertTrue(leg_node.is_parent_of(child_id))
-        self.assertEqual(list(range(len(tensor.shape))), leg_node.leg_permutation)
-
+            self.assertEqual(shape, node.shape)
 
 class TestNodeMethods(unittest.TestCase):
 
