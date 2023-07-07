@@ -61,7 +61,7 @@ class Node(GraphNode):
         Get the leg permutation, cf. class docstring.
         """
         return self._leg_permutation
-    
+
     @property
     def shape(self) -> tuple:
         """
@@ -71,6 +71,12 @@ class Node(GraphNode):
         return tuple([self._shape[i] for i in self._leg_permutation])
 
     def link_tensor(self, tensor: ndarray):
+        """
+        Links this node to a tensor, by saving its shape and dimension.
+
+        Args:
+            tensor (ndarray): The tensor to be linked with this node.
+        """
         self._leg_permutation = list(range(tensor.ndim))
         self._shape = tensor.shape
 
