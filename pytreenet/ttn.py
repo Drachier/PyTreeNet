@@ -285,8 +285,8 @@ class TreeTensorNetwork(TreeStructure):
 
         # Change connectivity
         self._nodes[new_identifier] = new_node
-        self.replace_node(new_identifier, parent_id)
-        self.replace_node(new_identifier, child_id)
+        self.replace_node_in_neighbours(new_identifier, parent_id)
+        self.replace_node_in_neighbours(new_identifier, child_id)
 
     def legs_before_combination(self, node1_id: str, node2_id: str) -> Tuple[LegSpecification, LegSpecification]:
         """
@@ -398,9 +398,9 @@ class TreeTensorNetwork(TreeStructure):
             out_children[in_identifier] = out_node.nlegs() - 1
             out_node.open_legs_to_children(out_children)
 
-        self.replace_node_for_some_neighbours(out_identifier, node_id,
+        self.replace_node_in_some_neighbours(out_identifier, node_id,
                                               out_legs.find_all_neighbour_ids())
-        self.replace_node_for_some_neighbours(in_identifier, node_id,
+        self.replace_node_in_some_neighbours(in_identifier, node_id,
                                               in_legs.find_all_neighbour_ids())
         self._nodes.pop(node_id)
 

@@ -308,7 +308,7 @@ class TreeStructure():
             raise ValueError(errstr)
         return (parent_id, child_id)
 
-    def replace_node(self, new_node_id: str, old_node_id: str):
+    def replace_node_in_neighbours(self, new_node_id: str, old_node_id: str):
         """
         Replaces an old node with a new node for all the neighbours of
         the new node. Assumes the new node is already in the tree.
@@ -328,7 +328,7 @@ class TreeStructure():
                 self._nodes[old_node.parent].replace_child(old_node_id, new_node_id)
         self._nodes.pop(old_node_id)
 
-    def replace_node_for_some_neighbours(self, new_node_id: str, old_node_id: str,
+    def replace_node_in_some_neighbours(self, new_node_id: str, old_node_id: str,
                                          neighbour_ids: List[str]):
         """
         Replaces an old node with a new one for some of the neighbours of
