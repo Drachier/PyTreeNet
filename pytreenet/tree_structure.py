@@ -63,7 +63,7 @@ class TreeStructure():
 
     def __len__(self):
         return len(self._nodes)
-    
+
     def ensure_uniqueness(self, node_id: str):
         """
         Ensures that the given identifier is not already in use.
@@ -77,7 +77,7 @@ class TreeStructure():
         if node_id in self._nodes:
             err_str = f"Tree already contains a node with identifier {node_id}!"
             raise ValueError(err_str)
-        
+
     def ensure_existence(self, node_id: str):
         """
         Ensures that an identifier is already in this tree.
@@ -327,3 +327,24 @@ class TreeStructure():
             if old_node.parent != new_node_id:
                 self._nodes[old_node.parent].replace_child(old_node_id, new_node_id)
         self._nodes.pop(old_node_id)
+
+    def replace_node_for_some_neighbours(self, new_node_id: str, old_node_id: str,
+                                         neighbour_ids: List[str]):
+        """
+        Replaces an old node with a new one for some of the neighbours of
+         the old node.
+
+        Args:
+            new_node_id (str): The identifier of the new node
+            old_node_id (str): The identifier of the node to be replaced
+            neighbour_ids (List[str]): A list of node identifiers that are neighbours
+             of the old node and for which the connection to the old node is to be
+             replaced by a connection to the new node. 
+        """
+        old_node = self._nodes[old_node_id]
+        for identifier in neighbour_ids:
+            neighbour_node = self._nodes[identifier]
+            if not old_node.is_root() and old_node.parent == identifier:
+                neighbour_node.replace_child(old_node_id, new_node_id)
+            elif neighbour_node.is_child_of(old_node_id):
+                neighbour_node.parent = new_node_id
