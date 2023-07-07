@@ -28,58 +28,69 @@ class TestNodeMethods(unittest.TestCase):
         # Empty
         tensor0 = ptn.crandn(())
         tensor2 = ptn.crandn((2, 2))
-        node = ptn.GraphNode()
-        self.nodes["empty0"] = ptn.Node.from_node(tensor0, node)
-        self.nodes["empty2"] = ptn.Node.from_node(tensor2, node)
+        self.nodes["empty0"] = ptn.Node(tensor0, identifier="empty0")
+        self.nodes["empty2"] = ptn.Node(tensor2, identifier="empty2")
 
         # Leaf
         tensor0 = ptn.crandn((2,))
         tensor2 = ptn.crandn((2, 3, 4))
-        node = ptn.GraphNode()
         parent_id = "parent_id"
-        node.add_parent(parent_id)
-        self.nodes["leaf0"] = ptn.Node.from_node(tensor0, node)
-        self.nodes["leaf2"] = ptn.Node.from_node(tensor2, node)
+        node0 = ptn.Node(tensor0, identifier="leaf0")
+        node2 = ptn.Node(tensor2, identifier="leaf2")
+        node0.add_parent(parent_id)
+        node2.add_parent(parent_id)
+        self.nodes["leaf0"] = node0
+        self.nodes["leaf2"] = node2
 
         # 1 parent 1 child
         tensor0 = ptn.crandn((2, 3))
         tensor2 = ptn.crandn((2, 3, 4, 5))
-        node = ptn.GraphNode()
+        node0 = ptn.Node(tensor0, identifier="node1p1c0")
+        node2 = ptn.Node(tensor2, identifier="node1p1c2")
         parent_id = "parent_id"
-        node.add_parent(parent_id)
+        node0.add_parent(parent_id)
+        node2.add_parent(parent_id)
         child_id = "child_id"
-        node.add_child(child_id)
-        self.nodes["node1p1c0"] = ptn.Node.from_node(tensor0, node)
-        self.nodes["node1p1c2"] = ptn.Node.from_node(tensor2, node)
+        node0.add_child(child_id)
+        node2.add_child(child_id)
+        self.nodes["node1p1c0"] = node0
+        self.nodes["node1p1c2"] = node2
 
         # 1 parent 2 children
         tensor0 = ptn.crandn((2, 3, 4))
         tensor2 = ptn.crandn((2, 3, 4, 5, 6))
-        node = ptn.GraphNode()
+        node0 = ptn.Node(tensor0, identifier="node1p2c0")
+        node2 = ptn.Node(tensor2, identifier="node1p2c2")
         parent_id = "parent_id"
-        node.add_parent(parent_id)
+        node0.add_parent(parent_id)
+        node2.add_parent(parent_id)
         children_ids = ["child_id", "child2"]
-        node.add_children(children_ids)
-        self.nodes["node1p2c0"] = ptn.Node.from_node(tensor0, node)
-        self.nodes["node1p2c2"] = ptn.Node.from_node(tensor2, node)
+        node0.add_children(children_ids)
+        node2.add_children(children_ids)
+        self.nodes["node1p2c0"] = node0
+        self.nodes["node1p2c2"] = node2
 
         # Root 1 child
         tensor0 = ptn.crandn((2))
         tensor2 = ptn.crandn((2, 3, 4))
-        node = ptn.GraphNode()
+        node0 = ptn.Node(tensor0, identifier="root1c0")
+        node2 = ptn.Node(tensor2, identifier="root1c2")
         child_id = "child_id"
-        node.add_child(child_id)
-        self.nodes["root1c0"] = ptn.Node.from_node(tensor0, node)
-        self.nodes["root1c2"] = ptn.Node.from_node(tensor2, node)
+        node0.add_child(child_id)
+        node2.add_child(child_id)
+        self.nodes["root1c0"] = node0
+        self.nodes["root1c2"] = node2
 
         # Root 2 children
         tensor0 = ptn.crandn((2, 3))
         tensor2 = ptn.crandn((2, 3, 4, 5))
-        node = ptn.GraphNode()
+        node0 = ptn.Node(tensor0, identifier="root2c0")
+        node2 = ptn.Node(tensor2, identifier="root2c2")
         children_ids = ["child_id", "child2"]
-        node.add_children(children_ids)
-        self.nodes["root2c0"] = ptn.Node.from_node(tensor0, node)
-        self.nodes["root2c2"] = ptn.Node.from_node(tensor2, node)
+        node0.add_children(children_ids)
+        node2.add_children(children_ids)
+        self.nodes["root2c0"] = node0
+        self.nodes["root2c2"] = node2
 
     def test_nlegs(self):
         correct_numbers = [0, 2, 1, 3, 2, 4, 3, 5, 1, 3, 2, 4]
@@ -261,7 +272,6 @@ class TestNodeMethods(unittest.TestCase):
             node.swap_two_child_legs("child_id", "child2")
             self.assertEqual(leg_values[ids][0], node.leg_permutation[leg_values[ids][1]])
             self.assertEqual(leg_values[ids][1], node.leg_permutation[leg_values[ids][0]])
-
 
 if __name__ == "__main__":
     unittest.main()
