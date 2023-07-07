@@ -242,15 +242,13 @@ class TreeTensorNetwork(TreeStructure):
         child_node = self.nodes[child_id]
         parent_node = self.nodes[parent_id]
 
-        # Swap child to be the first child -> leg value 1
-        parent_node.swap_with_first_child(child_id)
-
         # Contracting tensors
         parent_tensor = self.tensors[parent_id]
         child_tensor = self.tensors[child_id]
-        np.transpose(parent_tensor, axes=parent_node.leg_permutation)
+        print(parent_tensor.shape, child_tensor.shape)
+        print(parent_node.children, child_node.children)
         new_tensor = np.tensordot(parent_tensor, child_tensor,
-                                  axes=(parent_node.nparents(), 0))
+                                  axes=(parent_node.get_child_leg(child_id), 0))
 
         # remove old tensors
         self.tensors.pop(node_id1)
@@ -271,12 +269,16 @@ class TreeTensorNetwork(TreeStructure):
                              for leg_value, identifier in enumerate(parent_children)}
         child_children_dict = {identifier: leg_value + parent_node.nlegs() - 1
                                for leg_value, identifier in enumerate(child_node.children)}
+        print(parent_child_dict)
+        print(child_children_dict)
         if parent_id == node_id1:
+            parent_child_dict.update(child_children_dict)
             new_node.open_legs_to_children(parent_child_dict)
-            new_node.open_legs_to_children(child_children_dict)
+            # new_node.open_legs_to_children(child_children_dict)
         else:
+            child_children_dict.update(parent_child_dict)
             new_node.open_legs_to_children(child_children_dict)
-            new_node.open_legs_to_children(parent_child_dict)
+            # new_node.open_legs_to_children(parent_child_dict)
         if node_id1 != parent_id:
             new_nvirt = new_node.nvirt_legs()
             range_parent = range(new_nvirt, new_nvirt + parent_node.nopen_legs())
@@ -287,6 +289,7 @@ class TreeTensorNetwork(TreeStructure):
         self.replace_node_in_neighbours(new_identifier, parent_id)
         self.replace_node_in_neighbours(new_identifier, child_id)
         self._nodes[new_identifier] = new_node
+        print(new_node.shape, new_node.children, new_node.leg_permutation, new_tensor.shape)
 
     def legs_before_combination(self, node1_id: str, node2_id: str) -> Tuple[LegSpecification, LegSpecification]:
         """
