@@ -245,8 +245,6 @@ class TreeTensorNetwork(TreeStructure):
         # Contracting tensors
         parent_tensor = self.tensors[parent_id]
         child_tensor = self.tensors[child_id]
-        print(parent_tensor.shape, child_tensor.shape)
-        print(parent_node.children, child_node.children)
         new_tensor = np.tensordot(parent_tensor, child_tensor,
                                   axes=(parent_node.get_child_leg(child_id), 0))
 
