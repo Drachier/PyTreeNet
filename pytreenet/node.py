@@ -216,7 +216,7 @@ class Node(GraphNode):
         """
         assert open_1.step == 1
         assert open_2.step == 1
-        if open_2.start > open_1.start:
+        if open_2.start < open_1.start:
             open_1, open_2 = open_2, open_1
         assert open_1.stop <= open_2.start
 
