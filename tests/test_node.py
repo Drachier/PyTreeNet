@@ -9,9 +9,13 @@ class TestNodeInit(unittest.TestCase):
         for shape in shapes:
             random_tensor = ptn.crandn(shape)
             node = ptn.Node(tensor=random_tensor)
-            self.assertEqual(len(shape), len(leg_node.leg_permutation))
-            self.assertEqual(list(range(len(shape))), leg_node.leg_permutation)
+            self.assertEqual(len(shape), len(node.leg_permutation))
+            self.assertEqual(list(range(len(shape))), node.leg_permutation)
             self.assertEqual(shape, node.shape)
+
+        empty = ptn.Node()
+        self.assertTrue(empty.leg_permutation is None)
+        self.assertTrue(empty.shape is None)
 
 class TestNodeMethods(unittest.TestCase):
 

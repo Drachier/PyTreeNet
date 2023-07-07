@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Dict
+from typing import List, Dict, Union
 from copy import copy
 
 from numpy import ndarray
@@ -63,11 +63,13 @@ class Node(GraphNode):
         return self._leg_permutation
 
     @property
-    def shape(self) -> tuple:
+    def shape(self) -> Union[tuple, None]:
         """
         Returns the shape as it would be for the tranposed tensor.
         E.g. the dimension of the parent leg is always output[0].
         """
+        if self._shape is None:
+            return None
         return tuple([self._shape[i] for i in self._leg_permutation])
 
     def link_tensor(self, tensor: ndarray):
