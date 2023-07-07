@@ -61,6 +61,14 @@ class Node(GraphNode):
         Get the leg permutation, cf. class docstring.
         """
         return self._leg_permutation
+    
+    @property
+    def shape(self) -> tuple:
+        """
+        Returns the shape as it would be for the tranposed tensor.
+        E.g. the dimension of the parent leg is always output[0].
+        """
+        return tuple([self._shape[i] for i in self._leg_permutation])
 
     def link_tensor(self, tensor: ndarray):
         self._leg_permutation = list(range(tensor.ndim))
@@ -72,6 +80,7 @@ class Node(GraphNode):
         Always call this, when the associated tensor is transposed
             according to the permutation. This ensures, the legs still match.
         """
+        self._shape = self.shape
         self._leg_permutation = list(range(len(self._leg_permutation)))
 
     @property
