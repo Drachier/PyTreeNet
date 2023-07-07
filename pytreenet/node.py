@@ -226,7 +226,7 @@ class Node(GraphNode):
                    for _ in open_1]
         self._leg_permutation[open_1.start:open_1.start] = values2
         difference = open_2.start - open_1.stop
-        new_position = open_1.start + len(open_2) - 1 + difference
+        new_position = open_1.start + len(open_2) + difference
         self._leg_permutation[new_position:new_position] = values1
 
     def get_child_leg(self, child_id: str) -> int:
