@@ -324,7 +324,7 @@ class TreeTensorNetwork(TreeStructure):
         temp[0][0].child_legs.remove(temp[1][1].identifier)
 
     def _split_nodes(self, node_id: str, out_legs: Dict[str, List], in_legs: Dict[str, List],
-                     splitting_function: Callable, out_identifier: str = "", in_identifier="",
+                     splitting_function: Callable, out_identifier: str = "", in_identifier: str= "",
                      **kwargs):
         """
         Splits an node into two nodes using a specified function
@@ -340,7 +340,7 @@ class TreeTensorNetwork(TreeStructure):
                 legs. Defaults to "".
             in_identifier (str, optional): An identifier for the tensor with the input
                 legs. Defaults to "".
-
+            **kwargs: Are passed to the splitting function.
         """
         node, tensor = self[node_id]
         if isinstance(out_legs, dict):
@@ -352,38 +352,57 @@ class TreeTensorNetwork(TreeStructure):
         elif in_legs.node is None:
             in_legs.node = node
 
-        # Getting the numerical value of the legs
-        out_legs_int = out_legs.find_leg_values()
-        in_legs_int = in_legs.find_leg_values()
-        out_tensor, in_tensor = splitting_function(tensor, out_legs_int, in_legs_int, **kwargs)
-
-        # Changing the ttn-structure (Here the old node is removed)
+        # Find new identifiers
         if out_identifier == "":
             out_identifier = "out_of_" + node_id
         if in_identifier == "":
             in_identifier = "in_of_" + node_id
-        # split _node removes old node
-        self.split_node(node_id, out_identifier, out_legs.find_all_neighbour_ids(),
-                        in_identifier, in_legs.find_all_neighbour_ids())
 
-        # Adding Tensors
+        # Getting the numerical value of the legs
+        out_legs_int = out_legs.find_leg_values()
+        in_legs_int = in_legs.find_leg_values()
+        out_tensor, in_tensor = splitting_function(tensor, out_legs_int, in_legs_int, **kwargs)
         self._tensors[out_identifier] = out_tensor
         self._tensors[in_identifier] = in_tensor
 
         # New Nodes
-        out_node = Node.from_node(out_tensor, self.nodes[out_identifier])
-        in_node = Node.from_node(in_tensor, self.nodes[in_identifier])
+        out_node = Node(tensor=out_tensor, identifier=out_identifier)
+        in_node = Node(tensor=in_tensor, identifier=in_identifier)
         self._nodes[out_identifier] = out_node
         self._nodes[in_identifier] = in_node
 
-        # Currently the tensors q and r have the leg ordering
-        # (new_leg(for out), parent_leg, virtual_leg, open_legs, new_leg(for in))
-        if out_node.parent == in_node.identifier:
-            out_node.last_leg_to_parent_leg()
-            in_node.leg_to_last_child_leg(0)
+        # Currently the tensors out and in have the leg ordering
+        # (new_leg(for in), parent_leg, virtual_leg, open_legs, new_leg(for out))
+        if in_legs.parent_leg is not None:
+            in_node.open_leg_to_parent(in_legs.parent_leg, 1)
+            in_children = {child_id: leg_value + 2
+                           for leg_value, child_id in enumerate(in_legs.child_legs)}
+            in_children[out_identifier] = 1
+            in_node.open_legs_to_children(in_children)
+            out_node.open_leg_to_parent(in_identifier, out_node.nlegs() - 1)
+            out_children = {child_id: leg_value + 1
+                            for leg_value, child_id in enumerate(out_legs.child_legs)}
+            out_node.open_legs_to_children(out_children)
         else:
-            out_node.leg_to_last_child_leg(len(out_node.leg_permutation) - 1)
-            # The new leg in the in_node is already in the correct place. Yay!
+            # For the in_tensor all legs are in the correct position
+            in_node.open_leg_to_parent(out_identifier, 0)
+            in_children = {child_id: leg_value + 1
+                           for leg_value, child_id in enumerate(in_legs.child_legs)}
+            in_node.open_legs_to_children(in_children)
+            if node.is_root():
+                self._root_id = out_identifier
+            else:
+                out_node.open_leg_to_parent(out_legs.parent_leg, 0)
+            out_children = {child_id: leg_value + out_node.nparents()
+                            for leg_value, child_id in enumerate(out_legs.child_legs)}
+            out_children[in_identifier] = out_node.nlegs() - 1
+            out_node.open_legs_to_children(out_children)
+
+        self.replace_node_for_some_neighbours(out_identifier, node_id,
+                                              out_legs.find_all_neighbour_ids())
+        self.replace_node_for_some_neighbours(in_identifier, node_id,
+                                              in_legs.find_all_neighbour_ids())
+        self._nodes.pop(node_id)
 
     def split_node_qr(self, node_id: str, q_legs: Dict[str, List], r_legs: Dict[str, List],
                       q_identifier: str = "", r_identifier: str = ""):
