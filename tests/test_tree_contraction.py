@@ -77,7 +77,6 @@ class TestTreeContraction(unittest.TestCase):
         self.simple_ttn1.contract_nodes("node3", "node1", new_identifier="r13")
         self.simple_ttn1.contract_nodes("node2", "r13", new_identifier="root")
         ref_tensor = self.simple_ttn1.tensors["root"]
-        ref_tensor = ref_tensor.transpose((1,2,0))
 
         # Test Tensor
         self.assertEqual(ref_tensor.shape, result_tensor.shape)
@@ -105,7 +104,7 @@ class TestTreeContraction(unittest.TestCase):
         self.tree_tensor_network.contract_nodes("root", "234", new_identifier="root")
         root_id = self.tree_tensor_network.root_id
         _, ref_tensor = self.tree_tensor_network[root_id]
-        ref_tensor = np.transpose(ref_tensor, axes=(4,0,1,2,3))
+        ref_tensor = np.transpose(ref_tensor, axes=(4,3,0,1,2))
 
         # Test Tensor
         self.assertTrue(ref_tensor.shape, result_tensor.shape)
