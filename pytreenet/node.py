@@ -62,32 +62,6 @@ class Node(GraphNode):
         """
         return self._leg_permutation
 
-    def set_leg_permutation(self, leg_dict: Dict[str, int]):
-        """
-        Set a new leg permutation. This might be neccessary, if the tensor
-        corresponding to this node is changed externally and then placed back
-        into the ttn.
-
-        All neighbours are assigned a new leg value, while the open legs are
-         assinged the remaining values. This assumes that the order of open legs
-         was not changed.
-
-        Args:
-            leg_dict (Dict[str, int]): A dictionary containing all the neighbouring
-                nodes as keys and the actual tensor leg value as value.
-        """
-        self._reset_permutation()
-        neighbours = self.neighbouring_nodes()
-        assert len(neighbours) == len(leg_dict)
-        for node_id, leg_value in leg_dict.items():
-            if node_id in neighbours:
-                new_position = self.get_neighbour_leg(node_id)
-                self._leg_permutation.pop(leg_value)
-                self._leg_permutation.insert(new_position, leg_value)
-            else:
-                errstr = f"Nodes {self.identifier} and {node_id} aren't neighbours!"
-                raise ValueError(errstr)
-
     def link_tensor(self, tensor: ndarray):
         self._leg_permutation = list(range(tensor.ndim))
         self._shape = tensor.shape
@@ -238,26 +212,6 @@ class Node(GraphNode):
         new_position = open_1.start + len(open_2) - 1 + difference
         self._leg_permutation[new_position:new_position] = values1
 
-
-    def last_leg_to_parent_leg(self):
-        """
-        Sometimes the leg of the parent is not set properly, when something
-        has been done to the tensor. This method takes care of this.
-        Use with care!
-        """
-        value = self._leg_permutation.pop(-1)
-        self._leg_permutation.insert(0, value)
-
-    def leg_to_last_child_leg(self, leg_value: int):
-        """
-        Sometimes the leg of the last child is not set properly, when something
-        has been done to the tensor. This method takes care of this.
-        Use with care!
-        """
-        self._leg_permutation.remove(leg_value)
-        new_position = self.nparents() + self.nchildren() - 1
-        self._leg_permutation.insert(new_position, leg_value)
-
     def get_child_leg(self, child_id: str) -> int:
         """
         Obtains the leg value of a given child of this node.
@@ -328,7 +282,6 @@ class Node(GraphNode):
         Returns the number of open legs of this node.
         """
         return self.nlegs() - self.nvirt_legs()
-
 
 def random_tensor_node(shape, tag: str = "", identifier: str = ""):
     """
