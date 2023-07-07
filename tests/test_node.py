@@ -273,5 +273,12 @@ class TestNodeMethods(unittest.TestCase):
             self.assertEqual(leg_values[ids][0], node.leg_permutation[leg_values[ids][1]])
             self.assertEqual(leg_values[ids][1], node.leg_permutation[leg_values[ids][0]])
 
+    def test_open_dimension(self):
+        open_dimensions = [0,4,0,12,0,20,0,30,0,12,0,20]
+        open_dimensions = dict(zip(self.ids, open_dimensions))
+        for ids in self.ids:
+            self.assertEqual(open_dimensions[ids],
+                             self.nodes[ids].open_dimension())
+
 if __name__ == "__main__":
     unittest.main()

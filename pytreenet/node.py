@@ -1,11 +1,11 @@
 from __future__ import annotations
 from typing import List, Dict, Union
 from copy import copy
+from functools import reduce
 
 from numpy import ndarray
 
-from pytreenet.util import crandn
-
+from .util import crandn
 from .graph_node import GraphNode
 
 
@@ -299,6 +299,16 @@ class Node(GraphNode):
         Returns the number of open legs of this node.
         """
         return self.nlegs() - self.nvirt_legs()
+
+    def open_dimension(self) -> int:
+        """
+        Returns the total open dimension of this leg.
+        """
+        open_dim = [self.shape[leg]
+                    for leg in self.open_legs]
+        if open_dim == []:
+            return 0
+        return reduce(lambda x, y: x * y, open_dim)
 
 def random_tensor_node(shape, tag: str = "", identifier: str = ""):
     """
