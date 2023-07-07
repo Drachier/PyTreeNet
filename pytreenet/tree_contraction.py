@@ -4,9 +4,7 @@ from copy import copy
 
 import numpy as np
 
-from .node_contraction import operator_expectation_value_on_node
-from .canonical_form import canonical_form
-from .util import copy_object, sort_dictionary
+from .util import copy_object
 
 def completely_contract_tree(ttn: TreeTensorNetwork, to_copy: bool=False) -> TreeTensorNetwork:
     """
