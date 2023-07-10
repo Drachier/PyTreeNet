@@ -18,6 +18,9 @@ class Circuit:
         self.print_actions = print_actions
         self.measurement_types = measurement_types
 
+        self.results_cache = []
+        self._hamiltonian = None
+
     @property
     def size(self):
         return self.n_qubits
@@ -33,6 +36,8 @@ class Circuit:
             if i>0:
                 tensor = np.tensordot(tensor, self._state[id].tensor, axes=(i-1, 0))
         result = tensor.flatten()
+        self.results_cache.append(result)
+        
         result_dict = dict()
         for i in range(2**self.size):
             if np.abs(result[i]) > 1e-10:
@@ -52,8 +57,7 @@ class Circuit:
     def gate(self, node_id, gate_id, operation_time=1):
         assert node_id in self._qubit_ids
         gate = all_gates()[gate_id]
-        hamiltonian = trivial_hamiltonian(self._state, bond_dimension=1,  zeros=[node_id])
-        hamiltonian[node_id].add(gate.H / operation_time)
+        hamiltonian = self.hamiltonian(targets=[node_id], replacements=[gate.H / operation_time])
 
         if self.print_actions:
             print("\nApply Gate " + gate_id + " on " + node_id)
@@ -70,12 +74,9 @@ class Circuit:
         X = all_gates()["X"]
         Z = all_gates()["Z"]
 
-        hamiltonian = trivial_hamiltonian(self._state, bond_dimension=1, zeros=[control_id, not_id])
         control_mat = (I.U - Z.U)
         not_mat = (I.U - X.U) * np.pi / 4 / operation_time
-
-        hamiltonian[control_id].add(control_mat)
-        hamiltonian[not_id].add(not_mat)
+        hamiltonian = self.hamiltonian(targets=[control_id, not_id], replacements=[control_mat, not_mat])
 
         if self.print_actions:
             print("\nApply Gate CNOT on " + control_id + " and " + not_id)
@@ -92,6 +93,7 @@ class Circuit:
     def run(self, hamiltonian, operation_time):
         tdvp_sim = TDVP("SecondOrder,OneSite", self._state, hamiltonian, time_step_size=operation_time/20, final_time=self._time_elapsed+operation_time, 
                         initial_time=self._time_elapsed, operators=self.operators(self.measurement_types))
+        tdvp_sim.contraction_mode = "by_dimension"  # TODO this is still here
         tdvp_sim.run(pgbar=False)
         self._time_elapsed += operation_time
 
@@ -101,28 +103,50 @@ class Circuit:
             self.results = np.hstack((self.results, tdvp_sim.results[:,1:]))
         return tdvp_sim
     
+    def provide_hamiltonian(self, hamiltonian, id_dict, operation_type="add"):
+        self._hamiltonian = hamiltonian
+        self._id_dict = id_dict
+        assert operation_type in ["add", "replace"]
+        self._hamiltonian_operation_type = operation_type
+
+    def hamiltonian(self, targets, replacements):
+        if self._hamiltonian is None:
+            hamiltonian = trivial_hamiltonian(self._state, bond_dimension=1, targets=targets)
+            for i, id in enumerate(targets):
+                if replacements[i] is not None:
+                    hamiltonian[id].add(replacements[i])
+        else:
+            hamiltonian = deepcopy(self._hamiltonian)
+            for i, id in enumerate(targets):
+                if id in self._id_dict.keys():
+                    for index in self._id_dict[id]:
+                        if self._hamiltonian_operation_type == "replace":
+                            hamiltonian[id].tensor[index] = np.zeros((2,2), dtype=complex)
+                        if replacements[i] is not None:
+                            hamiltonian[id].tensor[index] += replacements[i]
+        return hamiltonian
     
 # TODO find better position for this code, this doesn't really fit here
 
-def trivial_hamiltonian(state, bond_dimension=1, zeros=[]):
+def trivial_hamiltonian(state, bond_dimension=1, targets=[]):
     hamiltonian = QuantumTTOperator()
     root_id = state.root_id
 
     root_tensor = np.zeros([bond_dimension] * (state[root_id].tensor.ndim - 1) + [state[root_id].tensor.shape[-1]] * 2, dtype=complex)
-    if root_id not in zeros:
+    if root_id not in targets:
         index = tuple([0] * (state[root_id].tensor.ndim - 1))
         root_tensor[index] += np.eye(root_tensor.shape[-1], dtype=complex)
 
     hamiltonian.add_root(QuantumOperatorNode(root_tensor, identifier=root_id))
-    hamiltonian = add_children(hamiltonian, state, root_id, bond_dimension, zeros)
+    hamiltonian = add_children(hamiltonian, state, root_id, bond_dimension, targets)
     return hamiltonian
 
 
-def add_children(hamiltonian, state, current_node_id, bond_dimension, zeros=[]):
+def add_children(hamiltonian, state, current_node_id, bond_dimension, targets=[]):
     for node_id in state[current_node_id].children_legs.keys():
 
         tensor = np.zeros([bond_dimension] * (state[node_id].tensor.ndim - 1) + [state[node_id].tensor.shape[-1]] * 2, dtype=complex)
-        if node_id not in zeros:
+        if node_id not in targets:
             index = tuple([0] * (state[node_id].tensor.ndim - 1))
             tensor[index] += np.eye(tensor.shape[-1], dtype=complex)
 
@@ -131,7 +155,7 @@ def add_children(hamiltonian, state, current_node_id, bond_dimension, zeros=[]):
         
         node = QuantumOperatorNode(tensor, identifier=node_id)
         hamiltonian.add_child_to_parent(node, parent_leg, current_node_id, own_leg_in_parent)
-        hamiltonian = add_children(hamiltonian, state, node_id, bond_dimension, zeros)
+        hamiltonian = add_children(hamiltonian, state, node_id, bond_dimension, targets)
     return hamiltonian    
 
 
