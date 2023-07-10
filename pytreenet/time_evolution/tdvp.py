@@ -73,6 +73,8 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
 
         # Caching for speed up
 
+        self._dimension_wise_site_contraction_cache = dict()
+
         self.site_cache = dict()
         self.partial_tree_caching = True
         self.partial_tree_cache = dict()
@@ -91,11 +93,13 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
     @contraction_mode.setter
     def contraction_mode(self, val):
         if val=="by_dimension":
-            self.contraction_mode = val
+            self._contraction_mode = val
             # TODO disable caching
         elif val=="by_site":
-            self.contraction_mode = val
+            self._contraction_mode = val
             # TODO enable caching
+        else:
+            raise ValueError
     
     def _init_site_cache(self):
         """
@@ -106,6 +110,8 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
             self._update_site_cache(node_id)
 
     def _update_site_cache(self, node_id):
+        if self.contraction_mode == "by_dimension":
+            return None
         """"
         Call after any tensor has been updated to refresh the site cache.
         """
@@ -299,7 +305,54 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
             ket_legs = [2*i+1 for i in range(tensor.ndim//2)]
             return tensor_matricization(tensor, bra_legs, ket_legs, correctly_ordered=False)
         elif self._contraction_mode == "by_dimension":
-            return None
+            cn = ContractionNetwork()
+            cn.from_quantum(self.state, self.hamiltonian)
+            holes = ["bra_"+node_id, "ket_"+node_id]
+            contracted_nodes = cn.contract(holes)
+            hamiltonian = contracted_nodes[list(contracted_nodes.keys())[-1]]
+
+            if node_id not in self._dimension_wise_site_contraction_cache.keys():
+                self._dimension_wise_site_contraction_cache[node_id] = dict()
+
+                if holes != list(hamiltonian.connected_legs.keys()):
+                    hamiltonian.tensor = hamiltonian.tensor.T
+                    self._dimension_wise_site_contraction_cache[node_id]["transpose_1"] = True
+                else:
+                    self._dimension_wise_site_contraction_cache[node_id]["transpose_1"] = False
+                original_shape = hamiltonian.tensor.shape
+
+                node_legs_no_prefix = self.state.nodes[node_id].neighbouring_nodes()  # without bra_/ket_ prefix
+                node_legs_no_prefix = {key: val for key, val in sorted(node_legs_no_prefix.items(), key=lambda item: item[1])}
+
+                node_legs_bra = {f"bra_{key}": val for key, val in node_legs_no_prefix.items()}
+                node_legs_ket = {f"ket_{key}": val for key, val in node_legs_no_prefix.items()}
+
+                node_legs_bra["ham_"+node_id] = self.state.nodes[node_id].physical_leg
+                node_legs_ket["ham_"+node_id] = self.state.nodes[node_id].physical_leg
+
+                hamiltonian_legs_bra = [id for id in hamiltonian.contraction_history if id in node_legs_bra.keys()]
+                hamiltonian_legs_ket = [id for id in hamiltonian.contraction_history if id in node_legs_ket.keys()]
+
+                hamiltonian_leg_reshaper_bra = [self.state.nodes[node_id].tensor.shape[node_legs_bra[key]] for key in hamiltonian_legs_bra]
+                hamiltonian_leg_reshaper_ket = [self.state.nodes[node_id].tensor.shape[node_legs_ket[key]] for key in hamiltonian_legs_ket]
+
+                hamiltonian.tensor = np.reshape(hamiltonian.tensor, tuple(hamiltonian_leg_reshaper_bra + hamiltonian_leg_reshaper_ket))
+                self._dimension_wise_site_contraction_cache[node_id]["reshape_1"] = tuple(hamiltonian_leg_reshaper_bra + hamiltonian_leg_reshaper_ket)
+
+                hamiltonian_sort_indices_bra = [hamiltonian_legs_bra.index(i) for i in node_legs_bra.keys()]
+                hamiltonian_sort_indices_ket = [i+len(hamiltonian_sort_indices_bra) for i in hamiltonian_sort_indices_bra]
+
+                hamiltonian.tensor = np.transpose(hamiltonian.tensor, tuple(hamiltonian_sort_indices_bra + hamiltonian_sort_indices_ket))
+                self._dimension_wise_site_contraction_cache[node_id]["transpose_2"] = tuple(hamiltonian_sort_indices_bra + hamiltonian_sort_indices_ket)
+                hamiltonian.tensor = np.reshape(hamiltonian.tensor, original_shape)
+                self._dimension_wise_site_contraction_cache[node_id]["reshape_2"] = original_shape
+            else:
+                if self._dimension_wise_site_contraction_cache[node_id]["transpose_1"]:
+                    hamiltonian.tensor = hamiltonian.tensor.T
+                hamiltonian.tensor = np.reshape(hamiltonian.tensor, self._dimension_wise_site_contraction_cache[node_id]["reshape_1"])
+                hamiltonian.tensor = np.transpose(hamiltonian.tensor, self._dimension_wise_site_contraction_cache[node_id]["transpose_2"])
+                hamiltonian.tensor = np.reshape(hamiltonian.tensor, self._dimension_wise_site_contraction_cache[node_id]["reshape_2"])
+            return hamiltonian.tensor
 
     
     def _get_effective_link_hamiltonian(self, node_id, next_node_id):
@@ -342,8 +395,24 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
             """
             
             return tensor_matricization(tensor, (2, 0), (3, 1), correctly_ordered=False)
+        
         elif self._contraction_mode == "by_dimension":
-            return None
+            cn = ContractionNetwork()
+            cn.from_quantum(self.state, self.hamiltonian)
+            contracted_nodes = cn.contract(holes=["bra_"+node_id, "bra_"+next_node_id, "ket_"+node_id, "ket_"+next_node_id])
+
+            keys = list(contracted_nodes.keys())
+            hamiltonian = contracted_nodes[keys[4]]
+                      
+            hamiltonian_legs_order = [hamiltonian.connected_legs[keys[i]] for i in range(4)]
+            tensor = tensor_multidot(hamiltonian.tensor, [contracted_nodes[keys[i]].tensor for i in range(4)],
+                                     hamiltonian_legs_order, [contracted_nodes[keys[i]].connected_legs[hamiltonian.id] for i in range(4)])
+            
+            matrix = tensor_matricization(tensor,
+                                          (hamiltonian.connected_legs["bra_"+node_id], hamiltonian.connected_legs["bra_"+next_node_id]), 
+                                          (hamiltonian.connected_legs["ket_"+node_id], hamiltonian.connected_legs["ket_"+next_node_id]), 
+                                          correctly_ordered=False)
+            return matrix
     
     def _update_site_and_get_link(self, node_id, next_node_id):
         node = self.state[node_id]
@@ -377,7 +446,7 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
         else:
             link_tensor = time_evolve(link_tensor, hamiltonian_eff_link, self.time_step_size, forward=False)
         self.state[next_node_id].absorb_tensor(link_tensor, 1, self.neighbouring_nodes[next_node_id][node_id])
-        self._update_site_cache(next_node_id)
+        self._update_site_cache(node_id)
 
 
 class FirstOrderOneSiteTDVP(TDVPAlgorithm):
