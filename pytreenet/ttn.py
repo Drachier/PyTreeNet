@@ -393,12 +393,13 @@ class TreeTensorNetwork(TreeStructure):
                             for leg_value, child_id in enumerate(out_legs.child_legs)}
             out_children[in_identifier] = out_node.nlegs() - 1
             out_node.open_legs_to_children(out_children)
-
         self.replace_node_in_some_neighbours(out_identifier, node_id,
-                                              out_legs.find_all_neighbour_ids())
+                                             out_legs.find_all_neighbour_ids())
         self.replace_node_in_some_neighbours(in_identifier, node_id,
-                                              in_legs.find_all_neighbour_ids())
-        self._nodes.pop(node_id)
+                                             in_legs.find_all_neighbour_ids())
+
+        if node_id != out_identifier and node_id != in_identifier:
+            self._nodes.pop(node_id)
 
     def split_node_qr(self, node_id: str, q_legs: Dict[str, List], r_legs: Dict[str, List],
                       q_identifier: str = "", r_identifier: str = ""):
