@@ -320,7 +320,7 @@ class TreeTensorNetwork(TreeStructure):
         temp[0][0].child_legs.remove(temp[1][1].identifier)
 
     def _split_nodes(self, node_id: str, out_legs: Dict[str, List], in_legs: Dict[str, List],
-                     splitting_function: Callable, out_identifier: str = "", in_identifier: str= "",
+                     splitting_function: Callable, out_identifier: str = "", in_identifier: str = "",
                      **kwargs):
         """
         Splits an node into two nodes using a specified function
@@ -347,7 +347,6 @@ class TreeTensorNetwork(TreeStructure):
             in_legs = LegSpecification.from_dict(in_legs, node)
         elif in_legs.node is None:
             in_legs.node = node
-
         # Find new identifiers
         if out_identifier == "":
             out_identifier = "out_of_" + node_id
