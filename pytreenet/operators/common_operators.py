@@ -62,11 +62,12 @@ def swap_gate(dimension: int = 2) -> np.ndarray:
     Returns:
         np.ndarray: A SWAP-gate for two `dimension`-dimensional systems.
     """
+    if dimension < 1:
+        errstr = "The dimension must be positive!"
+        raise ValueError(errstr)
     swap = np.zeros((dimension**2, dimension**2), dtype=complex)
-
     for i in range(dimension**2):
         for j in range(dimension**2):
-
             # Basically find the indices in base dimension
             output_sys1 = int(i / dimension)
             output_sys2 = int(i % dimension)
