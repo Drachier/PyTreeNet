@@ -49,10 +49,6 @@ class TEBD(TimeEvolution):
         self.rel_tol = rel_tol
         self.total_tol = total_tol
 
-        if not self._trotter_splitting.is_compatible_with_ttn(self.state):
-            raise ValueError(
-                "State TTN and Trotter Splitting are not compatible!")
-
         self._exponents = self._trotter_splitting.exponentiate_splitting(self.state,
                                                               self._time_step_size)
 
