@@ -66,9 +66,7 @@ class TEBD(TimeEvolution):
 
         Args:
             single_site_exponent (NumericOperator): An operator representing a
-            single-site unitary operator. The operator is saved with key
-            `"operator"` and the site to which it is applied is saved via
-            node identifiers under the key `"site_ids"`
+             single-site unitary operator.
         """
         operator = single_site_exponent.operator
         identifier = single_site_exponent.identifiers[0]
