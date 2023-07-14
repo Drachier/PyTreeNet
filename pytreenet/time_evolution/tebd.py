@@ -49,8 +49,8 @@ class TEBD(TimeEvolution):
         self.rel_tol = rel_tol
         self.total_tol = total_tol
 
-        self._exponents = self._trotter_splitting.exponentiate_splitting(self.state,
-                                                              self._time_step_size)
+        self._exponents = self._trotter_splitting.exponentiate_splitting(self._time_step_size,
+                                                                         self.state)
 
     @property
     def exponents(self):
