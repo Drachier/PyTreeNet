@@ -26,8 +26,7 @@ def pauli_matrices(asarray: bool=True) -> Union[List, np.ndarray]:
 
 def bosonic_operators(dimension: int = 2) -> Tuple[np.ndarray]:
     """
-    Supplies the common bosonic operators. The creation and anihilation operators
-    don't have the numerically correct entries, but only 1s as entries.
+    Supplies the common bosonic operators.
 
     Args:
         dimension (int, optional): The dimension of the bosonics space to be considers.
@@ -35,18 +34,20 @@ def bosonic_operators(dimension: int = 2) -> Tuple[np.ndarray]:
 
     Returns:
         Tuple[np.ndarray]:
-            * creation_op: Bosonic creation operator, i.e. a matrix with the subdiagonal entries
-             equal to 1 and all others 0.
-            * annihilation_op: Bosonic anihilation operator, i.e. a matrix with the superdiagonal
-             entries equal to 1 and all other 0.
+            * creation_op: Bosonic creation operator.
+            * annihilation_op: Bosonic anihilation operator.
             * number_op: The bosonic number operator, i.e. a diagonal matrix with increasing
               integers on the diagonal from 0 to dimension-1.
     """
-    creation_op = np.eye(dimension, k=-1)
-    annihilation_op = np.conj(creation_op.T)
+    if dimension < 1:
+        errstr = "The dimension must be positive!"
+        raise ValueError(errstr)
+    sqrt_number_vec = np.asarray([np.sqrt(i)
+                                  for i in range(1, dimension)])
 
-    number_vector = np.asarray(range(0,dimension))
-    number_op = np.diag(number_vector)
+    creation_op = np.diag(sqrt_number_vec, k=-1)
+    annihilation_op = creation_op.T
+    number_op = creation_op @ annihilation_op
     return (creation_op, annihilation_op, number_op)
 
 def swap_gate(dimension: int = 2) -> np.ndarray:
