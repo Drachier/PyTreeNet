@@ -33,7 +33,7 @@ class TimeEvolution:
         self._time_step_size = time_step_size
         self._final_time = final_time
         self._num_time_steps = self._compute_num_time_steps()
-        if operators.isinstance(TensorProduct):
+        if isinstance(operators, TensorProduct):
             # A single operator was provided
             self.operators = [operators]
         else:
