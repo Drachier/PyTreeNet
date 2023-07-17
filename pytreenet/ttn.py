@@ -320,6 +320,7 @@ class TreeTensorNetwork(TreeStructure):
             temp.reverse()
         temp[0][0].parent_leg = temp[0][1].parent
         temp[0][0].child_legs.remove(temp[1][1].identifier)
+        return (spec1, spec2)
 
     def _split_nodes(self, node_id: str, out_legs: Dict[str, List], in_legs: Dict[str, List],
                      splitting_function: Callable, out_identifier: str = "", in_identifier: str = "",
