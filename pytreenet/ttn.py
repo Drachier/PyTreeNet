@@ -296,9 +296,9 @@ class TreeTensorNetwork(TreeStructure):
             node2_id (str): Identifier of the second node to be combined
 
         Returns:
-            Tuple[LegSpecification, LegSpecification]: The leg specifications containing the information
-             to split the two nodes again, to have the same legs as before (assuming the open legs are
-             not transposed).
+            Tuple[LegSpecification, LegSpecification]: The leg specifications containing the
+             information to split the two nodes again, to have the same legs as before
+             (assuming the open legs are not transposed).
         """
 
         node1 = self.nodes[node1_id]
