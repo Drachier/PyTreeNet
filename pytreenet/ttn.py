@@ -400,7 +400,8 @@ class TreeTensorNetwork(TreeStructure):
         self.replace_node_in_some_neighbours(in_identifier, node_id,
                                              in_legs.find_all_neighbour_ids())
 
-        if node_id != out_identifier and node_id != in_identifier:
+        if node_id not in [out_identifier, in_identifier]:
+            self._tensors.pop(node_id)
             self._nodes.pop(node_id)
 
     def split_node_qr(self, node_id: str, q_legs: Dict[str, List], r_legs: Dict[str, List],

@@ -306,6 +306,7 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
 
         # Test Nodes
         self.assertEqual(10, len(self.ttn.nodes))
+        self.assertEqual(10, len(self.ttn.tensors))
         self.assertTrue("q8" in self.ttn.nodes)
         self.assertTrue("r8" in self.ttn.nodes)
         self.assertTrue(q_node.is_parent_of("r8"))
