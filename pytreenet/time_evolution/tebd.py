@@ -89,7 +89,7 @@ class TEBD(TimeEvolution):
 
         """
         operator = two_site_exponent.operator
-        identifiers = two_site_exponent.identifiers
+        identifiers = two_site_exponent.node_identifiers
 
         u_legs, v_legs = self.state.legs_before_combination(identifiers[0],
                                                             identifiers[1])
@@ -121,7 +121,7 @@ class TEBD(TimeEvolution):
         None.
 
         """
-        num_of_sites_acted_upon = len(unitary.identifiers)
+        num_of_sites_acted_upon = len(unitary.node_identifiers)
 
         if num_of_sites_acted_upon == 0:
             pass

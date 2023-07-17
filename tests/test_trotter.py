@@ -6,7 +6,6 @@ from scipy.linalg import expm
 
 import pytreenet as ptn
 
-
 class TestTrotterSplitting(unittest.TestCase):
 
     def setUp(self):
