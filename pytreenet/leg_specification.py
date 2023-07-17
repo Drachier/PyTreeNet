@@ -12,11 +12,38 @@ class LegSpecification():
     """
 
     def __init__(self, parent_leg: Union[str, None], child_legs: List[str],
-                 open_legs: List[str], node: Node):
+                 open_legs: List[str], node: Union[Node, None]):
         self.parent_leg = parent_leg
-        self.child_legs = child_legs
-        self.open_legs = open_legs
+        if child_legs is None:
+            self.child_legs = []
+        else:
+            self.child_legs = child_legs
+        if open_legs is None:
+            self.open_legs = []
+        else:
+            self.open_legs = open_legs
         self.node = node
+
+    def __eq__(self, other: LegSpecification) -> bool:
+        """
+        Two Leg specifications are equal, if they contain the same legs and
+         correspond to the same node by identifier.
+        """
+        if self.parent_leg is None:
+            parents_eq = other.parent_leg is None
+        elif other.parent_leg is None:
+            return False
+        else:
+            parents_eq = self.parent_leg == other.parent_leg
+        children_eq = self.child_legs == other.child_legs
+        open_eq = self.open_legs == other.open_legs
+        if self.node is None:
+            node_eq = other.node is None
+        elif other.node is None:
+            return False
+        else:
+            node_eq = self.node.identifier == other.node.identifier
+        return parents_eq and children_eq and open_eq and node_eq
 
     @classmethod
     def from_dict(cls, dictionary, node) -> LegSpecification:
