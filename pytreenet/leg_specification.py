@@ -45,6 +45,16 @@ class LegSpecification():
             node_eq = self.node.identifier == other.node.identifier
         return parents_eq and children_eq and open_eq and node_eq
 
+    def __str__(self):
+        string =  f"parent_leg: {self.parent_leg}, "
+        string += f"child_legs: {self.child_legs}, "
+        string += f"open_legs: {self.open_legs}, "
+        if self.node is None:
+            string += f"node_id: {self.node}, "
+        else:
+            string += f"node_id: {self.node.identifier}, "
+        return string
+
     @classmethod
     def from_dict(cls, dictionary, node) -> LegSpecification:
         """
