@@ -292,11 +292,13 @@ class TreeTensorNetwork(TreeStructure):
          splitting.
 
         Args:
-            node1_id (str): _description_
-            node2_id (str): _description_
+            node1_id (str): Identifier of the first node to be combined
+            node2_id (str): Identifier of the second node to be combined
 
         Returns:
-            Tuple[LegSpecification, LegSpecification]: _description_
+            Tuple[LegSpecification, LegSpecification]: The leg specifications containing the information
+             to split the two nodes again, to have the same legs as before (assuming the open legs are
+             not transposed).
         """
 
         node1 = self.nodes[node1_id]
