@@ -195,6 +195,62 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         for child_id in child_ids:
             self.assertTrue(self.ttn.is_child_of(child_id, contracted_id))
 
+    def test_legs_before_combination_leaf_only_child(self):
+        found_legs8, found_legs9 = self.ttn.legs_before_combination("id8", "id9")
+        ref_legs8 = ptn.LegSpecification("id1", [], [1,2], None)
+        ref_legs9 = ptn.LegSpecification(None, None, [3,4,5], None)
+        self.assertEqual(ref_legs8, found_legs8)
+        self.assertEqual(ref_legs9, found_legs9)
+
+        # And reverse
+        rev_legs9, rev_legs8 = self.ttn.legs_before_combination("id9", "id8")
+        ref_legs8 = ptn.LegSpecification("id1", [], [4,5], None)
+        ref_legs9 = ptn.LegSpecification(None, None, [1,2,3], None)
+        self.assertEqual(ref_legs8, rev_legs8)
+        self.assertEqual(ref_legs9, rev_legs9)
+
+    def test_legs_before_combination_leaf_not_only_child(self):
+        found_legs5, found_legs7 = self.ttn.legs_before_combination("id5", "id7")
+        ref_legs5 = ptn.LegSpecification("id2", ["id6"], [2], None)
+        ref_legs7 = ptn.LegSpecification(None, None, [3,4,5], None)
+        self.assertEqual(ref_legs5, found_legs5)
+        self.assertEqual(ref_legs7, found_legs7)
+
+        # And reverse
+        rev_legs7, rev_legs5 = self.ttn.legs_before_combination("id7", "id5")
+        ref_legs5 = ptn.LegSpecification("id2", ["id6"], [5], None)
+        ref_legs7 = ptn.LegSpecification(None, None, [2,3,4], None)
+        self.assertEqual(ref_legs5, rev_legs5)
+        self.assertEqual(ref_legs7, rev_legs7)
+
+    def test_legs_before_combination_middle_node(self):
+        found_legs2, found_legs5 = self.ttn.legs_before_combination("id2", "id5")
+        ref_legs2 = ptn.LegSpecification("id1", ["id3"], [4], None)
+        ref_legs5 = ptn.LegSpecification(None, ["id6", "id7"], [5], None)
+        self.assertEqual(ref_legs2, found_legs2)
+        self.assertEqual(ref_legs5, found_legs5)
+
+        # And reverse
+        rev_legs5, rev_legs2 = self.ttn.legs_before_combination("id5", "id2")
+        ref_legs2 = ptn.LegSpecification("id1", ["id3"], [5], None)
+        ref_legs5 = ptn.LegSpecification(None, ["id6", "id7"], [4], None)
+        self.assertEqual(ref_legs2, rev_legs2)
+        self.assertEqual(ref_legs5, rev_legs5)
+
+    def test_legs_before_combination_root(self):
+        found_legs1, found_legs2 = self.ttn.legs_before_combination("id1", "id2")
+        ref_legs1 = ptn.LegSpecification(None, ["id8"], [3,4], None)
+        ref_legs2 = ptn.LegSpecification(None, ["id3", "id5"], [5], None)
+        self.assertEqual(ref_legs1, found_legs1)
+        self.assertEqual(ref_legs2, found_legs2)
+
+        # And reverse
+        rev_legs2, rev_legs1 = self.ttn.legs_before_combination("id2", "id1")
+        ref_legs1 = ptn.LegSpecification(None, ["id8"], [4,5], None)
+        ref_legs2 = ptn.LegSpecification(None, ["id3", "id5"], [3], None)
+        self.assertEqual(ref_legs1, rev_legs1)
+        self.assertEqual(ref_legs2, rev_legs2)
+
     def test_tensor_split_leaf_q1parent_vs_r3open(self):
         q_legs = {"parent_leg": "id8", "child_legs": [], "open_legs": []}
         r_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1, 2, 3]}
