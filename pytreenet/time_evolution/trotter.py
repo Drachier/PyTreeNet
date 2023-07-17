@@ -95,6 +95,7 @@ class SWAPlist(list):
                 dim = ttn.nodes[swap_pair[0]].open_dimension()
                 swap_matrix = swap_gate(dimension=dim)
             swap_operator = NumericOperator(swap_matrix, list(swap_pair))
+            swap_operator = swap_operator.to_tensor(dim=dim, ttn=ttn)
             operator_list.append(swap_operator)
         return operator_list
 
@@ -208,11 +209,11 @@ class TrotterSplitting:
 
         Parameters
         ----------
+        delta_time : float
+            The time step size for the trotter-splitting.
         ttn : TreeTensorNetwork
             A TTN which is compatible with this splitting.
             Provides the required dimensionality for the SWAPs.
-        delta_time : float
-            The time step size for the trotter-splitting.
         dim : int, optional
             If all nodes have the same physical dimension, it can be provided
             here. Speeds up the computation especially for big TTN.
@@ -241,6 +242,7 @@ class TrotterSplitting:
                 site_ids.append(node_id)
             exponentiated_operator = expm((-1j*factor*delta_time) * total_operator)
             exponentiated_operator = NumericOperator(exponentiated_operator, site_ids)
+            exponentiated_operator = exponentiated_operator.to_tensor(dim=dim, ttn=ttn)
 
             # Build required swaps for befor trotter tensor_product
             swaps_before = self.swaps_before[i].into_operators(ttn=ttn, dim=dim)
