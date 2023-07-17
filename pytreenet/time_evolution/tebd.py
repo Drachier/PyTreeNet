@@ -69,7 +69,7 @@ class TEBD(TimeEvolution):
              single-site unitary operator.
         """
         operator = single_site_exponent.operator
-        identifier = single_site_exponent.identifiers[0]
+        identifier = single_site_exponent.node_identifiers[0]
         self.state.absorb_tensor_into_open_legs(identifier, operator)
 
     def _apply_one_trotter_step_two_site(self, two_site_exponent: NumericOperator):
