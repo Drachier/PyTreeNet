@@ -57,10 +57,11 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             complex: The resulting expectation value < TTNS | operator | TTNS>
         """
         # Very inefficient, fix later without copy
-        conj_ttn = self.conjugate()
+        ttn = deepcopy(self)
+        conj_ttn = ttn.conjugate()
         for node_id, single_site_operator in operator.items():
-            self.absorb_into_open_legs(node_id, single_site_operator)
-        return self.contract_two_ttn(conj_ttn)
+            ttn.absorb_into_open_legs(node_id, single_site_operator)
+        return ttn.contract_two_ttn(conj_ttn)
 
     def scalar_product(self) -> complex:
         """
@@ -70,4 +71,5 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             complex: The resulting scalar product <TTNS|TTNS>
         """
         # Very inefficient, fix later without copy
-        return self.contract_two_ttn(self.conjugate())
+        ttn = deepcopy(self)
+        return ttn.contract_two_ttn(ttn.conjugate())
