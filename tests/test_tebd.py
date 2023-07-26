@@ -7,14 +7,14 @@ class TestTEBD(unittest.TestCase):
     def setUp(self):
 
         # We need a ttn to work on.
-        self.node1, self.tensor1 = ptn.random_tensor_node((5,6,3,2), identifier="site1")
-        self.node2, self.tensor2 = ptn.random_tensor_node((5,4,2), identifier="site2")
-        self.node3, self.tensor3 = ptn.random_tensor_node((4,2), identifier="site3")
-        self.node4, self.tensor4 = ptn.random_tensor_node((6,3,2), identifier="site4")
-        self.node5, self.tensor5 = ptn.random_tensor_node((3,2), identifier="site5")
-        self.node6, self.tensor6 = ptn.random_tensor_node((3,5,4,2), identifier="site6")
-        self.node7, self.tensor7 = ptn.random_tensor_node((5,2), identifier="site7")
-        self.node8, self.tensor8 = ptn.random_tensor_node((4,2), identifier="site8")
+        self.node1, self.tensor1 = ptn.random_tensor_node((2,2,2,2), identifier="site1")
+        self.node2, self.tensor2 = ptn.random_tensor_node((2,2,2), identifier="site2")
+        self.node3, self.tensor3 = ptn.random_tensor_node((2,2), identifier="site3")
+        self.node4, self.tensor4 = ptn.random_tensor_node((2,2,2), identifier="site4")
+        self.node5, self.tensor5 = ptn.random_tensor_node((2,2), identifier="site5")
+        self.node6, self.tensor6 = ptn.random_tensor_node((2,2,2,2), identifier="site6")
+        self.node7, self.tensor7 = ptn.random_tensor_node((2,2), identifier="site7")
+        self.node8, self.tensor8 = ptn.random_tensor_node((2,2), identifier="site8")
 
         self.ttn = ptn.TreeTensorNetworkState()
 
@@ -95,6 +95,8 @@ class TestTEBD(unittest.TestCase):
                         self.final_time,
                         self.operators)
         tebd.run_one_time_step()
+        self.assertEqual(8, len(tebd.state.nodes))
+        self.assertEqual(8, len(tebd.state.tensors))
 
     def test_evaluate_operators(self):
         # Setting up tebd
@@ -104,6 +106,15 @@ class TestTEBD(unittest.TestCase):
                         self.final_time,
                         self.operators)
         tebd.evaluate_operators()
+
+    def test_run(self):
+        tebd = ptn.TEBD(self.ttn,
+                        self.trotter_splitting_wswaps,
+                        self.time_step_size,
+                        self.final_time,
+                        self.operators)
+        tebd.run()
+        print(tebd.state.tensors)
 
 if __name__ == "__main__":
     unittest.main()
