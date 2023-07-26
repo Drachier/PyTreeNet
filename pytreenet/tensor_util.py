@@ -243,10 +243,7 @@ def truncated_tensor_svd(tensor, u_legs, v_legs,
         values.
     """
     check_truncation_parameters(max_bond_dim, rel_tol, total_tol)
-    if u_legs + v_legs == list(range(len(u_legs) + len(v_legs))):
-        correctly_order = True
-    else:
-        correctly_order = False
+    correctly_order =  u_legs + v_legs == list(range(len(u_legs) + len(v_legs)))
 
     matrix = tensor_matricization(tensor, u_legs, v_legs, correctly_ordered=correctly_order)
     u, s, vh = np.linalg.svd(matrix)
@@ -254,13 +251,15 @@ def truncated_tensor_svd(tensor, u_legs, v_legs,
     # Here the truncation happens
     max_singular_value = s[0]
     min_singular_value_cutoff = max(rel_tol * max_singular_value, total_tol)
-    s = [singular_value for singular_value in s
+    s_temp = [singular_value for singular_value in s
          if singular_value > min_singular_value_cutoff]
 
-    if len(s) > max_bond_dim:
-        s = s[:max_bond_dim]
-    elif len(s) == 0:
-        s = [s[0]]
+    if len(s_temp) > max_bond_dim:
+        s = s_temp[:max_bond_dim]
+    elif len(s_temp) == 0:
+        s = [max_singular_value]
+    else:
+        s = s_temp
 
     new_bond_dim = len(s)
     u = u[:, :new_bond_dim]
