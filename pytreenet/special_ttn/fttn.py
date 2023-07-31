@@ -4,7 +4,9 @@ from typing import Union
 import numpy as np
 
 from ..ttn import TreeTensorNetwork
+from ..ttns import TreeTensorNetworkState
 from ..node import Node
+from ..ttno.ttno import TTNO
 
 class ForkTreeTensorNetwork(TreeTensorNetwork):
     """
@@ -14,7 +16,7 @@ class ForkTreeTensorNetwork(TreeTensorNetwork):
 
      M0 -- S00 -- S01 -- S03
      |
-     M1 -- S10
+     M1 -- S10 -- S11
      |
      M2 -- S20 -- S21
      |
@@ -106,3 +108,11 @@ class ForkTreeTensorNetwork(TreeTensorNetwork):
                 parent_leg = parent_node.nvirt_legs()
         self.add_child_to_parent(node, tensor, 0, parent_id, parent_leg)
         self.sub_chains[subchain_index].append(node)
+
+class ForkTreeProductState(ForkTreeTensorNetwork, TreeTensorNetworkState):
+    def __init__(self, main_identifier_prefix: str = "main", subchain_identifier_prefix: str = "sub"):
+        super().__init__(main_identifier_prefix, subchain_identifier_prefix)
+
+class ForkTreeProductOperator(ForkTreeTensorNetwork, TTNO):
+    def __init__(self, main_identifier_prefix: str = "main", subchain_identifier_prefix: str = "sub"):
+        super().__init__(main_identifier_prefix, subchain_identifier_prefix)
