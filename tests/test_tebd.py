@@ -114,7 +114,6 @@ class TestTEBD(unittest.TestCase):
                         self.final_time,
                         self.operators)
         tebd.run()
-        print(tebd.state.tensors)
 
 if __name__ == "__main__":
     unittest.main()
