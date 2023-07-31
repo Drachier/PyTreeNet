@@ -90,7 +90,7 @@ class ForkTreeTensorNetwork(TreeTensorNetwork):
              the leg that should be attached to the new node can be specified. Otherwise it
              defaults to the last virtual leg of the to be parent node.
         """
-        if subchain_index > self.main_chain:
+        if subchain_index > self.main_length():
             errstr = "A subchain has to be attached to the main chain!"
             raise ValueError(errstr)
         subchain_length = self.subchain_length(subchain_index)
