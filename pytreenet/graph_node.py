@@ -113,7 +113,11 @@ class GraphNode:
         """
         Removes a children identifier from this node's children.
         """
-        self.children.remove(child_id)
+        try:
+            self.children.remove(child_id)
+        except ValueError as exc:
+            errstr = f"{child_id} is not a child of this node!"
+            raise ValueError(errstr) from exc
 
     def replace_child(self, child_id: str, new_child_id: str):
         """
