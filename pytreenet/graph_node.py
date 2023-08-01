@@ -142,13 +142,13 @@ class GraphNode:
         Returns whether this node is a root node, i.e. doesn't have a parent.
         """
         return self.parent is None
-    
+
     def is_leaf(self) -> bool:
         """
         Returns whether this node is a leaf, i.e. doesn't have children
         """
         return self.has_x_children(0)
-    
+
     def is_child_of(self, other_node_id: str) -> bool:
         """
         Determines whether this node is a child of the node with identifier 'other_node_id'.
