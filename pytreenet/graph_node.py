@@ -142,6 +142,26 @@ class GraphNode:
         Returns whether this node is a root node, i.e. doesn't have a parent.
         """
         return self.parent is None
+    
+    def is_leaf(self) -> bool:
+        """
+        Returns whether this node is a leaf, i.e. doesn't have children
+        """
+        return self.has_x_children(0)
+    
+    def is_child_of(self, other_node_id: str) -> bool:
+        """
+        Determines whether this node is a child of the node with identifier 'other_node_id'.
+        """
+        if self.is_root():
+            return False
+        return self.parent == other_node_id
+
+    def is_parent_of(self, other_node_id: str) -> bool:
+        """
+        Determines whether this node is a parent of the node with identifier 'other_node_id'.
+        """
+        return other_node_id in self.children
 
     def nchildren(self) -> int:
         """
@@ -167,12 +187,6 @@ class GraphNode:
         """
         return len(self.children) == x
 
-    def is_leaf(self) -> bool:
-        """
-        Returns whether this node is a leaf, i.e. doesn't have children
-        """
-        return self.has_x_children(0)
-
     def neighbouring_nodes(self) -> List[str]:
         """
         Provides the identifiers of all neighbours, i.e. the parent and all
@@ -188,20 +202,6 @@ class GraphNode:
             neighbour_ids = [self.parent]
         neighbour_ids.extend(self.children)
         return neighbour_ids
-
-    def is_child_of(self, other_node_id: str) -> bool:
-        """
-        Determines whether this node is a child of the node with identifier 'other_node_id'.
-        """
-        if self.is_root():
-            return False
-        return self.parent == other_node_id
-
-    def is_parent_of(self, other_node_id: str) -> bool:
-        """
-        Determines whether this node is a parent of the node with identifier 'other_node_id'.
-        """
-        return other_node_id in self.children
 
 
 def assert_legs_matching(node1: GraphNode, leg1_index: int, node2: GraphNode, leg2_index: int):
