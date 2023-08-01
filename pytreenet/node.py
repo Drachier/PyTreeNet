@@ -49,10 +49,9 @@ class Node(GraphNode):
         Returns:
             LegNode:
         """
-        leg_node = cls(tensor=tensor, tag=node.tag, identifier=node.identifier)
+        leg_node = cls(tensor=tensor, identifier=node.identifier)
         leg_node.parent = node.parent
         leg_node.children = copy(node.children)
-
         return leg_node
 
     @property
