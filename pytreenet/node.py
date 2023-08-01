@@ -28,8 +28,8 @@ class Node(GraphNode):
     the superclass.
     """
 
-    def __init__(self, tensor=None, tag=None, identifier=None):
-        super().__init__(tag, identifier)
+    def __init__(self, tensor=None, identifier=None):
+        super().__init__(identifier)
         if tensor is not None:
             self._leg_permutation = list(range(tensor.ndim))
             self._shape = tensor.shape
@@ -310,9 +310,9 @@ class Node(GraphNode):
             return 0
         return reduce(lambda x, y: x * y, open_dim)
 
-def random_tensor_node(shape, tag: str = "", identifier: str = ""):
+def random_tensor_node(shape, identifier: str = ""):
     """
     Creates a tensor node with an a random associated tensor with shape=shape.
     """
     rand_tensor = crandn(shape)
-    return (Node(tensor=rand_tensor, tag=tag, identifier=identifier), rand_tensor)
+    return (Node(tensor=rand_tensor, identifier=identifier), rand_tensor)

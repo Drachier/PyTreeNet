@@ -9,16 +9,13 @@ class TestInitilisation(unittest.TestCase):
         # Without extra attributes
         empty_node = ptn.GraphNode()
         self.assertNotEqual("", empty_node.identifier)
-        self.assertNotEqual("", empty_node.tag)
         self.assertEqual(None, empty_node.parent)
         self.assertEqual([], empty_node.children)
 
-        # With identifier and tag
+        # With identifier
         ids = "id"
-        tag = "tag"
-        node = ptn.GraphNode(tag=tag, identifier=ids)
+        node = ptn.GraphNode(identifier=ids)
         self.assertEqual(ids, node.identifier)
-        self.assertEqual(tag, node.tag)
 
 class TestGraphNode(unittest.TestCase):
 

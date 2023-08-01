@@ -15,7 +15,7 @@ class GraphNode:
     tree tensor network structure.
     """
 
-    def __init__(self, tag="", identifier=""):
+    def __init__(self, identifier=""):
         """
         Creates a GraphNode. If no identifier is given, a random
         unique identifier is assigned.
@@ -23,8 +23,6 @@ class GraphNode:
         References to parent or children nodes are in the form of a node_id (str)
 
         Args:
-            tag (str, optional): A non-unique name of the node.
-                Defaults to "".
             identifier (str, optional): A unique identifier assigned
                 to this node. Defaults to "".
         """
@@ -33,11 +31,6 @@ class GraphNode:
             self._identifier = str(uuid.uuid1())
         else:
             self._identifier = str(identifier)
-        # Setting tag
-        if tag is None or tag == "":
-            self._tag = self.identifier
-        else:
-            self._tag = str(tag)
 
         # Information about connectivity
         self.parent = None
@@ -56,20 +49,6 @@ class GraphNode:
             self._identifier = str(uuid.uuid1())
         else:
             self._identifier = str(new_identifier)
-
-    @property
-    def tag(self):
-        """
-        A human readable tag for this node.
-        """
-        return self._tag
-
-    @tag.setter
-    def tag(self, new_tag):
-        if new_tag is None or new_tag == "":
-            self._tag = self.identifier
-        else:
-            self._tag = new_tag
 
     def __eq__(self, other: GraphNode):
         """
