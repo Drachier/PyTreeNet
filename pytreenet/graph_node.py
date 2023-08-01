@@ -202,12 +202,3 @@ class GraphNode:
             neighbour_ids = [self.parent]
         neighbour_ids.extend(self.children)
         return neighbour_ids
-
-
-def assert_legs_matching(node1: GraphNode, leg1_index: int, node2: GraphNode, leg2_index: int):
-    """
-    Asserts if the dimensions of leg1 of node1 and leg2 of node2 match.
-    """
-    leg1_dimension = node1.shape[leg1_index]
-    leg2_dimension = node2.shape[leg2_index]
-    assert leg1_dimension == leg2_dimension
