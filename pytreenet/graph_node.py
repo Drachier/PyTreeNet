@@ -185,7 +185,7 @@ class GraphNode:
         """
         Returns whether this node has exactly x-many children.
         """
-        return len(self.children) == x
+        return self.nchildren() == x
 
     def neighbouring_nodes(self) -> List[str]:
         """
