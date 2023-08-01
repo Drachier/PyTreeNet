@@ -163,17 +163,17 @@ class GraphNode:
         """
         return other_node_id in self.children
 
-    def nchildren(self) -> int:
-        """
-        The number of children of this node
-        """
-        return len(self.children)
-
     def nparents(self) -> int:
         """
         Returns the number of parents of this node.
         """
         return int(not self.is_root())
+
+    def nchildren(self) -> int:
+        """
+        The number of children of this node
+        """
+        return len(self.children)
 
     def nneighbours(self) -> int:
         """
