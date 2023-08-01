@@ -137,6 +137,12 @@ class GraphNode:
             return
         self.children[self.child_index(child_id)] = new_child_id
 
+    def is_root(self) -> bool:
+        """
+        Returns whether this node is a root node, i.e. doesn't have a parent.
+        """
+        return self.parent is None
+
     def nchildren(self) -> int:
         """
         The number of children of this node
@@ -154,12 +160,6 @@ class GraphNode:
         Returns the number of neighbours of this node.
         """
         return self.nchildren() + (not self.is_root())
-
-    def is_root(self) -> bool:
-        """
-        Returns whether this node is a root node, i.e. doesn't have a parent.
-        """
-        return self.parent is None
 
     def has_x_children(self, x: int) -> bool:
         """
