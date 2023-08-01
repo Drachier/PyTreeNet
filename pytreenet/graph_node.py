@@ -119,6 +119,16 @@ class GraphNode:
             errstr = f"{child_id} is not a child of this node!"
             raise ValueError(errstr) from exc
 
+    def child_index(self, child_id: str) -> int:
+        """
+        Returns the index of identifier child_id in this Node's children list.
+        """
+        try:
+            return self.children.index(child_id)
+        except ValueError as exc:
+            errstr = f"{child_id} is not a child of this node!"
+            raise ValueError(errstr) from exc
+
     def replace_child(self, child_id: str, new_child_id: str):
         """
         Replaces one child with another.
@@ -126,12 +136,6 @@ class GraphNode:
         if child_id == new_child_id:
             return
         self.children[self.child_index(child_id)] = new_child_id
-
-    def child_index(self, child_id: str) -> int:
-        """
-        Returns the index of identifier child_id in this Node's children list.
-        """
-        return self.children.index(child_id)
 
     def nchildren(self) -> int:
         """
