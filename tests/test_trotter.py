@@ -130,28 +130,5 @@ class TestTrotterSplitting(unittest.TestCase):
         self.assertEqual(test_trottersplitting.swaps_after,
                          [ptn.SWAPlist([])] * len(self.splitting_tuple))
 
-    #     # Test extension of mixed splitting
-    #     mixed_splitting = [(3, 0.5), (0, 1.2), 1, 4, (2, 1), 5, (6, 1.4)]
-    #     test_trottersplitting = ptn.TrotterSplitting(self.tensor_products, mixed_splitting,
-    #                                                  self.swaps_before, self.swaps_after)
-
-    #     ref_splitting = [(3, 0.5), (0, 1.2), (1, 1), (4, 1), (2, 1), (5, 1), (6, 1.4)]
-
-    #     self.assertEqual(ref_splitting, test_trottersplitting.splitting)
-
-    #     # Test empty SWAPs
-    #     test_trottersplitting = ptn.TrotterSplitting(self.tensor_products, self.splitting)
-
-    #     self.assertEqual([ptn.SWAPlist([]) for i in self.splitting], test_trottersplitting.swaps_before)
-    #     self.assertEqual([ptn.SWAPlist([]) for i in self.splitting], test_trottersplitting.swaps_after)
-
-    # def test_exponentiate_splitting(self):
-    #     test_trottersplitting = ptn.TrotterSplitting(self.tensor_products, self.splitting,
-    #                                                  self.swaps_before, self.swaps_after)
-
-    #     delta_time = 0.1
-    #     unitaries = test_trottersplitting.exponentiate_splitting(self.ttn, delta_time)
-
-
 if __name__ == "__main__":
     unittest.main()
