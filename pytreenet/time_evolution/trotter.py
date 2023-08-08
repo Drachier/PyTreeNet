@@ -84,7 +84,7 @@ class SWAPlist(list):
         Raises:
             ValueError: If ttn and dim are both None.
         """
-        if ttn is None and dim is None:
+        if ttn is None and dim is None and len(self) != 0:
             errstr = "`ttn` and `dim` cannot both be `None`!"
             raise ValueError(errstr)
         operator_list = []
@@ -223,25 +223,19 @@ class TrotterSplitting:
         -------
         unitary_operators : list of Operator
             All operators that make up one time-step of the Trotter splitting.
-            They are to be applied according to their index order in the list.
-            Each operator is saved as a dictionary, where the actual operator
-            is saved as an ndarray under the key `"operator"` and the sites it
-            is applied to are saved as a list of strings/site identifiers under
-            they key `"site_ids"`.
+             They are to be applied according to their index order in the list.
+             Each operator is either a SWAP-gate or an exponentiated operator
+             of an evaluated tensor product.
             """
 
         unitary_operators = [] # Includes the neccessary SWAPs
         for i, split in enumerate(self.splitting):
             tensor_product = self.tensor_products[split[0]]
             factor = split[1]
-            total_operator = 1 # Saves the total operator
-            site_ids = [] # Saves the ids of nodes to which the operator is applied
-            for node_id, single_site_operator in tensor_product.items():
-                total_operator = np.kron(total_operator,
-                                              single_site_operator)
-                site_ids.append(node_id)
-            exponentiated_operator = expm((-1j*factor*delta_time) * total_operator)
-            exponentiated_operator = NumericOperator(exponentiated_operator, site_ids)
+            total_operator = tensor_product.into_operator()
+            exponentiated_operator = expm((-1j*factor*delta_time) * total_operator.operator)
+            exponentiated_operator = NumericOperator(exponentiated_operator,
+                                                     total_operator.node_identifiers)
             exponentiated_operator = exponentiated_operator.to_tensor(dim=dim, ttn=ttn)
 
             # Build required swaps for befor trotter tensor_product
