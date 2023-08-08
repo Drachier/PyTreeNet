@@ -115,5 +115,16 @@ class TestTrotterSplitting(unittest.TestCase):
         self.assertEqual(test_trottersplitting.swaps_after,
                          [ptn.SWAPlist([])] * len(self.splitting_tuple))
 
+    def test_exponentiate_splitting_simple(self):
+        X, _, _ = ptn.pauli_matrices()
+        delta_time = 0.1
+        tensor_product = ptn.TensorProduct({"site1": X,
+                                            "site2": X})
+        trotter = ptn.TrotterSplitting([tensor_product])
+        exp_operator = trotter.exponentiate_splitting(delta_time=delta_time, dim=2)[0]
+        ref_exp = expm(-1j * delta_time * np.kron(X, X)).reshape(2,2,2,2)
+        self.assertTrue(np.allclose(ref_exp, exp_operator.operator))
+        self.assertEqual(["site1", "site2"], exp_operator.node_identifiers)
+
 if __name__ == "__main__":
     unittest.main()
