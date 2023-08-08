@@ -31,7 +31,13 @@ class TimeEvolution:
         """
         self.intital_state = initial_state
         self.state = deepcopy(initial_state)
+        if time_step_size <= 0:
+            errstr = "The size of one time step has to be positive!"
+            raise ValueError(errstr)
         self._time_step_size = time_step_size
+        if final_time <= 0:
+            errstr = "The final time has to be positive!"
+            raise ValueError(errstr)
         self._final_time = final_time
         self._num_time_steps = self._compute_num_time_steps()
         if isinstance(operators, TensorProduct):
@@ -94,13 +100,11 @@ class TimeEvolution:
             List: The expectation values with indeces corresponding to those in
              operators.
         """
-        if self.operators is not None:
-            current_results = np.zeros(len(self.operators), dtype=complex)
-            for i, tensor_product in enumerate(self.operators):
-                exp_val = self.state.operator_expectation_value(tensor_product)
-                current_results[i] = exp_val
-            return current_results
-        return []
+        current_results = np.zeros(len(self.operators), dtype=complex)
+        for i, tensor_product in enumerate(self.operators):
+            exp_val = self.state.operator_expectation_value(tensor_product)
+            current_results[i] = exp_val
+        return current_results
 
     def save_results_to_file(self, filepath: str):
         """
