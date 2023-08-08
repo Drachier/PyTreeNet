@@ -147,7 +147,7 @@ class TimeEvolution:
                 self._results[0:-1, i] = current_results
                 # Save current time
                 self._results[-1, i] = i*self.time_step_size
-        if filepath is not None:
+        if filepath != "":
             self.save_results_to_file(filepath)
 
     def reset_to_initial_state(self):
