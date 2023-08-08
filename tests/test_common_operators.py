@@ -81,6 +81,10 @@ class TestCommonOperators(unittest.TestCase):
         self.assertRaises(ValueError, ptn.swap_gate, -56)
         self.assertRaises(ValueError, ptn.swap_gate, 0)
 
+        # dim = 1
+        ref_swap = np.asarray([1], dtype=complex)
+        self.assertTrue(np.allclose(ref_swap, ptn.swap_gate(dimension=1)))
+
         # dim = 2
         ref_swap = np.asarray([[1, 0, 0, 0],
                                [0, 0, 1, 0],
