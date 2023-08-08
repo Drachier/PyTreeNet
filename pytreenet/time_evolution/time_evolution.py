@@ -71,14 +71,6 @@ class TimeEvolution:
         """
         return self._final_time
 
-    @final_time.setter
-    def final_time(self, new_time: float):
-        """
-        Replace final time and recalculate the number of time steps.
-        """
-        self._final_time = new_time
-        self._num_time_steps = self._compute_num_time_steps()
-
     @property
     def num_time_steps(self) -> int:
         """
