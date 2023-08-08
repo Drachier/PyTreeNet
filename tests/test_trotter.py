@@ -1,7 +1,6 @@
 import unittest
 
 import numpy as np
-
 from scipy.linalg import expm
 
 import pytreenet as ptn
@@ -51,20 +50,6 @@ class TestTrotterSplitting(unittest.TestCase):
         # And finally a splitting
         self.splitting_int = [3, 0, 1, 4, 2, 5, 6]
         self.splitting_tuple = [(3, 1), (0, 1), (1, 1), (4, 1), (2, 1), (5, 1), (6, 1)]
-
-        # Remainders from the testing of the exponent in TEBD
-        # two_site_operator = np.kron(self.loc_operatorZ, self.loc_operatorZ)
-        # correct_exponent = expm((-1j * time_step_size) * two_site_operator)
-
-        # correct_pairs = self.ttn.nearest_neighbours()
-
-        # for index in self.splitting:
-        #     found_exponent = tebd1.exponents[index]
-
-        #     self.assertTrue(np.allclose(correct_exponent,
-        #                                 found_exponent["operator"]))
-
-        #     self.assertTrue(tuple(found_exponent["site_ids"]) in correct_pairs)
 
     def test_init_full(self):
         test_trottersplitting = ptn.TrotterSplitting(self.tensor_products,
