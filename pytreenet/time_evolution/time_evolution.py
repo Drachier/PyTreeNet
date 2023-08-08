@@ -152,3 +152,9 @@ class TimeEvolution:
                 self._results[-1, i] = i*self.time_step_size
         if filepath is not None:
             self.save_results_to_file(filepath)
+
+    def reset_to_initial_state(self):
+        """
+        Resets the current state to the intial state
+        """
+        self.state = deepcopy(self.intital_state)
