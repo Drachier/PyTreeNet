@@ -15,7 +15,7 @@ class TensorProduct(UserDict):
     Represents: bigotimes_{site_ids} operator_{site_id}
     """
 
-    def __init__(self, matrix_dict: Dict[str, Union[np.ndarray, str]] = None):
+    def __init__(self, matrix_dict: Union[Dict[str, Union[np.ndarray, str]], None] = None):
         if matrix_dict is None:
             matrix_dict = {}
         super().__init__(matrix_dict)
@@ -29,6 +29,7 @@ class TensorProduct(UserDict):
         for operator in operators:
             assert len(operator.node_identifiers) == 1
             tensor_product[operator.node_identifiers[0]] = operator.operator
+        return tensor_product
 
     def into_operator(self,
                       conversion_dict: Union[Dict[str, np.ndarray], None] = None) -> NumericOperator:
@@ -55,4 +56,4 @@ class TensorProduct(UserDict):
                     errstr = "If the tensor_product contains symbolic operators, there must be a dictionary for conversion!"
                     raise TypeError(errstr)
             total_operator = np.kron(total_operator, operator)
-        return NumericOperator(total_operator, list(self.keys()))   
+        return NumericOperator(total_operator, list(self.keys()))
