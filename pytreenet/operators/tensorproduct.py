@@ -12,7 +12,7 @@ class TensorProduct(UserDict):
      to. It is basically a dictionary, where the keys are node identifiers and the values
      are the operators that should be applied to the node with that identifier.
 
-    Represents: \bigotimes_{site_ids} operator_{site_id}
+    Represents: bigotimes_{site_ids} operator_{site_id}
     """
 
     def __init__(self, matrix_dict: Dict[str, Union[np.ndarray, str]] = None):
@@ -34,7 +34,8 @@ class TensorProduct(UserDict):
                       conversion_dict: Union[Dict[str, np.ndarray], None] = None) -> NumericOperator:
         """
         Computes the numeric value of a tensor_product, by calculating their tensor product.
-        If the tensor_product contains symbolic operators, a conversion dictionary has to be provided.
+         If the tensor_product contains symbolic operators, a conversion dictionary has to be
+         provided.
 
         Args:
             conversion_dict (Union[Dict[str, np.ndarray], None], optional): A dictionaty
