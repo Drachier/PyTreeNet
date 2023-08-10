@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Union, Dict, List
 from collections import UserDict
+from copy import deepcopy
 
 import numpy as np
 
@@ -30,6 +31,36 @@ class TensorProduct(UserDict):
             assert len(operator.node_identifiers) == 1
             tensor_product[operator.node_identifiers[0]] = operator.operator
         return tensor_product
+
+    def pad_with_identities(self, ttn: TreeTensorNetwork) -> TensorProduct:
+        """
+        Pads this tensor product with identites for sites, which are not acted upon
+         non-trivially. This means any node in 'ttn' that has no operator associated
+         to it in this tensor product will be added to this tensot product with an
+         appropriately sized identity acting upon it.
+
+        Args:
+            ttn (TreeTensorNetworkState): The TTN to be considered for the padding.
+
+        Returns:
+            TensorProduct: The padded tensor product.
+
+        Raises:
+            KeyError: Raised if this tensor product contains single site operators
+             acting on sites that do not exist in the TTN.
+        """
+        node_ids = list(self.keys())
+        padded_tp = deepcopy(self)
+        for node_id, node in ttn.nodes.items():
+            if node_id in node_ids:
+                node_ids.remove(node_id)
+            else:
+                dim = node.open_dimensions()
+                padded_tp[node_id] = np.eye(dim)
+        if len(node_ids) != 0:
+            errstr = "Single site operators in this tensor product are applied to nodes that do not exist in the TTN!"
+            raise KeyError(errstr)
+        return padded_tp
 
     def into_operator(self,
                       conversion_dict: Union[Dict[str, np.ndarray], None] = None) -> NumericOperator:
