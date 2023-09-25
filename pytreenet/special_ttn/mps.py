@@ -58,7 +58,7 @@ class MatrixProductState(MatrixProductTree, TreeTensorNetworkState):
         node_prefix: str = "site", first_site: int = 0):
         if tensor.ndim != 3:
             errstr = f"The generating tensor of an MPS must have exactly 3 legs!\n"
-            errstr =+ f"{tensor.ndim} != 3"
+            errstr =+ f" {tensor.ndim} != 3"
             raise ValueError(errstr)
         super().__init__(length, tensor, node_prefix=node_prefix, first_site=first_site)
 
@@ -67,6 +67,6 @@ class MatrixProductOperator(MatrixProductTree, TTNO):
         node_prefix: str = "site", first_site: int = 0):
         if tensor.ndim != 4:
             errstr = f"The generating tensor of an MPO must have exactly 4 legs!\n
-            errstr =+ f"{tensor.ndim} != 4"
+            errstr =+ f" {tensor.ndim} != 4"
             raise ValueError(errstr)
         super().__init__(length, tensor, node_prefix=node_prefix, first_site=first_site)
