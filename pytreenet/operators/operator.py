@@ -6,7 +6,11 @@ import numpy as np
 
 class Operator:
     """
-    An operator hold the information what operation to apply to which node in a TTN.
+    An operator hold the information what quantum mechanical operater to apply to which
+     node in a TTN.
+
+    It is usually better to use one of the more specialised classes
+     `NumericOperator` or `SymbolicOperator`.
     """
 
     def __init__(self, operator: Union[str, np.ndarray],
