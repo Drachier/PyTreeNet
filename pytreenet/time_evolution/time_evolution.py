@@ -29,7 +29,7 @@ class TimeEvolution:
              the form of single site tensor product for which expectation values
              should be determined.
         """
-        self.intital_state = initial_state
+        self._intital_state = initial_state
         self.state = deepcopy(initial_state)
         if time_step_size <= 0:
             errstr = "The size of one time step has to be positive!"
@@ -56,6 +56,13 @@ class TimeEvolution:
         Compute the number of time steps from attributes.
         """
         return int(np.ceil(self._final_time / self._time_step_size))
+
+    @property
+    def initial_state(self) -> TreeTensorNetworkState:
+        """
+        Returns the initial state.
+        """
+        return self._intital_state
 
     @property
     def time_step_size(self) -> float:
