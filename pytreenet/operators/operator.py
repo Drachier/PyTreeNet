@@ -81,8 +81,11 @@ class NumericOperator(Operator):
         """
         Returns whether this operator is unitary or not.
         """
-        identity = np.eye(self.operator.shape[0])
-        return np.allclose(identity, self.operator @ self.operator.conj().T)
+        if self.operator.ndim == 2:
+            identity = np.eye(self.operator.shape[0])
+            return np.allclose(identity, self.operator @ self.operator.conj().T)
+        else:
+            return self.to_matrix().is_unitary()
 
 class SymbolicOperator(Operator):
     """
