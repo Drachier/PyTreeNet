@@ -1,6 +1,7 @@
 import unittest
 
 import numpy as np
+from scipy.linalg import expm
 
 import pytreenet as ptn
 
@@ -78,6 +79,39 @@ class TestTensorProduct(unittest.TestCase):
 
         # Eror with no conversion dictionary
         self.assertRaises(TypeError, tensor_prod.into_operator)
+
+    def test_exp_matrix(self):
+        simple_matrix = np.asarray([[1,2],
+                                    [2,3]])
+        identifier = "ID, Please"
+        tensor_prod = ptn.TensorProduct({identifier: simple_matrix})
+        
+        # Without factor
+        correct_matrix = expm(simple_matrix)
+        found_operator = tensor_prod.exp()
+        self.assertTrue(np.allclose(correct_matrix, found_operator.operator))
+        self.assertEqual(identifier, found_operator.node_identifiers[0])
+
+        # With factor
+        factor = -1j * 0.3
+        correct_matrix = expm(factor * simple_matrix)
+        found_operator = tensor_prod.exp(factor)
+        self.assertTrue(np.allclose(correct_matrix, found_operator.operator))
+        self.assertEqual(identifier, found_operator.node_identifiers[0])
+
+    def test_exp_two_factors(self):
+        matrix1 = np.array([[1, 2],
+                            [3, 4]])
+        matrix2 = np.array([[0.1, 0.2, 0.3],
+                            [0.6, 0.5, 0.4],
+                            [0.7, 0.8, 0.9]])
+        identifiers = ["HI", "HO"]
+        tensor_product = ptn.TensorProduct({identifiers[0]: matrix1,
+                                            identifiers[1]: matrix2})
+        found_operator = tensor_product.exp()
+        correct_result = expm(np.kron(matrix1, matrix2))
+        self.assertTrue(np.allclose(correct_result, found_operator.operator))
+        self.assertEqual(identifiers, found_operator.node_identifiers)
 
 class TestTensorProductWithTTN(unittest.TestCase):
     def setUp(self):
