@@ -66,6 +66,10 @@ class NumericOperator(Operator):
             errstr = "`dim` and `ttn` cannot both be `None`!"
             raise ValueError(errstr)
         if not dim is None:
+            if dim <= 0:
+                errstr = f"The dimension of a tensor has to be positive!\n"
+                errstr =+ f"Dimension given as {dim} !> 0."
+                raise ValueError(errstr)
             shape = [dim for _ in range(0, len(self.node_identifiers))]
         else:
             shape = [ttn.nodes[node_id].open_dimension()
