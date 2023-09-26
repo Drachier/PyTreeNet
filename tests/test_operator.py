@@ -125,5 +125,15 @@ class TestNumericOperator(unittest.TestCase):
         operator = NumericOperator(matrix, self.identifiers)
         self.assertFalse(operator.is_unitary())
 
+class TestSymbolicOperator(unittest.TestCase):
+
+    def test_to_numeric(self):
+        identifier = "banana"
+        symb_operator = SymbolicOperator("a", identifier)
+        conv_dict = {"a": np.array([[0,1],[1,0]])}
+        num_operator = symb_operator.to_numeric(conv_dict)
+        self.assertTrue(np.allclose(conv_dict["a"], num_operator.operator))
+        self.assertEqual([identifier], num_operator.node_identifiers)
+
 if __name__ == "__main__":
     unittest.main()
