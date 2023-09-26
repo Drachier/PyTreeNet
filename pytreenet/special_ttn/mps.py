@@ -66,7 +66,7 @@ class MatrixProductOperator(MatrixProductTree, TTNO):
     def __init__(self,  length: int, tensor: np.ndarray, 
         node_prefix: str = "site", first_site: int = 0):
         if tensor.ndim != 4:
-            errstr = f"The generating tensor of an MPO must have exactly 4 legs!\n
+            errstr = f"The generating tensor of an MPO must have exactly 4 legs!\n"
             errstr =+ f" {tensor.ndim} != 4"
             raise ValueError(errstr)
         super().__init__(length, tensor, node_prefix=node_prefix, first_site=first_site)
