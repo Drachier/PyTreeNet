@@ -79,5 +79,44 @@ class TestTensorProduct(unittest.TestCase):
         # Eror with no conversion dictionary
         self.assertRaises(TypeError, tensor_prod.into_operator)
 
+class TestTensorProductWithTTN(unittest.TestCase):
+    def setUp(self):
+        self.ttn = ptn.TreeTensorNetwork()
+        self.ttn.add_root(ptn.Node(identifier="root"),
+            ptn.crandn((2,2,3)))
+        self.ttn.add_child_to_parent(ptn.Node(identifier="c1"),
+            ptn.crandn((2,2)), 0, "root", 0)
+        self.ttn.add_child_to_parent(ptn.Node(identifier="c2"),
+            ptn.crandn((2,4)), 0, "root", 1)
+
+        self.symbolic_dict = {"root": "X",
+                         "c1": "a^dagger",
+                         "c2": "H"}
+
+    def test_pad_with_identity_no_pad_needed(self):
+        ten_prod = ptn.TensorProduct(self.symbolic_dict)
+        padded_tp = ten_prod.pad_with_identities(self.ttn)
+        # Since no padding is needed, nothing should change
+        self.assertEqual(ten_prod, padded_tp)
+
+    def test_pad_with_identity_new_node_numeric(self):
+        del self.symbolic_dict["c2"]
+        ten_prod = ptn.TensorProduct(self.symbolic_dict)
+        padded_tp = ten_prod.pad_with_identities(self.ttn)
+        self.assertTrue("c2" in padded_tp.keys())
+        self.assertTrue(np.allclose(np.eye(4), padded_tp["c2"]))
+
+    def test_pad_with_identity_new_node_symbolic(self):
+        del self.symbolic_dict["c2"]
+        ten_prod = ptn.TensorProduct(self.symbolic_dict)
+        padded_tp = ten_prod.pad_with_identities(self.ttn, symbolic=True)
+        self.assertTrue("c2" in padded_tp.keys())
+        self.assertEqual("I", padded_tp["c2"])
+
+    def test_pad_with_identity_node_not_in_ttn(self):
+        self.symbolic_dict["wronged"] = "P"
+        ten_prod = ptn.TensorProduct(self.symbolic_dict)
+        self.assertRaises(KeyError, ten_prod.pad_with_identities, self.ttn)
+
 if __name__ == "__main__":
     unittest.main()
