@@ -32,7 +32,8 @@ class TensorProduct(UserDict):
             tensor_product[operator.node_identifiers[0]] = operator.operator
         return tensor_product
 
-    def pad_with_identities(self, ttn: TreeTensorNetwork) -> TensorProduct:
+    def pad_with_identities(self, ttn: TreeTensorNetwork,
+                                symbolic: bool = False) -> TensorProduct:
         """
         Pads this tensor product with identites for sites, which are not acted upon
          non-trivially. This means any node in 'ttn' that has no operator associated
@@ -41,6 +42,8 @@ class TensorProduct(UserDict):
 
         Args:
             ttn (TreeTensorNetworkState): The TTN to be considered for the padding.
+            symbolic (bool): True adds `"I"` instead of the appropriately sized numpy
+                array.
 
         Returns:
             TensorProduct: The padded tensor product.
@@ -55,8 +58,12 @@ class TensorProduct(UserDict):
             if node_id in node_ids:
                 node_ids.remove(node_id)
             else:
-                dim = node.open_dimensions()
-                padded_tp[node_id] = np.eye(dim)
+                if symbolic:
+                    identity = "I"
+                else:
+                    dim = node.open_dimension()
+                    identity = np.eye(dim)
+                padded_tp[node_id] = identity
         if len(node_ids) != 0:
             errstr = "Single site operators in this tensor product are applied to nodes that do not exist in the TTN!"
             raise KeyError(errstr)
