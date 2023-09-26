@@ -26,7 +26,7 @@ class TimeEvolution:
             time_step_size (float): The time step size to be used.
             final_time (float): The final time until which to run.
             operators (Union[List[TensorProduct], TensorProduct]): Operators in 
-             the form of single site tensor product for which expectation values
+             the form of single site tensor products for which expectation values
              should be determined.
         """
         self._intital_state = initial_state
