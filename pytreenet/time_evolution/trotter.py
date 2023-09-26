@@ -3,8 +3,6 @@ from typing import List, Union, List, Tuple
 
 import numpy as np
 
-from scipy.linalg import expm
-
 from ..operators.operator import NumericOperator
 from ..operators.tensorproduct import TensorProduct
 from ..operators.common_operators import swap_gate
@@ -188,11 +186,8 @@ class TrotterSplitting:
         unitary_operators = [] # Includes the neccessary SWAPs
         for i, split in enumerate(self.splitting):
             tensor_product = self.tensor_products[split[0]]
-            factor = split[1]
-            total_operator = tensor_product.into_operator()
-            exponentiated_operator = expm((-1j*factor*delta_time) * total_operator.operator)
-            exponentiated_operator = NumericOperator(exponentiated_operator,
-                                                     total_operator.node_identifiers)
+            factor = -1j * split[1] * delta_time
+            exponentiated_operator = tensor_product.exp(factor)
             exponentiated_operator = exponentiated_operator.to_tensor(dim=dim, ttn=ttn)
 
             # Build required swaps for befor trotter tensor_product

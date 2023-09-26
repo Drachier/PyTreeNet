@@ -1,9 +1,11 @@
 from __future__ import annotations
 from typing import Union, Dict, List
+from numbers import Number
 from collections import UserDict
 from copy import deepcopy
 
 import numpy as np
+from scipy.linalg import expm
 
 from .operator import Operator, NumericOperator
 
@@ -95,3 +97,21 @@ class TensorProduct(UserDict):
                     raise TypeError(errstr)
             total_operator = np.kron(total_operator, operator)
         return NumericOperator(total_operator, list(self.keys()))
+
+    def exp(self, factor: Number = 1) -> NumericOperator:
+        """
+        Compute the exponential of a tensor product. Notably it will not be a tensor
+         product anymore but a general operator.
+
+        Args:
+            factor (Number, optional): A factor that is multiplied to the exponent.
+             Defaults to 1.
+
+        Returns:
+            NumericOperator: The exponentiated term. The identifiers in the operator
+             are in the same order as the tensor product keys. 
+        """
+        total_operator = self.into_operator()
+        exponentiated_operator = expm(factor * total_operator.operator)
+        return  NumericOperator(exponentiated_operator,
+                                    total_operator.node_identifiers)
