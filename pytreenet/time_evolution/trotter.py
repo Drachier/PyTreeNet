@@ -1,7 +1,5 @@
 from __future__ import annotations
-from typing import List, Union, List, Tuple
-
-import numpy as np
+from typing import List, Union, Tuple
 
 from ..operators.operator import NumericOperator
 from ..operators.tensorproduct import TensorProduct
