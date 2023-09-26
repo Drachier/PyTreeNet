@@ -145,7 +145,7 @@ class TimeEvolution:
             pgbar (bool, optional): Toggles the progress bar. Defaults to True.
         """
         # Always start from the same intial state
-        self.state = deepcopy(self.intital_state)
+        self.state = deepcopy(self._intital_state)
         for i in tqdm(range(self.num_time_steps + 1), disable=not pgbar):
             if i != 0:  # We also measure the initial expectation_values
                 self.run_one_time_step()
@@ -161,4 +161,4 @@ class TimeEvolution:
         """
         Resets the current state to the intial state
         """
-        self.state = deepcopy(self.intital_state)
+        self.state = deepcopy(self._intital_state)
