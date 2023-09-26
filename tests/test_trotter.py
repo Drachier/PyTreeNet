@@ -5,7 +5,7 @@ from scipy.linalg import expm
 
 import pytreenet as ptn
 
-class TestTrotterSplitting(unittest.TestCase):
+class TestTrotterSplittingInit(unittest.TestCase):
 
     def setUp(self):
 
@@ -115,14 +115,16 @@ class TestTrotterSplitting(unittest.TestCase):
         self.assertEqual(test_trottersplitting.swaps_after,
                          [ptn.SWAPlist([])] * len(self.splitting_tuple))
 
+class TestTrotterSplittingMethods(unittest.TestCase):
+
     def test_exponentiate_splitting_simple(self):
-        X, _, _ = ptn.pauli_matrices()
+        X, _, Z = ptn.pauli_matrices()
         delta_time = 0.1
         tensor_product = ptn.TensorProduct({"site1": X,
-                                            "site2": X})
+                                            "site2": Z})
         trotter = ptn.TrotterSplitting([tensor_product])
         exp_operator = trotter.exponentiate_splitting(delta_time=delta_time, dim=2)[0]
-        ref_exp = expm(-1j * delta_time * np.kron(X, X)).reshape(2,2,2,2)
+        ref_exp = expm(-1j * delta_time * np.kron(X, Z)).reshape(2,2,2,2)
         self.assertTrue(np.allclose(ref_exp, exp_operator.operator))
         self.assertEqual(["site1", "site2"], exp_operator.node_identifiers)
 
