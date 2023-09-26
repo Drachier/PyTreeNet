@@ -157,49 +157,6 @@ class TrotterSplitting:
         else:
             self.swaps_after = swaps_after
 
-    # def is_compatible_with_ttn(self, ttn):
-    #     """
-    #     Checks, if this splitting is compatible with a given TreeTensorNetwork.
-    #     This means it checks if all sites to which operators should be applied
-    #     are in the TTN and have correct physicial dimension.
-    #     Furthermoe checks if all nodes in the SWAP-list are actually neighbours
-    #     with the same open leg dimension.
-
-    #     Parameters
-    #     ----------
-    #     ttn : TreeTensorNetwork
-    #         A TTN for which to check compatability.
-
-    #     Returns
-    #     -------
-    #     compatible: bool
-    #     True if the TrotterSplitting is compatible with the TTN and False,
-    #     if not.
-
-    #     """
-    #     for interaction_operator in self.operators:
-    #         for site_id in interaction_operator:
-    #             # Check if all operator sites are in the TTN
-    #             if not (site_id in ttn.nodes):
-    #                 return False
-
-    #             # Check dimensional compatability
-    #             node = ttn.nodes[site_id]
-    #             local_operator = interaction_operator[site_id]
-    #             if node.open_dimension() != local_operator.shape[0]:
-    #                 return False
-
-    #     # Check compatability of all SWAP lists
-    #     for swap_list in self.swaps_before:
-    #         if not swap_list.is_compatible_with_ttn(ttn):
-    #             return False
-
-    #     for swap_list in self.swaps_after:
-    #         if not swap_list.is_compatible_with_ttn(ttn):
-    #             return False
-
-    #     return True
-
     def exponentiate_splitting(self, delta_time: float, ttn: TreeTensorNetwork = None,
                                dim: Union[int, None] = None) -> List[NumericOperator]:
         """
