@@ -17,6 +17,17 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         """
         super().__init__()
 
+    def scalar_product(self) -> complex:
+        """
+        Computes the scalar product of this TTNS
+
+        Returns:
+            complex: The resulting scalar product <TTNS|TTNS>
+        """
+        # Very inefficient, fix later without copy
+        ttn = deepcopy(self)
+        return ttn.contract_two_ttn(ttn.conjugate())
+
     def single_site_operator_expectation_value(self, node_id: str, operator: np.ndarray,
                                                canon: bool=False) -> complex:
         """
@@ -62,14 +73,3 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         for node_id, single_site_operator in operator.items():
             ttn.absorb_into_open_legs(node_id, single_site_operator)
         return ttn.contract_two_ttn(conj_ttn)
-
-    def scalar_product(self) -> complex:
-        """
-        Computes the scalar product of this TTNS
-
-        Returns:
-            complex: The resulting scalar product <TTNS|TTNS>
-        """
-        # Very inefficient, fix later without copy
-        ttn = deepcopy(self)
-        return ttn.contract_two_ttn(ttn.conjugate())
