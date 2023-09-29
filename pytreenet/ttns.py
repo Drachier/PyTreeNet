@@ -38,6 +38,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         Args:
             node_id (str): The identifier of the node, the operator is applied to.
             operator (np.ndarray): The operator of which we determine the expectation value.
+             Note that the state will be contracted with axis/leg 0 of this operator.
             canon (bool, optional): Whether the node is the orthogonality center of the TTNS.
                                      Defaults to False.
 
@@ -46,7 +47,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         """
         if canon:
             tensor = deepcopy(self.tensors[node_id])
-            tensor_op = np.tensordot(tensor, operator, axes=(-1,1))
+            tensor_op = np.tensordot(tensor, operator, axes=(-1,0))
             tensor_conj = tensor.conj()
             legs = tuple(range(tensor.ndim))
             return complex(np.tensordot(tensor_op, tensor_conj, axes=(legs,legs)))
