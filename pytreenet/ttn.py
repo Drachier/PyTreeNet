@@ -91,7 +91,7 @@ class TreeTensorNetwork(TreeStructure):
         node = super().__getitem__(key)
         tensor = self._tensors[key]
         return (node, tensor)
-    
+
     def __eq__(self, other: TreeTensorNetwork) -> bool:
         """
         Two TTN are considered equal, if all their nodes are equal and then the tensors
@@ -102,14 +102,14 @@ class TreeTensorNetwork(TreeStructure):
             return False
         for node_id, node in self.nodes:
             if node_id in other.nodes: # Avoid KeyError
-                nodes_equal = (node == other.nodes[node_id])
+                nodes_equal = node == other.nodes[node_id]
                 tensors_equal = np.allclose(self.tensors[node_id], other.tensors[node_id])
                 if not (nodes_equal and tensors_equal):
                     return False
             else:
                 return False # Some node_id is not the same
         return True
-    
+
     def add_root(self, node: Node, tensor: np.ndarray):
         """
         Adds a root tensor node to the TreeTensorNetwork
