@@ -100,7 +100,7 @@ class TreeTensorNetwork(TreeStructure):
         if not len(self.nodes) == len(other.nodes):
             # Avoid the case that one is the subtree of the other.
             return False
-        for node_id, node in self.nodes:
+        for node_id, node in self.nodes.items():
             if node_id in other.nodes: # Avoid KeyError
                 nodes_equal = node == other.nodes[node_id]
                 tensors_equal = np.allclose(self.tensors[node_id], other.tensors[node_id])
