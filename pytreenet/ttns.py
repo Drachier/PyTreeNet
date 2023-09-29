@@ -51,11 +51,8 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             legs = tuple(range(tensor.ndim))
             return complex(np.tensordot(tensor_op, tensor_conj, axes=(legs,legs)))
 
-        # Very inefficient, fix later without copy
-        ttns_conj = self.conjugate()
-        ref_self = deepcopy(self)
-        ref_self.absorb_into_open_legs(node_id, operator)
-        return ref_self.contract_two_ttn(ttns_conj)
+        tensor_product = TensorProduct({node_id: operator})
+        return self.operator_expectation_value(tensor_product)
 
     def operator_expectation_value(self, operator: TensorProduct) -> complex:
         """
