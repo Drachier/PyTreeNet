@@ -65,6 +65,34 @@ class TestTreeTensorNetworkBasics(unittest.TestCase):
         self.assertEqual(self.tensortree.nodes["new_root"].children, ["orig_root"])
         self.assertEqual(self.tensortree.nodes["orig_root"].parent, "new_root")
 
+class TestTreeTensorNetworkSimple(unittest.TestCase):
+
+    def setUp(self):
+        self.tensortree = ptn.TreeTensorNetworkState()
+        self.tensortree.add_root(ptn.Node(identifier="root"), ptn.crandn((5,6,2)))
+        self.tensortree.add_child_to_parent(ptn.Node(identifier="c1"),
+            ptn.crandn((5,3)), 0, "root", 0)
+        self.tensortree.add_child_to_parent(ptn.Node(identifier="c2"),
+            ptn.crandn((6,4)), 0, "root", 1)
+
+    def test_conjugate(self):
+        ref_ttn = deepcopy(self.tensortree)
+        reference_result = ref_ttn.completely_contract_tree()
+        reference_result = reference_result.tensors[reference_result.root_id]
+        reference_result = reference_result.conj()
+
+        found_result = self.tensortree.conjugate()
+        found_result = found_result.completely_contract_tree()
+        found_result = found_result.tensors[found_result.root_id]
+
+        self.assertTrue(np.allclose(reference_result, found_result))
+
+    def test_conjugate_keep_original(self):
+        ref_ttn = deepcopy(self.tensortree)
+        _ = self.tensortree.conjugate()
+        # The original TTN should be unchanged
+        for node_id, tensor in self.tensortree.tensors.items():
+            self.assertTrue(np.allclose(ref_ttn.tensors[node_id], tensor))
 
 class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def setUp(self):
