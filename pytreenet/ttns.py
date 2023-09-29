@@ -53,8 +53,9 @@ class TreeTensorNetworkState(TreeTensorNetwork):
 
         # Very inefficient, fix later without copy
         ttns_conj = self.conjugate()
-        self.absorb_into_open_legs(node_id, operator)
-        return self.contract_two_ttn(ttns_conj)
+        ref_self = deepcopy(self)
+        ref_self.absorb_into_open_legs(node_id, operator)
+        return ref_self.contract_two_ttn(ttns_conj)
 
     def operator_expectation_value(self, operator: TensorProduct) -> complex:
         """
