@@ -53,6 +53,22 @@ class Node(GraphNode):
         leg_node.parent = node.parent
         leg_node.children = copy(node.children)
         return leg_node
+    
+    def __eq__(self, other: Node) -> bool:
+        """
+        Two nodes are equal, if they have the same identifier, children in the right order and
+         the same parent.
+        """
+        identifier_eq = self.identifier == other.identifier
+        children_eq = self.children == other.children
+        # Needed to avoid string to None comparison
+        if self.is_root() and other.is_root():
+            parent_eq = True
+        elif self.is_root() or other.is_root():
+            parent_eq = False
+        else:
+            parent_eq = self.parent == other.parent
+        return identifier_eq and children_eq and parent_eq
 
     @property
     def leg_permutation(self):
