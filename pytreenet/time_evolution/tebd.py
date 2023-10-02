@@ -45,8 +45,17 @@ class TEBD(TimeEvolution):
         super().__init__(initial_state, time_step_size, final_time, operators)
         self._trotter_splitting = trotter_splitting
 
+        if max_bond_dim < 1:
+            errstr = "The maximum bond dimension must be positive!"
+            raise ValueError(errstr)
         self.max_bond_dim = max_bond_dim
+        if rel_tol < 0 and rel_tol != float("-inf"):
+            errstr = "The relative tolerance must be non-negativ of -inf!"
+            raise ValueError(errstr)
         self.rel_tol = rel_tol
+        if total_tol < 0 and rel_tol != float("-inf"):
+            errstr = "The total tolerance must be non-negativ of -inf!"
+            raise ValueError(errstr)
         self.total_tol = total_tol
 
         self._exponents = self._trotter_splitting.exponentiate_splitting(self._time_step_size,
@@ -54,10 +63,16 @@ class TEBD(TimeEvolution):
 
     @property
     def exponents(self):
+        """
+        Returns the exponentiated Trotter operators.
+        """
         return self._exponents
 
     @property
     def trotter_splitting(self):
+        """
+        Returns the Trotter splitting.
+        """
         return self._trotter_splitting
 
     def _apply_one_trotter_step_single_site(self, single_site_exponent: NumericOperator):
