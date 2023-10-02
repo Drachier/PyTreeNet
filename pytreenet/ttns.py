@@ -5,8 +5,8 @@ import numpy as np
 
 from .ttn import TreeTensorNetwork
 from .operators.tensorproduct import TensorProduct
-from .node import random_tensor_node
-from util import crandn
+from .node import Node, random_tensor_node
+from .util import crandn
 
 class TreeTensorNetworkState(TreeTensorNetwork):
     """
@@ -113,7 +113,6 @@ def random_big_ttns(option: str) -> TreeTensorNetworkState:
         node8, tensor8 = random_tensor_node((2,2), identifier="site8")
 
         random_ttns = TreeTensorNetworkState()
-
         random_ttns.add_root(node1, tensor1)
         random_ttns.add_child_to_parent(node2, tensor2, 0, "site1", 0)
         random_ttns.add_child_to_parent(node3, tensor3, 0, "site2", 1)
@@ -122,5 +121,4 @@ def random_big_ttns(option: str) -> TreeTensorNetworkState:
         random_ttns.add_child_to_parent(node6, tensor6, 0, "site1", 2)
         random_ttns.add_child_to_parent(node7, tensor7, 0, "site6", 1)
         random_ttns.add_child_to_parent(node8, tensor8, 0, "site6", 2)
-
-    return random_ttn
+    return random_ttns
