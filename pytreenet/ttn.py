@@ -73,6 +73,19 @@ class TreeTensorNetwork(TreeStructure):
         """
 
         return self._tensors
+    
+    @property
+    def root(self) -> Tuple[Node, np.ndarray]:
+        """
+        Returns the root node and the associated tensor
+
+        Returns:
+            Tuple[Node, np.ndarray]: _description_
+        """
+        if self.root_id is None:
+            errstr = "There is no root!"
+            raise KeyError(errstr)
+        return self[self.root_id]
 
     def _transpose_tensor(self, node_id: str):
         """
