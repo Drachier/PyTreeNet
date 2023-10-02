@@ -117,7 +117,7 @@ class TensorProduct(UserDict):
         exponentiated_operator = expm(factor * total_operator.operator)
         return  NumericOperator(exponentiated_operator,
                                     total_operator.node_identifiers)
-    
+
 def random_tensor_product(reference_tree: TreeTensorNetwork,
                           num_factors: int = 1) -> TensorProduct:
     """

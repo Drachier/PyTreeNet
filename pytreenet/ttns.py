@@ -5,6 +5,8 @@ import numpy as np
 
 from .ttn import TreeTensorNetwork
 from .operators.tensorproduct import TensorProduct
+from .node import random_tensor_node
+from util import crandn
 
 class TreeTensorNetworkState(TreeTensorNetwork):
     """
@@ -72,3 +74,53 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         for node_id, single_site_operator in operator.items():
             ttn.absorb_into_open_legs(node_id, single_site_operator)
         return ttn.contract_two_ttn(conj_ttn)
+
+def random_small_ttns() -> TreeTensorNetworkState:
+    """
+    Generates a small TreeTensorNetworkState consisting of three nodes:
+     The root with identifier `"root"` and its two children with identifiers
+     `"c1"`and `"c2"`. The associated tensors are random, but its dimensions are set.
+    """
+    random_ttns = TreeTensorNetworkState()
+    random_ttns.add_root(Node(identifier="root"), crandn((5,6,2)))
+    random_ttns.add_child_to_parent(Node(identifier="c1"),
+        crandn((5,3)), 0, "root", 0)
+    random_ttns.add_child_to_parent(Node(identifier="c2"),
+        crandn((6,4)), 0, "root", 1)
+    return random_ttns
+
+def random_big_ttns(option: str) -> TreeTensorNetworkState:
+    """
+    Generates a big TTNS with identifiers of the form `"site" + int`.
+     The identifiers and dimensions are set, but the associated tensors
+     are random.
+
+    Args:
+        option (str): A parameter to choose between different topologies and
+         dimensions.
+    """
+
+    if option == "same_dimension":
+        # All dimensions virtual and physical are initially the same
+        # We need a ttn to work on.
+        node1, tensor1 = random_tensor_node((2,2,2,2), identifier="site1")
+        node2, tensor2 = random_tensor_node((2,2,2), identifier="site2")
+        node3, tensor3 = random_tensor_node((2,2), identifier="site3")
+        node4, tensor4 = random_tensor_node((2,2,2), identifier="site4")
+        node5, tensor5 = random_tensor_node((2,2), identifier="site5")
+        node6, tensor6 = random_tensor_node((2,2,2,2), identifier="site6")
+        node7, tensor7 = random_tensor_node((2,2), identifier="site7")
+        node8, tensor8 = random_tensor_node((2,2), identifier="site8")
+
+        random_ttns = TreeTensorNetworkState()
+
+        random_ttns.add_root(node1, tensor1)
+        random_ttns.add_child_to_parent(node2, tensor2, 0, "site1", 0)
+        random_ttns.add_child_to_parent(node3, tensor3, 0, "site2", 1)
+        random_ttns.add_child_to_parent(node4, tensor4, 0, "site1", 1)
+        random_ttns.add_child_to_parent(node5, tensor5, 0, "site4", 1)
+        random_ttns.add_child_to_parent(node6, tensor6, 0, "site1", 2)
+        random_ttns.add_child_to_parent(node7, tensor7, 0, "site6", 1)
+        random_ttns.add_child_to_parent(node8, tensor8, 0, "site6", 2)
+
+    return random_ttn
