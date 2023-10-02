@@ -75,6 +75,12 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         self.tensortree.add_child_to_parent(ptn.Node(identifier="c2"),
             ptn.crandn((6,4)), 0, "root", 1)
 
+    def test_equality_ttn_should_be_equal_to_itself(self):
+        ref_tree = deepcopy(self.tensortree)
+        self.assertEqual(ref_tree,self.tensortree)
+    
+    # TODO: Test other situations
+
     def test_conjugate(self):
         ref_ttn = deepcopy(self.tensortree)
         reference_result = ref_ttn.completely_contract_tree()
