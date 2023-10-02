@@ -1,6 +1,8 @@
 import unittest
 import numpy as np
-import copy
+
+from copy import deepcopy
+
 import pytreenet as ptn
 
 from pytreenet.canonical_form import _find_smallest_distance_neighbour
@@ -23,21 +25,21 @@ class TestCanonicalFormSimple(unittest.TestCase):
         self.assertEqual("node1", minimum_distance_neighbour_id)
 
     def testsimple_canonical_form(self):
-        reference_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
-        ref_tensor = reference_ttn.tensors[reference_ttn.root_id]
+        reference_ttn = deepcopy(self.tree_tensor_network)
 
         tensor1 = self.tree_tensor_network.tensors["node1"]
         tensor2 = self.tree_tensor_network.tensors["node2"]
 
-        ref_tensor_direct = np.tensordot(tensor1, tensor2, axes=([0], [0]))
-        self.assertTrue(np.allclose(ref_tensor, ref_tensor_direct))
-
         ptn.canonical_form(self.tree_tensor_network, "node1")
+        self.assertFalse(self.tree_tensor_network == reference_ttn)
 
         result_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
         result_tensor = result_ttn.tensors[result_ttn.root_id]
 
-        self.assertFalse(result_ttn == reference_ttn)
+        reference_ttn = ptn.completely_contract_tree(reference_ttn, to_copy=True)
+        ref_tensor = reference_ttn.tensors[reference_ttn.root_id]
+        ref_tensor_direct = np.tensordot(tensor1, tensor2, axes=([0], [0]))
+        self.assertTrue(np.allclose(ref_tensor, ref_tensor_direct))
         self.assertTrue(np.allclose(ref_tensor, result_tensor))
 
         node2, tensor2 = self.tree_tensor_network["node2"]
@@ -128,7 +130,7 @@ class TestCanonicalFormComplicated(unittest.TestCase):
         ref_scalar_product = ptn.compute_transfer_tensor(ref_tensor, range(ref_tensor.ndim))
 
         for node_id_center in self.tree_tensor_network.nodes:
-            canon_ttn = copy.deepcopy(self.tree_tensor_network)
+            canon_ttn = deepcopy(self.tree_tensor_network)
 
             ptn.canonical_form(canon_ttn, node_id_center)
 
