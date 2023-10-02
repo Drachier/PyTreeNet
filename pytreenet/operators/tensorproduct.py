@@ -3,11 +3,13 @@ from typing import Union, Dict, List
 from numbers import Number
 from collections import UserDict
 from copy import deepcopy
+from random import sample
 
 import numpy as np
 from scipy.linalg import expm
 
 from .operator import Operator, NumericOperator
+from ..util import crandn
 
 class TensorProduct(UserDict):
     """
@@ -115,3 +117,32 @@ class TensorProduct(UserDict):
         exponentiated_operator = expm(factor * total_operator.operator)
         return  NumericOperator(exponentiated_operator,
                                     total_operator.node_identifiers)
+    
+def random_tensor_product(reference_tree: TreeTensorNetwork,
+                          num_factors: int = 1) -> TensorProduct:
+    """
+    Generates a random tensor product that is compatible with the reference
+     TreeTensorNetwork.
+
+    Args:
+        reference_tree (TreeTensorNetwork): A reference TreeTensorNetwork.
+         It provides the identifiers and dimensions for the operators in the
+         tensor product.
+        num_factors (int): The number of factors to use. The nodes to which they
+         are applied are drawn randomly from all nodes.
+    """
+    if num_factors < 0:
+        errstr = "The number of factors must be non-negative!"
+        errstr =+ f"{num_factors} < 1!"
+        raise ValueError(errstr)
+    if num_factors > len(reference_tree.nodes):
+        errstr = "There cannot be more factors than nodes in the tree!"
+        errstr =+ f"{num_factors} > {len(reference_tree.nodes)}!"
+        raise ValueError(errstr)
+
+    random_tp = TensorProduct()
+    chosen_nodes = sample(list(reference_tree.nodes.values()), num_factors)
+    for node in chosen_nodes:
+        factor = crandn(node.open_dimension())
+        random_tp[node.identifier] = factor
+    return random_tp
