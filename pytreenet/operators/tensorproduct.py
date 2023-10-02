@@ -143,6 +143,6 @@ def random_tensor_product(reference_tree: TreeTensorNetwork,
     random_tp = TensorProduct()
     chosen_nodes = sample(list(reference_tree.nodes.values()), num_factors)
     for node in chosen_nodes:
-        factor = crandn(node.open_dimension())
+        factor = crandn((node.open_dimension(),node.open_dimension()))
         random_tp[node.identifier] = factor
     return random_tp
