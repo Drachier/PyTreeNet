@@ -329,7 +329,11 @@ class TreeTensorNetwork(TreeStructure):
         Returns:
             Tuple[LegSpecification, LegSpecification]: The leg specifications containing the
              information to split the two nodes again, to have the same legs as before
-             (assuming the open legs are not transposed).
+             (assuming the open legs are not transposed). Since it is not needed the 
+             LegSpecification of the parent node has the identifier of the child node
+             not included. Same for the LegSpecification of the child node and the
+             parent legs. The open legs are the index values that the legs would have
+             after contracting the two nodes.
         """
 
         node1 = self.nodes[node1_id]
