@@ -196,15 +196,6 @@ class Hamiltonian(object):
         dup = [term for term in self.terms if self.terms.count(term) > 1]
         return len(dup) > 0
 
-    def __add__(self, other_hamiltonian: Hamiltonian):
-
-        total_terms = []
-        total_terms.extend(self.terms)
-        total_terms.extend(other_hamiltonian.terms)
-
-        new_hamiltonian = Hamiltonian(terms=total_terms)
-        return new_hamiltonian
-
     def __repr__(self):
         return str(self.terms)
 
