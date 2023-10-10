@@ -1,6 +1,6 @@
 from __future__ import annotations
 from numpy.random import default_rng
-from numpy import prod, eye, tensordot, reshape, transpose, kron
+from numpy import prod, eye, tensordot
 
 from .ttn_exceptions import NotCompatibleException
 
@@ -21,21 +21,16 @@ class Hamiltonian(object):
     that node/site.
     """
 
-    def __init__(self, terms: list[dict] = None, conversion_dictionary: dict = None):
+    def __init__(self, terms: list[TensorProduct] = None, conversion_dictionary: dict = None):
         """
-        Parameters
-        ----------
-        terms : list of dictionaries, optional
-            A list of dictionaries containing the terms of the Hamiltonian. The
-            keys are identifiers of the site to which the value, an operator,
-            is to be applied. (Operators can be symbolic, i.e. strings or explicit
-            i.e. ndarrays)
-            The default is None.
-        conversion_dictionary : dict
-            A dictionary that contains keys corresponding to certain tensors.
-            Thus the terms can contain labels rather than the whole numpy arrays
-            representing the operators.
+        Initialises a Hamiltonian from a number of terms represented by a TensorProduct each:
+            H = sum( terms )
 
+        Args:
+            terms (list[TensorProduct], optional): A list of TensorProduct making up the Hamiltonian.
+             Defaults to None.
+            conversion_dictionary (dict, optional): A conversion dictionary might be supplied.
+             It is used, if the tensor products are symbolic. Defaults to None.
         """
         if terms == None:
             self.terms = []
@@ -43,20 +38,9 @@ class Hamiltonian(object):
             self.terms = terms
 
         if conversion_dictionary == None:
-            self.conversion_dictionary = []
+            self.conversion_dictionary = {}
         else:
             self.conversion_dictionary = conversion_dictionary
-
-        self.check_conversion_dict_valid()
-
-    def check_conversion_dict_valid(self):
-        for label in self.conversion_dictionary:
-            operator = self.conversion_dictionary[label]
-
-            shape = operator.shape
-            assert len(
-                shape) == 2,  f"Operator with label {label} is not a matrix!"
-            assert shape[0] == shape[1], f"Matrix with label {label} is not square!"
 
     def add_term(self, term: dict):
         if not (type(term) == dict):
