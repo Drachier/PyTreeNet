@@ -44,6 +44,15 @@ class Hamiltonian(object):
         else:
             self.conversion_dictionary = conversion_dictionary
 
+    def __repr__(self):
+        return str(self.terms)
+
+    def __eq__(self, other_hamiltonian):
+        """
+        Two Hamiltonians are equal, if all of their terms are equal.
+        """
+        return self.terms == other_hamiltonian.terms
+
     def __add__(self, other: Union[TensorProduct, Hamiltonian]):
         if isinstance(other, TensorProduct):
             self.add_term(other)
@@ -195,16 +204,6 @@ class Hamiltonian(object):
         """
         dup = [term for term in self.terms if self.terms.count(term) > 1]
         return len(dup) > 0
-
-    def __repr__(self):
-        return str(self.terms)
-
-    def __eq__(self, other_hamiltonian):
-        """
-        Two Hamiltonians are equal, if all of their terms are equal.
-        """
-        return self.terms == other_hamiltonian.terms
-
 
 def random_terms(
         num_of_terms: int, possible_operators: list, sites: list[str],
