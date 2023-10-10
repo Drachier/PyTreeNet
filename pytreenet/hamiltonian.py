@@ -192,15 +192,12 @@ class Hamiltonian(object):
                 full_tensor += term_operator.operator
         return NumericOperator(full_tensor, identifiers)
 
-    def contains_duplicates(self):
+    def contains_duplicates(self) -> bool:
         """
-        If the there are equal terms contained. Especially important to recheck
-        after padding.
+        Checks, if there are duplicates of terms. Can be especially important after padding.
 
-        Returns
-        -------
-        result: bool
-
+        Returns:
+            bool: True if there are duplicates, False otherwise
         """
         dup = [term for term in self.terms if self.terms.count(term) > 1]
         return len(dup) > 0
