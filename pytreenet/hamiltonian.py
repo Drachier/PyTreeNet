@@ -127,8 +127,12 @@ class Hamiltonian(object):
         elif mode != PadMode.risky:
             raise ValueError(
                 f"{mode} is not a valid option for 'mode'. (Only 'safe' and 'risky are)!")
+        
+        new_terms = []
         for term in self.terms:
-            term.pad_with_identities(reference_ttn, symbolic=symbolic)
+            new_term = term.pad_with_identities(reference_ttn, symbolic=symbolic)
+            new_terms.append(new_term)
+        return Hamiltonian(new_terms, conversion_dictionary=self.conversion_dictionary)
 
     def to_tensor(self, ref_ttn: TreeTensorNetwork, use_padding: bool = True,
                   mode: PadMode = PadMode.safe) -> NumericOperator:
