@@ -145,7 +145,7 @@ class TestTensorProductWithTTN(unittest.TestCase):
         ten_prod = ptn.TensorProduct(self.symbolic_dict)
         padded_tp = ten_prod.pad_with_identities(self.ttn, symbolic=True)
         self.assertTrue("c2" in padded_tp.keys())
-        self.assertEqual("I", padded_tp["c2"])
+        self.assertEqual("I4", padded_tp["c2"])
 
     def test_pad_with_identity_node_not_in_ttn(self):
         self.symbolic_dict["wronged"] = "P"
