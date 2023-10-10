@@ -204,7 +204,8 @@ class Hamiltonian(object):
 
 def random_terms(
         num_of_terms: int, possible_operators: list, sites: list[str],
-        min_strength: float = -1, max_strength: float = 1, min_num_sites: int = 2, max_num_sites: int = 2):
+        min_strength: float = -1, max_strength: float = 1, min_num_sites: int = 2,
+        max_num_sites: int = 2):
     """
     Creates random interaction terms.
 
