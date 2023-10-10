@@ -62,10 +62,10 @@ class TensorProduct(UserDict):
             if node_id in node_ids:
                 node_ids.remove(node_id)
             else:
+                dim = node.open_dimension()
                 if symbolic:
-                    identity = "I"
+                    identity = "I" + str(dim)
                 else:
-                    dim = node.open_dimension()
                     identity = np.eye(dim)
                 padded_tp[node_id] = identity
         if len(node_ids) != 0:
