@@ -1,76 +1,102 @@
 import unittest
+from copy import deepcopy
 
 import pytreenet as ptn
 
+class TestHamiltonianInitialisation(unittest.TestCase):
 
-class TestHamiltonian(unittest.TestCase):
+    def test_empty_init(self):
+        ham = ptn.Hamiltonian()
+        self.assertEqual(0, len(ham.terms))
+        self.assertEqual(0, len(ham.conversion_dictionary))
+
+    def test_init_with_terms(self):
+        terms = [ptn.TensorProduct({"site1": "X", "site2": "Y"}),
+                 ptn.TensorProduct({"site2": "Z", "site3": "Y"})]
+        ham = ptn.Hamiltonian(terms=terms)
+        self.assertEqual(terms[0], ham.terms[0])
+        self.assertEqual(terms[1], ham.terms[1])
+        self.assertEqual(0, len(ham.conversion_dictionary))
+
+    def test_init_with_conversion_dict(self):
+        conv_dict = {"A": ptn.crandn((2,2)), "X": ptn.crandn((4,4))}
+        ham = ptn.Hamiltonian(conversion_dictionary=conv_dict)
+        self.assertEqual(0, len(ham.terms))
+        self.assertEqual(conv_dict, ham.conversion_dictionary)
+
+class TestHamiltonianSimpleTree(unittest.TestCase):
 
     def setUp(self):
-        paulis = list(ptn.pauli_matrices())
-        num_sites = 8
+        # Numeric Hamiltonian
+        self.ref_ttn = ptn.random_small_ttns()
+        self.terms_num = [ptn.random_tensor_product(self.ref_ttn, 2) for _ in range(0,3)]
+        self.ham_num = ptn.Hamiltonian(terms=deepcopy(self.terms_num))
 
-        self.sites = ["site" + str(integer) for integer in range(0, num_sites)]
-        self.terms = ptn.random_terms(4, paulis, self.sites)
+        # Symbolic Hamiltonian
+        self.terms_symb = [ptn.TensorProduct({"root": "A", "c1": "B"}),
+                           ptn.TensorProduct({"root": "A", "c2": "C"})]
+        self.conversion_dict = {"A": ptn.crandn((2,2)),
+                                "B": ptn.crandn((3,3)),
+                                "C": ptn.crandn((4,4))}
+        self.ham_symb = ptn.Hamiltonian(terms=deepcopy(self.terms_symb),
+                                        conversion_dictionary=self.conversion_dict)
 
-    def test_init(self):
-        hamiltonian = ptn.Hamiltonian()
+        # Empty Hamiltonian
+        self.empty_ham = ptn.Hamiltonian()
 
-        self.assertEqual([], hamiltonian.terms)
-
-        two_terms = self.terms[:2]
-        hamiltonian = ptn.Hamiltonian(terms=two_terms)
-
-        self.assertAlmostEqual(two_terms, hamiltonian.terms)
+    def test_add_term(self):
+        term = ptn.TensorProduct({"c2": "C", "c1": "B"})
+        self.ham_symb.add_term(deepcopy(term))
+        self.assertEqual(3, len(self.ham_symb.terms))
+        self.assertEqual(term, self.ham_symb.terms[-1])
 
     def test_add_terms(self):
+        term = ptn.TensorProduct({"c2": "C", "c1": "B"})
+        term2 = ptn.TensorProduct({"c2": "F", "c1": "B"})
+        self.ham_symb.add_multiple_terms([term, term2])
+        self.assertEqual(4, len(self.ham_symb.terms))
 
-        two_terms = self.terms[:2]
+    def test_add_hamiltonian(self):
+        self.ham_num.add_hamiltonian(self.ham_symb)
+        self.assertEqual(5, len(self.ham_num.terms))
+        # The other one should not be changed
+        self.assertEqual(2, len(self.ham_symb.terms))
 
-        hamiltonian = ptn.Hamiltonian(terms=two_terms)
+    def test_addition_term(self):
+        term = ptn.TensorProduct({"c2": "C", "c1": "B"})
+        self.ham_symb = self.ham_symb + deepcopy(term)
+        self.assertEqual(3, len(self.ham_symb.terms))
+        self.assertEqual(term, self.ham_symb.terms[-1])
 
-        two_more_terms = self.terms[2:4]
+    def test_addition_hamiltonian(self):
+        self.ham_num = self.ham_num + self.ham_symb
+        self.assertEqual(5, len(self.ham_num.terms))
+        # The other one should not be changed
+        self.assertEqual(2, len(self.ham_symb.terms))
 
-        hamiltonian.add_multiple_terms(two_more_terms)
+    def test_wrong_addition(self):
+        self.assertRaises(TypeError, self.ham_num.__add__, 4)
 
-        two_terms.extend(two_more_terms)
-        correct_terms = two_terms
+    def test_is_compatible_with_true(self):
+        self.assertTrue(self.ham_num.is_compatible_with(self.ref_ttn))
 
-        self.assertEqual(correct_terms, hamiltonian.terms)
+    def test_is_compatible_with_false(self):
+        ttn = ptn.TreeTensorNetwork()
+        node, tensor = ptn.random_tensor_node((2,3,4), identifier="False!")
+        ttn.add_root(node, tensor)
+        self.assertFalse(self.ham_num.is_compatible_with(ttn))
 
-    def test_addition(self):
-        two_terms = self.terms[:2]
-        hamiltonian1 = ptn.Hamiltonian(terms=two_terms)
-
-        two_more_terms = self.terms[2:4]
-        hamiltonian2 = ptn.Hamiltonian(terms=two_more_terms)
-
-        total_hamiltonian = hamiltonian1 + hamiltonian2
-
-        two_terms.extend(two_more_terms)
-        correct_terms = two_terms
-
-        self.assertEqual(correct_terms, total_hamiltonian.terms)
-
-    def test_to_tensor_very_simple(self):
-        ttns = ptn.TreeTensorNetwork()
-        node1, tensor1 = ptn.random_tensor_node((2, 3), identifier="site1")
-        node2, tensor2 = ptn.random_tensor_node((2, 4), identifier="site2")
-
-        ttns.add_root(node1, tensor1)
-        ttns.add_child_to_parent(node2, tensor2, 0, "site1", 0)
-
-        term1 = {"site1": "11", "site2": "21"}
-        term2 = {"site1": "12", "site2": "22"}
-        conversion_dict = {"11": ptn.crandn((3, 3)), "12": ptn.crandn((3, 3)),
-                           "21": ptn.crandn((4, 4)), "22": ptn.crandn((4, 4))}
-
-        hamiltonian = ptn.Hamiltonian(terms=[term1, term2],
-                                      conversion_dictionary=conversion_dict)
-
-        full_tensor = hamiltonian.to_tensor(ttns)
-
-        self.assertEqual((3, 4, 3, 4), full_tensor.shape)
-
+    def test_pad_with_identities(self):
+        padded_ham = self.ham_symb.pad_with_identities(self.ref_ttn)
+        # Every term should habe three factors
+        for term in padded_ham.terms:
+            self.assertEqual(len(self.ref_ttn.nodes), len(term))
+        # The correct symbols should be assigned
+        self.assertEqual("I4", padded_ham.terms[0]["c2"])
+        self.assertEqual("I3", padded_ham.terms[1]["c1"])
+        # The old terms, shouldn't be changed
+        for term in self.ham_symb.terms:
+            self.assertEqual(2, len(term))
 
 if __name__ == "__main__":
     unittest.main()
