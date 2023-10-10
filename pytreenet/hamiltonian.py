@@ -81,6 +81,24 @@ class Hamiltonian(object):
         """
         self.terms.extend(terms)
 
+    def is_compatible_with(self, ttn: TreeTensorNetwork) -> bool:
+        """
+        Returns, if the Hamiltonian is compatible with the provided TTN. Compatibility means
+         that all node identifiers that appear any term of this Hamiltonian are identifiers
+         of nodes in the TTN
+
+        Args:
+            ttn (TreeTensorNetwork): The TTN to check against.
+
+        Returns:
+            bool: Whether the two are compatible or not.
+        """
+        for term in self.terms:
+            for site_id in term:
+                if not site_id in ttn.nodes:
+                    return False
+        return True
+
     def pad_with_identities(self, reference_ttn: TreeTensorNetwork,
                           mode: PadMode = PadMode.safe, 
                           symbolic: bool = True) -> Hamiltonian:
@@ -111,24 +129,6 @@ class Hamiltonian(object):
                 f"{mode} is not a valid option for 'mode'. (Only 'safe' and 'risky are)!")
         for term in self.terms:
             term.pad_with_identities(reference_ttn, symbolic=symbolic)
-
-    def is_compatible_with(self, ttn: TreeTensorNetwork) -> bool:
-        """
-        Returns, if the Hamiltonian is compatible with the provided TTN. Compatibility means
-         that all node identifiers that appear any term of this Hamiltonian are identifiers
-         of nodes in the TTN
-
-        Args:
-            ttn (TreeTensorNetwork): The TTN to check against.
-
-        Returns:
-            bool: Whether the two are compatible or not.
-        """
-        for term in self.terms:
-            for site_id in term:
-                if not site_id in ttn.nodes:
-                    return False
-        return True
 
     def to_tensor(self, ref_ttn: TreeTensorNetwork, use_padding: bool = True,
                   mode: PadMode = PadMode.safe) -> NumericOperator:
