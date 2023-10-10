@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Union
 from numpy.random import default_rng
 from numpy import prod, eye, tensordot
 
@@ -42,14 +43,33 @@ class Hamiltonian(object):
         else:
             self.conversion_dictionary = conversion_dictionary
 
-    def add_term(self, term: dict):
-        if not (type(term) == dict):
-            try:
-                term = dict(term)
-            except TypeError:
-                raise TypeError(f"{term} cannot be converted to a dictionary.")
+    def __add__(self, other: Union[TensorProduct, Hamiltonian]):
+        if isinstance(other, TensorProduct):
+            self.add_term(other)
+        elif isinstance(other, Hamiltonian):
+            self.add_hamiltonian(other)
+        else:
+            errstr = f"Addition between Hamiltonian and {type(other)} not supported!"
+            raise TypeError(errstr)
 
+    def add_term(self, term: TensorProduct):
+        """
+        Adds a term to the Hamiltonian.
+
+        Args:
+            term (TensorProduct): The term to be added in the form of a TensorProduct
+        """
         self.terms.append(term)
+
+    def add_hamiltonian(self, other: Hamiltonian):
+        """
+        Adds one Hamiltonian to this Hamiltonian. The other Hamiltonian will not be modified.
+
+        Args:
+            other (Hamiltonian): Hamiltonian to be added.
+        """
+        self.terms.extend(other.terms)
+        self.conversion_dictionary.update(other.conversion_dictionary)
 
     def add_multiple_terms(self, terms: list[dict]):
         if type(terms) == list:
