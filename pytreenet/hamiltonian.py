@@ -98,6 +98,28 @@ class Hamiltonian(object):
                 if not site_id in ttn.nodes:
                     return False
         return True
+    
+    def perform_compatibility_checks(self, mode: PadMode,
+                                     reference_ttn: TreeTensorNetwork):
+        """
+        Performs the check of the mode and the check of compatibility, if desired.
+
+        Args:
+            mode (PadMode, optional): 'safe' performs a compatability check with the reference
+             ttn. Risky will not run this check, which might be time consuming for large
+             TTN. Defaults to PadMode.safe.
+
+        Raises:
+            NotCompatibleException: If the Hamiltonian and TTN are not compatible
+            ValueError: If a wrong mode is used.
+        """
+        if mode == PadMode.safe:
+            if not self.is_compatible_with(reference_ttn):
+                raise NotCompatibleException(
+                    "Hamiltonian and reference_ttn are incompatible")
+        elif mode != PadMode.risky:
+            raise ValueError(
+                f"{mode} is not a valid option for 'mode'. (Only 'safe' and 'risky are)!")
 
     def pad_with_identities(self, reference_ttn: TreeTensorNetwork,
                           mode: PadMode = PadMode.safe, 
@@ -120,14 +142,7 @@ class Hamiltonian(object):
             NotCompatibleException: If the Hamiltonian and TTN are not compatible
             ValueError: If a wrong mode is used.
         """
-        if mode == PadMode.safe:
-            if not self.is_compatible_with(reference_ttn):
-                raise NotCompatibleException(
-                    "Hamiltonian and reference_ttn are incompatible")
-        elif mode != PadMode.risky:
-            raise ValueError(
-                f"{mode} is not a valid option for 'mode'. (Only 'safe' and 'risky are)!")
-        
+        self.perform_compatibility_checks(mode=mode, reference_ttn=reference_ttn)
         new_terms = []
         for term in self.terms:
             new_term = term.pad_with_identities(reference_ttn, symbolic=symbolic)
@@ -153,13 +168,7 @@ class Hamiltonian(object):
         Returns:
             NumericOperator: Operator corresponding to the Hamiltonian.
         """
-        if mode == PadMode.safe:
-            if not self.is_compatible_with(ref_ttn):
-                raise NotCompatibleException(
-                    "Hamiltonian and reference_ttn are incompatible")
-        elif mode != PadMode.risky:
-            raise ValueError(
-                f"{mode} is not a valid option for 'mode'. (Only 'safe' and 'risky are)!")    
+        self.perform_compatibility_checks(mode=mode, reference_ttn=ref_ttn)   
         if use_padding:
             self.pad_with_identities(ref_ttn)
 
