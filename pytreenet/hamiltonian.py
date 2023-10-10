@@ -71,12 +71,14 @@ class Hamiltonian(object):
         self.terms.extend(other.terms)
         self.conversion_dictionary.update(other.conversion_dictionary)
 
-    def add_multiple_terms(self, terms: list[dict]):
-        if type(terms) == list:
-            for term in terms:
-                self.add_term(term)
-        else:
-            raise TypeError("'terms' has to be a list of dictionaries")
+    def add_multiple_terms(self, terms: list[TensorProduct]):
+        """
+        Add multiple terms to this Hamiltonian
+
+        Args:
+            terms (list[TensorProduct]): Terms to be added.
+        """
+        self.terms.extend(terms)
 
     def pad_with_identity(self, reference_ttn: TreeTensorNetwork, mode: PadMode = PadMode.safe, identity=None):
         """
