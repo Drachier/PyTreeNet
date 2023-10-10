@@ -54,7 +54,7 @@ class Hamiltonian(object):
         """
         return compare_lists_by_value(self.terms, other_hamiltonian.terms)
 
-    def __add__(self, other: Union[TensorProduct, Hamiltonian]):
+    def __add__(self, other: Union[TensorProduct, Hamiltonian]) -> Hamiltonian:
         if isinstance(other, TensorProduct):
             self.add_term(other)
         elif isinstance(other, Hamiltonian):
@@ -62,6 +62,7 @@ class Hamiltonian(object):
         else:
             errstr = f"Addition between Hamiltonian and {type(other)} not supported!"
             raise TypeError(errstr)
+        return self
 
     def add_term(self, term: TensorProduct):
         """
