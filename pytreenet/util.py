@@ -36,7 +36,8 @@ def random_hermitian_matrix(size=2):
     return matrix + matrix.T
 
 def compare_lists_by_value(list1, list2):
+    if len(list1) != len(list2):
+        return False
     if Counter(list1) == Counter(list2):
         return True
-    else:
-        return False
+    return False
