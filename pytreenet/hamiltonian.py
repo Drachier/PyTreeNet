@@ -1,9 +1,10 @@
 from __future__ import annotations
 from typing import Union
 from numpy.random import default_rng
-from numpy import prod, eye, tensordot
+from numpy import prod, asarray
 
 from .ttn_exceptions import NotCompatibleException
+from .operators.operator import NumericOperator
 
 from enum import Enum, auto
 
@@ -93,7 +94,7 @@ class Hamiltonian(object):
              identities' dimensions.
             mode (PadMode, optional): 'safe' performs a compatability check with the reference
              ttn. Risky will not run this check, which might be time consuming for large
-              TTN. Defaults to PadMode.safe.
+             TTN. Defaults to PadMode.safe.
             symbolic (bool, optional): Whether the terms should be padded with a symbolic
              identity or an actual array. Defaults to True.
 
@@ -129,54 +130,45 @@ class Hamiltonian(object):
                     return False
         return True
 
-    def to_tensor(self, ref_ttn: TreeTensorNetwork, use_padding: bool = False):
+    def to_tensor(self, ref_ttn: TreeTensorNetwork, use_padding: bool = True,
+                  mode: PadMode = PadMode.safe) -> NumericOperator:
         """
-        Creates a tensor ndarray representing this Hamiltonian assuming it is
-        defined on the structure of ttn.
+        Creates a Numeric operator that is equivalent to the Hamiltonian.
+         The resulting operator can get very large very fast, so this should only be used
+         for debugging.
 
-        Parameters
-        ----------
-        ref_ttn : TreeTensorNetwork
-            TTN giving the tree structure which the Hamiltonian should respect.
+        Args:
+            ref_ttn (TreeTensorNetwork): TTN giving the tree structure which the
+             Hamiltonian should respect.
+            use_padding (bool, optional): Enable, if the Hamiltonian requires padding with
+             respect to the reference TTN. Defaults to True.
+            mode (PadMode, optional): 'safe' performs a compatability check with the reference
+             ttn. Risky will not run this check, which might be time consuming for large
+             TTN. Defaults to PadMode.safe.
 
-        Returns
-        -------
-        full_tensor: ndarray
-            A tensor representing the Hamiltonian. Every node in the ref_ttn
-            corresponds to two legs in the tensor.
-
+        Returns:
+            NumericOperator: Operator corresponding to the Hamiltonian.
         """
+        if mode == PadMode.safe:
+            if not self.is_compatible_with(ref_ttn):
+                raise NotCompatibleException(
+                    "Hamiltonian and reference_ttn are incompatible")
+        elif mode != PadMode.risky:
+            raise ValueError(
+                f"{mode} is not a valid option for 'mode'. (Only 'safe' and 'risky are)!")    
         if use_padding:
-            self.pad_with_identity(ref_ttn)
+            self.pad_with_identities(ref_ttn)
 
-        first = True
-        for term in self.terms:
-
-            term_tensor = self.conversion_dictionary[term[ref_ttn.root_id]]
-            term_tensor = self._to_tensor_rec(ref_ttn,
-                                              ref_ttn.root_id,
-                                              term,
-                                              term_tensor)
-
-            if first:
-                full_tensor = term_tensor
-                first = False
+        full_tensor = asarray([0])
+        identifiers = []
+        for i, term in enumerate(self.terms):
+            term_operator = term.into_operator(conversion_dict=self.conversion_dictionary)
+            if i == 0:
+                full_tensor = term_operator.operator
+                identifiers = term_operator.node_identifiers
             else:
-                full_tensor += term_tensor
-
-        # Separating input and output legs
-        permutation = list(range(0, full_tensor.ndim, 2))
-        permutation.extend(list(range(1, full_tensor.ndim, 2)))
-        full_tensor = full_tensor.transpose(permutation)
-        return full_tensor
-
-    def _to_tensor_rec(self, ttn: TreeTensorNetwork, node_id: str, term: dict, tensor: TensorNode):
-        for child_id in ttn.nodes[node_id].children:
-            child_tensor = self.conversion_dictionary[term[child_id]]
-            tensor = tensordot(tensor, child_tensor, axes=0)
-            tensor = self._to_tensor_rec(ttn, child_id, term, tensor)
-
-        return tensor
+                full_tensor += term_operator.operator
+        return NumericOperator(full_tensor, identifiers)
 
     def to_matrix(self, ttn: TreeTensorNetwork):
         """
