@@ -2,13 +2,12 @@ from __future__ import annotations
 from typing import Dict, Union
 from numpy.random import default_rng
 from numpy import asarray, ndarray
+from enum import Enum, auto
 
 from .ttn_exceptions import NotCompatibleException
 from .operators.operator import NumericOperator
 from .operators.tensorproduct import TensorProduct
-
-from enum import Enum, auto
-
+from .util import compare_lists_by_value
 
 class PadMode(Enum):
     risky = auto()
@@ -53,7 +52,7 @@ class Hamiltonian(object):
         """
         Two Hamiltonians are equal, if all of their terms are equal.
         """
-        return self.terms == other_hamiltonian.terms
+        return compare_lists_by_value(self.terms, other_hamiltonian.terms)
 
     def __add__(self, other: Union[TensorProduct, Hamiltonian]):
         if isinstance(other, TensorProduct):
