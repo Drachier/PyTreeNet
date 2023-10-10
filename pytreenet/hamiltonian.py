@@ -111,27 +111,22 @@ class Hamiltonian(object):
         for term in self.terms:
             term.pad_with_identities(reference_ttn, symbolic=symbolic)
 
-    def is_compatible_with(self, ttn: TreeTensorNetwork):
+    def is_compatible_with(self, ttn: TreeTensorNetwork) -> bool:
         """
-        Checks if the Hamiltonian is compatible with the givent TTN.
+        Returns, if the Hamiltonian is compatible with the provided TTN. Compatibility means
+         that all node identifiers that appear any term of this Hamiltonian are identifiers
+         of nodes in the TTN
 
-        Parameters
-        ----------
-        ttn : TreeTensorNetwork
-            The TTN to be checked against.
+        Args:
+            ttn (TreeTensorNetwork): The TTN to check against.
 
-        Returns
-        -------
-        compatability: bool
-            If the current Hamiltonian ist compatible with the given TTN.
-
+        Returns:
+            bool: Whether the two are compatible or not.
         """
-
         for term in self.terms:
             for site_id in term:
                 if not site_id in ttn.nodes:
                     return False
-
         return True
 
     def to_tensor(self, ref_ttn: TreeTensorNetwork, use_padding: bool = False):
