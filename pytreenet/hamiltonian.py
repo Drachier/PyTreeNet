@@ -80,27 +80,26 @@ class Hamiltonian(object):
         """
         self.terms.extend(terms)
 
-    def pad_with_identity(self, reference_ttn: TreeTensorNetwork, mode: PadMode = PadMode.safe, identity=None):
+    def pad_with_identities(self, reference_ttn: TreeTensorNetwork,
+                          mode: PadMode = PadMode.safe, 
+                          symbolic: bool = True) -> Hamiltonian:
         """
-        Pads all terms with an identity according to the reference reference_ttn
+        Returns a Hamiltonian, where all terms are padded with an identity according to
+         the refereence reference_ttn.
 
-        Parameters
-        ----------
-        reference_ttn : TreeTensorNetwork
-            reference_ttn with reference to which the identities are to be padded. From
-            here the site_ids and operator dimension is inferred.
-        mode : Enum, optional
-            Whether to perform checks ('safe') or not ('risky').
-            For big reference_ttn the checks can take a long time.
-            The default is 'safe'.
-        identity :
-            If None, an appropriately sized identity is determined. Else the
-            value is inserted as a placeholder.
+        Args:
+            reference_ttn (TreeTensorNetwork): Provides the structure on which padding should
+             occur. Furthermore the dimension of the open legs of each provide the new
+             identities' dimensions.
+            mode (PadMode, optional): 'safe' performs a compatability check with the reference
+             ttn. Risky will not run this check, which might be time consuming for large
+              TTN. Defaults to PadMode.safe.
+            symbolic (bool, optional): Whether the terms should be padded with a symbolic
+             identity or an actual array. Defaults to True.
 
-        Returns
-        -------
-        None.
-
+        Raises:
+            NotCompatibleException: If the Hamiltonian and TTN are not compatible
+            ValueError: If a wrong mode is used.
         """
         if mode == PadMode.safe:
             if not self.is_compatible_with(reference_ttn):
@@ -109,20 +108,8 @@ class Hamiltonian(object):
         elif mode != PadMode.risky:
             raise ValueError(
                 f"{mode} is not a valid option for 'mode'. (Only 'safe' and 'risky are)!")
-
-        for site_id in reference_ttn.nodes:
-
-            if identity == None:
-                site_node = reference_ttn.nodes[site_id]
-                physical_dim = prod(
-                    site_node.shape_of_legs(site_node.open_legs))
-                site_identity = eye(physical_dim)
-            else:
-                site_identity = identity
-
-            for term in self.terms:
-                if not (site_id in term):
-                    term[site_id] = site_identity
+        for term in self.terms:
+            term.pad_with_identities(reference_ttn, symbolic=symbolic)
 
     def is_compatible_with(self, ttn: TreeTensorNetwork):
         """
