@@ -183,28 +183,6 @@ class Hamiltonian(object):
                 full_tensor += term_operator.operator
         return NumericOperator(full_tensor, identifiers)
 
-    def to_matrix(self, ttn: TreeTensorNetwork):
-        """
-        Creates a matrix ndarray representing this Hamiltonian assuming it is
-        defined on the structure of ttn.
-
-        Parameters
-        ----------
-        ttn : TreeTensorNetwork
-            TTN giving the tree structure which the Hamiltonian should respect.
-
-        Returns
-        -------
-        matrix: ndarray
-            A matrix representing the Hamiltonian.
-
-        """
-        matrix = self.to_tensor(ttn)
-        half_dim = matrix.ndim / 2
-        matrix_size = prod(matrix.shape[0:half_dim])
-
-        return matrix.reshape((matrix_size, matrix_size))
-
     def contains_duplicates(self):
         """
         If the there are equal terms contained. Especially important to recheck
