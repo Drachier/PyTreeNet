@@ -27,17 +27,17 @@ class Hamiltonian(object):
             H = sum( terms )
 
         Args:
-            terms (list[TensorProduct], optional): A list of TensorProduct making up the Hamiltonian.
-             Defaults to None.
+            terms (list[TensorProduct], optional): A list of TensorProduct making up the
+             Hamiltonian. Defaults to None.
             conversion_dictionary (dict, optional): A conversion dictionary might be supplied.
              It is used, if the tensor products are symbolic. Defaults to None.
         """
-        if terms == None:
+        if terms is None:
             self.terms = []
         else:
             self.terms = terms
 
-        if conversion_dictionary == None:
+        if conversion_dictionary is None:
             self.conversion_dictionary = {}
         else:
             self.conversion_dictionary = conversion_dictionary
