@@ -1,10 +1,11 @@
 from __future__ import annotations
-from typing import Union
+from typing import Dict, Union
 from numpy.random import default_rng
-from numpy import prod, asarray
+from numpy import asarray, ndarray
 
 from .ttn_exceptions import NotCompatibleException
 from .operators.operator import NumericOperator
+from .operators.tensorproduct import TensorProduct
 
 from enum import Enum, auto
 
@@ -23,7 +24,8 @@ class Hamiltonian(object):
     that node/site.
     """
 
-    def __init__(self, terms: list[TensorProduct] = None, conversion_dictionary: dict = None):
+    def __init__(self, terms: list[TensorProduct] = None,
+                 conversion_dictionary: Dict[str, ndarray] = None):
         """
         Initialises a Hamiltonian from a number of terms represented by a TensorProduct each:
             H = sum( terms )
