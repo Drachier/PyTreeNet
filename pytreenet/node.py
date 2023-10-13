@@ -132,7 +132,7 @@ class Node(GraphNode):
         """
         return list(range(self.nvirt_legs(), self.nlegs()))
 
-    def open_leg_to_parent(self, parent_id: str, open_leg: int):
+    def open_leg_to_parent(self, parent_id: str, open_leg: Union[int,None]):
         """
         Changes an open leg into the leg towards a parent.
 
@@ -140,6 +140,8 @@ class Node(GraphNode):
             parent_id (str): The identifier of the to be parent node
             open_leg (int): The index of the tensor leg
         """
+        if open_leg == None:
+            return
         if self.nopen_legs() == 0:
             errstr = f"Node with identifier {self.identifier} has no open legs!"
             raise ValueError(errstr)
