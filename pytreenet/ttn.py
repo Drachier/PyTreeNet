@@ -356,33 +356,31 @@ class TreeTensorNetwork(TreeStructure):
         temp[0][0].child_legs.remove(temp[1][1].identifier)
         return (spec1, spec2)
 
-    def _split_nodes(self, node_id: str, out_legs: Dict[str, List], in_legs: Dict[str, List],
-                     splitting_function: Callable, out_identifier: str = "", in_identifier: str = "",
+    def _split_nodes(self, node_id: str,
+                     out_legs: LegSpecification, in_legs: LegSpecification,
+                     splitting_function: Callable,
+                     out_identifier: str = "", in_identifier: str = "",
                      **kwargs):
         """
         Splits an node into two nodes using a specified function
 
         Args:
             node_id (str): The identifier of the node to be split.
-            out_legs (Dict[str, List]): The legs associated to the output of the matricised
-                node tensor. (The Q legs for QR and U legs for SVD)
-            in_legs (Dict[str, List]): The legs associated to the input of the matricised
-                node tensor: (The R legs for QR and the SVh legs for SVD)
+            out_legs (LegSpecification): The legs associated to the output of the
+             matricised node tensor. (The Q legs for QR and U legs for SVD)
+            in_legs (LegSpecification): The legs associated to the input of the
+             matricised node tensor: (The R legs for QR and the SVh legs for SVD)
             splitting_function (Callable): The function to be used for the splitting
-            out_identifier (str, optional): An identifier for the tensor with the output
-                legs. Defaults to "".
+            out_identifier (str, optional): An identifier for the tensor with the
+            output legs. Defaults to "".
             in_identifier (str, optional): An identifier for the tensor with the input
                 legs. Defaults to "".
             **kwargs: Are passed to the splitting function.
         """
         node, tensor = self[node_id]
-        if isinstance(out_legs, dict):
-            out_legs = LegSpecification.from_dict(out_legs, node)
-        elif out_legs.node is None:
+        if out_legs.node is None:
             out_legs.node = node
-        if isinstance(in_legs, dict):
-            in_legs = LegSpecification.from_dict(in_legs, node)
-        elif in_legs.node is None:
+        if in_legs.node is None:
             in_legs.node = node
         # Find new identifiers
         if out_identifier == "":
@@ -438,26 +436,26 @@ class TreeTensorNetwork(TreeStructure):
             self._tensors.pop(node_id)
             self._nodes.pop(node_id)
 
-    def split_node_qr(self, node_id: str, q_legs: Dict[str, List], r_legs: Dict[str, List],
+    def split_node_qr(self, node_id: str,
+                      q_legs: LegSpecification, r_legs: LegSpecification,
                       q_identifier: str = "", r_identifier: str = ""):
         """
         Splits a node into two nodes via QR-decomposition.
 
-        The legs should be given as a dictionary with the keys
-        "parent_leg", "child_legs" and "open_legs".
-        If there is no parent, it should be denoted by None.
-
         Args:
-            node_id (str): The node to be split
-            q_legs (Dict[str, List]): The legs which should be part of the Q-tensor
-            r_legs (Dict[str, List]): The legs which should be part of the R-tensor
-            q_identifier (str, optional): An identifier for the Q-tensor. Defaults to "".
-            r_identifier (str, optional): An identifier for the R-tensor. Defaults to "".
+            node_id (str): Identifier of the node to be split
+            q_legs (LegSpecification): The legs which should be part of the Q-tensor
+            r_legs (LegSpecification): The legs which should be part of the R-tensor
+            q_identifier (str, optional): An identifier for the Q-tensor.
+             Defaults to "".
+            r_identifier (str, optional): An identifier for the R-tensor.
+             Defaults to "".
         """
         self._split_nodes(node_id, q_legs, r_legs, tensor_qr_decomposition,
                           out_identifier=q_identifier, in_identifier=r_identifier)
 
-    def split_node_svd(self, node_id: str, u_legs: Dict, v_legs: Dict,
+    def split_node_svd(self, node_id: str,
+                       u_legs: LegSpecification, v_legs: LegSpecification,
                        u_identifier: str = "", v_identifier: str = "",
                        **truncation_param):
         """
@@ -467,10 +465,12 @@ class TreeTensorNetwork(TreeStructure):
 
         Args:
             node_id (str): Identifier of the nodes to be split
-            u_legs (Dict): The legs which should be part of the U tensor
-            v_legs (Dict): The legs which should be part of the V tensor
-            u_identifier (str): An identifier for the U-tensor. Defaults to "".
-            v_identifier (str): An identifier for the V-tensor. Defaults to "".
+            u_legs (LegSpecification): The legs which should be part of the U tensor
+            v_legs (LegSpecification): The legs which should be part of the V tensor
+            u_identifier (str, optional): An identifier for the U-tensor.
+             Defaults to ""
+            v_identifier (str, optional): An identifier for the V-tensor.
+             Defaults to "".
         """
         self._split_nodes(node_id, u_legs, v_legs, contr_truncated_svd_splitting,
                           out_identifier=u_identifier, in_identifier=v_identifier,
