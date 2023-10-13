@@ -264,12 +264,11 @@ class TreeTensorNetwork(TreeStructure):
             node_id1 (str): Identifier of first tensor
             node_id2 (str): Identifier of second tensor
             new_identifier (str): A potential new identifier. Otherwise defaults to
-                `parent_id + 'contr' + child_id`
+                `node_id1 + "contr" + node_id2`
         """
-        parent_id, child_id = self.determine_parentage(node_id1, node_id2)
         if new_identifier == "":
-            new_identifier = parent_id + "contr" + child_id
-
+            new_identifier = node_id1 + "contr" + node_id2
+        parent_id, child_id = self.determine_parentage(node_id1, node_id2)
         child_node = self.nodes[child_id]
         parent_node = self.nodes[parent_id]
 
