@@ -12,7 +12,7 @@ class LegSpecification():
     """
 
     def __init__(self, parent_leg: Union[str, None], child_legs: List[str],
-                 open_legs: List[str], node: Union[Node, None]):
+                 open_legs: List[str], node: Union[Node, None]=None):
         self.parent_leg = parent_leg
         if child_legs is None:
             self.child_legs = []
