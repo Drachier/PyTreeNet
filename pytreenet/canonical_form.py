@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import copy
 
+from .leg_specification import LegSpecification
 
 def canonical_form(ttn: TreeTensorNetwork, orthogonality_center_id: str):
     """
@@ -39,19 +40,13 @@ def canonical_form(ttn: TreeTensorNetwork, orthogonality_center_id: str):
 
             min_neighbour_node = ttn.nodes[minimum_distance_neighbour_id]
 
-            q_legs = {"parent_leg": None,
-                      "child_legs": copy(node.children),
-                      "open_legs": node.open_legs}
+            q_legs = LegSpecification(None, copy(node.children), node.open_legs)
             if node.is_child_of(minimum_distance_neighbour_id):
-                r_legs = {"parent_leg": minimum_distance_neighbour_id,
-                          "child_legs": [],
-                          "open_legs": []}
+                r_legs = LegSpecification(minimum_distance_neighbour_id, [], [])
             else:
-                q_legs["parent_leg"] = node.parent
-                q_legs["child_legs"].remove(minimum_distance_neighbour_id)
-                r_legs = {"parent_leg": None,
-                          "child_legs": [minimum_distance_neighbour_id],
-                          "open_legs": []}
+                q_legs.parent_leg = node.parent
+                q_legs.child_legs.remove(minimum_distance_neighbour_id)
+                r_legs = LegSpecification(None, [minimum_distance_neighbour_id], [])
 
             ttn.split_node_qr(node_id, q_legs, r_legs,
                               q_identifier=node_id, r_identifier="R_tensor")
