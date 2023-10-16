@@ -176,11 +176,11 @@ class TestNodeMethods(unittest.TestCase):
             self.assertEqual(open_leg_value[ids], node.leg_permutation[new_position[ids]])
             self.assertTrue("new_child_id" in node.children)
 
-    def test_open_legs_to_children_legs(self):
-        tensor = ptn.crandn((2,2,2,2,2))
+    def test_open_legs_to_children_legs_root(self):
+        tensor = ptn.crandn((2,3,4,5,6))
         children_ids = ["id1", "id2", "id3"]
 
-        # Tests with root
+        # Test from 0
         root = ptn.Node(tensor=tensor, identifier="root")
         open_legs = [0,1,2]
         child_dict = dict(zip(children_ids, open_legs))
@@ -188,6 +188,7 @@ class TestNodeMethods(unittest.TestCase):
         self.assertEqual([0,1,2,3,4], root.leg_permutation)
         self.assertEqual(children_ids, root.children)
 
+        # Test not from 0
         root = ptn.Node(tensor=tensor, identifier="root")
         open_legs = [2,3,4]
         child_dict = dict(zip(children_ids, open_legs))
@@ -195,12 +196,75 @@ class TestNodeMethods(unittest.TestCase):
         self.assertEqual([2,3,4,0,1], root.leg_permutation)
         self.assertEqual(children_ids, root.children)
 
+        # Test unordered
         root = ptn.Node(tensor=tensor, identifier="root")
         open_legs = [0,3,2]
         child_dict = dict(zip(children_ids, open_legs))
         root.open_legs_to_children(child_dict)
         self.assertEqual([0,3,2,1,4], root.leg_permutation)
         self.assertEqual(children_ids, root.children)
+
+    def test_open_legs_to_children_legs_non_root_parent_at_0(self):
+        tensor = ptn.crandn((2,3,4,5,6))
+        children_ids = ["id1", "id2", "id3"]
+
+        # Test ordered
+        node = ptn.Node(tensor=tensor, identifier="node")
+        node.open_leg_to_parent("Vader", 0)
+        open_legs = [1,2,3]
+        child_dict = dict(zip(children_ids, open_legs))
+        node.open_legs_to_children(child_dict)
+        self.assertEqual([0,1,2,3,4], node.leg_permutation)
+        self.assertEqual(children_ids, node.children)
+
+        # Test not from 1
+        node = ptn.Node(tensor=tensor, identifier="node")
+        node.open_leg_to_parent("Vader", 0)
+        open_legs = [2,3,4]
+        child_dict = dict(zip(children_ids, open_legs))
+        node.open_legs_to_children(child_dict)
+        self.assertEqual([0,2,3,4,1], node.leg_permutation)
+        self.assertEqual(children_ids, node.children)
+
+        # Test unordered
+        node = ptn.Node(tensor=tensor, identifier="node")
+        node.open_leg_to_parent("Vader", 0)
+        open_legs = [3,1,4]
+        child_dict = dict(zip(children_ids, open_legs))
+        node.open_legs_to_children(child_dict)
+        self.assertEqual([0,3,1,4,2], node.leg_permutation)
+        self.assertEqual(children_ids, node.children)
+
+    def test_open_legs_to_children_legs_non_root_parent_at_1(self):
+        tensor = ptn.crandn((2,3,4,5,6))
+        children_ids = ["id1", "id2", "id3"]
+
+        # Test ordered
+        node = ptn.Node(tensor=tensor, identifier="node")
+        node.open_leg_to_parent("Vader", 1)
+        open_legs = [1,2,3]
+        child_dict = dict(zip(children_ids, open_legs))
+        node.open_legs_to_children(child_dict)
+        self.assertEqual([1,0,2,3,4], node.leg_permutation)
+        self.assertEqual(children_ids, node.children)
+
+        # Test not from 1
+        node = ptn.Node(tensor=tensor, identifier="node")
+        node.open_leg_to_parent("Vader", 1)
+        open_legs = [2,3,4]
+        child_dict = dict(zip(children_ids, open_legs))
+        node.open_legs_to_children(child_dict)
+        self.assertEqual([1,2,3,4,0], node.leg_permutation)
+        self.assertEqual(children_ids, node.children)
+
+        # Test unordered
+        node = ptn.Node(tensor=tensor, identifier="node")
+        node.open_leg_to_parent("Vader", 1)
+        open_legs = [3,1,4]
+        child_dict = dict(zip(children_ids, open_legs))
+        node.open_legs_to_children(child_dict)
+        self.assertEqual([1,3,0,4,2], node.leg_permutation)
+        self.assertEqual(children_ids, node.children)
 
     def test_parent_leg_to_open_leg(self):
         # Have a parent leg
