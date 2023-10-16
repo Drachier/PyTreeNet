@@ -153,7 +153,7 @@ class Node(GraphNode):
             errstr = f"Node with identifier {self.identifier} has no open legs!"
             raise ValueError(errstr)
         if open_leg < self.nneighbours():
-            errstr = f"The leg with index {open_leg} is not open to connect to {parent_id}!"
+            errstr = f"The leg with index {open_leg} of {self.identifier} is not open to connect to {parent_id}!"
             raise NotCompatibleException(errstr)
 
         # Move value open_leg to front of list
@@ -174,7 +174,7 @@ class Node(GraphNode):
             errstr = f"Node with identifier {self.identifier} has no open legs!"
             raise ValueError(errstr)
         if open_leg < self.nneighbours():
-            errstr = f"The leg with index {open_leg} is not open to connect to {child_id}!"
+            errstr = f"The leg with index {open_leg} of {self.identifier} is not open to connect to {child_id}!"
             raise NotCompatibleException(errstr)
 
         actual_value = self._leg_permutation.pop(open_leg)
@@ -198,7 +198,7 @@ class Node(GraphNode):
         for child_id, value in actual_value.items():
             new_position = self.nvirt_legs()
             if child_dict[child_id] < original_nneighbours:
-                errstr = f"The leg with index {child_dict[child_id]} is not open to connect to {child_id}!"
+                errstr = f"The leg with index {child_dict[child_id]} of {self.identifier} is not open to connect to {child_id}!"
                 raise NotCompatibleException(errstr)
             self._leg_permutation.remove(value)
             self._leg_permutation.insert(new_position, value)
