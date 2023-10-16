@@ -430,9 +430,10 @@ class TreeTensorNetwork(TreeStructure):
             in_setoff = 2
             in_parent_leg_value = 1
             in_parent_id = in_legs.parent_leg
-            in_children[out_identifier] = 0
+            in_children[out_identifier] = 1
             # In this case we have for the leg ordering for out
             # (children_legs, open_legs, new_leg=parent_leg)
+            out_setoff = 1
             out_parent_leg_value = out_node.nlegs() - 1
             out_parent_id = in_identifier
         elif out_legs.is_root or out_legs.parent_leg is None:

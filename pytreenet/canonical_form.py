@@ -24,7 +24,6 @@ def canonical_form(ttn: TreeTensorNetwork, orthogonality_center_id: str):
     """
     distance_dict = ttn.distance_to_node(
         orthogonality_center_id)
-
     maximum_distance = max(distance_dict.values())
 
     # Perform QR-decomposition on all TensorNodes but the orthogonality center
@@ -37,7 +36,6 @@ def canonical_form(ttn: TreeTensorNetwork, orthogonality_center_id: str):
             node = ttn.nodes[node_id]
             minimum_distance_neighbour_id = _find_smallest_distance_neighbour(
                 node, distance_dict)
-
             min_neighbour_node = ttn.nodes[minimum_distance_neighbour_id]
 
             q_legs = LegSpecification(None, copy(node.children), node.open_legs)

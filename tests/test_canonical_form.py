@@ -49,7 +49,6 @@ class TestCanonicalFormSimple(unittest.TestCase):
 
         open_indices2 = node2.open_legs
         transfer_tensor = ptn.compute_transfer_tensor(tensor2, open_indices2)
-
         self.assertEqual(transfer_tensor.shape, (2, 2))
         self.assertTrue(np.allclose(identity, transfer_tensor))
 

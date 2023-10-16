@@ -40,7 +40,7 @@ class TestTreeTensorNetworkBasics(unittest.TestCase):
         self.assertEqual(self.tensortree.nodes["orig_root"].children, ["child1"])
 
         # Depth 3
-        self.tensortree.add_child_to_parent(self.node3, self.tensor3, 0, "child1", 0)
+        self.tensortree.add_child_to_parent(self.node3, self.tensor3, 0, "child1", 1)
         self.assertEqual(len(self.tensortree.nodes), 3)
         permutation = self.tensortree.nodes["child2"].leg_permutation
         transposed_tensor = self.tensor3.transpose(permutation)
@@ -53,9 +53,9 @@ class TestTreeTensorNetworkBasics(unittest.TestCase):
         # Setup
         self.tensortree.add_root(self.node1, self.tensor1)
         self.tensortree.add_child_to_parent(self.node2, self.tensor2, 1, "orig_root", 1)
-        self.tensortree.add_child_to_parent(self.node3, self.tensor3, 0, "child1", 0)
+        self.tensortree.add_child_to_parent(self.node3, self.tensor3, 0, "child1", 1)
 
-        self.tensortree.add_parent_to_root(0, self.node4, self.tensor4, 0)
+        self.tensortree.add_parent_to_root(1, self.node4, self.tensor4, 0)
         self.assertEqual(self.tensortree.root_id, "new_root")
         self.assertEqual(len(self.tensortree.nodes), 4)
         permutation = self.tensortree.nodes["new_root"].leg_permutation
