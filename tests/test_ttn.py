@@ -100,6 +100,165 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         for node_id, tensor in self.tensortree.tensors.items():
             self.assertTrue(np.allclose(ref_ttn.tensors[node_id], tensor))
 
+    def test_legs_before_combination_root_c1(self):
+        found = self.tensortree.legs_before_combination("root", "c1")
+        correct_root = ptn.LegSpecification(None,["c2"], [1], None)
+        correct_c1 = ptn.LegSpecification(None, [], [2], None)
+        self.assertEqual(found[0], correct_root)
+        self.assertEqual(found[1], correct_c1)
+
+    def test_legs_before_combination_c2_root(self):
+        found = self.tensortree.legs_before_combination("c2", "root")
+        correct_root = ptn.LegSpecification(None,["c1"], [2], None)
+        correct_c2 = ptn.LegSpecification(None, [], [1], None)
+        self.assertEqual(found[1], correct_root)
+        self.assertEqual(found[0], correct_c2)
+
+    def test_contract_nodes_root_c1(self):
+        ref_tree = deepcopy(self.tensortree)
+        ref_tensor = np.tensordot(ref_tree.tensors["root"],
+                                  ref_tree.tensors["c1"],
+                                  axes=(0,0))
+
+        self.tensortree.contract_nodes("root", "c1", new_identifier="contr")
+        # The new node should be in the TTN
+        self.assertTrue("contr" in self.tensortree.nodes)
+        # And it should be the root
+        self.assertEqual("contr", self.tensortree.root_id)
+        found_node, found_tensor = self.tensortree["contr"]
+        # The tensors should be the same
+        self.assertTrue(np.allclose(ref_tensor, found_tensor))
+        # The shape in the new node should be of correct shape
+        self.assertEqual((6,2,3), found_node.shape)
+        # The old node and tensors should be removeed
+        identifiers = ["root", "c1"]
+        for identifier in identifiers:
+            self.assertFalse(identifier in self.tensortree.nodes)
+            self.assertFalse(identifier in self.tensortree.tensors)
+
+    def test_contract_nodes_root_c2(self):
+        ref_tree = deepcopy(self.tensortree)
+        ref_tensor = np.tensordot(ref_tree.tensors["c2"],
+                                  ref_tree.tensors["root"],
+                                  axes=(0,1)).transpose(1,0,2)
+
+        self.tensortree.contract_nodes("c2", "root")
+        new_id = "c2contrroot"
+        # The new node should be in the TTN
+        self.assertTrue(new_id in self.tensortree.nodes)
+        # And it should be the root
+        self.assertEqual(new_id, self.tensortree.root_id)
+        found_node, found_tensor = self.tensortree[new_id]
+        # The shape in the new node should be of correct shape
+        self.assertEqual((5,4,2), found_node.shape)
+        # The tensors should be the same
+        self.assertTrue(np.allclose(ref_tensor, found_tensor))
+        # The old node and tensors should be removeed
+        identifiers = ["root", "c2"]
+        for identifier in identifiers:
+            self.assertFalse(identifier in self.tensortree.nodes)
+            self.assertFalse(identifier in self.tensortree.tensors)
+
+    def test_contract_and_split_svd_no_truncation_root_c1(self):
+        self.tensortree.contract_nodes("root", "c1", new_identifier="contr")
+        ref_tree = deepcopy(self.tensortree)
+
+        root_legs = ptn.LegSpecification(None, ["c2"], [1], None)
+        root_legs.is_root = True
+        c1_legs = ptn.LegSpecification(None, [], [2], None)
+        self.tensortree.split_node_svd("contr", root_legs, c1_legs, "root", "c1"
+                                       , max_bond_dim=float("inf"),
+                                       rel_tol=float("-inf"), total_tol=float("-inf"))
+
+        # The old node and tensor should be removed
+        self.assertFalse("contr" in self.tensortree.nodes)
+        self.assertFalse("contr" in self.tensortree.tensors)
+        # "root" should be the root again
+        self.assertTrue("root", self.tensortree.root_id)
+
+        # There should be a node and a tensor for both
+        identifiers = ["root", "c1"]
+        for identifier in identifiers:
+            self.assertTrue(identifier in self.tensortree.nodes)
+            self.assertTrue(identifier in self.tensortree.tensors)
+
+        root_node, root_tensor = self.tensortree["root"]
+        c1_node = self.tensortree.nodes["c1"]
+        # The children should be correct
+        self.assertEqual(["c1", "c2"], root_node.children)
+        self.assertTrue(c1_node.is_leaf())
+        # The parents should be correct
+        self.assertTrue(root_node.is_root())
+        self.assertEqual("root", c1_node.parent)
+        # Open dimensions should be correct
+        self.assertEqual(2, root_node.open_dimension())
+        self.assertEqual(3, c1_node.open_dimension())
+
+        # New leg dimension should be equal
+        self.assertEqual(root_node.shape[0], c1_node.shape[0])
+        # Root node should have expected shape
+        self.assertEqual((c1_node.shape[0],6,2), root_node.shape)
+        # Root tensor should be an isometry
+        identity = np.eye(root_node.shape[0])
+        found_identity = np.tensordot(root_tensor.conj(), root_tensor,
+                                      axes=((1,2),(1,2)))
+        self.assertTrue(np.allclose(identity, found_identity))
+
+        # Since no truncation happend, the two TTN should be the same
+        reference = ref_tree.completely_contract_tree().root[1]
+        found = self.tensortree.completely_contract_tree().root[1]
+        self.assertTrue(np.allclose(reference, found))
+
+    def test_contract_and_split_with_svd_no_truncation_c2_root(self):
+        self.tensortree.contract_nodes("c2", "root", new_identifier="contr")
+        ref_tree = deepcopy(self.tensortree)
+
+        root_legs = ptn.LegSpecification(None, ["c1"], [2], None)
+        root_legs.is_root = True
+        c2_legs = ptn.LegSpecification(None, [], [1], None)
+        self.tensortree.split_node_svd("contr", c2_legs, root_legs, "c2", "root"
+                                       , max_bond_dim=float("inf"),
+                                       rel_tol=float("-inf"), total_tol=float("-inf"))
+
+        # The old node and tensor should be removed
+        self.assertFalse("contr" in self.tensortree.nodes)
+        self.assertFalse("contr" in self.tensortree.tensors)
+        # "root" should be the root again
+        self.assertTrue("root", self.tensortree.root_id)
+
+        # There should be a node and a tensor for both
+        identifiers = ["root", "c1"]
+        for identifier in identifiers:
+            self.assertTrue(identifier in self.tensortree.nodes)
+            self.assertTrue(identifier in self.tensortree.tensors)
+
+        root_node, _ = self.tensortree["root"]
+        c2_node, c2_tensor = self.tensortree["c2"]
+        # The children should be correct
+        self.assertEqual(["c2", "c1"], root_node.children)
+        self.assertTrue(c2_node.is_leaf())
+        # The parents should be correct
+        self.assertTrue(root_node.is_root())
+        self.assertEqual("root", c2_node.parent)
+        # Open dimensions should be correct
+        self.assertEqual(2, root_node.open_dimension())
+        self.assertEqual(4, c2_node.open_dimension())
+
+        # New leg dimension should be equal
+        self.assertEqual(root_node.shape[0], c2_node.shape[0])
+        # Root node should have expected shape
+        self.assertEqual((c2_node.shape[0],5,2), root_node.shape)
+        # c2 tensor should be an isometry
+        identity = np.eye(c2_node.shape[0])
+        found_identity = np.tensordot(c2_tensor.conj(), c2_tensor,
+                                      axes=((0,),(0,)))
+        self.assertTrue(np.allclose(identity, found_identity))
+
+        # Since no truncation happend, the two TTN should be the same
+        reference = ref_tree.completely_contract_tree().root[1].transpose(1,0,2)
+        found = self.tensortree.completely_contract_tree().root[1]
+        self.assertTrue(np.allclose(reference, found))
+
 class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def setUp(self):
         self.ttn = ptn.TreeTensorNetwork()
@@ -288,6 +447,8 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def test_tensor_split_leaf_q1parent_vs_r3open(self):
         q_legs = {"parent_leg": "id8", "child_legs": [], "open_legs": []}
         r_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1, 2, 3]}
+        q_legs = ptn.LegSpecification("id8", [], [])
+        r_legs = ptn.LegSpecification(None, [], [1,2,3])
         self.ttn.split_node_qr("id9", q_legs, r_legs,
                                q_identifier="q9", r_identifier="r9")
 
@@ -310,6 +471,8 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def test_tensor_splitqr_leaf_r3open_vs_q1parent(self):
         r_legs = {"parent_leg": "id8", "child_legs": [], "open_legs": []}
         q_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1, 2, 3]}
+        r_legs = ptn.LegSpecification("id8", [], [])
+        q_legs = ptn.LegSpecification(None, [], [1,2,3])
         self.ttn.split_node_qr("id9", q_legs, r_legs,
                                q_identifier="q9", r_identifier="r9")
 
@@ -330,8 +493,8 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         self.assertTrue(np.allclose(np.eye(q_tensor.shape[0]), found_identity))
 
     def test_tensor_splitqr_node_q1parent1open_vs_r1child1open(self):
-        q_legs = {"parent_leg": "id1", "child_legs": [], "open_legs": [2]}
-        r_legs = {"parent_leg": None, "child_legs": ["id9"], "open_legs": [3]}
+        q_legs = ptn.LegSpecification("id1", [], [2])
+        r_legs = ptn.LegSpecification(None, ["id9"], [3])
         self.ttn.split_node_qr("id8", q_legs, r_legs,
                                q_identifier="q8", r_identifier="r8")
 
@@ -357,8 +520,9 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         self.assertTrue(np.allclose(np.eye(q_tensor.shape[1]), found_identity))
 
     def test_tensor_splitqr_node_q1parent1child_vs_r1child1open(self):
-        q_legs = {"parent_leg": "id2", "child_legs": ["id6"], "open_legs": []}
-        r_legs = {"parent_leg": None, "child_legs": ["id7"], "open_legs": [3]}
+        q_legs = ptn.LegSpecification("id2", ["id6"], [])
+        r_legs = ptn.LegSpecification(None, ["id7"], [3])
+
         self.ttn.split_node_qr("id5", q_legs, r_legs,
                                q_identifier="q5", r_identifier="r5")
 
@@ -379,14 +543,14 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         self.assertTrue(self.ttn.nodes["id7"].is_child_of("r5"))
 
         # Test Tensors
-        self.assertEqual((4, 2, r_tensor.shape[0]), q_tensor.shape)
-        self.assertEqual((q_tensor.shape[2], 3, 5), r_tensor.shape)
-        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([0, 1], [0, 1]))
-        self.assertTrue(np.allclose(np.eye(q_tensor.shape[2]), found_identity))
+        self.assertEqual((4, r_tensor.shape[0], 2), q_tensor.shape)
+        self.assertEqual((q_tensor.shape[1], 3, 5), r_tensor.shape)
+        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([0, 2], [0, 2]))
+        self.assertTrue(np.allclose(np.eye(q_tensor.shape[1]), found_identity))
 
     def test_tensor_splitqr_root_q1child1open_vs_r1child1open(self):
-        q_legs = {"parent_leg": None, "child_legs": ["id2"], "open_legs": [2]}
-        r_legs = {"parent_leg": None, "child_legs": ["id8"], "open_legs": [3]}
+        q_legs = ptn.LegSpecification(None, ["id2"], [2], None)
+        r_legs = ptn.LegSpecification(None, ["id8"], [3], None)
         self.ttn.split_node_qr("id1", q_legs, r_legs,
                                q_identifier="q1", r_identifier="r1")
 
@@ -407,10 +571,10 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         self.assertTrue(self.ttn.nodes["id8"].is_child_of("r1"))
 
         # Test Tensors
-        self.assertEqual((2, r_tensor.shape[0], 4), q_tensor.shape)
-        self.assertEqual((q_tensor.shape[1], 3, 5), r_tensor.shape)
-        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([0, 2], [0, 2]))
-        self.assertTrue(np.allclose(np.eye(q_tensor.shape[1]), found_identity))
+        self.assertEqual((r_tensor.shape[0], 2, 4), q_tensor.shape)
+        self.assertEqual((q_tensor.shape[0], 3, 5), r_tensor.shape)
+        found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([1, 2], [1, 2]))
+        self.assertTrue(np.allclose(np.eye(q_tensor.shape[0]), found_identity))
 
 # TODO: Reactivate later
 # def test_apply_hamiltonian(self):

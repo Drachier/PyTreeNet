@@ -23,6 +23,7 @@ class LegSpecification():
         else:
             self.open_legs = open_legs
         self.node = node
+        self.is_root = False
 
     def __eq__(self, other: LegSpecification) -> bool:
         """

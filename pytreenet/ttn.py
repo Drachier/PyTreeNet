@@ -354,6 +354,10 @@ class TreeTensorNetwork(TreeStructure):
             temp.reverse()
         temp[0][0].parent_leg = temp[0][1].parent
         temp[0][0].child_legs.remove(temp[1][1].identifier)
+        if node1.is_root():
+            spec1.is_root = True
+        elif node2.is_root():
+            spec2.is_root = True
         return (spec1, spec2)
 
     def _split_nodes(self, node_id: str,
@@ -391,7 +395,8 @@ class TreeTensorNetwork(TreeStructure):
         # Getting the numerical value of the legs
         out_legs_int = out_legs.find_leg_values()
         in_legs_int = in_legs.find_leg_values()
-        out_tensor, in_tensor = splitting_function(tensor, out_legs_int, in_legs_int, **kwargs)
+        out_tensor, in_tensor = splitting_function(tensor, out_legs_int, in_legs_int,
+                                                   **kwargs)
         self._tensors[out_identifier] = out_tensor
         self._tensors[in_identifier] = in_tensor
 
@@ -402,31 +407,68 @@ class TreeTensorNetwork(TreeStructure):
         self._nodes[in_identifier] = in_node
 
         # Currently the tensors out and in have the leg ordering
-        # (new_leg(for in), parent_leg, virtual_leg, open_legs, new_leg(for out))
-        if in_legs.parent_leg is not None:
-            in_node.open_leg_to_parent(in_legs.parent_leg, 1)
-            in_children = {child_id: leg_value + 2
-                           for leg_value, child_id in enumerate(in_legs.child_legs)}
-            in_children[out_identifier] = 1
-            in_node.open_legs_to_children(in_children)
-            out_node.open_leg_to_parent(in_identifier, out_node.nlegs() - 1)
-            out_children = {child_id: leg_value + 1
-                            for leg_value, child_id in enumerate(out_legs.child_legs)}
-            out_node.open_legs_to_children(out_children)
-        else:
-            # For the in_tensor all legs are in the correct position
-            in_node.open_leg_to_parent(out_identifier, 0)
-            in_children = {child_id: leg_value + 1
-                           for leg_value, child_id in enumerate(in_legs.child_legs)}
-            in_node.open_legs_to_children(in_children)
-            if node.is_root():
-                self._root_id = out_identifier
-            else:
-                out_node.open_leg_to_parent(out_legs.parent_leg, 0)
-            out_children = {child_id: leg_value + out_node.nparents()
-                            for leg_value, child_id in enumerate(out_legs.child_legs)}
+        # (new_leg(for in), parent_leg, children_legs, open_legs, new_leg(for out))
+        in_setoff = 1
+        in_children = {}
+        out_setoff = 0
+        out_children = {}
+        if in_legs.is_root:
+            # In this case we have for the leg ordering for in
+            # (new_leg, children_legs, open_legs)
+            in_parent_leg_value = None
+            in_parent_id = None
+            in_children[out_identifier] = 0
+            # In this case we have for the leg ordering for out
+            # (children_legs, open_legs, new_leg=parent_leg)
+            out_parent_leg_value = out_node.nlegs() - 1
+            out_parent_id = in_identifier
+            # Setting new root
+            self._root_id = in_identifier
+        elif in_legs.parent_leg is not None:
+            # In this case we have for the leg ordering for in
+            # (new_leg, parent_leg, children_legs, open_legs)
+            in_setoff = 2
+            in_parent_leg_value = 1
+            in_parent_id = in_legs.parent_leg
+            in_children[out_identifier] = 0
+            # In this case we have for the leg ordering for out
+            # (children_legs, open_legs, new_leg=parent_leg)
+            out_parent_leg_value = out_node.nlegs() - 1
+            out_parent_id = in_identifier
+        elif out_legs.is_root or out_legs.parent_leg is None:
+            # In this case we have for the leg ordering for in
+            # (new_leg=parent_leg, children_legs, open_legs)
+            in_parent_leg_value = 0
+            in_parent_id = out_identifier
+            # In this case we have for the leg ordering for out
+            # (children_legs, open_legs, new_leg)
+            out_parent_leg_value = None
+            out_parent_id = None
             out_children[in_identifier] = out_node.nlegs() - 1
-            out_node.open_legs_to_children(out_children)
+            # Setting new root
+            self._root_id = out_identifier
+        else:
+            # In this case we have for the leg ordering for in
+            # (new_leg=parent_leg, children_legs, open_legs)
+            in_parent_leg_value = 0
+            in_parent_id = out_identifier
+            # In this case we have for the leg ordering for out
+            # (parent_legs, children_legs, open_legs, new_leg)
+            out_setoff = 1
+            out_parent_leg_value = 0
+            out_parent_id = out_legs.parent_leg
+            out_children[in_identifier] = out_node.nlegs() - 1
+
+        in_children.update({child_id: leg_value + in_setoff
+                            for leg_value, child_id in enumerate(in_legs.child_legs)})
+        out_children.update({child_id: leg_value + out_setoff
+                            for leg_value, child_id in enumerate(out_legs.child_legs)})
+        if in_parent_leg_value is not None and in_parent_id is not None:
+            in_node.open_leg_to_parent(in_parent_id, in_parent_leg_value)
+        in_node.open_legs_to_children(in_children)
+        if out_parent_leg_value is not None and out_parent_id is not None:
+            out_node.open_leg_to_parent(out_parent_id, out_parent_leg_value)
+        out_node.open_legs_to_children(out_children)
         self.replace_node_in_some_neighbours(out_identifier, node_id,
                                              out_legs.find_all_neighbour_ids())
         self.replace_node_in_some_neighbours(in_identifier, node_id,
