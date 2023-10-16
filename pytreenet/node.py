@@ -7,6 +7,7 @@ from numpy import ndarray
 
 from .util import crandn
 from .graph_node import GraphNode
+from .ttn_exceptions import NotCompatibleException
 
 
 class Node(GraphNode):
@@ -140,6 +141,9 @@ class Node(GraphNode):
             parent_id (str): The identifier of the to be parent node
             open_leg (int): The index of the tensor leg
         """
+        if not self.is_root():
+            errstr = f"Node with identifier {self.identifier} already has a parent!"
+            raise NotCompatibleException(errstr)
         if open_leg is None:
             return
         if parent_id is None:
@@ -148,11 +152,13 @@ class Node(GraphNode):
         if self.nopen_legs() == 0:
             errstr = f"Node with identifier {self.identifier} has no open legs!"
             raise ValueError(errstr)
+        if open_leg < self.nneighbours():
+            errstr = f"The leg with index {open_leg} is not open to connect to {parent_id}!"
+            raise NotCompatibleException(errstr)
 
         # Move value open_leg to front of list
         actual_value = self._leg_permutation.pop(open_leg)
         self._leg_permutation.insert(0, actual_value)
-
         self.add_parent(parent_id)
 
     def open_leg_to_child(self, child_id: str, open_leg: int):
@@ -164,9 +170,12 @@ class Node(GraphNode):
             child_id (str): The identifier of the to be child node
             open_leg (int): The index of the tensor leg
         """
-        if self.nopen_legs() < 1:
+        if self.nopen_legs() == 0:
             errstr = f"Node with identifier {self.identifier} has no open legs!"
             raise ValueError(errstr)
+        if open_leg < self.nneighbours():
+            errstr = f"The leg with index {open_leg} is not open to connect to {child_id}!"
+            raise NotCompatibleException(errstr)
 
         actual_value = self._leg_permutation.pop(open_leg)
         new_position = self.nparents() + self.nchildren()
@@ -185,9 +194,13 @@ class Node(GraphNode):
         """
         actual_value = {child_id: self._leg_permutation[open_leg]
                         for child_id, open_leg in child_dict.items()}
+        original_nneighbours = self.nneighbours()
         for child_id, value in actual_value.items():
+            new_position = self.nvirt_legs()
+            if child_dict[child_id] < original_nneighbours:
+                errstr = f"The leg with index {child_dict[child_id]} is not open to connect to {child_id}!"
+                raise NotCompatibleException(errstr)
             self._leg_permutation.remove(value)
-            new_position = self.nparents() + self.nchildren()
             self._leg_permutation.insert(new_position, value)
             self.add_child(child_id)
 
@@ -200,7 +213,6 @@ class Node(GraphNode):
         if not self.is_root():
             leg_index = self._leg_permutation.pop(0)
             self._leg_permutation.append(leg_index)
-
         self.remove_parent()
 
     def child_leg_to_open_leg(self, child_id: str):
@@ -213,7 +225,6 @@ class Node(GraphNode):
         index = self.nparents() + self.child_index(child_id)
         leg_index = self._leg_permutation.pop(index)
         self._leg_permutation.append(leg_index)
-
         self.remove_child(child_id)
 
     def children_legs_to_open_legs(self, children_id_list: List[str]):
