@@ -320,28 +320,21 @@ def random_symbolic_terms(num_of_terms: int, possible_operators: list[ndarray], 
     return rterms
 
 
-def random_symbolic_term(possible_operators: list[ndarray], sites: list[str], num_sites: int = 2, seed=None):
+def random_symbolic_term(possible_operators: list[str], sites: list[str],
+                         num_sites: int = 2, seed: Union[int, None]=None) -> TensorProduct:
     """
     Creates a random interaction term.
 
-    Parameters
-    ----------
-    possible_operators : list of arrays
-        A list of all possible single site operators. We assume all sites have
-        the same physical dimension.
-    sites : list of str
-        A list containing the possible identifiers of site nodes.
-    num_sites : int, optional
-        The number of sites that are non-trivial in this term. The default is 2.
+    Args:
+        possible_operators (list[ndarray]): Symbolic operators to choose from.
+        sites (list[str]): Identifiers of the nodes to which they may be applied.
+        num_sites (int, optional): Number of non-trivial sites in a term. Defaults to 2.
+        seed (Union[int, None], optional): A seed for the random number generator. Defaults to None.
 
-    Returns
-    -------
-    rterm : dict
-        A dictionary containing the sites as keys and the symbolic operators
-        as value.
+    Returns:
+        _type_: _description_
     """
     rng = default_rng(seed=seed)
     rand_sites = rng.choice(sites, size=num_sites, replace=False)
     rand_operators = rng.choice(possible_operators, size=num_sites)
-
-    return dict(zip(rand_sites, rand_operators))
+    return TensorProduct(dict(zip(rand_sites, rand_operators)))
