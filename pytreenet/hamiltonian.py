@@ -1,8 +1,8 @@
 from __future__ import annotations
-from typing import Dict, Union
+from typing import Dict, Union, List
+from enum import Enum, auto
 from numpy.random import default_rng
 from numpy import asarray, ndarray
-from enum import Enum, auto
 
 from .ttn_exceptions import NotCompatibleException
 from .operators.operator import NumericOperator
@@ -299,7 +299,8 @@ def random_terms(
 
 
 def random_symbolic_terms(num_of_terms: int, possible_operators: list[ndarray], sites: list[str],
-                          min_num_sites: int = 2,  max_num_sites: int = 2, seed=None):
+                          min_num_sites: int = 2,  max_num_sites: int = 2,
+                          seed=None) -> List[TensorProduct]:
     """
     Creates random interaction terms.
 
