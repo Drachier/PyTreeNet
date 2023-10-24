@@ -74,7 +74,8 @@ class TensorProduct(UserDict):
         return padded_tp
 
     def into_operator(self,
-                      conversion_dict: Union[Dict[str, np.ndarray], None] = None) -> NumericOperator:
+                      conversion_dict: Union[Dict[str, np.ndarray], None] = None,
+                      order: Union[List[str],None] = None) -> NumericOperator:
         """
         Computes the numeric value of a tensor_product, by calculating their tensor product.
          If the tensor_product contains symbolic operators, a conversion dictionary has to be
@@ -84,13 +85,19 @@ class TensorProduct(UserDict):
             conversion_dict (Union[Dict[str, np.ndarray], None], optional): A dictionaty
              that contains the numeric values of all symbolic operators in this tensor_product.
              Defaults to None.
+            order (Union[List[str],None], optional): Give a specific order in which
+             the factors should be multiplied. This can make a difference, since the
+             tensor product is not commutative. Defaults to None.
 
         Returns:
             NumericOperator: Numeric operator with the value of the computed tensor product of
                 all contained tensor_products.
         """
+        if order is None:
+            order = list(self.keys())
         total_operator = 1
-        for operator in self.values():
+        for identifier in order:
+            operator = self[identifier]
             if isinstance(operator, str):
                 if conversion_dict is not None:
                     operator = conversion_dict[operator]
