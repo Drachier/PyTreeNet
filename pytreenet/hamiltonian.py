@@ -160,7 +160,7 @@ class Hamiltonian(object):
             new_terms.append(new_term)
         return Hamiltonian(new_terms, conversion_dictionary=self.conversion_dictionary)
 
-    def to_tensor(self, ref_ttn: TreeTensorNetwork, use_padding: bool = True,
+    def to_matrix(self, ref_ttn: TreeTensorNetwork, use_padding: bool = True,
                   mode: PadMode = PadMode.safe) -> NumericOperator:
         """
         Creates a Numeric operator that is equivalent to the Hamiltonian.
@@ -179,14 +179,15 @@ class Hamiltonian(object):
         Returns:
             NumericOperator: Operator corresponding to the Hamiltonian.
         """
-        self.perform_compatibility_checks(mode=mode, reference_ttn=ref_ttn)   
+        self.perform_compatibility_checks(mode=mode, reference_ttn=ref_ttn)
         if use_padding:
             self.pad_with_identities(ref_ttn)
 
         full_tensor = asarray([0])
         identifiers = []
         for i, term in enumerate(self.terms):
-            term_operator = term.into_operator(conversion_dict=self.conversion_dictionary)
+            term_operator = term.into_operator(conversion_dict=self.conversion_dictionary,
+                                               order=list(ref_ttn.nodes.keys()))
             if i == 0:
                 full_tensor = term_operator.operator
                 identifiers = term_operator.node_identifiers
@@ -300,23 +301,20 @@ def random_symbolic_terms(num_of_terms: int, possible_operators: list[ndarray], 
     rterms : list of dictionaries
         A list containing all the random terms.
     """
-
     rterms = []
-
     rng = default_rng(seed=seed)
-    number_of_sites = rng.integers(low=min_num_sites, high=max_num_sites + 1,
-                                   size=num_of_terms)
-
-    for num_sites in number_of_sites:
+    for _ in range(num_of_terms):
+        number_of_sites = rng.integers(low=min_num_sites,
+                                        high=max_num_sites + 1,
+                                        size=num_of_terms)
         term = random_symbolic_term(possible_operators, sites,
-                                    num_sites=num_sites, seed=rng)
-
+                                    num_sites=number_of_sites,
+                                    seed=rng)
         while term in rterms:
             term = random_symbolic_term(possible_operators, sites,
-                                        num_sites=num_sites, seed=rng)
-
+                                        num_sites=number_of_sites,
+                                        seed=rng)
         rterms.append(term)
-
     return rterms
 
 
