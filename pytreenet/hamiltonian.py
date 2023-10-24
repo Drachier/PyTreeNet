@@ -165,7 +165,7 @@ class Hamiltonian(object):
         """
         Creates a Numeric operator that is equivalent to the Hamiltonian.
          The resulting operator can get very large very fast, so this should only be used
-         for debugging.
+         for debugging. The result is a matrix valued operator.
 
         Args:
             ref_ttn (TreeTensorNetwork): TTN giving the tree structure which the
@@ -182,18 +182,41 @@ class Hamiltonian(object):
         self.perform_compatibility_checks(mode=mode, reference_ttn=ref_ttn)
         if use_padding:
             self.pad_with_identities(ref_ttn)
-
-        full_tensor = asarray([0])
-        identifiers = []
+        full_tensor = asarray([0], dtype=complex)
+        identifiers = list(ref_ttn.nodes.keys())
         for i, term in enumerate(self.terms):
             term_operator = term.into_operator(conversion_dict=self.conversion_dictionary,
-                                               order=list(ref_ttn.nodes.keys()))
+                                               order=identifiers)
             if i == 0:
                 full_tensor = term_operator.operator
-                identifiers = term_operator.node_identifiers
             else:
                 full_tensor += term_operator.operator
-        return NumericOperator(full_tensor, identifiers)
+        return NumericOperator(full_tensor.T, identifiers)
+
+    def to_tensor(self, ref_ttn: TreeTensorNetwork, use_padding: bool = True,
+                  mode: PadMode = PadMode.safe) -> NumericOperator:
+        """
+        Creates a NumericOperator that is equivalent to the Hamiltonian.
+         The resulting operator can get very large very fast, so this should only be used
+         for debugging. The result is a tensor with multiple legs.
+
+        Args:
+            ref_ttn (TreeTensorNetwork): TTN giving the tree structure which the
+             Hamiltonian should respect.
+            use_padding (bool, optional): Enable, if the Hamiltonian requires padding with
+             respect to the reference TTN. Defaults to True.
+            mode (PadMode, optional): 'safe' performs a compatability check with the reference
+             ttn. Risky will not run this check, which might be time consuming for large
+             TTN. Defaults to PadMode.safe.
+
+        Returns:
+            NumericOperator: Operator corresponding to the Hamiltonian.
+        """
+        matrix_operator = self.to_matrix(ref_ttn,use_padding=use_padding,mode=mode)
+        shape = [node.open_dimension() for node in ref_ttn.nodes.values()]
+        shape *= 2
+        tensor_operator = matrix_operator.operator.reshape(shape)
+        return NumericOperator(tensor_operator, matrix_operator.node_identifiers)
 
     def contains_duplicates(self) -> bool:
         """
