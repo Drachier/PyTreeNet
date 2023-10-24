@@ -3,6 +3,7 @@ from typing import Any, Dict
 
 import h5py
 import numpy as np
+from tqdm import tqdm
 
 from numpy.random import default_rng
 
@@ -130,7 +131,7 @@ def main():
     with h5py.File(file_path + filename, "w") as file:
         save_metadata(file, seed, max_num_terms, num_runs, conversion_dict,
                       leg_dict)
-        for num_terms in range(1, max_num_terms + 1):
+        for num_terms in tqdm(range(1, max_num_terms + 1)):
             grp = file.create_group(f"run_with_{num_terms}_terms")
             grp.attrs["num_terms"] = num_terms
             dset_svd = grp.create_dataset("svd_bond_dim",
