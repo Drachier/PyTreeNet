@@ -109,7 +109,7 @@ class Hamiltonian(object):
                 if not site_id in ttn.nodes:
                     return False
         return True
-    
+
     def perform_compatibility_checks(self, mode: PadMode,
                                      reference_ttn: TreeTensorNetwork):
         """
@@ -330,7 +330,7 @@ def random_symbolic_terms(num_of_terms: int, possible_operators: list[ndarray], 
     for _ in range(num_of_terms):
         number_of_sites = rng.integers(low=min_num_sites,
                                         high=max_num_sites + 1,
-                                        size=num_of_terms)
+                                        size=1)
         term = random_symbolic_term(possible_operators, sites,
                                     num_sites=number_of_sites,
                                     seed=rng)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 from enum import Enum
+from copy import deepcopy
 import numpy as np
 
 from ..ttn import TreeTensorNetwork
@@ -56,7 +57,8 @@ class TTNO(TreeTensorNetwork):
         state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
                                                       reference_tree)
         ttno = TTNO()
-        ttno._nodes = ttno.tensors.nodes = reference_tree.nodes
+        ttno._tensors = deepcopy(reference_tree.tensors)
+        ttno._nodes = deepcopy(reference_tree.nodes)
         for node_id, hyperedge_coll in state_diagram.hyperedge_colls.items():
             local_tensor, leg_dict = ttno._setup_for_from_hamiltonian(node_id,
                                                                       state_diagram,
