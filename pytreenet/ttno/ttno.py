@@ -7,14 +7,13 @@ from ..node import Node
 from .state_diagram import StateDiagram
 from ..util import copy_object
 
-from enum import Enum, auto
+from enum import Enum
 
 
 class Decomposition(Enum):
-    SVD = auto()
-    QR = auto()
-    tSVD = auto()
-
+    SVD = "SVD"
+    QR = "QR"
+    tSVD = "tSVD"
 
 class TTNO(TreeTensorNetwork):
     """
