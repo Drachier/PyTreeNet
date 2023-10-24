@@ -353,7 +353,7 @@ def random_symbolic_term(possible_operators: list[str], sites: list[str],
         seed (Union[int, None], optional): A seed for the random number generator. Defaults to None.
 
     Returns:
-        _type_: _description_
+        TensorProduct: A random term in the form of a tensor product
     """
     rng = default_rng(seed=seed)
     rand_sites = rng.choice(sites, size=num_sites, replace=False)
