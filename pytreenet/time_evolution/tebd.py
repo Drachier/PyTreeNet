@@ -14,7 +14,7 @@ class TEBD(TimeEvolution):
     def __init__(self, initial_state: TreeTensorNetworkState,
                  trotter_splitting: TrotterSplitting, time_step_size: float,
                  final_time: float, operators: Union[List[TensorProduct], TensorProduct],
-                 max_bond_dim: int = 100, rel_tol: float =1e-10,
+                 max_bond_dim: Union[int, float] = 100, rel_tol: float =1e-10,
                  total_tol: float = 1e-15):
         """
         A class that can be used to time evolve an initial state in the form
@@ -48,6 +48,9 @@ class TEBD(TimeEvolution):
         if max_bond_dim < 1:
             errstr = "The maximum bond dimension must be positive!"
             raise ValueError(errstr)
+        if isinstance(max_bond_dim, float) and max_bond_dim != float("inf"):
+            errstr = "Maximum bond dimension must be int or inf!"
+            raise TypeError(errstr)
         self.max_bond_dim = max_bond_dim
         if rel_tol < 0 and rel_tol != float("-inf"):
             errstr = "The relative tolerance must be non-negativ of -inf!"
@@ -79,11 +82,13 @@ class TEBD(TimeEvolution):
         """
         Applies a single-site exponential operator of the Trotter splitting.
 
+        exp(op) @ |state>
+
         Args:
             single_site_exponent (NumericOperator): An operator representing a
              single-site unitary operator.
         """
-        operator = single_site_exponent.operator
+        operator = single_site_exponent.operator.T
         identifier = single_site_exponent.node_identifiers[0]
         self.state.absorb_into_open_legs(identifier, operator)
 
@@ -103,7 +108,7 @@ class TEBD(TimeEvolution):
         None.
 
         """
-        operator = two_site_exponent.operator
+        operator = two_site_exponent.operator.transpose([2,3,0,1])
         identifiers = two_site_exponent.node_identifiers
 
         u_legs, v_legs = self.state.legs_before_combination(identifiers[0],
@@ -146,7 +151,7 @@ class TEBD(TimeEvolution):
             self._apply_one_trotter_step_two_site(unitary)
         else:
             raise NotImplementedError(
-                "More than two-site interactions are not yet implemented.")
+                "More than two-site interactions are not implemented.")
 
     def run_one_time_step(self):
         """
