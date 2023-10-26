@@ -426,6 +426,7 @@ class TreeTensorNetwork(TreeStructure):
             # (children_legs, open_legs, new_leg=parent_leg)
             out_parent_leg_value = out_node.nlegs() - 1
             out_parent_id = in_identifier
+            out_setoff = 1
             # Setting new root
             self._root_id = in_identifier
         elif in_legs.parent_leg is not None:
