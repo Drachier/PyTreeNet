@@ -54,6 +54,7 @@ class LegSpecification():
             string += f"node_id: {self.node}, "
         else:
             string += f"node_id: {self.node.identifier}, "
+        string += f"is_root: {self.is_root}"
         return string
 
     @classmethod
