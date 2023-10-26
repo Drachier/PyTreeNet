@@ -96,17 +96,10 @@ class TEBD(TimeEvolution):
         """
         Applies the two-site exponential operator of the Trotter splitting.
 
-        Parameters
-        ----------
-        two_site_exponent: dict
-            A dictionary with representing a two-site unitary operator.
-            The operator is saved with key "operator" and the sites to which it
-            is applied are saved via node identifiers in the key "site_ids"
-
-        Returns
-        -------
-        None.
-
+        Args:
+            two_site_exponent (NumericOperator): The exponent which should be
+             applied. Contains the numeric value and the identifier of the 
+             sites on which application should happen.
         """
         operator = two_site_exponent.operator.transpose([2,3,0,1])
         identifiers = two_site_exponent.node_identifiers
