@@ -13,6 +13,7 @@ from .leg_specification import LegSpecification
 from .canonical_form import canonical_form
 from .tree_contraction import (completely_contract_tree,
                                contract_two_ttn)
+from .ttn_exceptions import NotCompatibleException
 
 
 class TensorDict(UserDict):
@@ -140,12 +141,15 @@ class TreeTensorNetwork(TreeStructure):
         leg; the child via child_leg and the parent via parent_leg
         """
         self.ensure_existence(parent_id)
+        parent_node = self._nodes[parent_id]
+        if tensor.shape[child_leg] != parent_node.shape[parent_leg]:
+            errstr = f"Dimensionality of leg {child_leg} of {child.identifier} and of leg {parent_leg} of {parent_id} are not the same!"
+            raise NotCompatibleException(errstr)
         child.link_tensor(tensor)
         self._add_node(child)
         child.open_leg_to_parent(parent_id, child_leg)
 
         child_id = child.identifier
-        parent_node = self._nodes[parent_id]
         parent_node.open_leg_to_child(child_id, parent_leg)
 
         self.tensors[child_id] = tensor
