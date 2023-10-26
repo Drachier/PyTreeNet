@@ -65,14 +65,14 @@ class TEBD(TimeEvolution):
                                                                          self.state)
 
     @property
-    def exponents(self):
+    def exponents(self) -> List[NumericOperator]:
         """
         Returns the exponentiated Trotter operators.
         """
         return self._exponents
 
     @property
-    def trotter_splitting(self):
+    def trotter_splitting(self) -> TrotterSplitting:
         """
         Returns the Trotter splitting.
         """
