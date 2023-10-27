@@ -82,7 +82,7 @@ class TEBD(TimeEvolution):
         """
         Applies a single-site exponential operator of the Trotter splitting.
 
-        exp(op) @ |state>
+        exp @ |state>
 
         Args:
             single_site_exponent (NumericOperator): An operator representing a
@@ -95,6 +95,7 @@ class TEBD(TimeEvolution):
     def _apply_one_trotter_step_two_site(self, two_site_exponent: NumericOperator):
         """
         Applies the two-site exponential operator of the Trotter splitting.
+            exp @ |state>
 
         Args:
             two_site_exponent (NumericOperator): The exponent which should be
@@ -118,21 +119,17 @@ class TEBD(TimeEvolution):
 
     def _apply_one_trotter_step(self, unitary: NumericOperator):
         """
-        Applies the exponential operator of the Trotter splitting that is
-        chosen via index
+        Applies the exponential operator of the Trotter splitting to the
+         current state.
+            exp(op) @ |state>
 
-        Parameters
-        ----------
-        unitary : dict
-            A dictionary representing a time evolution operator (usually a unitary matrix), 
-            where the actual operator is saved as an ndarray under the key
-            `"operator"` and the sites it is applied to are saved as a list of
-            strings/site identifiers under they key `"site_ids"`
+        Args:
+            unitary (NumericOperator): The exponent which should be
+             applied. Contains the numeric value and the identifier of the 
+             sites on which application should happen.
 
-        Returns
-        -------
-        None.
-
+        Raises:
+            NotImplementedError: If the operator acts on more than two sites.
         """
         num_of_sites_acted_upon = len(unitary.node_identifiers)
 

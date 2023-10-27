@@ -74,7 +74,7 @@ class TreeTensorNetwork(TreeStructure):
         """
 
         return self._tensors
-    
+
     @property
     def root(self) -> Tuple[Node, np.ndarray]:
         """
