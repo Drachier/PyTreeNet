@@ -15,8 +15,8 @@ class TreeStructure():
 
     Attributes
     -------
-    _nodes: dict[str, TensorNode] mapping node ids (str) to TensorNode objects
-    _root_id: str identifier for root node of TreeStructure
+    _nodes (Dict[str, GraphNode]): mapping node ids (str) to TensorNode objects
+    _root_id (Union[None, str]): str identifier for root node of TreeStructure
     """
 
     def __init__(self):
@@ -40,13 +40,6 @@ class TreeStructure():
         The root's identifier.
         """
         return self._root_id
-
-    @root_id.setter
-    def root_id(self, new_root_id: str):
-        """
-        Sets a new root_id
-        """
-        self._root_id = str(new_root_id)
 
     def __contains__(self, identifier: str):
         """
