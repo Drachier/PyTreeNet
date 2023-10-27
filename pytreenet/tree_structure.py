@@ -24,7 +24,6 @@ class TreeStructure():
         Initiates a new TreeTensorNetwork or a deep or shallow copy of a
         different one.
         """
-
         self._nodes = {}
         self._root_id = None
 
@@ -349,3 +348,38 @@ class TreeStructure():
                 neighbour_node.replace_child(old_node_id, new_node_id)
             elif neighbour_node.is_child_of(old_node_id):
                 neighbour_node.parent = new_node_id
+
+    def find_path_to_root(self, node_id: str) -> List[str]:
+        """
+        Get a list of all parent nodes starting from node_id until root is reached.
+        """
+        path = [node_id] # Starting point
+        while not self.nodes[node_id].is_root():
+            path.append(self.nodes[node_id].parent)
+            node_id = self.nodes[node_id].parent
+        return path
+
+    def path_from_to(self, start_id: str, end_id: str) -> List[str]:
+        """
+        Finds a path between two nodes.
+
+        Args:
+            start_id (str): Identifier of start node.
+            end_id (str): Identifier of end node.
+
+        Returns:
+            List[str]: Identifiers of nodes that lie along the path. The first
+             index is start_id and the last index is end_id.
+        """
+        sub_path_start_center = self.find_path_to_root(start_id)
+        sub_path_end_center = self.find_path_to_root(end_id)
+        combined = sub_path_start_center + sub_path_end_center
+        num_of_duplicates = len([j for j in combined if combined.count(j) != 1])//2
+        if -num_of_duplicates+1 != 0:
+            sub_path_start_center_no_duplicates = sub_path_start_center[:-num_of_duplicates+1]
+        else:
+            sub_path_start_center_no_duplicates = sub_path_start_center[::]
+        sub_path_end_center_no_duplicates = sub_path_end_center[:-num_of_duplicates]
+        sub_path_end_center_no_duplicates.reverse()
+        sub_path = sub_path_start_center_no_duplicates + sub_path_end_center_no_duplicates
+        return sub_path
