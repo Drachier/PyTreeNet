@@ -1,8 +1,7 @@
 from __future__ import annotations
+from typing import List, Tuple, Dict, Union
 
-from typing import List, Tuple, Dict
-
-from .node import Node
+from .graph_node import GraphNode
 
 
 class TreeStructure():
@@ -28,32 +27,32 @@ class TreeStructure():
         self._root_id = None
 
     @property
-    def nodes(self):
+    def nodes(self) -> Dict[GraphNode]:
         """
         A dict[str, Node] mapping the tensor tree node identifiers to the respective Node objects.
         """
         return self._nodes
 
     @property
-    def root_id(self):
+    def root_id(self) -> Union[None, str]:
         """
         The root's identifier.
         """
         return self._root_id
 
-    def __contains__(self, identifier: str):
+    def __contains__(self, identifier: str) -> bool:
         """
         Determines if a node with identifier is in the TreeStructure.
         """
         return identifier in self._nodes
 
-    def __getitem__(self, key: str):
+    def __getitem__(self, key: str) -> GraphNode:
         """
         Return Node object associated with `key`
         """
         return self._nodes[key]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._nodes)
 
     def ensure_uniqueness(self, node_id: str):
@@ -84,7 +83,7 @@ class TreeStructure():
             err_str = f"Node with identifier {node_id} is not in this tree!"
             raise ValueError(err_str)
 
-    def _add_node(self, new_node: Node):
+    def _add_node(self, new_node: GraphNode):
         """
         Adds a node to the dictionary with checks.
 
@@ -94,7 +93,7 @@ class TreeStructure():
         self.ensure_uniqueness(new_node_id)
         self.nodes[new_node_id] = new_node
 
-    def add_root(self, node: Node):
+    def add_root(self, node: GraphNode):
         """
         Adds a root Node to this tree
         """
@@ -102,7 +101,7 @@ class TreeStructure():
         self._root_id = node.identifier
         self._nodes[node.identifier] = node
 
-    def add_child_to_parent(self, child: Node, parent_id: str):
+    def add_child_to_parent(self, child: GraphNode, parent_id: str):
         """
         Adds a Node as a child to the specified parent_node.
 
@@ -118,7 +117,7 @@ class TreeStructure():
         parent = self._nodes[parent_id]
         parent.add_child(child_id)
 
-    def add_parent_to_root(self, new_root: Node):
+    def add_parent_to_root(self, new_root: GraphNode):
         """
         Adds a parent to the root of this tree, making it the new root.
         """
@@ -198,7 +197,7 @@ class TreeStructure():
             distance_dict.update(neighbour_distances)
         return distance_dict
 
-    def find_subtree_of_node(self, node_id: str) -> Dict[str, Node]:
+    def find_subtree_of_node(self, node_id: str) -> Dict[str, GraphNode]:
         """
         Obtains the subtree from a given node towards the leaves of this tree.
         This is done recursively.
@@ -215,22 +214,15 @@ class TreeStructure():
                 identifier. Note that this is not a Tree class object, because the root
                 still has a parent.
         """
-
-        if node_id not in self._nodes:
-            err_str = f"Node with id {node_id} is not in this tree!"
-            raise ValueError(err_str)
-
+        self.ensure_existence(node_id)
         subtree_root = self._nodes[node_id]
         subtree = {node_id: subtree_root}
-
         if subtree_root.is_leaf():
             # Breaking of recursion
             return subtree
-
         for child_id in subtree_root.children:
             # Recursion
             subtree.update(self.find_subtree_of_node(child_id))
-
         return subtree
 
     def find_subtree_size_of_node(self, node_id: str, size=0) -> int:
@@ -247,10 +239,7 @@ class TreeStructure():
         Returns:
             int: Size of subtree at node
         """
-
-        if node_id not in self._nodes:
-            err_str = f"Node with id {node_id} is not in this tree!"
-            raise ValueError(err_str)
+        self.ensure_existence(node_id)
         current_node = self.nodes[node_id]
 
         if current_node.is_leaf():
