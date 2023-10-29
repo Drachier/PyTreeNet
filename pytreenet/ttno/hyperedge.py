@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List
+from typing import List, Tuple
 
 import uuid
 
@@ -143,3 +143,24 @@ class HyperEdge():
         marked as contained.
         """
         return len(self.get_uncontained_vertices()) == 1
+
+    def find_tensor_position(self,
+                             reference_tree: TreeStructure) -> Tuple:
+        """
+        Finds the position of the operator represented by this hyperedge in
+         the total TTNO tensor.
+
+        Args:
+            reference_tree (TreeStructure): A tree to provide the topology.
+
+        Returns:
+            Tuple: The position of the operator. The last two entries are
+             slices ":" corresponding to the physical dimensions.
+        """
+        position = [0] * len(self.vertices)
+        position.extend([slice(None), slice(None)])
+        for vertex in self.vertices:
+            other_node_id = vertex.get_second_node_id()
+            index_position = reference_tree[self.corr_node_id].neighbour_index(other_node_id)
+            position[index_position] = vertex.index
+        return tuple(position)

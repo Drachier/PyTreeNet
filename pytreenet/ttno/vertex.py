@@ -13,7 +13,8 @@ class Vertex():
         # Needed for runtime-reset
         self._already_checked = False
 
-        # Needed to obtain an MPO (leg_index, index_value)
+        # Fixes the vertices value in the TTNO bond.
+        # Needed to obtain an TTNO
         self.index = None
 
     def __repr__(self):
