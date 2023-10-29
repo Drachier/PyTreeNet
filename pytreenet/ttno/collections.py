@@ -109,3 +109,11 @@ class VertexColl:
         """
         return [vertex for vertex in self.contained_vertices
                 if vertex.contained or vertex.new]
+
+    def index_vertices(self):
+        """
+        Indexes all vertices contained in this collection. This index is the
+         index value to which this vertex corresponds in the bond dimension.
+        """
+        for index, vertex in self.contained_vertices:
+            vertex.index = index

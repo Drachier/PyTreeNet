@@ -23,7 +23,7 @@ class Vertex():
             string += "(" + he.label + ", " + he.corr_node_id + "), "
 
         return string
-    
+
     def add_hyperedge(self, hyperedge):
         """
         Adds a hyperedge to this vertex and adds this vertex to the hyperedge's vertices.

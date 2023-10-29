@@ -324,6 +324,15 @@ class StateDiagram():
             # required.
             total_shape[leg_index] = len(vertex_coll.contained_vertices)
         return tuple(total_shape)
+    
+    def set_all_vertex_indices(self):
+        """
+        Indexes all vertices contained in this state diagram. This index is
+         the index value to which this vertex corresponds in the bond
+         dimension.
+        """
+        for vertex_coll in self.vertex_colls:
+            vertex_coll.index_vertices()
 
     def reset_markers(self):
         """
