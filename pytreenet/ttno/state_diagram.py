@@ -108,7 +108,7 @@ class StateDiagram():
                 f"No node with identifier {node_id} in reference tree.")
 
     @classmethod
-    def from_hamiltonian(cls, hamiltonian, ref_tree):
+    def from_hamiltonian(cls, hamiltonian, ref_tree) -> StateDiagram:
         """Creates a state diagram equivalent to a given Hamiltonian
 
         Args:
@@ -324,7 +324,7 @@ class StateDiagram():
             # required.
             total_shape[leg_index] = len(vertex_coll.contained_vertices)
         return tuple(total_shape)
-    
+
     def set_all_vertex_indices(self):
         """
         Indexes all vertices contained in this state diagram. This index is
