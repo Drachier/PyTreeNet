@@ -37,55 +37,6 @@ class TTNO(TreeTensorNetwork):
         super().__init__()
 
     @classmethod
-    def from_hamiltonian(cls, hamiltonian: Hamiltonian, reference_tree: TreeStructure):
-        """
-
-        Parameters
-        ----------
-        hamiltonian : Hamiltonian
-            The Hamiltonian which is to be brought into TTNO form. Should contain
-            a conversion dictionary to allow for better compression.
-        reference_tree : TreeTensorNetwork
-            A TTN which has the same underlying tree topology as the TTNO is
-            supposed to have.
-
-        Returns
-        -------
-        new_TTNO: TTNO
-
-        """
-
-        state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
-                                                      reference_tree)
-        ttno = TTNO()
-        ttno._tensors = deepcopy(reference_tree.tensors)
-        ttno._nodes = deepcopy(reference_tree.nodes)
-        for node_id, hyperedge_coll in state_diagram.hyperedge_colls.items():
-            local_tensor = ttno._setup_for_from_hamiltonian(node_id,
-                                                            state_diagram,
-                                                            hamiltonian.conversion_dictionary)
-            # Adding the operator corresponding to each hyperedge to the tensor
-            for he in hyperedge_coll.contained_hyperedges:
-                operator_label = he.label
-                operator = hamiltonian.conversion_dictionary[operator_label]
-
-                index_value = [0] * len(he.vertices)
-                index_value.extend([slice(None), slice(None)])
-                for vertex in he.vertices:
-                    index_value[vertex.index[0]] = vertex.index[1]
-                index_value = tuple(index_value)
-                local_tensor[index_value] += operator
-
-            node = reference_tree.nodes[node_id]
-            new_node = copy_object(node, deep=True)
-            new_node.link_tensor(local_tensor)
-
-            ttno.nodes[node_id] = new_node
-            ttno.tensors[node_id] = local_tensor
-
-        return ttno
-
-    @classmethod
     def from_hamiltonian(cls, hamiltonian: Hamiltonian,
                             reference_tree: TreeStructure) -> TTNO:
         """
