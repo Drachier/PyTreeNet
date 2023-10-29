@@ -1,12 +1,6 @@
 from __future__ import annotations
-import uuid
-
-import numpy as np
-
 from typing import List
-
-from .util import crandn, copy_object
-
+import uuid
 
 class GraphNode:
     """
@@ -106,6 +100,25 @@ class GraphNode:
             return self.children.index(child_id)
         except ValueError as exc:
             errstr = f"{child_id} is not a child of this node!"
+            raise ValueError(errstr) from exc
+
+    def neighbour_index(self, node_id: str) -> int:
+        """
+        Returns the index of the neighbour including the parent as 0 if it
+         exists. 
+
+        Args:
+            node_id (str): The identifier of the node to look for.
+
+        Returns:
+            int: The position of the identifier, if it exists.
+        """
+        if node_id == self.parent:
+            return 0
+        try:
+            return self.children.index(node_id) + self.nparents()
+        except ValueError as exc:
+            errstr = f"{node_id} is not a neighbour of this node!"
             raise ValueError(errstr) from exc
 
     def replace_child(self, child_id: str, new_child_id: str):
