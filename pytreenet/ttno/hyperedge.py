@@ -160,7 +160,7 @@ class HyperEdge():
         position = [0] * len(self.vertices)
         position.extend([slice(None), slice(None)])
         for vertex in self.vertices:
-            other_node_id = vertex.get_second_node_id()
-            index_position = reference_tree[self.corr_node_id].neighbour_index(other_node_id)
+            other_node_id = vertex.get_second_node_id(self.corr_node_id)
+            index_position = reference_tree.nodes[self.corr_node_id].neighbour_index(other_node_id)
             position[index_position] = vertex.index
         return tuple(position)

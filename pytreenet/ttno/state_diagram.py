@@ -317,7 +317,7 @@ class StateDiagram():
         phys_dim = operator.shape[0]
         total_shape = [0] * len(he.vertices)
         total_shape.extend([phys_dim, phys_dim])
-        neighbours = self.reference_tree[node_id].neighbouring_nodes()
+        neighbours = self.reference_tree.nodes[node_id].neighbouring_nodes()
         for leg_index, neighbour_id in enumerate(neighbours):
             vertex_coll = self.get_vertex_coll_two_ids(node_id, neighbour_id)
             # The number of vertices is equal to the number of bond-dimensions
@@ -331,7 +331,7 @@ class StateDiagram():
          the index value to which this vertex corresponds in the bond
          dimension.
         """
-        for vertex_coll in self.vertex_colls:
+        for vertex_coll in self.vertex_colls.values():
             vertex_coll.index_vertices()
 
     def reset_markers(self):

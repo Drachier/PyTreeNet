@@ -99,5 +99,5 @@ class VertexColl:
         Indexes all vertices contained in this collection. This index is the
          index value to which this vertex corresponds in the bond dimension.
         """
-        for index, vertex in self.contained_vertices:
+        for index, vertex in enumerate(self.contained_vertices):
             vertex.index = index

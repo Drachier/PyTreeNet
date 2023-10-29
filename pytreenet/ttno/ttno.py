@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Dict
 from enum import Enum
 from copy import deepcopy
 import numpy as np
@@ -60,9 +61,9 @@ class TTNO(TreeTensorNetwork):
         ttno._tensors = deepcopy(reference_tree.tensors)
         ttno._nodes = deepcopy(reference_tree.nodes)
         for node_id, hyperedge_coll in state_diagram.hyperedge_colls.items():
-            local_tensor, leg_dict = ttno._setup_for_from_hamiltonian(node_id,
-                                                                      state_diagram,
-                                                                      hamiltonian.conversion_dictionary)
+            local_tensor = ttno._setup_for_from_hamiltonian(node_id,
+                                                            state_diagram,
+                                                            hamiltonian.conversion_dictionary)
             # Adding the operator corresponding to each hyperedge to the tensor
             for he in hyperedge_coll.contained_hyperedges:
                 operator_label = he.label
@@ -70,7 +71,6 @@ class TTNO(TreeTensorNetwork):
 
                 index_value = [0] * len(he.vertices)
                 index_value.extend([slice(None), slice(None)])
-
                 for vertex in he.vertices:
                     index_value[vertex.index[0]] = vertex.index[1]
                 index_value = tuple(index_value)
@@ -85,31 +85,62 @@ class TTNO(TreeTensorNetwork):
 
         return ttno
 
-    def _setup_for_from_hamiltonian(self, node_id, state_diagram, conversion_dict):
-        he = state_diagram.hyperedge_colls[node_id].contained_hyperedges[0]
-        operator_label = he.label
-        operator = conversion_dict[operator_label]
-        # Should be square operators
-        phys_dim = operator.shape[0]
+    @classmethod
+    def from_hamiltonian(cls, hamiltonian: Hamiltonian,
+                            reference_tree: TreeStructure) -> TTNO:
+        """
+        Generates a TTNO from a Hamiltonian.
 
-        total_tensor_shape = [0] * len(he.vertices)
-        total_tensor_shape.extend([phys_dim, phys_dim])
+        Args:
+            hamiltonian (Hamiltonian): The Hamiltonian, to which the TTNO
+             should be equivalent.
+            reference_tree (TreeStructure): The tree structure which the TTNO
+             should respect.
 
-        node = self.nodes[node_id]
-        neighbours = node.neighbouring_nodes()
-        leg_dict = {}
-        for leg_index, neighbour_id in enumerate(neighbours):
-            leg_dict[neighbour_id] = leg_index
+        Returns:
+            TTNO: The resulting TTNO.
+        """
+        state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
+                                                      reference_tree)
+        ttno = TTNO()
+        root_id = reference_tree.root_id
+        root_shape = state_diagram.obtain_tensor_shape(root_id,
+                                                       hamiltonian.conversion_dictionary)
+        root_tensor = np.zeros(root_shape, dtype=complex)
+        root_node = Node(identifier=root_id)
+        ttno.add_root(root_node, root_tensor)
+        for child_id in reference_tree.nodes[root_id].children:
+            ttno._rec_zero_ttno(child_id, state_diagram,
+                                hamiltonian.conversion_dictionary)
+        # Now we have a TTNO filled with zero tensors of the correct shape.
+        state_diagram.set_all_vertex_indices() # Fixing index_values
+        for he in state_diagram.get_all_hyperedges():
+            position = he.find_tensor_position(reference_tree)
+            operator = hamiltonian.conversion_dictionary[he.label]
+            ttno.tensors[he.corr_node_id][position] += operator
+        return ttno
 
-            vertex_coll = state_diagram.get_vertex_coll_two_ids(node_id, neighbour_id)
-            for index_value, vertex in enumerate(vertex_coll.contained_vertices):
-                vertex.index = (leg_index, index_value)
-            # The number of vertices is equal to the number of bond-dimensions required.
-            total_tensor_shape[leg_index] = len(vertex_coll.contained_vertices)
+    def _rec_zero_ttno(self, node_id: str, state_diagram: StateDiagram,
+                       conversion_dict: Dict[str, np.ndarray]):
+        """
+        Recursively creates an empty TTNO, i.e., one with all zeros as entries.
 
-        local_tensor = np.zeros(total_tensor_shape, dtype=complex)
-
-        return local_tensor, leg_dict
+        Args:
+            root_id (str): The identifier of the current_node.
+            state_diagram (StateDiagram): A state diagram used to determine the
+             dimensions and the tree topology.
+            conversion_dict (Dict[str, np.ndarray]): A conversion dictionary to
+             determine the physical dimensions required.
+        """
+        tensor_shape = state_diagram.obtain_tensor_shape(node_id,
+                                                         conversion_dict)
+        node_tensor = np.zeros(tensor_shape, dtype=complex)
+        node = Node(identifier=node_id)
+        parent_id = state_diagram.reference_tree.nodes[node_id].parent
+        parent_leg = self.nodes[parent_id].nneighbours()
+        self.add_child_to_parent(node, node_tensor, 0, parent_id, parent_leg)
+        for child_id in state_diagram.reference_tree.nodes[node_id].children:
+            self._rec_zero_ttno(child_id, state_diagram, conversion_dict)
 
     @classmethod
     def from_tensor(
