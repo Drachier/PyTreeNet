@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Dict, Tuple
 from copy import copy
 
 from .vertex import Vertex
@@ -289,6 +291,39 @@ class StateDiagram():
 
             vertices_to_connect_to_new_he.append(vertex_to_connect)
         return vertices_to_connect_to_new_he
+
+    def obtain_tensor_shape(self, node_id: str,
+                            conversion_dict: Dict[str, np.ndarray]) -> Tuple[int, ...]:
+        """
+        Find the required shape of the tensor corresponding to a node in the
+         equivalent TTNO.
+
+        Args:
+            node_id (str): The identifier of a node.
+            conversion_dict (Dict[str, np.ndarray]): A dictionary to convert
+             the labels into arrays, to determine the required physical
+             dimension.
+
+        Returns:
+            Tuple[int, ...]: The shape of the tensor in the equivalent TTNO in the
+             format (parent_shape, children_shape, phys_dim, phys_dim).
+             The children are in the same order as in the node.
+        """
+        he = self.hyperedge_colls[node_id].contained_hyperedges[0]
+        operator_label = he.label
+        operator = conversion_dict[operator_label]
+        # Should be square operators
+        assert operator.shape[0] == operator.shape[1]
+        phys_dim = operator.shape[0]
+        total_shape = [0] * len(he.vertices)
+        total_shape.extend([phys_dim, phys_dim])
+        neighbours = self.reference_tree[node_id].neighbouring_nodes()
+        for leg_index, neighbour_id in enumerate(neighbours):
+            vertex_coll = self.get_vertex_coll_two_ids(node_id, neighbour_id)
+            # The number of vertices is equal to the number of bond-dimensions
+            # required.
+            total_shape[leg_index] = len(vertex_coll.contained_vertices)
+        return tuple(total_shape)
 
     def reset_markers(self):
         """
