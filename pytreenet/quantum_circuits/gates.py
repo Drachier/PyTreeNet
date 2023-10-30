@@ -46,6 +46,7 @@ def all_gates():
     d["Y"] = UGate([1, 1/2, 1/2])
     d["Z"] = UGate([0, 0, 1])
     d["I"] = UGate([0, 0, 0])
+    d["-I"] = UGate([2, 0, 0])
     d["H"] = UGate([1/2, 0, 1])
     d["S"] = UGate([0, 0, 1/2])
     d["T"] = UGate([0, 0, 1/4])

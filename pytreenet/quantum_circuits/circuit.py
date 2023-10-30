@@ -1,7 +1,7 @@
-from ..ttn import QuantumTTState, QuantumTTOperator
-from ..tensornode import QuantumStateNode, QuantumOperatorNode
+from ..base.ttn import QuantumTTState, QuantumTTOperator
+from ..base.tensornode import QuantumStateNode, QuantumOperatorNode
 from ..time_evolution import TDVP
-from ..util import state_vector_time_evolution
+from ..utils.util import state_vector_time_evolution, create_bosonic_operators
 
 from .gates import *
 
@@ -9,10 +9,10 @@ from copy import deepcopy
 
 
 class Circuit:
-    def __init__(self, name, state, qubit_ids, print_actions=False, measurement_types=["Z"]):
+    def __init__(self, name, state: QuantumTTState, qubit_ids: str, print_actions=False, measurement_types=[("Z"), ("N", 3)]):
         self.name = name
-        self._qubit_ids = qubit_ids
-        self.n_qubits = len(qubit_ids)
+        self._qubit_ids = [key for key in state.nodes if starts_with(key, qubit_ids)]
+        self.n_qubits = len(self._qubit_ids)
         self._state = state
         self._time_elapsed = 0
         self.results = None
@@ -23,6 +23,20 @@ class Circuit:
 
         self.results_cache = []
         self._hamiltonian = None
+        self._time_steps = 50
+
+        self._operators = None
+
+    @property
+    def time_steps(self):
+        return self._time_steps
+    
+    @time_steps.setter
+    def time_steps(self, val):
+        if int(val) == val:
+            self._time_steps = val
+        else:
+            raise TypeError
 
     @property
     def size(self):
@@ -31,6 +45,9 @@ class Circuit:
     @property
     def state(self):
         return self._state
+    
+    def apply_tto(self, tto):
+        self._state.apply_tto(tto)
     
     @property
     def state_dict(self):
@@ -53,24 +70,46 @@ class Circuit:
             rho_qubits = rho(self.state, self._qubit_ids)
             return {"tr(rho^2)": np.round(np.trace(rho_qubits @ rho_qubits).real, 8)}
             
-    
-    def operators(self, gate_ids):
+    @property
+    def operators(self):
+        if self._operators is not None:
+            return self._operators
+        operators_qubits, operators_bosons = self.measurement_types
         all_operators = []
-        for node_id in self._qubit_ids:
-            for gate_id in gate_ids:
-                all_operators.append({node_id: all_gates()[gate_id].U})
-        return all_operators
+        operator_sites = []
+        for node_id in self.state.nodes:
+            if node_id in self._qubit_ids:
+                for gate_id in operators_qubits:
+                    all_operators.append({node_id: all_gates()[gate_id].U})
+                    operator_sites.append(node_id)
+            else:
+                if len(operators_bosons) > 0:
+                    try:
+                        assert operators_bosons[0] == "N"
+                        _, _, number_op = create_bosonic_operators(dimension=operators_bosons[1])
+                        all_operators.append({node_id: number_op})
+                        operator_sites.append(node_id)
+                    except:
+                        raise NotImplementedError("Can only measure 'N' on bosons :(")
+        self._operators = all_operators
+        self.result_names = operator_sites
+        return self._operators
     
     def gate(self, node_id, gate_id, operation_time=1):
         assert node_id in self._qubit_ids
-        gate = all_gates()[gate_id]
-        hamiltonian = self.hamiltonian(targets=[node_id], replacements=[gate.H / operation_time])
+        I = all_gates()["I"].U
+
+        replacements = []
+        for id in self._qubit_ids:
+            if id == node_id:
+                replacements.append(all_gates()[gate_id].H / operation_time)
+            else:
+                replacements.append(I)
+        hamiltonian = self.hamiltonian(targets=self._qubit_ids, replacements=replacements)
 
         if self.print_actions:
             print(f"\n{self.name}: Apply Gate {gate_id} on {node_id}")
         self.run(hamiltonian, operation_time)
-        if self.print_actions:
-            print(self.state_dict)
     
     def cnot(self, control_id, not_id, operation_time=1, supress_output=False):
         self.cu(control_id=control_id, u_id=not_id, gate_id="X", operation_time=operation_time, supress_output=supress_output)
@@ -107,10 +146,9 @@ class Circuit:
 
         hamiltonian = self.hamiltonian(targets=self._qubit_ids, replacements=replacements)
 
-        self.run(hamiltonian, operation_time)
         if not supress_output and self.print_actions:
             print(f"\n{self.name}: Apply Gate controlled {gate_id} on {control_ids} and {u_id}")
-            print(self.state_dict)
+        self.run(hamiltonian, operation_time)
     
     def swap(self, id_1, id_2, operation_time=1):
         self.cnot(id_1, id_2, operation_time, supress_output=True)
@@ -118,7 +156,6 @@ class Circuit:
         self.cnot(id_1, id_2, operation_time, supress_output=True)
         if self.print_actions:
             print(f"\n{self.name}: Apply Gate SWAP on {id_1} and {id_2}")
-            print(self.state_dict)
 
     def cswap(self, control_id, swap_id_1, swap_id_2, operation_time=1):
         # https://journals.aps.org/pra/abstract/10.1103/PhysRevA.53.2855
@@ -127,8 +164,8 @@ class Circuit:
         self.cu_multi((swap_id_2,), swap_id_1, "X", operation_time/10)
     
     def run(self, hamiltonian, operation_time):
-        tdvp_sim = TDVP("SecondOrder,OneSite", self._state, hamiltonian, time_step_size=operation_time/20, final_time=self._time_elapsed+operation_time, 
-                        initial_time=self._time_elapsed, operators=self.operators(self.measurement_types))
+        tdvp_sim = TDVP("SecondOrder,OneSite", self._state, hamiltonian, time_step_size=1/self.time_steps, final_time=self._time_elapsed+operation_time, 
+                        initial_time=self._time_elapsed, operators=self.operators, save_every=1)
         tdvp_sim.contraction_mode = "by_site"  # TODO fyi this is still here
         tdvp_sim.run(pgbar=self.progress_bar)
         self._time_elapsed += operation_time
@@ -138,16 +175,14 @@ class Circuit:
         else:
             self.results = np.hstack((self.results, tdvp_sim.results[:,1:]))
     
-    def provide_hamiltonian(self, hamiltonian, ss_dict, ts_dict, operation_type="add"):
+    def provide_hamiltonian(self, hamiltonian, gate_idx_dict, operation_type="add"):
         self._hamiltonian = hamiltonian
-        self._ss_dict = ss_dict
-        self._ts_dict = ts_dict
+        self._gate_idx_dict = gate_idx_dict
         assert operation_type in ["add", "replace"]
         self._hamiltonian_operation_type = operation_type
 
     def remove_hamiltonian(self):
         self._hamiltonian = None
-
 
     def hamiltonian(self, targets, replacements):
         if self._hamiltonian is None:
@@ -157,39 +192,31 @@ class Circuit:
                     hamiltonian[id].add(replacements[i])
         else:
             hamiltonian = deepcopy(self._hamiltonian)
-            if len(targets)==1:
-                use_dict = self._ss_dict
-            else:
-                use_dict = self._ts_dict
             for i, id in enumerate(targets):
-                if id in use_dict.keys():
-                    for index in use_dict[id]:
+                if id in self._gate_idx_dict.keys():
+                    for index in self._gate_idx_dict[id]:
                         if self._hamiltonian_operation_type == "replace":
                             hamiltonian.nodes[id].tensor[index] = np.zeros((2,2), dtype=complex)
                         if replacements[i] is not None:
                             hamiltonian.nodes[id].tensor[index] = hamiltonian.nodes[id].tensor[index] + replacements[i]  # += doesnt work because of trivial dimensions (e.g. shape 2, 2, 1 + shape 2, 2)
         return hamiltonian
     
-    def fidelity(self, ref_state, mode="trace_ratio", limited_qubits=None):
-        qubit_list = self._qubit_ids
-        if limited_qubits is not None:
-            qubit_list = limited_qubits
-
-        rho_ref = rho(ref_state, qubit_list)
-        rho_circ = rho(self.state, qubit_list)
+    def fidelity(self, ref_state, mode="trace_ratio", qubit=None):
+        rho_ref = rho(ref_state, qubit)
+        rho_circ = rho(self.state, qubit).reshape((2, 2))
 
         if mode=="trace_ratio":
             return np.real(np.trace(rho_circ @ rho_ref) / np.trace(rho_ref @ rho_ref))
         elif mode=="purities":
-            return np.trace(rho_circ @rho_circ).real, np.trace(rho_ref @ rho_ref).real
+            return np.trace(rho_circ @ rho_circ).real, np.trace(rho_ref @ rho_ref).real
         else:
             return rho_circ, rho_ref
     
     
 # TODO find better position for this code, this doesn't really fit here
 
-def rho(state, qubit_list):
-    return state.reduced_density_matrix(qubit_list)
+def rho(state, qubit):
+    return state.reduced_density_matrix((qubit,))
 
 
 def trivial_hamiltonian(state, bond_dimension=1, targets=[]):
@@ -236,3 +263,8 @@ def rename(state, id_1, id_2):
             if len(parent_leg)>0 and parent_leg[0]==id_1:
                 state[node_id].parent_leg[0] = id_2
     return state
+
+
+def starts_with(mainstr, substr):
+    assert len(mainstr) > len(substr)
+    return mainstr[0:len(substr)] == substr
