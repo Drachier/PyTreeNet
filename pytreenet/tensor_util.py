@@ -2,7 +2,7 @@
 Helpfull functions that work with the tensors of the tensor nodes.
 """
 
-from typing import Tuple
+from typing import Tuple, List
 
 from math import prod
 import numpy as np
@@ -306,3 +306,32 @@ def compute_transfer_tensor(tensor, open_indices):
     transfer_tensor = np.tensordot(tensor, conj_tensor,
                                    axes=(open_indices, open_indices))
     return transfer_tensor
+
+def tensor_multidot(tensor: np.ndarray,
+                    other_tensors: List[np.ndarray],
+                    main_legs: List[int],
+                    other_legs: List[int]) -> np.ndarray:
+    """
+    For a given tensor, perform multiple tensor contractions at once.
+
+    Args:
+        tensor (np.ndarray): _description_
+        other_tensors (List[np.ndarray]): The tensors that should be
+         contracted with tensor.
+        main_legs (List[int]): The legs of tensor which are connected to the
+         tensors in other_tensors.
+        other_legs (List[int]): The legs of the tensors in other_tensors which
+         are connected to tensor.
+
+    Returns:
+        np.ndarray: The resulting tensor
+    """
+    idx = np.argsort(main_legs)
+    main_legs = [main_legs[i] for i in idx]
+    other_tensors = [other_tensors[i] for i in idx]
+    other_legs = [other_legs[i] for i in idx]
+    connected_legs = 0
+    for i, t in enumerate(other_tensors):
+        tensor = np.tensordot(tensor, t, axes=(main_legs[i]-connected_legs, other_legs[i]))
+        connected_legs += 1
+    return tensor
