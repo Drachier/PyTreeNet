@@ -2,16 +2,14 @@ from copy import deepcopy
 
 import numpy as np
 
-from pytreenet.ttn import TreeTensorNetwork
-
 from .time_evolution import TimeEvolutionAlgorithm, time_evolve
-from ..tensor_util import (tensor_qr_decomposition, tensor_matricization, tensor_multidot)
-from ..ttn import TreeTensorNetwork
-from ..canonical_form import _correct_ordering_of_q_legs
-from ..cn import ContractionNetwork
+from ..utils.tensor_util import (tensor_qr_decomposition, tensor_matricization, tensor_multidot)
+from ..base.ttn import TreeTensorNetwork
+from ..utils.canonical_form import _correct_ordering_of_q_legs
+from ..utils.cn import ContractionNetwork
 
 """
-Implements the time-dependent variational principle TDVP for tree tensor
+Implements the time-dependent variational principle (TDVP) for tree tensor
 networks.
 
 Reference:
@@ -59,7 +57,7 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
         assert len(state.nodes) == len(hamiltonian.nodes)
         self.hamiltonian = hamiltonian
 
-        self.print_debugging_warnings = False
+        self.print_debugging_warnings = True#False
 
         self._contraction_mode_list = ["by_site", "by_dimension"]
         self._contraction_mode = self._contraction_mode_list[0]
@@ -76,6 +74,8 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
         self._dimension_wise_site_contraction_cache = dict()
 
         self.site_cache = dict()
+        self._site_tensors_cached = dict()
+
         self.partial_tree_caching = True
         self.partial_tree_cache = dict()
         self._cached_distances = dict([(node_id, self.state.distance_to_node(node_id)) for node_id in self.state.nodes.keys()])
@@ -115,6 +115,10 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
         """"
         Call after any tensor has been updated to refresh the site cache.
         """
+        if node_id in self._site_tensors_cached.keys() and np.allclose(self._site_tensors_cached[node_id], self.state[node_id].tensor):
+            return None
+        else:
+            self._site_tensors_cached[node_id] = 1*self.state[node_id].tensor
         ket = self.state
         ham = self.hamiltonian
 
@@ -134,24 +138,21 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
             shape.append(np.prod([brahamket_tensor.shape[3 * leg_num + j] for j in [0,1,2]]))
         tensor = brahamket_tensor.reshape(shape)
 
-        if self.print_debugging_warnings == True and node_id in self.site_cache.keys() and np.allclose(self.site_cache[node_id], tensor):
-            print("Unneccesary site_cache update:", node_id)
-        else:
-            self.site_cache[node_id] = tensor
-            if self.partial_tree_caching == True and len(self.partial_tree_cache.keys()) > 0:
-                affected_trees = []
-                for tree_name in self.partial_tree_cache.keys():
-                    node1, node2 = tree_name.split("._.")
+        self.site_cache[node_id] = tensor
+        if self.partial_tree_caching == True and len(self.partial_tree_cache.keys()) > 0:
+            affected_trees = []
+            for tree_name in self.partial_tree_cache.keys():
+                node1, node2 = tree_name.split("._.")
 
-                    # Question: Is node_id in the partiel tree spanned by node1 and node2? Only if ...
-                    if node1 == node_id or node2 == node_id:
+                # Question: Is node_id in the partiel tree spanned by node1 and node2? Only if ...
+                if node1 == node_id or node2 == node_id:
+                    affected_trees.append(tree_name)
+                elif self._cached_distances[node_id][self.state.root_id] >= self._cached_distances[node_id][node1] and self._cached_distances[self.state.root_id][node_id] > self._cached_distances[self.state.root_id][node1]:  # otherwise node_id and node1 not in same branch or node_id higher in hierarchy than node1
+                    if node2 == "None" or self._cached_distances[self.state.root_id][node_id] < self._cached_distances[self.state.root_id][node2]:
                         affected_trees.append(tree_name)
-                    elif self._cached_distances[node_id][self.state.root_id] >= self._cached_distances[node_id][node1] and self._cached_distances[self.state.root_id][node_id] > self._cached_distances[self.state.root_id][node1]:  # otherwise node_id and node1 not in same branch or node_id higher in hierarchy than node1
-                        if node2 == "None" or self._cached_distances[self.state.root_id][node_id] < self._cached_distances[self.state.root_id][node2]:
-                            affected_trees.append(tree_name)
-                
-                for tree_name in affected_trees:
-                    self.partial_tree_cache.pop(tree_name)
+            
+            for tree_name in affected_trees:
+                self.partial_tree_cache.pop(tree_name)
         
         return None
 
@@ -169,7 +170,7 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
         else:
             # Move from start to root. Start might not be exactly start, but another leaf with same distance. 
             sub_path = self._find_tdvp_path_from_leaves_to_root(start)
-            update_path = [] + sub_path + [self.state.root_id]
+            update_path = [] + sub_path
             
             branch_roots = [x for x in self.state[self.state.root_id].children_legs.keys() if x not in update_path]
 
@@ -180,8 +181,13 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
                 sub_paths.append(sp)
             
             sub_paths.sort(key=lambda x: -len(x))
-            for sub_path in sub_paths:
-                update_path = update_path + sub_path
+
+            if sub_paths == []:
+                update_path += [self.state.root_id]
+            for i, sub_path in enumerate(sub_paths):
+                if i == len(sub_paths) - 1:
+                    update_path += [self.state.root_id]
+                update_path += sub_path
         
         return update_path
 
@@ -476,7 +482,6 @@ class FirstOrderOneSiteTDVP(TDVPAlgorithm):
                 self.state.orthogonalize_sequence(self.orthogonalization_path[i-1], node_change_callback=self._update_site_cache)
 
             # Select Next Node
-            # This is wrong. SHould be parent except if node is root/past root. Maybe whatever is next in ortho path??
             if i+1 < len(self.update_path):
                 next_node_id = self.orthogonalization_path[i][0]
             else:
@@ -501,17 +506,21 @@ class SecondOrderOneSiteTDVP(TDVPAlgorithm):
         if next_node_id != node_id:
             self._update_site(node_id, half_time_step=True)
         else:
-            self._update_site(node_id, half_time_step=False)
+            self._update_site(node_id, half_time_step=True)
             return
         self._update_link(node_id, next_node_id, half_time_step=True)
     
     def _backward_update(self, node_id, next_node_id):
         assert self.state.orthogonality_center_id == node_id
-        self._update_link(node_id, next_node_id, half_time_step=True)
-        self._update_site(next_node_id, half_time_step=True)
+        self._update_site(node_id, half_time_step=True)
+        if next_node_id is not None:
+            self._update_link(node_id, next_node_id, half_time_step=True)
 
-    def run_one_time_step(self):
-        self._orthogonalize_init()
+    def run_one_time_step(self, isfirst=False):
+        if self.update_path[0] != self.state.orthogonality_center_id:
+            if not isfirst:
+                print("Warning: Unexpected: Orthogonality center changed between time steps.")
+            self._orthogonalize_init()
         self._init_site_cache()
 
         second_order_update_path = self.update_path + list(reversed(self.update_path))
@@ -524,17 +533,25 @@ class SecondOrderOneSiteTDVP(TDVPAlgorithm):
                 if len(second_order_orthogonalization_path[i-1])>1:
                     self.state.orthogonalize_sequence(second_order_orthogonalization_path[i-1][1:], node_change_callback=self._update_site_cache)
 
-            # Select Next Node
-            if i+1 < len(second_order_update_path):
-                next_node_id = second_order_orthogonalization_path[i][0]
-            else:
-                next_node_id = None
-
             # Update
             if i < len(second_order_update_path)//2:
-                self._forward_update(node_id, next_node_id)
-            elif next_node_id is not None:
-                self._backward_update(node_id, next_node_id)
+                self._update_site(node_id, half_time_step=True)
+                # print(f"SITE {node_id}")
+                next_node_id = second_order_orthogonalization_path[i][0]
+                if node_id != next_node_id:
+                    self._update_link(node_id, next_node_id, half_time_step=True)
+                    # print(f"LINK {node_id} - {next_node_id}")
+            else:
+                self._update_site(node_id, half_time_step=True)
+                # print(f"SITE {node_id}")
+                if i+1 < len(second_order_update_path):
+                    next_node_id = second_order_orthogonalization_path[i][-1]
+                    if len(second_order_orthogonalization_path[i]) > 1:
+                        node_id = second_order_orthogonalization_path[i][-2]
+                    self._update_link(node_id, next_node_id, half_time_step=True)
+                    # print(f"LINK {node_id} - {next_node_id}")
+
+
 
 
 class FirstOrderTwoSiteTDVP(TDVPAlgorithm):
