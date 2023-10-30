@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 from ..ttns import TreeTensorNetworkState
 from ..operators.tensorproduct import TensorProduct
+from ..util import fast_exp_action
 
 class TimeEvolution:
     """
@@ -162,3 +163,29 @@ class TimeEvolution:
         Resets the current state to the intial state
         """
         self.state = deepcopy(self._intital_state)
+
+def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
+                time_difference: float,
+                forward: bool = True) -> np.ndarray:
+    """
+    Time evolves a state psi via a Hamiltonian either forward or backward in
+     time by a certain time difference:
+        psi(t +/- dt) = exp(-/+ i*h*dt) @ psi(t)
+        -iHdt: forward = True
+        +iHdt: forward = False
+
+    Args:
+        psi (np.ndarray): The initial state as a vector.
+        hamiltonian (np.ndarray): The Hamiltonian determining the dynamics as
+         a matrix.
+        time_difference (float): The duration of the time-evolution
+        forward (bool, optional): If the time evolution should be forward or
+         backward in time. Defaults to True.
+
+    Returns:
+        np.ndarray: The time evolved state
+    """
+    sign = -2 * forward + 1  # forward=True -> -1; forward=False -> +1
+    exponent = sign * 1.0j * hamiltonian * time_difference
+    return np.reshape(fast_exp_action(exponent, psi.flatten(), mode="fastest"),
+                      newshape=psi.shape)
