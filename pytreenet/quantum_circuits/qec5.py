@@ -79,7 +79,7 @@ def _qubit_tto(operator_list_pre, num_bosons):
         operator_list.append(t)
     t1, t2, t3, t4, t5 = operator_list
     
-    tto = state_vector_time_evolution.QuantumTTOperator()
+    tto = ttn.QuantumTTOperator()
     tto.add_root(tensornode.QuantumOperatorNode(t1, identifier="qubit_1"))
     tto.add_child_to_parent(tensornode.QuantumOperatorNode(t2, identifier="qubit_2"), 0, "qubit_1", 0)
     tto.add_child_to_parent(tensornode.QuantumOperatorNode(t3, identifier="qubit_3"), 0, "qubit_2", 1)
