@@ -4,9 +4,9 @@ useful contractions.
 """
 import numpy as np
 
-from .tensornode import TensorNode, conjugate_node
-from .ttn_exceptions import NoConnectionException
-from .util import copy_object
+from ..base.tensornode import TensorNode, conjugate_node
+from ..base.ttn_exceptions import NoConnectionException
+from ..utils.util import copy_object
 
 def _construct_contracted_identifier(node1_id, node2_id, new_identifier=None):
     if new_identifier == None:

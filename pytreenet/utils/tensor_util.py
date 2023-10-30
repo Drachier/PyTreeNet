@@ -4,6 +4,7 @@ Helpfull functions that work with the tensors of the tensor nodes.
 
 import numpy as np
 from math import prod
+import scipy.sparse as sps
 
 def transpose_tensor_by_leg_list(tensor, first_legs, last_legs):
     """
@@ -290,6 +291,100 @@ def compute_transfer_tensor(tensor, open_indices):
                                    axes=(open_indices, open_indices))
     return transfer_tensor
 
+def tensordot(a, b, axes, shape=None, mode="debug"):
+    """
+    Note_ This is compeltely ot used, but the code is still here.
+    Perform the tensordot operation between tensors a and b along the legs 
+    given by axes. Return output with specified shape.
+    In essence: Perform
+        tensor = np.tensordot(a, b, axes=axes)
+        tensor = tensor_np.reshape(shape)
+
+    Parameters
+    ----------
+    a: ndarray
+        Tensor a.
+    b: ndarray
+        Tensor b.
+    axes: tuple
+        Legs along which the contraction is perfomed.
+    mode: str
+        One of
+            "numpy": Perform np.tensordot(a, b, axes)
+            "fast": Reduced type-checking and without redundant reshapes.
+            "debug": Peform both versions and check if they are equal. 
+
+    Returns
+    -------
+    tensor: ndarray
+        Result of the tensor contraction. 
+    """
+
+    if mode == "numpy" or mode == "debug":
+        tensor_np = np.tensordot(a, b, axes=axes)
+        if shape is not None:
+            tensor_np = tensor_np.reshape(shape)
+    if mode == "fast" or mode == "debug":
+        axes_a, axes_b = axes
+        try:
+            na = len(axes_a)
+            axes_a = list(axes_a)
+        except TypeError:
+            axes_a = [axes_a]
+            na = 1
+        try:
+            axes_b = list(axes_b)
+        except TypeError:
+            axes_b = [axes_b]
+
+        as_ = a.shape
+        nda = a.ndim
+        bs = b.shape
+        ndb = b.ndim
+
+        for k in range(na):
+            if axes_a[k] < 0:
+                axes_a[k] += nda
+            if axes_b[k] < 0:
+                axes_b[k] += ndb
+
+        # Move the axes to sum over to the end of "a"
+        # and to the front of "b"
+        notin = [k for k in range(nda) if k not in axes_a]
+        newaxes_a = notin + axes_a
+        N2 = 1
+        for axis in axes_a:
+            N2 *= as_[axis]
+        newshape_a = (int(np.multiply.reduce([as_[ax] for ax in notin])), N2)
+        olda = [as_[axis] for axis in notin]
+
+        notin = [k for k in range(ndb) if k not in axes_b]
+        newaxes_b = axes_b + notin
+        N2 = 1
+        for axis in axes_b:
+            N2 *= bs[axis]
+        newshape_b = (N2, int(np.multiply.reduce([bs[ax] for ax in notin])))
+        oldb = [bs[axis] for axis in notin]
+
+        at = a.transpose(newaxes_a).reshape(newshape_a)
+        bt = b.transpose(newaxes_b).reshape(newshape_b)
+        tensor_fast = np.dot(at, bt)
+
+        if shape is None:
+            shape = olda + oldb
+        tensor_fast = tensor_fast.reshape(shape)
+
+    if mode == "numpy":
+        return tensor_np
+    elif mode == "fast":
+        return tensor_fast
+    elif mode == "debug":
+        assert np.allclose(tensor_np, tensor_fast), "tensordot error"
+        return tensor_np
+    else:
+        raise ValueError
+
+
 def tensor_multidot(tensor, other_tensors, main_legs, other_legs):
     """
     For a given tensor, perform multiple tensor contractions at once.
@@ -323,3 +418,28 @@ def tensor_multidot(tensor, other_tensors, main_legs, other_legs):
         tensor = np.tensordot(tensor, t, axes=(main_legs[i]-connected_legs, other_legs[i]))
         connected_legs += 1
     return tensor
+
+def sparse_tensordot(a, b, axes=(0,0)):
+    """
+    Due to the sparcity during TDVP, this version of
+    tensordot achieves a speed-up compared to Numpys
+    tensordot.
+    """
+    ax_a, ax_b = axes
+
+    notin_a = [a.shape[i] for i in range(a.ndim) if i!=ax_a]
+    if a.ndim > 1:
+        a = np.moveaxis(a, ax_a, 0).reshape(a.shape[ax_a], -1)
+    else:
+        a = np.reshape(a, (a.shape[ax_a], 1))
+    a = sps.csr_matrix(a)
+
+    notin_b = [b.shape[i] for i in range(b.ndim) if i!=ax_b]
+    if b.ndim > 1:
+        b = np.moveaxis(b, ax_b, 0).reshape(b.shape[ax_b], -1)
+    else:
+        b = np.reshape(b, (b.shape[ax_b], 1))
+    b = sps.csr_matrix(b)
+
+    results = a.T.dot(b).toarray().reshape(notin_a + notin_b)
+    return results

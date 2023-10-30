@@ -5,8 +5,8 @@ from copy import deepcopy
 
 from .node_contraction import contract_nodes, operator_expectation_value_on_node
 from .ttn_exceptions import NoConnectionException
-from .canonical_form import canonical_form, orthogonalize
-from .util import copy_object, sort_dictionary
+from ..utils.canonical_form import canonical_form, orthogonalize
+from ..utils.util import copy_object, sort_dictionary
 
 def check_contracted_identifier(tree_tensor_network, new_identifier):
     if not tree_tensor_network.check_no_nodeid_dublication(new_identifier):
@@ -191,6 +191,54 @@ def contract_two_ttn(ttn1, ttn2):
     result_tensor = _contract_same_structure_nodes(root1, root2, ttn1, ttn2)
     
     return result_tensor
+
+def contract_two_ttn____(ttn1, ttn2, exclude=()):
+    """
+    # TODO docstrings
+    """
+    if len(ttn1.nodes) > len(ttn2.nodes):
+        node_dict = ttn2.nodes
+    else:
+        node_dict = ttn1.nodes
+
+    for node_id in node_dict:
+        if node_id in exclude:
+            tensor1 = ttn1[node_id].tensor.reshape(list(ttn1[node_id].tensor.shape)+[1])
+            tensor2 = ttn2[node_id].tensor.reshape(list(ttn2[node_id].tensor.shape)+[1])
+            new_tensor = np.tensordot(tensor1, tensor2, axes=(tensor1.ndim-1, tensor2.ndim-1))
+            tensor1_num_legs = tensor1.ndim -1
+        else:
+            new_tensor = np.tensordot(ttn1[node_id].tensor, ttn2[node_id].tensor,
+                                    axes=(ttn1[node_id].open_legs[-1], ttn2[node_id].open_legs[-1]))
+            tensor1_num_legs = ttn1[node_id].nlegs - 1
+            
+        # Leg order is: ttn1 parent,  ttn1 children, ttn1 opens, ttn2 parent, ttn2 children, ttn2 opens
+        new_shape = new_tensor.shape
+
+        num_closed_legs = ttn1[node_id].nclosed_legs
+        leg_perm = []
+        for i in range(num_closed_legs):
+            leg_perm.append(i)
+            leg_perm.append(i+tensor1_num_legs)
+
+        for i in range(len(new_shape)):
+            if i not in leg_perm:
+                leg_perm.append(i)
+        
+        new_tensor = new_tensor.transpose(leg_perm)
+        new_shape = new_tensor.shape
+        newer_shape = [new_shape[2*i] * new_shape[2*i+1] for i in range(num_closed_legs)] 
+        crit_len = len(newer_shape)
+        for i in range(len(new_shape)):
+            if i >= 2*crit_len:
+                newer_shape.append(new_shape[i])
+        newer_tensor = new_tensor.reshape(newer_shape)
+
+        ttn1[node_id].tensor_mutated_open_legs(newer_tensor)
+
+    return ttn1
+
+
     
 def single_site_operator_expectation_value(ttn, node_id, operator):
     """
@@ -298,4 +346,18 @@ def scalar_product(ttn):
     assert len(sc_prod) == 1
     
     return sc_prod[0]
+
+def density(ttn, exclude=()):
+    """
+    # TODO docstrings
+    """
+    ttn_copy = copy_object(ttn)
+    ttn_conj = ttn_copy.conjugate()
+
+    ttn_copy.contract_two_ttn____(ttn_conj, exclude)
+    ttn_copy.completely_contract_tree()
+
+    key = list(ttn_copy.nodes.keys())[0]
+
+    return ttn_copy[key].tensor
         

@@ -2,9 +2,10 @@
 Some useful tools
 """
 import numpy as np
-from scipy.sparse.linalg import eigsh
-from scipy.linalg import expm
-from scipy.sparse.linalg import expm_multiply
+from scipy.linalg import expm as expm
+from scipy.sparse.linalg import expm_multiply, eigsh
+from scipy.sparse.linalg import expm as expm_sparse
+from scipy.sparse import csr_matrix
 
 from copy import deepcopy
 from tqdm import tqdm
@@ -35,6 +36,12 @@ def pauli_matrices(asarray=True):
 
     return X, Y, Z
 
+def zero():
+    return np.array([1, 0], dtype=complex)
+
+def one():
+    return np.array([0, 1], dtype=complex)
+
 def copy_object(obj, deep=True):
     """
     Returns a normal copy of obj, if deep=False and a deepcopy if deep=True.
@@ -58,37 +65,29 @@ def random_hermitian_matrix(size=2):
 
 def create_bosonic_operators(dimension=2):
     """
-    Supplies the common bosonic operators. The creation and anihilation operators
-    don't have the numerically correct entries, but only 1s as entries,
+    Supplies the common bosonic operators.
 
-    Parameters
-    ----------
-    dimension : int, optional
-        The dimension of the bosonics space to be considers. This determines
-        the size of all the operators. The default is 2.
+    Args:
+        dimension (int, optional): The dimension of the bosonics space to be considers.
+        This determines the size of all the operators. Defaults to 2.
 
-    Returns
-    -------
-    creation_op : ndarray
-        Bosonic creation operator, i.e. a matrix with the subdiagonal entries
-        equal to 1 and all others 0.
-    annihilation_op : ndarray
-        Bosonic anihilation operator, i.e. a matrix with the superdiagonal
-        entries equal to 1 and all other 0.
-    number_op : ndarray
-        The bosonic number operator, i.e. a diagonal matrix with increasing
-        integers on the diagonal from 0 to dimension-1.
-
+    Returns:
+        Tuple[np.ndarray]:
+            * creation_op: Bosonic creation operator.
+            * annihilation_op: Bosonic anihilation operator.
+            * number_op: The bosonic number operator, i.e. a diagonal matrix with increasing
+              integers on the diagonal from 0 to dimension-1.
     """
+    if dimension < 1:
+        errstr = "The dimension must be positive!"
+        raise ValueError(errstr)
+    sqrt_number_vec = np.asarray([np.sqrt(i)
+                                  for i in range(1, dimension)])
 
-
-    creation_op = np.eye(dimension, k=-1)
-    annihilation_op = np.conj(creation_op.T)
-
-    number_vector = np.asarray(range(0,dimension))
-    number_op = np.diag(number_vector)
-
-    return creation_op, annihilation_op, number_op
+    creation_op = np.diag(sqrt_number_vec, k=-1)
+    annihilation_op = creation_op.T
+    number_op = creation_op @ annihilation_op
+    return (creation_op, annihilation_op, number_op)
 
 def build_swap_gate(dimension=2):
     """
@@ -155,6 +154,12 @@ def fast_exp_action(exponent, vector, mode="fastest"):
             return v @ np.diag(np.exp(w)) @ np.linalg.pinv(v) @ vector
     elif mode == "chebyshev":
         return expm_multiply(exponent, vector, traceA=np.trace(exponent))
+    elif mode == "sparse":
+        exponent = csr_matrix(exponent)
+        vector = csr_matrix(exponent).transpose()
+        exponent_ = expm_sparse(exponent)
+        result = exponent_.dot(vector)
+        return result.toarray()
     elif mode == "none":
         return vector
     else:
@@ -184,6 +189,9 @@ def state_vector_time_evolution(state, hamiltonian, final_time, time_step_size, 
 
 def multikron(*args):
     op = args
+    if type(op[0]) == str:
+        assert [s for s in op[0] if s not in ["0", "1"]] == []
+        op = [zero() if s=="0" else one() for s in op[0]]
     operators = list(reversed(op))
     result = operators[0]
     for i, o in enumerate(operators):

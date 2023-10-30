@@ -3,7 +3,7 @@ import uuid
 
 from copy import deepcopy
 
-from .util import crandn, copy_object
+from ..utils.util import crandn, copy_object
 
 class TensorNode(object):
     """
@@ -46,6 +46,15 @@ class TensorNode(object):
         """
         assert self._tensor.ndim == new_tensor.ndim, "Tensors at the same node should have the same number of dimensions/legs."
         self._tensor = new_tensor
+
+    def tensor_mutated_open_legs(self, new_tensor):
+        # This is a risky operation and is just tempoarary
+        self._tensor = new_tensor
+        self._open_legs = []
+        for i in range(new_tensor.ndim):
+            if i not in self.parent_leg:
+                if i not in self.children_legs.values():
+                    self._open_legs.append(i)
 
     def __add__(self, val):
         """
@@ -123,6 +132,7 @@ class TensorNode(object):
         """
         return self._children_legs
 
+    @property
     def nlegs(self):
         """
         Returns
@@ -132,6 +142,7 @@ class TensorNode(object):
         """
         return self.tensor.ndim
 
+    @property
     def nchild_legs(self):
         """
         Returns
@@ -141,6 +152,7 @@ class TensorNode(object):
         """
         return len(self.children_legs)
 
+    @property
     def nvirt_legs(self):
         """
         Returns
@@ -154,6 +166,7 @@ class TensorNode(object):
             c = 1
         return self.nchild_legs() + c
 
+    @property
     def nopen_legs(self):
         """
         Returns
@@ -162,6 +175,16 @@ class TensorNode(object):
             The number of  open legs.
         """
         return len(self.open_legs)
+    
+    @property
+    def nclosed_legs(self):
+        """
+        Returns
+        -------
+        num_closed_legs: int
+            The number of not open legs.
+        """
+        return self.nlegs - self.nopen_legs
 
     def __eq__(self, other):
         """
@@ -203,6 +226,9 @@ class TensorNode(object):
             if not self.is_root():
                 neighbour_ids.append(self.parent_leg[0])
             return neighbour_ids
+
+    def neighboring_nodes(self, with_legs=True):
+        return self.neighbouring_nodes(with_legs)
 
     def check_existence_of_open_legs(self, open_leg_list):
         if len(open_leg_list) == 1:
@@ -594,7 +620,7 @@ class QuantumStateNode(TensorNode):
     
     @property
     def physical_leg(self):
-        return self.open_legs[0]
+        return self.open_legs[-1]
 
 
 class QuantumOperatorNode(TensorNode):
@@ -603,8 +629,8 @@ class QuantumOperatorNode(TensorNode):
 
     @property
     def physical_leg_bra(self):
-        return self.open_legs[0]
+        return self.open_legs[-2]
     
     @property
     def physical_leg_ket(self):
-        return self.open_legs[1]
+        return self.open_legs[-1]

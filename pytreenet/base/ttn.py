@@ -5,14 +5,17 @@ import numpy as np
 from warnings import warn
 
 from .tensornode import assert_legs_matching
-from .canonical_form import canonical_form, orthogonalize, _correct_ordering_of_q_legs
+from ..utils.canonical_form import canonical_form, orthogonalize, _correct_ordering_of_q_legs
 from .tree_contraction import (completely_contract_tree,
                                contract_two_ttn, 
+                               contract_two_ttn____,
                                single_site_operator_expectation_value,
                                operator_expectation_value,
-                               scalar_product
+                               scalar_product,
+                               density
                                )
-from .tensor_util import tensor_qr_decomposition
+from ..utils.tensor_util import tensor_qr_decomposition
+from ..utils.cn import ContractionNetwork
 
 class TreeTensorNetwork(object):
     """
@@ -346,7 +349,7 @@ class TreeTensorNetwork(object):
         returned.
 
         """
-        return completely_contract_tree(self, top_copy=to_copy)
+        return completely_contract_tree(self, to_copy=to_copy)
         
     def contract_two_ttn(self, other):
         """
@@ -364,6 +367,12 @@ class TreeTensorNetwork(object):
             
         """
         return contract_two_ttn(self, other)
+    
+    def contract_two_ttn____(self, other, exclude=()):
+        """
+        # TODO docstrings
+        """
+        return contract_two_ttn____(self, other, exclude)
         
     def single_site_operator_expectation_value(self, node_id, operator):
         """
@@ -407,6 +416,47 @@ class TreeTensorNetwork(object):
         """
         return operator_expectation_value(self, operator_dict)
     
+    def __mul__(self, other):
+        """
+        In-place multiply TTN with scalar value.
+
+        Parameters
+        ----------
+        other: scalar
+            Scalar value to multiply the TTN with
+
+        Returns
+        -------
+        None
+
+        """
+        assert np.isscalar(other), "Multiplication with TTN: Value must be scalar."
+        open_legs_root = self.nodes[self.root_id].open_legs
+        if len(open_legs_root) > 0:
+            open_dims_root = [self.nodes[self.root_id].tensor.shape[l] for l in open_legs_root]
+            total_open_dim = np.prod(open_dims_root)
+        else:
+            total_open_dim = 1
+        self.nodes[self.root_id].tensor = self.nodes[self.root_id].tensor * np.power(other, 1/total_open_dim)
+    
+    def __truediv__(self, other):
+        """
+        In-place divide TTN by scalar value.
+        
+        Parameters
+        ----------
+        other: scalar
+            Scalar value to divide the TTN by
+            
+        Returns
+        -------
+        None
+
+        """
+        if other == 0:
+            raise ValueError
+        self * (1/other)
+    
     def scalar_product(self):
         """
         Computes the scalar product for a state_like TTN, i.e. one where the open
@@ -423,6 +473,51 @@ class TreeTensorNetwork(object):
     
         """
         return scalar_product(self)
+
+    def norm(self):
+        """
+        Computes the scalar product for a state_like TTN, i.e. one where the open
+        legs represent a quantum state.
+    
+        Parameters
+        ----------
+        None
+    
+        Returns
+        -------
+        sc_prod: complex
+            The resulting scalar product.
+    
+        """
+        return self.scalar_product()
+    
+    def normalize(self):
+        """
+        In-place divide the TTN by its norm.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+
+        """
+        self / self.norm()
+    
+    def outer_product(self):
+        """
+        # TODO docstrings
+        """
+        return self.density(exclude=())
+    
+    def density(self, exclude=()):
+        """
+        # TODO docstrings
+        """
+        return density(copy.deepcopy(self), exclude)
+
     
     def find_path_to_root(self, node_id):
         """
@@ -487,6 +582,7 @@ class TreeTensorNetwork(object):
         node_index_to_contract = legs_of_target_node[node_id_old]
         self[node_id_new].absorb_tensor(r, (1,), (node_index_to_contract,))
 
+
 class QuantumTTState(TreeTensorNetwork):
     def __init__(self, original_tree=None, deep=False):
         super().__init__(original_tree, deep)
@@ -496,8 +592,51 @@ class QuantumTTState(TreeTensorNetwork):
     def orthogonalize(self, orthogonality_center_id):
         self.orthogonality_center_id = orthogonality_center_id
         return super().orthogonalize(orthogonality_center_id)
+    
+    def reduced_density_matrix(self, qubit_ids):
+
+        return self.density(exclude=qubit_ids)
+
+        cn = ContractionNetwork()
+        cn.from_state(self, do_not_connect=qubit_ids)
+        nodes = cn.contract()
+        keys = list(nodes.keys())
+
+        if len(keys) == 2:
+            bra_id = "bra" in keys[1]
+            ket_id = 1 - bra_id
+
+            bra_tensor = nodes[keys[bra_id]].tensor
+            bra_vector = np.reshape(bra_tensor, np.prod(bra_tensor.shape))
+
+            ket_tensor = nodes[keys[ket_id]].tensor
+            ket_vector = np.reshape(ket_tensor, np.prod(ket_tensor.shape))
+
+            return np.outer(ket_vector, bra_vector)
+        elif len(keys) == 1:
+            key = keys[0]
+
+            tensor = nodes[keys[0]].tensor
+            tensor = np.reshape(tensor, (4,)*len(qubit_ids))  # TODO dimension is fixed to (d=2)^2, may not always be the case?
+
+            qubit_keys = ["open_" + id for id in qubit_ids]
+            qubit_keys_sorted = list(nodes[key].connected_legs.keys())
+
+            leg_order = [qubit_keys_sorted.index(key) for key in qubit_keys]
+            tensor = np.transpose(tensor, leg_order)
+            tensor = np.reshape(tensor, (2,)*2*len(qubit_ids))
+            tensor = np.transpose(tensor, [i for i in range(tensor.ndim) if i%2==0] + [i for i in range(tensor.ndim) if i%2==1])
+            tensor = np.reshape(tensor, (2**len(qubit_ids), 2**len(qubit_ids)))
+            return tensor
+        else:
+            raise ValueError
+        
+    def apply_tto(self, tto):
+        contract_two_ttn____(self, tto)
+            
 
 
 class QuantumTTOperator(TreeTensorNetwork):
     def __init__(self, original_tree=None, deep=False):
         super().__init__(original_tree, deep)
+

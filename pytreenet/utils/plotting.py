@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.collections import PatchCollection
 
-from .ttn import TreeTensorNetwork, QuantumTTState, QuantumTTOperator
-
 
 class Coordinates:
     def __init__(self, x, y):
@@ -13,7 +11,7 @@ class Coordinates:
         self.y = y
 
 
-def plot_ttn(ttn: TreeTensorNetwork, title=""):
+def plot_ttn(ttn, title=""):
     # TODO label legs
     
     Plot = PlotDetails(ttn)
@@ -50,7 +48,7 @@ def plot_ttn(ttn: TreeTensorNetwork, title=""):
     plt.show()
 
 
-def plot_mps(ttn: TreeTensorNetwork, title=""):    
+def plot_mps(ttn, title=""):    
     _, ax = plt.subplots()
 
     origin = Coordinates(0, 0)

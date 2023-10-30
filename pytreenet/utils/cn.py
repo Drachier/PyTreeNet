@@ -33,24 +33,24 @@ def get_new_shape(shape, legs):
 
 
 class QNode(Node):
-    def __init__(self, tt_node, type) -> None:
-        prefix = {"bra": "bra", "ham": "ham", "ket": "ket"}
-
+    def __init__(self, tt_node, type, connection=None) -> None:
         self.contraction_history = []
         
-        self.id = prefix[type] + "_" + tt_node.identifier
+        self.id = type + "_" + tt_node.identifier
         self.tensor = tt_node.tensor if type!="bra" else tt_node.tensor.conj()
 
         connected_legs = tt_node.neighbouring_nodes()
         self.connected_legs = dict()
         for node_id in connected_legs.keys():
-            self.connected_legs[prefix[type] + "_" + node_id] = connected_legs[node_id]
-        if type!="ham":
-            self.connected_legs["ham_" + tt_node.identifier] = tt_node.physical_leg
-        else:
+            self.connected_legs[type + "_" + node_id] = connected_legs[node_id]
+        if type in ["bra", "ket"] and connection is not None:
+            self.connected_legs[connection + "_" + tt_node.identifier] = tt_node.physical_leg
+        elif type=="ham":
             self.connected_legs["bra_" + tt_node.identifier] = tt_node.physical_leg_bra
             self.connected_legs["ket_" + tt_node.identifier] = tt_node.physical_leg_ket
-        
+        else:
+            self.connected_legs["open_" + tt_node.identifier] = tt_node.physical_leg
+
 
 class ContractionNetwork:
     def __init__(self):
@@ -58,9 +58,18 @@ class ContractionNetwork:
     
     def from_quantum(self, state, hamiltonian):
         for node_id in state.nodes.keys():
-            self.set_node(QNode(state[node_id], type="bra"))
+            self.set_node(QNode(state[node_id], type="bra", connection="ham"))
             self.set_node(QNode(hamiltonian[node_id], type="ham"))
-            self.set_node(QNode(state[node_id], type="ket"))
+            self.set_node(QNode(state[node_id], type="ket", connection="ham"))
+
+    def from_state(self, state, do_not_connect=[]):        
+        for node_id in state.nodes.keys():
+            if node_id in do_not_connect:
+                self.set_node(QNode(state[node_id], type="bra"))
+                self.set_node(QNode(state[node_id], type="ket"))
+            else:
+                self.set_node(QNode(state[node_id], type="bra", connection="ket"))
+                self.set_node(QNode(state[node_id], type="ket", connection="bra"))
     
     def set_node(self, node: QNode):
         self.nodes[node.id] = node
@@ -78,9 +87,14 @@ class ContractionNetwork:
         index_map = {v: i for i, v in enumerate(node_names_reordered)}
         self.nodes = dict(sorted(self.nodes.items(), key=lambda pair: index_map[pair[0]]))
         while len(self.nodes) > max(len(holes)+1, 1):
-            node_a = self.nodes.pop(self.find_largest_edge(do_not=holes))
-            connections = dict([(node_id, node_a.tensor.shape[node_a.connected_legs[node_id]]) for node_id in node_a.connected_legs.keys() if node_id not in holes])
-            node_b = self.nodes.pop(max(connections, key=connections.get))
+            node_a_key = self.find_largest_edge(do_not=holes)
+            node_a = self.nodes.pop(node_a_key)
+            connections = dict([(node_id, node_a.tensor.shape[node_a.connected_legs[node_id]]) for node_id in node_a.connected_legs.keys() if node_id not in holes and node_id in self.nodes.keys()])
+            if len(connections)>0:
+                node_b = self.nodes.pop(max(connections, key=connections.get))
+            else:
+                self.nodes[node_a_key] = node_a
+                return self.nodes
             
             node_a_con_leg = node_a.connected_legs[node_b.id]
             node_b_con_leg = node_b.connected_legs[node_a.id]
@@ -120,7 +134,7 @@ class ContractionNetwork:
     
     def rename_references(self, new_id, target_node, contraction_partner):
         for node_id in target_node.connected_legs:
-            if node_id != contraction_partner.id:
+            if node_id != contraction_partner.id and node_id in self.nodes.keys():
                 keys = list(self.nodes[node_id].connected_legs.keys())
                 if target_node.id in keys:
                     if new_id not in keys:
