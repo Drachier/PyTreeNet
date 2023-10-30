@@ -59,9 +59,6 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
 
         self.print_debugging_warnings = True#False
 
-        self._contraction_mode_list = ["by_site", "by_dimension"]
-        self._contraction_mode = self._contraction_mode_list[0]
-
         super().__init__(state, operators, time_step_size, final_time, initial_time, save_every)
 
         #     LEG ORDER: PARENT CHILDREN PHYSICAL
@@ -85,21 +82,6 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
         self.neighbouring_nodes = dict()
         for node_id in self.state.nodes.keys():
             self.neighbouring_nodes[node_id] = deepcopy(self.state[node_id].neighbouring_nodes())
-
-    @property
-    def contraction_mode(self):
-        return self._contraction_mode
-    
-    @contraction_mode.setter
-    def contraction_mode(self, val):
-        if val=="by_dimension":
-            self._contraction_mode = val
-            # TODO disable caching
-        elif val=="by_site":
-            self._contraction_mode = val
-            # TODO enable caching
-        else:
-            raise ValueError
     
     def _init_site_cache(self):
         """
@@ -110,8 +92,6 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
             self._update_site_cache(node_id)
 
     def _update_site_cache(self, node_id):
-        if self.contraction_mode == "by_dimension":
-            return None
         """"
         Call after any tensor has been updated to refresh the site cache.
         """
@@ -305,120 +285,50 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
         return tensor
 
     def _get_effective_site_hamiltonian(self, node_id):
-        if self._contraction_mode == "by_site":
-            tensor = self._contract_all_except_node(node_id)
-            bra_legs = [2*i for i in range(tensor.ndim//2)] 
-            ket_legs = [2*i+1 for i in range(tensor.ndim//2)]
-            return tensor_matricization(tensor, bra_legs, ket_legs, correctly_ordered=False)
-        elif self._contraction_mode == "by_dimension":
-            cn = ContractionNetwork()
-            cn.from_quantum(self.state, self.hamiltonian)
-            holes = ["bra_"+node_id, "ket_"+node_id]
-            contracted_nodes = cn.contract(holes)
-            hamiltonian = contracted_nodes[list(contracted_nodes.keys())[-1]]
-
-            if node_id not in self._dimension_wise_site_contraction_cache.keys():
-                self._dimension_wise_site_contraction_cache[node_id] = dict()
-
-                if holes != list(hamiltonian.connected_legs.keys()):
-                    hamiltonian.tensor = hamiltonian.tensor.T
-                    self._dimension_wise_site_contraction_cache[node_id]["transpose_1"] = True
-                else:
-                    self._dimension_wise_site_contraction_cache[node_id]["transpose_1"] = False
-                original_shape = hamiltonian.tensor.shape
-
-                node_legs_no_prefix = self.state.nodes[node_id].neighbouring_nodes()  # without bra_/ket_ prefix
-                node_legs_no_prefix = {key: val for key, val in sorted(node_legs_no_prefix.items(), key=lambda item: item[1])}
-
-                node_legs_bra = {f"bra_{key}": val for key, val in node_legs_no_prefix.items()}
-                node_legs_ket = {f"ket_{key}": val for key, val in node_legs_no_prefix.items()}
-
-                node_legs_bra["ham_"+node_id] = self.state.nodes[node_id].physical_leg
-                node_legs_ket["ham_"+node_id] = self.state.nodes[node_id].physical_leg
-
-                hamiltonian_legs_bra = [id for id in hamiltonian.contraction_history if id in node_legs_bra.keys()]
-                hamiltonian_legs_ket = [id for id in hamiltonian.contraction_history if id in node_legs_ket.keys()]
-
-                hamiltonian_leg_reshaper_bra = [self.state.nodes[node_id].tensor.shape[node_legs_bra[key]] for key in hamiltonian_legs_bra]
-                hamiltonian_leg_reshaper_ket = [self.state.nodes[node_id].tensor.shape[node_legs_ket[key]] for key in hamiltonian_legs_ket]
-
-                hamiltonian.tensor = np.reshape(hamiltonian.tensor, tuple(hamiltonian_leg_reshaper_bra + hamiltonian_leg_reshaper_ket))
-                self._dimension_wise_site_contraction_cache[node_id]["reshape_1"] = tuple(hamiltonian_leg_reshaper_bra + hamiltonian_leg_reshaper_ket)
-
-                hamiltonian_sort_indices_bra = [hamiltonian_legs_bra.index(i) for i in node_legs_bra.keys()]
-                hamiltonian_sort_indices_ket = [i+len(hamiltonian_sort_indices_bra) for i in hamiltonian_sort_indices_bra]
-
-                hamiltonian.tensor = np.transpose(hamiltonian.tensor, tuple(hamiltonian_sort_indices_bra + hamiltonian_sort_indices_ket))
-                self._dimension_wise_site_contraction_cache[node_id]["transpose_2"] = tuple(hamiltonian_sort_indices_bra + hamiltonian_sort_indices_ket)
-                hamiltonian.tensor = np.reshape(hamiltonian.tensor, original_shape)
-                self._dimension_wise_site_contraction_cache[node_id]["reshape_2"] = original_shape
-            else:
-                if self._dimension_wise_site_contraction_cache[node_id]["transpose_1"]:
-                    hamiltonian.tensor = hamiltonian.tensor.T
-                hamiltonian.tensor = np.reshape(hamiltonian.tensor, self._dimension_wise_site_contraction_cache[node_id]["reshape_1"])
-                hamiltonian.tensor = np.transpose(hamiltonian.tensor, self._dimension_wise_site_contraction_cache[node_id]["transpose_2"])
-                hamiltonian.tensor = np.reshape(hamiltonian.tensor, self._dimension_wise_site_contraction_cache[node_id]["reshape_2"])
-            return hamiltonian.tensor
-
+        tensor = self._contract_all_except_node(node_id)
+        bra_legs = [2*i for i in range(tensor.ndim//2)] 
+        ket_legs = [2*i+1 for i in range(tensor.ndim//2)]
+        return tensor_matricization(tensor, bra_legs, ket_legs, correctly_ordered=False)
     
     def _get_effective_link_hamiltonian(self, node_id, next_node_id):
-        if self._contraction_mode == "by_site":
-            tensor = self._contract_all_except_node(node_id)
-            
-            """
-            leg order is:
-                parent (bra, ket), children (bra, ket), physical (bra, ket)
-            """
-
-            bra_legs = [2*i for i in range(tensor.ndim//2)] 
-            ket_legs = [2*i+1 for i in range(tensor.ndim//2)]
-            tensor = tensor.transpose(bra_legs + ket_legs)
-
-            """
-            leg order is:
-                bra: parent, children, physical; ket: parent, children, physical
-            """
-
-            tensor_bra_legs = [i for i in range(tensor.ndim//2)] 
-            node_leg_of_next_node = self.neighbouring_nodes[node_id][next_node_id]
-            tensor_bra_legs_without_next_node = [i for i in tensor_bra_legs if i != node_leg_of_next_node]
-            site_bra_legs_without_next_node = [i for i in range(self.state[node_id].tensor.ndim) if i != node_leg_of_next_node]
-
-            tensor = np.tensordot(tensor, self.state[node_id].tensor.conj(), axes=(tensor_bra_legs_without_next_node, site_bra_legs_without_next_node))
-
-            """
-            leg order is:
-                bra: link_next_node; ket: parent, children, physical; bra: link_node
-            """
-
-            tensor_ket_legs_without_next_node = [i+1 for i in site_bra_legs_without_next_node]
-            site_ket_legs_without_next_node = site_bra_legs_without_next_node
-            tensor = np.tensordot(tensor, self.state[node_id].tensor, axes=(tensor_ket_legs_without_next_node, site_ket_legs_without_next_node))
-
-            """
-            leg order is:
-                bra: link_next_node; ket: link_next_node; bra: link_node; ket: link_node
-            """
-            
-            return tensor_matricization(tensor, (2, 0), (3, 1), correctly_ordered=False)
+        tensor = self._contract_all_except_node(node_id)
         
-        elif self._contraction_mode == "by_dimension":
-            cn = ContractionNetwork()
-            cn.from_quantum(self.state, self.hamiltonian)
-            contracted_nodes = cn.contract(holes=["bra_"+node_id, "bra_"+next_node_id, "ket_"+node_id, "ket_"+next_node_id])
+        """
+        leg order is:
+            parent (bra, ket), children (bra, ket), physical (bra, ket)
+        """
 
-            keys = list(contracted_nodes.keys())
-            hamiltonian = contracted_nodes[keys[4]]
-                      
-            hamiltonian_legs_order = [hamiltonian.connected_legs[keys[i]] for i in range(4)]
-            tensor = tensor_multidot(hamiltonian.tensor, [contracted_nodes[keys[i]].tensor for i in range(4)],
-                                     hamiltonian_legs_order, [contracted_nodes[keys[i]].connected_legs[hamiltonian.id] for i in range(4)])
-            
-            matrix = tensor_matricization(tensor,
-                                          (hamiltonian.connected_legs["bra_"+node_id], hamiltonian.connected_legs["bra_"+next_node_id]), 
-                                          (hamiltonian.connected_legs["ket_"+node_id], hamiltonian.connected_legs["ket_"+next_node_id]), 
-                                          correctly_ordered=False)
-            return matrix
+        bra_legs = [2*i for i in range(tensor.ndim//2)] 
+        ket_legs = [2*i+1 for i in range(tensor.ndim//2)]
+        tensor = tensor.transpose(bra_legs + ket_legs)
+
+        """
+        leg order is:
+            bra: parent, children, physical; ket: parent, children, physical
+        """
+
+        tensor_bra_legs = [i for i in range(tensor.ndim//2)] 
+        node_leg_of_next_node = self.neighbouring_nodes[node_id][next_node_id]
+        tensor_bra_legs_without_next_node = [i for i in tensor_bra_legs if i != node_leg_of_next_node]
+        site_bra_legs_without_next_node = [i for i in range(self.state[node_id].tensor.ndim) if i != node_leg_of_next_node]
+
+        tensor = np.tensordot(tensor, self.state[node_id].tensor.conj(), axes=(tensor_bra_legs_without_next_node, site_bra_legs_without_next_node))
+
+        """
+        leg order is:
+            bra: link_next_node; ket: parent, children, physical; bra: link_node
+        """
+
+        tensor_ket_legs_without_next_node = [i+1 for i in site_bra_legs_without_next_node]
+        site_ket_legs_without_next_node = site_bra_legs_without_next_node
+        tensor = np.tensordot(tensor, self.state[node_id].tensor, axes=(tensor_ket_legs_without_next_node, site_ket_legs_without_next_node))
+
+        """
+        leg order is:
+            bra: link_next_node; ket: link_next_node; bra: link_node; ket: link_node
+        """
+        
+        return tensor_matricization(tensor, (2, 0), (3, 1), correctly_ordered=False)
     
     def _update_site_and_get_link(self, node_id, next_node_id):
         node = self.state[node_id]

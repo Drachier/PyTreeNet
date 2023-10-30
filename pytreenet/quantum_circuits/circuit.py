@@ -166,7 +166,6 @@ class Circuit:
     def run(self, hamiltonian, operation_time):
         tdvp_sim = TDVP("SecondOrder,OneSite", self._state, hamiltonian, time_step_size=1/self.time_steps, final_time=self._time_elapsed+operation_time, 
                         initial_time=self._time_elapsed, operators=self.operators, save_every=1)
-        tdvp_sim.contraction_mode = "by_site"  # TODO fyi this is still here
         tdvp_sim.run(pgbar=self.progress_bar)
         self._time_elapsed += operation_time
 
