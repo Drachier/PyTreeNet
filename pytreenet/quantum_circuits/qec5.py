@@ -1,5 +1,5 @@
 import numpy as np
-import pytreenet as ptn
+from ..base import ttn, tensornode
 from ..utils.circuit_utils import *
 from .circuit import Circuit
 
@@ -79,12 +79,12 @@ def _qubit_tto(operator_list_pre, num_bosons):
         operator_list.append(t)
     t1, t2, t3, t4, t5 = operator_list
     
-    tto = ptn.ttn.QuantumTTOperator()
-    tto.add_root(ptn.tensornode.QuantumOperatorNode(t1, identifier="qubit_1"))
-    tto.add_child_to_parent(ptn.tensornode.QuantumOperatorNode(t2, identifier="qubit_2"), 0, "qubit_1", 0)
-    tto.add_child_to_parent(ptn.tensornode.QuantumOperatorNode(t3, identifier="qubit_3"), 0, "qubit_2", 1)
-    tto.add_child_to_parent(ptn.tensornode.QuantumOperatorNode(t4, identifier="qubit_4"), 0, "qubit_3", 1)
-    tto.add_child_to_parent(ptn.tensornode.QuantumOperatorNode(t5, identifier="qubit_5"), 0, "qubit_4", 1)
+    tto = state_vector_time_evolution.QuantumTTOperator()
+    tto.add_root(tensornode.QuantumOperatorNode(t1, identifier="qubit_1"))
+    tto.add_child_to_parent(tensornode.QuantumOperatorNode(t2, identifier="qubit_2"), 0, "qubit_1", 0)
+    tto.add_child_to_parent(tensornode.QuantumOperatorNode(t3, identifier="qubit_3"), 0, "qubit_2", 1)
+    tto.add_child_to_parent(tensornode.QuantumOperatorNode(t4, identifier="qubit_4"), 0, "qubit_3", 1)
+    tto.add_child_to_parent(tensornode.QuantumOperatorNode(t5, identifier="qubit_5"), 0, "qubit_4", 1)
     return tto
 
 
