@@ -1,11 +1,11 @@
 import numpy as np
 
-from ..node_contraction import contract_tensors_of_nodes
-from ..tensor_util import (transpose_tensor_by_leg_list,
+from ..base.node_contraction import contract_tensors_of_nodes
+from ..utils.tensor_util import (transpose_tensor_by_leg_list,
                           tensor_matricization,
                           truncated_tensor_svd)
 from .time_evolution import TimeEvolutionAlgorithm
-from ..ttn import TreeTensorNetwork
+from ..base.ttn import TreeTensorNetwork
 
 class TEBD(TimeEvolutionAlgorithm):
     """

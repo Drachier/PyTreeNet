@@ -1,8 +1,8 @@
 import numpy as np
 from tqdm import tqdm
 
-from ..ttn import TreeTensorNetwork
-from ..util import fast_exp_action
+from ..base.ttn import TreeTensorNetwork
+from ..utils.util import fast_exp_action
 
 from copy import deepcopy
 """
@@ -170,9 +170,13 @@ class TimeEvolutionAlgorithm:
         
         """
 
+        # for debug
+        isfirst = None
+
         for i in tqdm(range(self.num_time_steps + 1), disable=(not pgbar)):
             if i != 0: # We also measure the initial expectation_values
-                self.run_one_time_step()
+                isfirst = isfirst is None
+                self.run_one_time_step(isfirst=isfirst)
 
             if len(self.results) > 0 and i % self.save_every == 0:
                 current_results = self.evaluate_operators()
