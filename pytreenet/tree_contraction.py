@@ -38,6 +38,7 @@ def _completely_contract_tree_rec(work_ttn: TreeTensorNetwork, current_node_id: 
         work_ttn (TreeTensorNetwork): The TTN to be contracted
         current_node_id (str): The node into which we want to contract the subtree.
     """
+    # print(current_node_id)
     current_node = work_ttn.nodes[current_node_id]
     children = copy(current_node.children)
     for child_id in children:
