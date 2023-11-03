@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Any, Dict
+from argparse import ArgumentParser
 
 import h5py
 import numpy as np
@@ -113,7 +114,7 @@ def obtain_bond_dimensions(ttno: ptn.TTNO) -> np.ndarray:
             dimensions.append(node.parent_leg_dim())
     return np.asarray(dimensions)
 
-def main():
+def main(filepath: str):
     # Prepare variables
     X, Y, Z = ptn.pauli_matrices()
     conversion_dict = {"X": X, "Y": Y, "Z": Z, "I2": np.eye(2, dtype="complex")}
@@ -124,11 +125,9 @@ def main():
     seed = 49892894
     rng = default_rng(seed=seed)
     max_num_terms = 30
-    num_runs = 1
-    file_path = "/work_fast/ge24fum/experiment_data/ttno_constr/"
-    filename = "ttno_bond_dim.hdf5"
+    num_runs = 10000
 
-    with h5py.File(file_path + filename, "w") as file:
+    with h5py.File(filepath, "w") as file:
         save_metadata(file, seed, max_num_terms, num_runs, conversion_dict,
                       leg_dict)
         for num_terms in tqdm(range(1, max_num_terms + 1)):
@@ -158,4 +157,8 @@ def main():
                     run += 1
 
 if __name__ == "__main__":
-    main()
+    parser = ArgumentParser()
+    parser.add_argument("filepath", type=str, nargs=1)
+    filepath = vars(parser.parse_args())["filepath"][0]
+    print("Data will be saved in " + filepath)
+    main(filepath)
