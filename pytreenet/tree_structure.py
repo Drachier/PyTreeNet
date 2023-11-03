@@ -351,7 +351,7 @@ class TreeStructure():
 
         Returns:
             List[str]: Identifiers of nodes that lie along the path. The first
-             index is start_id and the last index is end_id.
+             indentifier is start_id and the last indentifier is end_id.
         """
         sub_path_start_center = self.find_path_to_root(start_id)
         sub_path_end_center = self.find_path_to_root(end_id)
