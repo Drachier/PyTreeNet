@@ -58,6 +58,7 @@ def canonical_form(ttn: TreeTensorNetwork, orthogonality_center_id: str):
 
             ttn.contract_nodes(minimum_distance_neighbour_id, "R_tensor",
                                new_identifier=minimum_distance_neighbour_id)
+    ttn.orthogonality_center = orthogonality_center_id
 
 
 def _find_smallest_distance_neighbour(node: Node, distance_dict: dict[str, int]) -> str:

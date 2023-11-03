@@ -60,6 +60,7 @@ class TreeTensorNetwork(TreeStructure):
         """
         super().__init__()
         self._tensors = TensorDict(self._nodes)
+        self.orthogonality_center_id = None
 
     @property
     def tensors(self):
@@ -72,7 +73,6 @@ class TreeTensorNetwork(TreeStructure):
         leg ordering is
             (parent_leg, children_legs, open_legs)
         """
-
         return self._tensors
 
     @property
@@ -530,21 +530,26 @@ class TreeTensorNetwork(TreeStructure):
     # The additional structure allows for more efficent algorithms than the
     # general case.
 
-    def canonical_form(self, orthogonality_center_id):
+    def canonical_form(self, orthogonality_center_id: str):
         """
-        Brings the tree_tensor_network in canonical form with
+        Brings the TTN in canonical form with respect to a given orthogonality
+         center.
 
-        Parameters
-        ----------
-        orthogonality_center_id : str
-            The id of the tensor node, which sould be the orthogonality center for
-            the canonical form
-
-        Returns
-        -------
-        None.
+        Args:
+            orthogonality_center_id (str): The new orthogonality center of
+             the TTN
         """
         canonical_form(self, orthogonality_center_id)
+
+    def orthogonalize(self, orthogonality_center_id: str):
+        """
+        Wrapper of canonical form.
+
+        Args:
+            orthogonality_center_id (str): The new orthogonality center of the
+             TTN.
+        """
+        self.canonical_form(orthogonality_center_id)
 
     def completely_contract_tree(self, to_copy: bool = False):
         """
