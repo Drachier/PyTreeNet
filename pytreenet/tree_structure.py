@@ -353,6 +353,8 @@ class TreeStructure():
             List[str]: Identifiers of nodes that lie along the path. The first
              indentifier is start_id and the last indentifier is end_id.
         """
+        if start_id == end_id:
+            return [start_id]
         sub_path_start_center = self.find_path_to_root(start_id)
         sub_path_end_center = self.find_path_to_root(end_id)
         combined = sub_path_start_center + sub_path_end_center
