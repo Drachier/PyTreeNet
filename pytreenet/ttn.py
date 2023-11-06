@@ -524,6 +524,45 @@ class TreeTensorNetwork(TreeStructure):
                           out_identifier=u_identifier, in_identifier=v_identifier,
                           **truncation_param)
 
+    def move_orthogonalization_center(self, new_center_id: str):
+        """
+        Moves the orthogonalization center from the current node to a
+         different node.
+
+        Args:
+            new_center (str): The identifier of the new
+             orthogonalisation center.
+        """
+        if self.orthogonality_center_id is None:
+            errstr = "The TTN is not in canonical form, so the orth. center cannot be moved!"
+            raise AssertionError(errstr)
+        if self.orthogonality_center_id == new_center_id:
+            # In this case we are done already.
+            return
+        orth_path = self.path_from_to(self.orthogonality_center_id,
+                                      new_center_id)
+        for node_id in orth_path[1:]:
+            self._move_orth_center_to_neighbour(node_id)
+
+    def _move_orth_center_to_neighbour(self, new_center_id: str):
+        """
+        Moves the orthogonality center to a neighbour of the current
+         orthogonality center.
+
+        Args:
+            new_center_id (str): The identifier of a neighbour of the current
+             orthogonality center.
+        """
+        assert self.orthogonality_center_id is not None
+        q_legs, r_legs = self.legs_before_combination(self.orthogonality_center_id,
+                                                      new_center_id)
+        self.contract_nodes(self.orthogonality_center_id,
+                            new_center_id, new_identifier="contracted")
+        self.split_node_qr("contracted", q_legs, r_legs,
+                           q_identifier=self.orthogonality_center_id,
+                           r_identifier=new_center_id)
+        self.orthogonality_center_id = new_center_id
+
     # Functions below this are just wrappers of external functions that are
     # linked tightly to the TTN and its structure. This allows these functions
     # to be overwritten for subclasses of the TTN with more known structure.

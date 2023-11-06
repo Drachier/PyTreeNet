@@ -259,6 +259,135 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         found = self.tensortree.completely_contract_tree().root[1]
         self.assertTrue(np.allclose(reference, found))
 
+    def test_move_orthogonalisation_center_None(self):
+        self.assertRaises(AssertionError,
+                          self.tensortree.move_orthogonalization_center,
+                          "root")
+
+    def test_move_center_to_itself(self):
+        reference_tree = self.tensortree.completely_contract_tree(to_copy=True)
+        reference_tensor = reference_tree.root[1]
+
+        self.tensortree.orthogonalize("root")
+        self.tensortree.move_orthogonalization_center("root")
+        self.assertEqual("root", self.tensortree.orthogonality_center_id)
+
+        # Test for isometries
+        tensor = self.tensortree.tensors["c1"]
+        transfer_tensor = ptn.compute_transfer_tensor(tensor, 1)
+        identity = np.eye(tensor.shape[0])
+        self.assertTrue(np.allclose(identity, transfer_tensor))
+
+        tensor = self.tensortree.tensors["c2"]
+        transfer_tensor = ptn.compute_transfer_tensor(tensor, 1)
+        identity = np.eye(tensor.shape[0])
+        self.assertTrue(np.allclose(identity, transfer_tensor))
+
+        # Test equality of tensor network
+        found_tensor = self.tensortree.completely_contract_tree().root[1]
+        self.assertTrue(np.allclose(reference_tensor, found_tensor))
+
+    def test_move_center_to_child(self):
+        reference_tree = self.tensortree.completely_contract_tree(to_copy=True)
+        reference_tensor = reference_tree.root[1]
+
+        self.tensortree.orthogonalize("root")
+        self.tensortree.move_orthogonalization_center("c1")
+        self.assertEqual("c1", self.tensortree.orthogonality_center_id)
+
+        # Test for isometries
+        tensor = self.tensortree.tensors["root"]
+        child_leg = self.tensortree.nodes["root"].neighbour_index("c2")
+        transfer_tensor = ptn.compute_transfer_tensor(tensor,
+                                                      (child_leg,2))
+        child_leg = self.tensortree.nodes["root"].neighbour_index("c1")
+        identity = np.eye(tensor.shape[child_leg])
+        self.assertTrue(np.allclose(identity, transfer_tensor))
+
+        tensor = self.tensortree.tensors["c2"]
+        transfer_tensor = ptn.compute_transfer_tensor(tensor, 1)
+        identity = np.eye(tensor.shape[0])
+        self.assertTrue(np.allclose(identity, transfer_tensor))
+
+        # Test equality of tensor network
+        found_tensor = self.tensortree.completely_contract_tree().root[1]
+        self.assertTrue(np.allclose(reference_tensor, found_tensor))
+
+    def test_move_center_to_other_child(self):
+        reference_tree = self.tensortree.completely_contract_tree(to_copy=True)
+        reference_tensor = reference_tree.root[1]
+
+        self.tensortree.orthogonalize("root")
+        self.tensortree.move_orthogonalization_center("c2")
+        self.assertEqual("c2", self.tensortree.orthogonality_center_id)
+
+        # Test for isometries
+        tensor = self.tensortree.tensors["c1"]
+        transfer_tensor = ptn.compute_transfer_tensor(tensor, 1)
+        identity = np.eye(tensor.shape[0])
+        self.assertTrue(np.allclose(identity, transfer_tensor))
+
+        tensor = self.tensortree.tensors["root"]
+        child_leg = self.tensortree.nodes["root"].neighbour_index("c1")
+        transfer_tensor = ptn.compute_transfer_tensor(tensor,
+                                                      (child_leg,2))
+        child_leg = self.tensortree.nodes["root"].neighbour_index("c2")
+        identity = np.eye(tensor.shape[child_leg])
+        self.assertTrue(np.allclose(identity, transfer_tensor))
+
+        # Test equality of tensor network
+        found_tensor = self.tensortree.completely_contract_tree().root[1]
+        self.assertTrue(np.allclose(reference_tensor, found_tensor.transpose([0,2,1])))
+
+    def test_move_center_from_child_to_parent(self):
+        reference_tree = self.tensortree.completely_contract_tree(to_copy=True)
+        reference_tensor = reference_tree.root[1]
+
+        self.tensortree.orthogonalize("c1")
+        self.tensortree.move_orthogonalization_center("root")
+        self.assertEqual("root", self.tensortree.orthogonality_center_id)
+
+        # Test for isometries
+        tensor = self.tensortree.tensors["c1"]
+        transfer_tensor = ptn.compute_transfer_tensor(tensor, 1)
+        identity = np.eye(tensor.shape[0])
+        self.assertTrue(np.allclose(identity, transfer_tensor))
+
+        tensor = self.tensortree.tensors["c2"]
+        transfer_tensor = ptn.compute_transfer_tensor(tensor, 1)
+        identity = np.eye(tensor.shape[0])
+        self.assertTrue(np.allclose(identity, transfer_tensor))
+
+        # Test equality of tensor network
+        found_tensor = self.tensortree.completely_contract_tree().root[1]
+        self.assertTrue(np.allclose(reference_tensor, found_tensor))
+
+    def test_move_center_from_child_to_other_child(self):
+        reference_tree = self.tensortree.completely_contract_tree(to_copy=True)
+        reference_tensor = reference_tree.root[1]
+
+        self.tensortree.orthogonalize("c1")
+        self.tensortree.move_orthogonalization_center("c2")
+        self.assertEqual("c2", self.tensortree.orthogonality_center_id)
+
+        # Test for isometries
+        tensor = self.tensortree.tensors["c1"]
+        transfer_tensor = ptn.compute_transfer_tensor(tensor, 1)
+        identity = np.eye(tensor.shape[0])
+        self.assertTrue(np.allclose(identity, transfer_tensor))
+
+        tensor = self.tensortree.tensors["root"]
+        child_leg = self.tensortree.nodes["root"].neighbour_index("c1")
+        transfer_tensor = ptn.compute_transfer_tensor(tensor,
+                                                      (child_leg,2))
+        child_leg = self.tensortree.nodes["root"].neighbour_index("c2")
+        identity = np.eye(tensor.shape[child_leg])
+        self.assertTrue(np.allclose(identity, transfer_tensor))
+
+        # Test equality of tensor network
+        found_tensor = self.tensortree.completely_contract_tree().root[1]
+        self.assertTrue(np.allclose(reference_tensor, found_tensor.transpose([0,2,1])))
+
 class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def setUp(self):
         self.ttn = ptn.TreeTensorNetwork()
