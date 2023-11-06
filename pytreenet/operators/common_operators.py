@@ -6,6 +6,8 @@ from typing import Union, List, Tuple
 
 import numpy as np
 
+from ..util import crandn
+
 def pauli_matrices(asarray: bool=True) -> Union[List, np.ndarray]:
     """
     Returns the three Pauli matrices X, Y, and Z in Z-basis as ndarray, if asarray is True
@@ -79,3 +81,19 @@ def swap_gate(dimension: int = 2) -> np.ndarray:
                 swap[i,j] = 1
 
     return swap
+
+def random_hermitian_matrix(size: int = 2) -> np.ndarray:
+    """
+    Creates a random hermitian matrix H^\dagger = H
+
+    Args:
+        size (int, optional): Size of the matrix. Defaults to 2.
+
+    Returns:
+        np.ndarray: The hermitian matrix.
+    """
+    if size < 1:
+        errstr = "The dimension must be positive!"
+        raise ValueError(errstr)
+    matrix = crandn((size,size))
+    return 0.5 * (matrix + matrix.T.conj()) 

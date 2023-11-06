@@ -35,10 +35,6 @@ def sort_dictionary(dictionary):
     """
     return {key: val for key, val in sorted(dictionary.items(), key = lambda ele: ele[1], reverse = False)}
 
-def random_hermitian_matrix(size=2):
-    matrix = crandn((size,size))
-    return matrix + matrix.T
-
 def compare_lists_by_value(list1, list2):
     if len(list1) != len(list2):
         return False
