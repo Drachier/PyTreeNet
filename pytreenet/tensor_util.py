@@ -2,7 +2,7 @@
 Helpfull functions that work with the tensors of the tensor nodes.
 """
 
-from typing import Tuple, List
+from typing import Tuple, List, Union
 
 from math import prod
 import numpy as np
@@ -284,27 +284,31 @@ def contr_truncated_svd_splitting(tensor, u_legs, v_legs, **truncation_param):
     return u, svh
 
 
-def compute_transfer_tensor(tensor, open_indices):
+def compute_transfer_tensor(tensor: np.ndarray,
+                            contr_indices: Union[Tuple[int], int]) -> np.ndarray:
     """
+    Computes the tranfer tensor of the given tensor with respect to the
+     indices given. This means it contracts the tensor with its conjugate
+     along the given indices.
 
-    Parameters
-    ----------
-    tensor : ndarray
+    Args:
+        tensor (np.ndarray): The tensor to compute the transfer tensor for.
+        contr_indices (Union[Tuple[int], int]): The indices of the legs of the
+         tensor to be contracted
 
-    open_indices: tuple of int
-        The open indices of tensor.
-
-    Returns
-    -------
-    transfer_tensor : ndarry
-        The transfer tensor of tensor, i.e., the tensor that contracts all
-        open indices of tensor with the open indices of the tensor's complex
-        conjugate.
+    Returns:
+        np.ndarray: The transfer tensor, i.e.
+         ____          ____
+        |    |__oi1___|    |
+     ___| A  |__oi2___| A* |____
+        |____|        |____|
 
     """
+    if isinstance(contr_indices, int):
+        contr_indices = (contr_indices, )
     conj_tensor = np.conjugate(tensor)
     transfer_tensor = np.tensordot(tensor, conj_tensor,
-                                   axes=(open_indices, open_indices))
+                                   axes=(contr_indices, contr_indices))
     return transfer_tensor
 
 def tensor_multidot(tensor: np.ndarray,
