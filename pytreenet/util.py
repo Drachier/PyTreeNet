@@ -1,14 +1,14 @@
 """
 Some useful tools
 """
+from copy import deepcopy, copy
+from collections import Counter
+
 import numpy as np
-from scipy.linalg import expm as expm
+from scipy.linalg import expm
 from scipy.sparse.linalg import expm_multiply, eigsh
 from scipy.sparse.linalg import expm as expm_sparse
 from scipy.sparse import csr_matrix
-
-from copy import deepcopy, copy
-from collections import Counter
 
 def crandn(size):
     """
