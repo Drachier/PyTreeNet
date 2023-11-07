@@ -114,14 +114,13 @@ def obtain_bond_dimensions(ttno: ptn.TTNO) -> np.ndarray:
             dimensions.append(node.parent_leg_dim())
     return np.asarray(dimensions)
 
-def main(filepath: str):
+def main(filepath: str, ref_tree: ptn.TreeTensorNetworkState):
     # Prepare variables
     X, Y, Z = ptn.pauli_matrices()
     conversion_dict = {"X": X, "Y": Y, "Z": Z, "I2": np.eye(2, dtype="complex")}
     leg_dict = {"site1": 0, "site2": 1, "site3": 2, "site4": 3, "site5": 4,
                 "site6": 5, "site7": 6, "site8": 7}
     num_bonds = 7
-    ref_tree = build_reference_tree()
     seed = 49892894
     rng = default_rng(seed=seed)
     max_num_terms = 30
@@ -161,4 +160,5 @@ if __name__ == "__main__":
     parser.add_argument("filepath", type=str, nargs=1)
     filepath = vars(parser.parse_args())["filepath"][0]
     print("Data will be saved in " + filepath)
-    main(filepath)
+    ref_tree = build_reference_tree()
+    main(filepath, ref_tree)
