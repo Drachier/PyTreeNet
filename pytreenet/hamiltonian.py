@@ -14,7 +14,7 @@ class PadMode(Enum):
     safe = auto()
 
 
-class Hamiltonian(object):
+class Hamiltonian():
     """
     Represents the Hamiltonian on a TTN.
     The entries of the main list should represent the terms of the Hamiltonian
@@ -23,8 +23,8 @@ class Hamiltonian(object):
     that node/site.
     """
 
-    def __init__(self, terms: list[TensorProduct] = None,
-                 conversion_dictionary: Dict[str, ndarray] = None):
+    def __init__(self, terms: Union[List[TensorProduct],TensorProduct,None] = None,
+                 conversion_dictionary: Union[Dict[str, ndarray],None] = None):
         """
         Initialises a Hamiltonian from a number of terms represented by a TensorProduct each:
             H = sum( terms )
@@ -37,6 +37,8 @@ class Hamiltonian(object):
         """
         if terms is None:
             self.terms = []
+        elif isinstance(terms, TensorProduct):
+            self.terms = [terms]
         else:
             self.terms = terms
 
