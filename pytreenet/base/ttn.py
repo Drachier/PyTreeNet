@@ -14,7 +14,7 @@ from .tree_contraction import (completely_contract_tree,
                                scalar_product,
                                density
                                )
-from ..utils.tensor_util import tensor_qr_decomposition
+from ..utils.tensor_util import (tensor_qr_decomposition, set_leg_dimension)
 from ..utils.cn import ContractionNetwork
 
 class TreeTensorNetwork(object):
@@ -292,7 +292,16 @@ class TreeTensorNetwork(object):
             leg_to_child_tensor = {new_identifier: parent.children_legs[child_id]}
             del parent.children_legs[child_id]
             parent.children_legs.update(leg_to_child_tensor)
-            
+
+    def set_bond_dimension(self, node_id1, node_id2, value):
+        if node_id2 not in self[node_id1].neighboring_nodes():
+            raise ValueError("Node1 and Node2 are not connected!")
+        if type(value) != int:
+            raise ValueError("Bond dimension must be integer!")
+
+        leg1 = self[node_id1].neighboring_nodes()[node_id2]
+        leg2 = self[node_id2].neighboring_nodes()[node_id1]
+        set_leg_dimension(self[node_id1], leg1, self[node_id2], leg2, value)    
             
     # Functions below this are just wrappers of external functions that are
     # linked tightly to the TTN and its structure. This allows these functions
@@ -368,11 +377,11 @@ class TreeTensorNetwork(object):
         """
         return contract_two_ttn(self, other)
     
-    def contract_two_ttn____(self, other, exclude=()):
+    def contract_two_ttn____(self, other, exclude=(), truncate=True):
         """
         # TODO docstrings
         """
-        return contract_two_ttn____(self, other, exclude)
+        return contract_two_ttn____(self, other, exclude, re_truncate_to_ttn1=truncate)
         
     def single_site_operator_expectation_value(self, node_id, operator):
         """

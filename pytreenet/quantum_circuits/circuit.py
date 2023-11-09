@@ -55,7 +55,7 @@ class Circuit:
             tensor = self._state[self._qubit_ids[0]].tensor
             for i, id in enumerate(self._qubit_ids):
                 if i>0:
-                    tensor = np.tensordot(tensor, self._state[id].tensor, axes=(i-1, 0))
+                    tensor = np.tensordot(tensor, self._state[id].tensor, axes=(-2, 0))
             result = tensor.flatten()
             self.results_cache.append(result)
             
@@ -63,7 +63,7 @@ class Circuit:
             for i in range(2**self.size):
                 if np.abs(result[i]) > 1e-3:
                     string = bin(i)[2:]
-                    string = "|" + "0" * (self.size - len(string)) + string + f">=|{i}>"
+                    string = "|" + "0" * (self.size - len(string)) + string + f">=|{i}>"  # todo: could use zfill
                     result_dict[string] = np.round(result[i], 3)
             return result_dict
         else:
@@ -164,7 +164,8 @@ class Circuit:
         self.cu_multi((swap_id_2,), swap_id_1, "X", operation_time/10)
     
     def run(self, hamiltonian, operation_time):
-        tdvp_sim = TDVP("SecondOrder,OneSite", self._state, hamiltonian, time_step_size=1/self.time_steps, final_time=self._time_elapsed+operation_time, 
+        print(self._time_elapsed, self._time_elapsed+operation_time)
+        tdvp_sim = TDVP("SecondOrder,OneSite", self._state, hamiltonian, time_step_size=operation_time/self.time_steps, final_time=self._time_elapsed+operation_time, 
                         initial_time=self._time_elapsed, operators=self.operators, save_every=1)
         tdvp_sim.run(pgbar=self.progress_bar)
         self._time_elapsed += operation_time

@@ -382,7 +382,7 @@ class FirstOrderOneSiteTDVP(TDVPAlgorithm):
             return
         self._update_link(node_id, next_node_id)
 
-    def run_one_time_step(self):
+    def run_one_time_step(self, isfirst=False):
         self._orthogonalize_init()
         self._init_site_cache()
 

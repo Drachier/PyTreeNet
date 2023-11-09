@@ -192,7 +192,7 @@ def contract_two_ttn(ttn1, ttn2):
     
     return result_tensor
 
-def contract_two_ttn____(ttn1, ttn2, exclude=()):
+def contract_two_ttn____(ttn1, ttn2, exclude=(), re_truncate_to_ttn1=True):
     """
     # TODO docstrings
     """
@@ -201,44 +201,59 @@ def contract_two_ttn____(ttn1, ttn2, exclude=()):
     else:
         node_dict = ttn1.nodes
 
+    if re_truncate_to_ttn1:
+        all_node_names = list(ttn1.nodes.keys())
+        all_neighbor_pairs = [(name, neighbor) for name in all_node_names for neighbor in ttn1.nodes[name].neighboring_nodes().keys()]
+        all_neighbor_pairs_no_duplicates = []
+        for pair in all_neighbor_pairs:
+            if pair[::-1] not in all_neighbor_pairs_no_duplicates:
+                all_neighbor_pairs_no_duplicates.append(pair)
+        # TODO wirte loop for this
+        pairs_with_bon_dim = [(pair[0], pair[1], ttn1[pair[0]].shape[ttn1[pair[0]].neighboring_nodes()[pair[1]]]) for pair in all_neighbor_pairs_no_duplicates]
+
     for node_id in node_dict:
-        if node_id in exclude:
-            tensor1 = ttn1[node_id].tensor.reshape(list(ttn1[node_id].tensor.shape)+[1])
-            tensor2 = ttn2[node_id].tensor.reshape(list(ttn2[node_id].tensor.shape)+[1])
-            new_tensor = np.tensordot(tensor1, tensor2, axes=(tensor1.ndim-1, tensor2.ndim-1))
-            tensor1_num_legs = tensor1.ndim -1
-        else:
-            new_tensor = np.tensordot(ttn1[node_id].tensor, ttn2[node_id].tensor,
-                                    axes=(ttn1[node_id].open_legs[-1], ttn2[node_id].open_legs[-1]))
-            tensor1_num_legs = ttn1[node_id].nlegs - 1
-            
-        # Leg order is: ttn1 parent,  ttn1 children, ttn1 opens, ttn2 parent, ttn2 children, ttn2 opens
-        new_shape = new_tensor.shape
+        _contract_nodes(node_id, ttn1, ttn2, exclude)
 
-        num_closed_legs = ttn1[node_id].nclosed_legs
-        leg_perm = []
-        for i in range(num_closed_legs):
-            leg_perm.append(i)
-            leg_perm.append(i+tensor1_num_legs)
-
-        for i in range(len(new_shape)):
-            if i not in leg_perm:
-                leg_perm.append(i)
-        
-        new_tensor = new_tensor.transpose(leg_perm)
-        new_shape = new_tensor.shape
-        newer_shape = [new_shape[2*i] * new_shape[2*i+1] for i in range(num_closed_legs)] 
-        crit_len = len(newer_shape)
-        for i in range(len(new_shape)):
-            if i >= 2*crit_len:
-                newer_shape.append(new_shape[i])
-        newer_tensor = new_tensor.reshape(newer_shape)
-
-        ttn1[node_id].tensor_mutated_open_legs(newer_tensor)
+    if re_truncate_to_ttn1:
+        for (node1, node2, val) in pairs_with_bon_dim:
+            ttn1.set_bond_dimension(node1, node2, val)
 
     return ttn1
 
+def _contract_nodes(node_id, ttn1, ttn2, exclude=()):
+    if node_id in exclude:
+        tensor1 = ttn1[node_id].tensor.reshape(list(ttn1[node_id].tensor.shape)+[1])
+        tensor2 = ttn2[node_id].tensor.reshape(list(ttn2[node_id].tensor.shape)+[1])
+        new_tensor = np.tensordot(tensor1, tensor2, axes=(tensor1.ndim-1, tensor2.ndim-1))
+        tensor1_num_legs = tensor1.ndim -1
+    else:
+        new_tensor = np.tensordot(ttn1[node_id].tensor, ttn2[node_id].tensor,
+                                axes=(ttn1[node_id].open_legs[-1], ttn2[node_id].open_legs[-1]))
+        tensor1_num_legs = ttn1[node_id].nlegs - 1
+        
+    # Leg order is: ttn1 parent,  ttn1 children, ttn1 opens, ttn2 parent, ttn2 children, ttn2 opens
+    new_shape = new_tensor.shape
 
+    num_closed_legs = ttn1[node_id].nclosed_legs
+    leg_perm = []
+    for i in range(num_closed_legs):
+        leg_perm.append(i)
+        leg_perm.append(i+tensor1_num_legs)
+
+    for i in range(len(new_shape)):
+        if i not in leg_perm:
+            leg_perm.append(i)
+    
+    new_tensor = new_tensor.transpose(leg_perm)
+    new_shape = new_tensor.shape
+    newer_shape = [new_shape[2*i] * new_shape[2*i+1] for i in range(num_closed_legs)] 
+    crit_len = len(newer_shape)
+    for i in range(len(new_shape)):
+        if i >= 2*crit_len:
+            newer_shape.append(new_shape[i])
+    newer_tensor = new_tensor.reshape(newer_shape)
+
+    ttn1[node_id].tensor_mutated_open_legs(newer_tensor)
     
 def single_site_operator_expectation_value(ttn, node_id, operator):
     """
@@ -354,7 +369,7 @@ def density(ttn, exclude=()):
     ttn_copy = copy_object(ttn)
     ttn_conj = ttn_copy.conjugate()
 
-    ttn_copy.contract_two_ttn____(ttn_conj, exclude)
+    ttn_copy.contract_two_ttn____(ttn_conj, exclude, truncate=False)
     ttn_copy.completely_contract_tree()
 
     key = list(ttn_copy.nodes.keys())[0]

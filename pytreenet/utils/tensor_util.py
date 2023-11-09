@@ -254,7 +254,7 @@ def truncated_tensor_svd(tensor, u_legs, v_legs,
     if len(s) > max_bond_dim:
         s = s[:max_bond_dim]
     elif len(s) == 0:
-        s = [max_singular_value]  # old: s = [s[0]], which makes no sense, so i figured this might work
+        s = [max_singular_value]
     
     new_bond_dim = len(s)
     u = u[:,:new_bond_dim]
@@ -268,6 +268,33 @@ def truncated_tensor_svd(tensor, u_legs, v_legs,
 
     return u, s, vh
     
+def set_leg_dimension(node1, index1, node2, index2, value):
+    tensor = np.tensordot(node1.tensor, node2.tensor, axes=(index1,index2))
+    all_legs = [i for i in range(tensor.ndim)]
+    node1_legs = [i for i in range(node1.tensor.ndim-1)]
+    node2_legs = [i for i in all_legs if i not in node1_legs]
+    u, s, vh = tensor_svd(tensor, node1_legs, node2_legs)
+    q = np.tensordot(u, np.diag(s), axes=(-1, 0))
+    r = vh
+
+    if value > q.shape[-1]:
+        q_new = np.zeros(q.shape[:-1]+(value,), dtype=q.dtype)
+        q_new[..., :q.shape[-1]] += q
+        q = q_new
+    q = q[..., :value]
+    axes = tuple(range(0, index1)) + (q.ndim-1,) + tuple(range(index1, q.ndim-1))
+    q = q.transpose(axes)
+    node1.tensor = q
+
+    if value > r.shape[0]:
+        r_new = np.zeros((value,)+r.shape[1:], dtype=r.dtype)
+        r_new[:r.shape[0], ...] += r
+        r = r_new
+    r = r[:value, ...]
+    axes = tuple(range(1, index2+1)) + (0,) + tuple(range(index2+1, r.ndim))
+    r = r.transpose(axes)
+    node2.tensor = r
+
 def compute_transfer_tensor(tensor, open_indices):
     """
 
