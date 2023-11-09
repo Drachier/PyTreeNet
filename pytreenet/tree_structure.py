@@ -27,7 +27,7 @@ class TreeStructure():
         self._root_id = None
 
     @property
-    def nodes(self) -> Dict[GraphNode]:
+    def nodes(self) -> Dict[str, GraphNode]:
         """
         A dict[str, Node] mapping the tensor tree node identifiers to the respective Node objects.
         """
