@@ -24,6 +24,26 @@ class PartialTreeCache():
         self.pointing_to_node = pointing_to_node
         self.tensor = tensor
 
+    def close_to(self, other: PartialTreeCache) -> bool:
+        """
+        Checks if the two PartialTreeCaches have the same node_ids and
+         close tensors
+
+        Args:
+            other (PartialTreeCache): A PartialTreeCache to compare to.
+
+        Returns:
+            bool: True if the tensors are close, and the identifiers are
+             equal.
+        """
+        if self.node.identifier != other.node.identifier:
+            return False
+        if self.pointing_to_node != other.pointing_to_node:
+            return False
+        if not np.allclose(self.tensor, other.tensor):
+            return False
+        return True
+
     @classmethod
     def for_leaf(cls, node_id: str,
                  state: TreeTensorNetworkState,
