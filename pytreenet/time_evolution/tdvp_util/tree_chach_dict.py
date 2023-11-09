@@ -1,6 +1,8 @@
 from __future__ import annotations
 from typing import Union, Dict, Tuple
 
+import numpy as np
+
 class PartialTreeChachDict(dict):
     """
     Basically a dictionary to save the chached partial trees during TDVP.
@@ -46,3 +48,18 @@ class PartialTreeChachDict(dict):
             PartialTreeChache: The corresponding partial tree tensor.
         """
         self.dictionary[node_id, next_node_id] = cached_tensor
+
+    def get_cached_tensor(self, node_id: str, next_node_id: str) -> np.ndarray:
+        """
+        Returns the cached partial tree tensor that ends at the node with
+         identifier node_id and has its open legs point to the node with
+         identifier next_node_id as array.
+
+        Args:
+            node_id (str): The identifier where the partial tree ends.
+            next_node_id (str): The identifier to which the open legs point.
+
+        Returns:
+            np.ndarray: The corresponding partial tree tensor.
+        """
+        return self.get_entry(node_id, next_node_id).tensor
