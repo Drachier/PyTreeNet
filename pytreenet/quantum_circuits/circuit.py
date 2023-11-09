@@ -164,7 +164,6 @@ class Circuit:
         self.cu_multi((swap_id_2,), swap_id_1, "X", operation_time/10)
     
     def run(self, hamiltonian, operation_time):
-        print(self._time_elapsed, self._time_elapsed+operation_time)
         tdvp_sim = TDVP("SecondOrder,OneSite", self._state, hamiltonian, time_step_size=operation_time/self.time_steps, final_time=self._time_elapsed+operation_time, 
                         initial_time=self._time_elapsed, operators=self.operators, save_every=1)
         tdvp_sim.run(pgbar=self.progress_bar)
