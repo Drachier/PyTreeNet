@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Union
 
 import numpy as np
 
@@ -44,6 +45,65 @@ class PartialTreeCache():
             return False
         return True
 
+    @classmethod
+    def for_all_nodes(cls, node_id: str, next_node_id: str,
+                      state: TreeTensorNetworkState,
+                      hamiltonian: TTNO,
+                      partial_tree_cache: Union[PartialTreeChachDict,None] = None) -> PartialTreeCache:
+        """
+        Generates the PartialTreeCache for a given node and direction for the
+         open legs to point to. This means it is automatically chosen, if the
+         cache is constructed for a leaf or with other tensors already cached.
+
+        Args:
+            node_id (str): The identifier of the node to which this cache
+             corresponds.
+            next_node_id (str): The identifier of the node to which the open
+             legs of the tensor point.
+            state (TreeTensorNetworkState): A state to be used for the
+             computation in TTNS form.
+            hamiltonian (TTNO): A Hamiltonian to be used for the computation
+             in TTNO form.
+            partial_tree_cache (Union[PartialTreeChachDict,None], optional): 
+             Potentially a dictionary of already computed tensors. Defaults to
+              None.
+
+        Raises:
+            ValueError: If the node is not a leaf and no partial tree cach
+             dict is given.
+
+        Returns:
+            PartialTreeCache: The contracted partial tree.
+                         _____
+                    ____|     |
+                        |  A* |
+                        |_____|
+                           |
+                           |
+                         __|__
+                    ____|     |
+                        |  H  |
+                        |_____|
+                           |
+                           |
+                         __|__
+                    ____|     |
+                        |  A  |
+                        |_____|
+        """
+        node = state.nodes[node_id]
+        if node.is_leaf():
+            return cls.for_leaf(node_id,
+                                         state,
+                                         hamiltonian)
+        if partial_tree_cache is None:
+            errstr = "For a general node the partial tree cache cannot be None!"
+            raise ValueError(errstr)
+        return cls.with_existing_cache(node_id,
+                                       next_node_id,
+                                       partial_tree_cache,
+                                       state,
+                                       hamiltonian)
     @classmethod
     def for_leaf(cls, node_id: str,
                  state: TreeTensorNetworkState,
