@@ -63,3 +63,24 @@ class PartialTreeChachDict(dict):
             np.ndarray: The corresponding partial tree tensor.
         """
         return self.get_entry(node_id, next_node_id).tensor
+    
+    def change_next_id_for_entry(self, node_id: str, old_next_id,
+                                 new_next_id: str):
+        """
+        For a given cached tensor the identifier to which the open legs of the
+         chached tensor point are changed, both in the key and in the actual
+         PartialTreeCache.
+
+        Args:
+            node_id (str): The node to which the entry tensor correpsonds.
+            old_next_id (str): The old identifier of the node to which the
+             open legs point.
+            new_next_id (str): The new identifier of the node to which the
+             open legs point.
+        """
+        chached_tensor = self.pop[(node_id, old_next_id)]
+        assert chached_tensor.pointing_to_node == old_next_id
+        chached_tensor.pointing_to_node = new_next_id
+        self.add_entry(node_id, new_next_id, chached_tensor)
+
+
