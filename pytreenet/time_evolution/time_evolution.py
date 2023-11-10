@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import List, Union
 
 from copy import deepcopy
+from math import modf
 
 import numpy as np
 from tqdm import tqdm
@@ -55,8 +56,14 @@ class TimeEvolution:
     def _compute_num_time_steps(self) -> int:
         """
         Compute the number of time steps from attributes.
+        If the decimal part of the time steps is close to 0, the calculated
+         number of time steps is directly returned. Otherwise, it is assumed
+         to be better to run one more time step.
         """
-        return int(np.ceil(self._final_time / self._time_step_size))
+        decimal, integer = modf(self._final_time / self._time_step_size)
+        if decimal < 0.1:
+            return int(integer)
+        return int(integer + 1)
 
     @property
     def initial_state(self) -> TreeTensorNetworkState:
