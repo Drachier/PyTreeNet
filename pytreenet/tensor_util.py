@@ -35,7 +35,9 @@ def transpose_tensor_by_leg_list(tensor, first_legs, last_legs):
     return transposed_tensor
 
 
-def tensor_matricization(tensor: np.ndarray, output_legs: Tuple[int, ...], input_legs: Tuple[int, ...],
+def tensor_matricization(tensor: np.ndarray,
+                         output_legs: Tuple[int, ...],
+                         input_legs: Tuple[int, ...],
                          correctly_ordered: bool = False):
     """
     Parameters
