@@ -291,7 +291,7 @@ class PartialTreeCache():
         num_neighbours = self.node.nneighbours()
         legs_tensor = [1]
         legs_tensor.extend(range(2,2*num_neighbours,2))
-        legs_ham_tensor = [num_neighbours]
+        legs_ham_tensor = [self._node_operator_input_leg()]
         legs_ham_tensor.extend(range(next_node_index))
         legs_ham_tensor.extend(range(next_node_index+1, num_neighbours))
         self.tensor = np.tensordot(self.tensor, ham_tensor,
@@ -334,3 +334,24 @@ class PartialTreeCache():
         legs_bra_tensor.extend(range(next_node_index+1,num_neighbours+1))
         self.tensor = np.tensordot(self.tensor, bra_tensor,
                                    axes=(legs_tensor, legs_bra_tensor))
+
+    def _node_operator_input_leg(self) -> int:
+        """
+        Finds the leg of a node of the hamiltonian corresponding to the input.
+
+        Returns:
+            int: The index of the leg corresponding to input.
+        """
+        # Corr ket leg
+        return self.node.nneighbours() + 1
+
+    def _node_operator_output_leg(self) -> int:
+        """
+        Finds the leg of a node of the hamiltonian corresponding to the
+         output.
+        
+        Returns:
+            int: The index of the leg corresponding to output.
+        """
+        # Corr bra leg
+        return self.node.nneighbours()

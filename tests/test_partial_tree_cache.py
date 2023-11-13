@@ -101,7 +101,7 @@ class TestInit(unittest.TestCase):
                                   axes=(1,0))
         ref_tensor = np.tensordot(ref_tensor,
                                   ham_tensor,
-                                  axes=([1,2],[2,1]))
+                                  axes=([1,2],[3,1]))
 
         cache = ptn.PartialTreeCache(self.state.nodes[node_id],
                                      "c1", self.state.tensors[node_id])
@@ -126,7 +126,7 @@ class TestInit(unittest.TestCase):
                                   axes=(1,0))
         ref_tensor = np.tensordot(ref_tensor,
                                   ham_tensor,
-                                  axes=([1,2],[2,1]))
+                                  axes=([1,2],[3,1]))
         ref_tensor = np.tensordot(ref_tensor,
                                   ket_tensor.conj(),
                                   axes=([1,3],[1,2]))
@@ -154,7 +154,7 @@ class TestInit(unittest.TestCase):
                                   axes=(0,0))
         ref_tensor = np.tensordot(ref_tensor,
                                   ham_tensor,
-                                  axes=([1,2],[2,0]))
+                                  axes=([1,2],[3,0]))
         ref_tensor = np.tensordot(ref_tensor,
                                   ket_tensor.conj(),
                                   axes=([1,3],[0,2]))
