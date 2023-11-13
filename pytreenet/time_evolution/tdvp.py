@@ -348,6 +348,21 @@ class TDVPAlgorithm(TimeEvolution):
 
         Returns:
             np.ndarray: The effective link Hamiltonian
+                 _____       out         _____
+                |     |____1      0_____|     |
+                |     |                 |     |
+                |     |                 |     |
+                |     |                 |     |
+                |     |                 |     |
+                |     |_________________|     |
+                |     |                 |     |
+                |     |                 |     |
+                |     |                 |     |
+                |     |                 |     |
+                |     |                 |     |
+                |     |_____       _____|     |
+                |_____|  2         3    |_____|
+                              in
         """
         link_id = self.create_link_id(node_id, next_node_id)
         target_node = self.state.nodes[link_id]
@@ -422,6 +437,8 @@ class TDVPAlgorithm(TimeEvolution):
                                       forward=False)
         self.state.contract_nodes(link_id, next_node_id,
                                   new_identifier=next_node_id)
+        
+    
 
     @staticmethod
     def create_link_id(node_id: str, next_node_id: str) -> str:
