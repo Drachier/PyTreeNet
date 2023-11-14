@@ -1,4 +1,6 @@
 import unittest
+from copy import deepcopy
+
 import numpy as np
 
 import pytreenet as ptn
@@ -6,9 +8,7 @@ import pytreenet as ptn
 class TestTTNOBasics(unittest.TestCase):
 
     def _find_permutation_rec(self, ttno, leg_dict, node_id, perm):
-
         node, _ = ttno[node_id]
-
         input_index = leg_dict[node_id]
         output_index = input_index + len(ttno.nodes)
         perm.extend([input_index, output_index])
@@ -18,11 +18,9 @@ class TestTTNOBasics(unittest.TestCase):
 
     def _find_permutation(self, ttno, leg_dict, node_id, perm):
         distance_to_root = ttno.distance_to_node(ttno.root_id)
-
         input_index = leg_dict[node_id]
         output_index = input_index + len(ttno.nodes)
         perm.extend([input_index, output_index])
-
         for distance in range(1, max(distance_to_root.values())+1):
             node_id_with_distance = [node_id for node_id in distance_to_root
                                      if distance_to_root[node_id] == distance]
@@ -136,9 +134,35 @@ class TestTTNOBasics(unittest.TestCase):
         # The shape is not retained throughout the entire procedure
         permutation = []
         self._find_permutation_rec(ttno, leg_dict, ttno.root_id, permutation)
-
         correct_tensor = start_tensor.transpose(permutation)
+        self.assertTrue(np.allclose(correct_tensor, contracted_tensor))
 
+    def test_from_tensor_root_is_leaf(self):
+        reference_tree = ptn.TreeTensorNetworkState()
+        shapes = [(1,1,1,2),(1,1,1,2),(1,2),(1,2),(1,2),(1,1,2),(1,2)]
+        nodes = [ptn.random_tensor_node(shape, "node" +str(i))
+                 for i, shape in enumerate(shapes)]
+        # Build tree
+        reference_tree.add_root(nodes[4][0],nodes[4][1])
+        reference_tree.add_child_to_parent(nodes[0][0], nodes[0][1],0,"node4",0)
+        reference_tree.add_child_to_parent(nodes[1][0], nodes[1][1],0,"node0",1)
+        reference_tree.add_child_to_parent(nodes[2][0], nodes[2][1],0,"node1",1)
+        reference_tree.add_child_to_parent(nodes[3][0], nodes[3][1],0,"node1",2)
+        reference_tree.add_child_to_parent(nodes[5][0], nodes[5][1],0,"node0",2)
+        reference_tree.add_child_to_parent(nodes[6][0], nodes[6][1],0,"node5",1)
+
+        shape = 2*len(nodes)*[2]
+        start_tensor = ptn.crandn(shape)
+        leg_dict = {"node"+str(i): i for i in range(len(nodes))}
+        ttno = ptn.TTNO.from_tensor(reference_tree, deepcopy(start_tensor), leg_dict)
+
+        contracted_ttno = ttno.completely_contract_tree(to_copy=True)
+        contracted_tensor = contracted_ttno.root[1]
+         
+        # The shape is not retained throughout the entire procedure
+        permutation = []
+        self._find_permutation_rec(ttno, leg_dict, ttno.root_id, permutation)
+        correct_tensor = start_tensor.transpose(permutation)
         self.assertTrue(np.allclose(correct_tensor, contracted_tensor))
 
 class TestTTNOfromHamiltonian(unittest.TestCase):
