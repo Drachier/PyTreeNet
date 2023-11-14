@@ -1,14 +1,12 @@
 from __future__ import annotations
 from typing import Dict
 from enum import Enum
-from copy import deepcopy
 import numpy as np
 
 from ..ttn import TreeTensorNetwork
 from ..tensor_util import tensor_qr_decomposition, tensor_svd, truncated_tensor_svd
 from ..node import Node
 from .state_diagram import StateDiagram
-from ..util import copy_object
 
 class Decomposition(Enum):
     SVD = "SVD"
