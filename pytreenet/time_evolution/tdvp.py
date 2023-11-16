@@ -219,6 +219,24 @@ class TDVPAlgorithm(TimeEvolution):
                                                            self.partial_tree_cache)
             self.partial_tree_cache.add_entry(node_id, next_node_id,
                                               cached_tensor)
+            
+    def update_tree_cache(self, node_id: str, next_node_id: str):
+        """
+        Updates the tree cache tensor that ends in the node with
+         identifier `node_id` and has open legs pointing towards
+         the neighbour node with identifier `next_node_id`.
+
+        Args:
+            node_id (str): The identifier of the node to which this cache
+             corresponds.
+            next_node_id (str): The identifier of the node to which the open
+             legs of the tensor point.
+        """
+        new_cache = PartialTreeCache.for_all_nodes(node_id, next_node_id,
+                                                   self.state,
+                                                   self.hamiltonian,
+                                                   self.partial_tree_cache)
+        self.partial_tree_cache.add_entry(node_id, next_node_id, new_cache)
 
     def _contract_all_except_node(self,
                                   target_node_id: str) -> np.ndarray:
