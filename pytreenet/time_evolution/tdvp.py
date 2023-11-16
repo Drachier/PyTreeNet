@@ -456,8 +456,21 @@ class TDVPAlgorithm(TimeEvolution):
         self.state.contract_nodes(link_id, next_node_id,
                                   new_identifier=next_node_id)
         self.state.orthogonality_center_id = next_node_id
-    
 
+    def _move_orth_and_update_cache_for_path(self, path: List[str]):
+        """
+        Moves the orthogonalisation center and updates all required caches
+         along a given path.
+
+        Args:
+            path (List[str]): The path to move from. Should start with the
+             orth center and end at with the final node.
+        """
+        assert self.state.orthogonality_center_id == path[0]
+        for i, node_id in enumerate(path[1:-1]):
+            self.state.move_orthogonalization_center(node_id)
+            next_node_id = path[i+2] # +2, because path starts at 1.
+            self.update_tree_cache(node_id, next_node_id)
 
     @staticmethod
     def create_link_id(node_id: str, next_node_id: str) -> str:
