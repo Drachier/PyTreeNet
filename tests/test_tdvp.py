@@ -80,8 +80,8 @@ class TestContractionMethods(unittest.TestCase):
         self.hamiltonian = ptn.TTNO.from_hamiltonian(ham, self.ref_tree)
         self.tdvp = ptn.TDVPAlgorithm(self.ref_tree, self.hamiltonian,
                                       0.1, 1, operator)
-        
-        # Copmuting the other cached tensors for use
+
+        # Computing the other cached tensors for use
         c1_cache = ptn.PartialTreeCache.for_leaf("c1", self.tdvp.state,
                                                   self.tdvp.hamiltonian)
         self.tdvp.partial_tree_cache.add_entry("c1", "root", c1_cache)
@@ -336,6 +336,11 @@ class TestContractionMethods(unittest.TestCase):
         self.assertTrue(link_id in self.tdvp.state)
         self.assertTrue(np.allclose(ref_state.tensors[link_id],
                                     self.tdvp.state.tensors[link_id]))
+
+    def test_split_updated_site_exception(self):
+        self.assertRaises(ptn.NoConnectionException,
+                          self.tdvp._split_updated_site,
+                          "c1", "c2")
 
     def test_get_effective_link_hamiltonian_c1_to_root(self):
         root_id = "root"
