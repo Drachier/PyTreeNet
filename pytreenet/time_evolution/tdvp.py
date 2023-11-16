@@ -420,6 +420,7 @@ class TDVPAlgorithm(TimeEvolution):
             half_time_step (bool, optional): Use only half a time step.
              Defaults to False.
         """
+        assert self.state.orthogonality_center_id == node_id
         self._split_updated_site(node_id, next_node_id)
         link_id = self.create_link_id(node_id, next_node_id)
         link_tensor = self.state.tensors[link_id]
@@ -437,8 +438,9 @@ class TDVPAlgorithm(TimeEvolution):
                                       forward=False)
         self.state.contract_nodes(link_id, next_node_id,
                                   new_identifier=next_node_id)
-        
+        self.state.orthogonality_center_id = next_node_id
     
+
 
     @staticmethod
     def create_link_id(node_id: str, next_node_id: str) -> str:
