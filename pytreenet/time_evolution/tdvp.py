@@ -213,13 +213,8 @@ class TDVPAlgorithm(TimeEvolution):
         rev_update_path, next_node_id_dict = self._find_caching_path()
         for node_id in rev_update_path[:-1]:
             next_node_id = next_node_id_dict[node_id]
-            cached_tensor = PartialTreeCache.for_all_nodes(node_id, next_node_id,
-                                                           self.state,
-                                                           self.hamiltonian,
-                                                           self.partial_tree_cache)
-            self.partial_tree_cache.add_entry(node_id, next_node_id,
-                                              cached_tensor)
-            
+            self.update_tree_cache(node_id, next_node_id)
+
     def update_tree_cache(self, node_id: str, next_node_id: str):
         """
         Updates the tree cache tensor that ends in the node with

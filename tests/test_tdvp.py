@@ -300,7 +300,7 @@ class TestContractionMethods(unittest.TestCase):
         self.assertTrue(link_id in self.tdvp.state)
         self.assertTrue(np.allclose(ref_state.tensors[link_id],
                                     self.tdvp.state.tensors[link_id]))
- 
+
     def test_split_updated_site_root_to_c1(self):
         node_id = "c1"
         root_id = "root"
