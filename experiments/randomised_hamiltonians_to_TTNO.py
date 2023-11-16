@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 from argparse import ArgumentParser
 
 import h5py
@@ -37,34 +37,6 @@ def construct_tree_root_at_1() -> ptn.TreeTensorNetworkState:
     ttns.add_child_to_parent(node8, tensor8, 0, "site7", 1)
 
     return ttns
-
-def construct_tree_root_at_5():
-    """
-    Generates the desired tree tensor network with root at site 5 used as a
-     reference to construct the Hamiltonian.
-    """
-    ttns = ptn.TreeTensorNetworkState()
-
-    # Physical legs come last
-    node1, tensor1 = ptn.random_tensor_node((1, 1, 2), identifier="site1")
-    node2, tensor2 = ptn.random_tensor_node((1, 1, 1, 2), identifier="site2")
-    node3, tensor3 = ptn.random_tensor_node((1, 2), identifier="site3")
-    node4, tensor4 = ptn.random_tensor_node((1, 2), identifier="site4")
-    node5, tensor5 = ptn.random_tensor_node((1, 1, 1, 2), identifier="site5")
-    node6, tensor6 = ptn.random_tensor_node((1, 2), identifier="site6")
-    node7, tensor7 = ptn.random_tensor_node((1, 1, 2), identifier="site7")
-    node8, tensor8 = ptn.random_tensor_node((1, 2), identifier="site8")
-
-    ttns.add_root(node5, tensor5)
-    ttns.add_child_to_parent(node1, tensor1, 0, "site5", 0)
-    ttns.add_child_to_parent(node2, tensor2, 0, "site1", 1)
-    ttns.add_child_to_parent(node3, tensor3, 0, "site2", 1)
-    ttns.add_child_to_parent(node4, tensor4, 0, "site2", 2)
-    ttns.add_child_to_parent(node6, tensor6, 0, "site5", 1)
-    ttns.add_child_to_parent(node7, tensor7, 0, "site5", 2)
-    ttns.add_child_to_parent(node8, tensor8, 0, "site7", 1)
-    return ttns
-
 
 def save_metadata(file: Any, seed: int, max_num_terms: int, num_runs: int,
                   conversion_dict: Dict[str, np.ndarray],
@@ -125,6 +97,33 @@ def generate_random_hamiltonian(conversion_dict: Dict[str, np.ndarray],
                                   conversion_dictionary=conversion_dict)
     return hamiltonian.pad_with_identities(ref_tree)
 
+def create_bond_dim_data_sets(file: h5py.File,
+                              num_terms: int,
+                              num_bonds: int,
+                              num_runs: int) -> Tuple[h5py.Dataset,h5py.Dataset]:
+    """
+    Creates and returns the datasets in which the bond dimensions are saved.
+
+    Args:
+        file (Any): The file to save them in.
+        num_terms (int): The number of terms in the Hamiltonian.
+        num_bonds (int): The number of bonds in the TreeTensorNetwork.
+        num_runs (int): The number of runs performed.
+
+    Returns:
+        Tuple[h5py.Dataset,h5py.Dataset]: Two datasets to save bond
+         dimensions in.
+    """
+    grp = file.create_group(f"run_with_{num_terms}_terms")
+    grp.attrs["num_terms"] = num_terms
+    dset_svd = grp.create_dataset("svd_bond_dim",
+                                shape=(num_runs, num_bonds),
+                                dtype="i")
+    dset_ham = grp.create_dataset("state_diag_bond_dim",
+                                shape=(num_runs, num_bonds),
+                                dtype="i")
+    return dset_svd, dset_ham
+
 def obtain_bond_dimensions(ttno: ptn.TTNO) -> np.ndarray:
     """
     Obtains the bond dimensions of a TTN.
@@ -143,13 +142,12 @@ def obtain_bond_dimensions(ttno: ptn.TTNO) -> np.ndarray:
     return np.asarray(dimensions)
 
 def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
+         leg_dict: Dict[str,int],
          num_runs: int = 10000, min_num_terms: int=1,
          max_num_terms: int = 30):
     # Prepare variables
     X, Y, Z = ptn.pauli_matrices()
     conversion_dict = {"X": X, "Y": Y, "Z": Z, "I2": np.eye(2, dtype="complex")}
-    leg_dict = {"site1": 0, "site2": 1, "site3": 2, "site4": 3, "site5": 4,
-                "site6": 5, "site7": 6, "site8": 7}
     num_bonds = 7
     seed = 49892894
     rng = default_rng(seed=seed)
@@ -158,14 +156,10 @@ def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
         save_metadata(file, seed, max_num_terms, num_runs, conversion_dict,
                       leg_dict)
         for num_terms in tqdm(range(min_num_terms, max_num_terms + 1)):
-            grp = file.create_group(f"run_with_{num_terms}_terms")
-            grp.attrs["num_terms"] = num_terms
-            dset_svd = grp.create_dataset("svd_bond_dim",
-                                          shape=(num_runs, num_bonds),
-                                          dtype="i")
-            dset_ham = grp.create_dataset("state_diag_bond_dim",
-                                         shape=(num_runs, num_bonds),
-                                         dtype = "i")
+            dset_svd, dset_ham = create_bond_dim_data_sets(file,
+                                                           num_terms,
+                                                           num_bonds,
+                                                           num_runs)
             run = 0
             while run < num_runs:
                 hamiltonian = generate_random_hamiltonian(conversion_dict,
@@ -192,8 +186,6 @@ if __name__ == "__main__":
     # For root at 1
     filepath1 = filepath + "_root_at_1.hdf5"
     print("Data will be saved in " + filepath)
-    main(filepath1, construct_tree_root_at_1())
-    # For root at 5
-    filepath5 = filepath + "_root_at_5.hdf5"
-    print("Data will be saved in " + filepath5)
-    main(filepath5, construct_tree_root_at_5(), min_num_terms=30)
+    leg_dict = {"site1": 0, "site2": 1, "site3": 2, "site4": 3, "site5": 4,
+                "site6": 5, "site7": 6, "site8": 7}
+    main(filepath1, construct_tree_root_at_1(), leg_dict)
