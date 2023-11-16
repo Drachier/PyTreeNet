@@ -8,7 +8,7 @@ import numpy as np
 
 from ..util import crandn
 
-def pauli_matrices(asarray: bool=True) -> Union[List, np.ndarray]:
+def pauli_matrices(asarray: bool=True) -> Union[Tuple[List,List,List],Tuple[np.ndarray,np.ndarray,np.ndarray]]:
     """
     Returns the three Pauli matrices X, Y, and Z in Z-basis as ndarray, if asarray is True
     otherwise it returns them as lists.
@@ -24,9 +24,9 @@ def pauli_matrices(asarray: bool=True) -> Union[List, np.ndarray]:
         Y = np.asarray(Y, dtype="complex")
         Z = np.asarray(Z, dtype="complex")
 
-    return X, Y, Z
+    return (X, Y, Z)
 
-def bosonic_operators(dimension: int = 2) -> Tuple[np.ndarray]:
+def bosonic_operators(dimension: int = 2) -> Tuple[np.ndarray,np.ndarray,np.ndarray]:
     """
     Supplies the common bosonic operators.
 
@@ -35,7 +35,7 @@ def bosonic_operators(dimension: int = 2) -> Tuple[np.ndarray]:
         This determines the size of all the operators. Defaults to 2.
 
     Returns:
-        Tuple[np.ndarray]:
+        Tuple[np.ndarray,np.ndarray,np.ndarray]:
             * creation_op: Bosonic creation operator.
             * annihilation_op: Bosonic anihilation operator.
             * number_op: The bosonic number operator, i.e. a diagonal matrix with increasing
