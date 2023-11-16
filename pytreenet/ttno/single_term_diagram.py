@@ -21,6 +21,11 @@ class SingleTermDiagram():
 
         self.reference_tree = reference_tree
 
+    def __str__(self) -> str:
+        string = "Hyperedges: " + str({he.corr_node_id: he.label for he in self.hyperedges.values()}) + "\n"
+        string += "Vertices: " + str([vert_id for vert_id in self.vertices])
+        return string
+
     def get_all_vertices(self):
         """
         Returns all vertices from all collections in a list.
