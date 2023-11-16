@@ -18,6 +18,7 @@ from ..tensor_util import tensor_matricization
 from ..ttns import TreeTensorNetworkState
 from ..ttno.ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
+from ..ttn_exceptions import NoConnectionException
 from .tdvp_util.partial_tree_cache import PartialTreeCache
 from .tdvp_util.tree_chach_dict import PartialTreeChachDict
 
@@ -340,6 +341,9 @@ class TDVPAlgorithm(TimeEvolution):
                                       deepcopy(node.children),
                                       node.open_legs)
             r_legs = LegSpecification(node.parent, [], [])
+        else:
+            errstr = f"Nodes {node_id} and {next_node_id} are not connected!"
+            raise NoConnectionException(errstr)
         link_id = self.create_link_id(node_id, next_node_id)
         self.state.split_node_qr(node_id, q_legs, r_legs,
                                  q_identifier=node.identifier,
