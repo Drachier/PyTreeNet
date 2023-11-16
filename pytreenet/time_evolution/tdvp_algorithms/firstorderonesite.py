@@ -13,9 +13,8 @@ class FirstOrderOneSiteTDVP(TDVPAlgorithm):
                 next_node_id: Union[str, None]):
         assert self.state.orthogonality_center_id == node_id
         self._update_site(node_id)
-        if next_node_id is None:
-            return
-        self._update_link(node_id, next_node_id)
+        if next_node_id is not None:
+            self._update_link(node_id, next_node_id)
 
     def run_one_time_step(self):
         for i, node_id in enumerate(self.update_path):
