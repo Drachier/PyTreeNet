@@ -122,3 +122,31 @@ def random_big_ttns(option: str) -> TreeTensorNetworkState:
         random_ttns.add_child_to_parent(node7, tensor7, 0, "site6", 1)
         random_ttns.add_child_to_parent(node8, tensor8, 0, "site6", 2)
     return random_ttns
+
+def random_big_ttns_two_root_children() -> TreeTensorNetworkState:
+    """
+    Provides a ttns of the form
+                0
+               / \\
+              /   \\
+             1     6
+            / \\    \\
+           /   \\    \\
+          2     3     7
+               / \\
+              /   \\
+             4     5
+    """
+    shapes = [(2,2,2),(2,2,2,2),(2,2),(2,2,2,2),(2,2),(2,2),(2,2,2),(2,2)]
+    nodes = [random_tensor_node(shape, identifier="site"+str(i))
+             for i, shape in enumerate(shapes)]
+    random_ttns = TreeTensorNetworkState()
+    random_ttns.add_root(nodes[0][0], nodes[0][1])
+    random_ttns.add_child_to_parent(nodes[1][0],nodes[1][1],0,"site0",0)
+    random_ttns.add_child_to_parent(nodes[2][0],nodes[2][1],0,"site1",1)
+    random_ttns.add_child_to_parent(nodes[3][0],nodes[3][1],0,"site1",2)
+    random_ttns.add_child_to_parent(nodes[4][0],nodes[4][1],0,"site3",1)
+    random_ttns.add_child_to_parent(nodes[5][0],nodes[5][1],0,"site3",2)
+    random_ttns.add_child_to_parent(nodes[6][0],nodes[6][1],0,"site0",1)
+    random_ttns.add_child_to_parent(nodes[7][0],nodes[7][1],0,"site6",1)
+    return random_ttns
