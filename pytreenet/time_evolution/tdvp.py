@@ -21,6 +21,7 @@ from ..operators.tensorproduct import TensorProduct
 from ..ttn_exceptions import NoConnectionException
 from .tdvp_util.partial_tree_cache import PartialTreeCache
 from .tdvp_util.tree_chach_dict import PartialTreeChachDict
+from .tdvp_util.update_path import TDVPUpdatePathFinder
 
 class TDVPAlgorithm(TimeEvolution):
     """
@@ -48,7 +49,7 @@ class TDVPAlgorithm(TimeEvolution):
         assert len(initial_state.nodes) == len(hamiltonian.nodes)
         self.hamiltonian = hamiltonian
         super().__init__(initial_state, time_step_size, final_time, operators)
-        self.update_path = self._find_tdvp_update_path()
+        self.update_path = TDVPUpdatePathFinder(self.initial_state).find_path()
         self.orthogonalization_path = self._find_tdvp_orthogonalization_path(self.update_path)
         self._orthogonalize_init()
 
@@ -59,71 +60,6 @@ class TDVPAlgorithm(TimeEvolution):
                                        for node_id in self.state.nodes}
         self.neighbouring_nodes = {node_id: deepcopy(self.state.nodes[node_id].neighbouring_nodes())
                                     for node_id in self.state.nodes}
-
-    def _find_tdvp_update_path(self) -> List[str]:
-        """
-        Returns a list of all nodes - ordered so that a TDVP update along
-        this path requires a minimal amount of orthogonalizations.
-        """
-        # Start with leaf furthest from root.
-        assert self.state.root_id is not None
-        distances_from_root = self.state.distance_to_node(self.state.root_id)
-        start = max(distances_from_root, key=distances_from_root.get)
-        if len(self.state.nodes.keys()) < 2:
-            update_path = [start]
-        else:
-            # Move from start to root.
-            # Start might not be exactly start, but another leaf with same distance.
-            sub_path = self._find_tdvp_path_from_leaves_to_root(start)
-            update_path = [] + sub_path
-            branch_roots = [x for x in self.state.root[0].children
-                            if x not in update_path]
-            sub_paths = []
-            for branch_root in branch_roots:
-                sp = self._find_tdvp_path_from_leaves_to_root(branch_root)
-                sp.reverse()
-                sub_paths.append(sp)
-            sub_paths.sort(key=lambda x: -len(x))
-            if len(sub_paths) == 0:
-                update_path += [self.state.root_id]
-            for i, sub_path in enumerate(sub_paths):
-                if i == len(sub_paths) - 1:
-                    update_path += [self.state.root_id]
-                update_path += sub_path
-        return update_path
-
-    def _find_tdvp_path_from_leaves_to_root(self,
-                                            any_child: str) -> List[str]:
-        """
-        Finds the path from a leaf to the root.
-        """
-        path_from_child_to_root = self.state.find_path_to_root(any_child)
-        branch_origin = path_from_child_to_root[-2]
-        path = self._find_tdvp_path_for_branch(branch_origin, [])
-        return path
-
-    def _find_tdvp_path_for_branch(self, branch_origin: str,
-                                   path: Union[None, List[str]]=None) -> List[str]:
-        """
-        Finds a path for a branch, i.e. a subtree starting from a node in a
-         path
-
-        Args:
-            branch_origin (str): The origin of the new branch
-            path (Union[None, List[str]], optional): The path already found.
-             Defaults to None.
-
-        Returns:
-            List[str]: A path of node identifiers.
-        """
-        if path is None:
-            path = []
-        node_id = branch_origin
-        children = self.state.nodes[node_id].children
-        for child in children:
-            path = self._find_tdvp_path_for_branch(child, path)
-        path.append(node_id)
-        return path
 
     def _orthogonalize_init(self, force_new: bool=False):
         """
@@ -142,7 +78,7 @@ class TDVPAlgorithm(TimeEvolution):
             self.state.move_orthogonalization_center(self.update_path[0])
 
     def _find_tdvp_orthogonalization_path(self,
-                                          update_path: List[str]) -> List[str]:
+                                          update_path: List[str]) -> List[List[str]]:
         """
         The path along which to orthogonalise during the tdvp algorithm.
 
