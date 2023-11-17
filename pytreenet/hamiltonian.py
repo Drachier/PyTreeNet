@@ -2,11 +2,13 @@ from __future__ import annotations
 from typing import Dict, Union, List
 from enum import Enum, auto
 from numpy.random import default_rng
-from numpy import asarray, ndarray
+from numpy import asarray, ndarray, eye
 
 from .ttn_exceptions import NotCompatibleException
 from .operators.operator import NumericOperator
 from .operators.tensorproduct import TensorProduct
+from .operators.common_operators import random_hermitian_matrix
+from .ttns import random_big_ttns_two_root_children
 from .util import compare_lists_by_value
 
 class PadMode(Enum):
@@ -362,3 +364,25 @@ def random_symbolic_term(possible_operators: list[str], sites: list[str],
     rand_sites = rng.choice(sites, size=num_sites, replace=False)
     rand_operators = rng.choice(possible_operators, size=num_sites)
     return TensorProduct(dict(zip(rand_sites, rand_operators)))
+
+def random_hamiltonian_compatible() -> Hamiltonian:
+    """
+    Generates a Hamiltonian that is compatible with the TTNS produced by
+     `ptn.ttns.random_big_ttns_two_root_children`. It is already padded with
+     identities.
+
+    Returns:
+        Hamiltonian: A Hamiltonian to use for testing.
+    """
+    conversion_dict = {chr(i): random_hermitian_matrix()
+                       for i in range(65,70)} # A, B, C, D, E
+    conversion_dict["I2"] = eye(2)
+    terms = [TensorProduct({"site1": "A", "site2": "B", "site0": "C"}),
+             TensorProduct({"site4": "A", "site3": "D", "site5": "C"}),
+             TensorProduct({"site4": "A", "site3": "B", "site1": "A"}),
+             TensorProduct({"site0": "C", "site6": "E", "site7": "C"}),
+             TensorProduct({"site2": "A", "site1": "A", "site6": "D"}),
+             TensorProduct({"site1": "A", "site3": "B", "site5": "C"})]
+    ham = Hamiltonian(terms, conversion_dictionary=conversion_dict)
+    ref_tree = random_big_ttns_two_root_children()
+    return ham.pad_with_identities(ref_tree)
