@@ -186,6 +186,6 @@ if __name__ == "__main__":
     # For root at 1
     filepath1 = filepath + "_root_at_1.hdf5"
     print("Data will be saved in " + filepath)
-    leg_dict = {"site1": 0, "site2": 1, "site3": 2, "site4": 3, "site5": 4,
+    leg_dict1 = {"site1": 0, "site2": 1, "site3": 2, "site4": 3, "site5": 4,
                 "site6": 5, "site7": 6, "site8": 7}
-    main(filepath1, construct_tree_root_at_1(), leg_dict)
+    main(filepath1, construct_tree_root_at_1(), leg_dict1)
