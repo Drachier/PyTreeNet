@@ -56,8 +56,6 @@ class TDVPAlgorithm(TimeEvolution):
         # Caching for speed up
         self.partial_tree_cache = PartialTreeChachDict()
         self._init_partial_tree_cache()
-        self._cached_distances = {node_id: self.state.distance_to_node(node_id)
-                                       for node_id in self.state.nodes}
         self.neighbouring_nodes = {node_id: deepcopy(self.state.nodes[node_id].neighbouring_nodes())
                                     for node_id in self.state.nodes}
 
