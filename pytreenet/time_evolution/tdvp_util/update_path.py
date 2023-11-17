@@ -62,6 +62,104 @@ class TDVPUpdatePathFinder():
         path.append(node_id)
         return path
 
+    def find_furthest_non_visited_leaf(self, path: List[str]) -> str:
+        """
+        Finds the leaf that is furthest from the origin once and was not yet
+         visited.
+
+        Args:
+            path (List[sr]): A list of all node_ids already visited.
+        """
+        all_leaves = self.state.get_leaves()
+        non_visited_leaves = [leaf for leaf in all_leaves
+                              if leaf not in path]
+        distances_from_root = self.state.distance_to_node(self.state.root_id)
+        leaf_distances = {leaf_id: distance
+                          for leaf_id, distance in distances_from_root.items()
+                          if leaf_id in non_visited_leaves}
+        return max(leaf_distances, key=leaf_distances.get)
+
+    def find_main_path_down_from_root(self, path: List[str]) -> List[str]:
+        """
+        Finds the main path which to traverse from the root to the last
+         leaf.
+
+        Args:
+            path (List[str]): The path already traversed.
+
+        Returns:
+            List[str]: Main path from the root to the last leaf.
+             `[root, node, node, ... , leaf]`
+        """
+        final_node_id = self.find_furthest_non_visited_leaf(path)
+        main_path_down = self.state.find_path_to_root(final_node_id)
+        main_path_down.reverse()
+        return main_path_down
+
+    def _branch_downwards_origin_is_root(self, main_path_down: List[str]) -> List[str]:
+        """
+        Finds the path going through the branches starting at the origin.
+         This specifically excludes the branch already traversed and the
+         branch used to go back down the tree.
+
+        Args:
+            main_path_down (List[str]): The main path down the tree.
+
+        Returns:
+            List[str]: The path through the branch ending with the root.
+        """
+        children_ids = [child_id
+                        for child_id in self.state.nodes[self.state.root_id].children
+                        if child_id not in (self.main_path[-2],main_path_down[1])]
+        branch_path = []
+        for child_id in children_ids:
+            branch_path.extend(self._path_for_branch_rec(child_id))
+        branch_path.append(self.state.root_id)
+        return branch_path
+
+    def _branch_path_downwards(self, branch_origin: str,
+                               main_path_down: List[str]) -> List[str]:
+        """
+        Finds the path through a branch while going down from the origin.
+
+        Args:
+            branch_origin (str): current node identifier
+            main_path_down (List[str]): The main path down the tree.
+
+        Returns:
+            List[str]: The path through the branch ending with the
+             branch_origin.
+        """
+        children_ids = [child_id
+                        for child_id in self.state.nodes[branch_origin].children
+                        if child_id not in main_path_down]
+        branch_path = []
+        for child_id in children_ids:
+            branch_path.extend(self._path_for_branch_rec(child_id))
+        branch_path.append(branch_origin)
+        return branch_path
+
+    def path_down_from_root(self, path: List[str]) -> List[str]:
+        """
+        Finds the complete path from the root to the last leaf.
+
+        Args:
+            path (List[str]): The path that was already traversed.
+
+        Returns:
+            List[str]: The complete path from the root to the last leaf.
+             `[root, node, node, ... , leaf]`
+        """
+        main_path_down = self.find_main_path_down_from_root(path)
+        down_path = []
+        for branch_origin in main_path_down:
+            if branch_origin == self.state.root_id:
+                branch_path = self._branch_downwards_origin_is_root(main_path_down)
+            else:
+                branch_path = self._branch_path_downwards(branch_origin, main_path_down)
+            down_path.extend(branch_path)
+        return down_path
+
     def find_path(self) -> List[str]:
         """
         Finds the complete update path for a TDVP along a main path.
@@ -70,6 +168,8 @@ class TDVPUpdatePathFinder():
         """
         path = []
         for branch_origin in self.main_path:
-            path.append(self.path_for_branch(branch_origin))
+            if branch_origin != self.state.root_id:
+                path.extend(self.path_for_branch(branch_origin))
+            else:
+                path.extend(self.path_down_from_root(path))
         return path
-
