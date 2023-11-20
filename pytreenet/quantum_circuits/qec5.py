@@ -67,7 +67,7 @@ def repair(circuit):
 
     tto = _qubit_tto(circuit, (myR_1, myR_2, myR_3, myR_4, myR_5))
 
-    circuit.apply_tto(tto)
+    circuit.apply_tto(tto, truncate=True)
     circuit.state.normalize()
     return circuit
     

@@ -21,6 +21,8 @@ class Circuit:
 
         self.progress_bar = False
 
+        self.bond_dim_tol = 10e-3
+
         self.results_cache = []
         self._hamiltonian = None
         self._time_steps = 50
@@ -46,8 +48,8 @@ class Circuit:
     def state(self):
         return self._state
     
-    def apply_tto(self, tto):
-        self._state.apply_tto(tto)
+    def apply_tto(self, tto, truncate=True):
+        self._state.apply_tto(tto, truncate)
     
     @property
     def state_dict(self):
@@ -127,7 +129,7 @@ class Circuit:
 
         c_mat = (I.U - Z.U) / 2
         c_mat_flipped = (I.U + Z.U) / 2
-        u_mat = (I.U - gate.U) * np.pi / 2 / operation_time
+        u_mat = -gate.H
 
         replacements = []
         for id in self._qubit_ids:
@@ -164,15 +166,26 @@ class Circuit:
         self.cu_multi((swap_id_2,), swap_id_1, "X", operation_time/10)
     
     def run(self, hamiltonian, operation_time):
-        tdvp_sim = TDVP("SecondOrder,OneSite", self._state, hamiltonian, time_step_size=operation_time/self.time_steps, final_time=self._time_elapsed+operation_time, 
+        state = deepcopy(self.state)
+        tdvp_sim = TDVP("SecondOrder,OneSite", state, deepcopy(hamiltonian), time_step_size=operation_time/self.time_steps, final_time=self._time_elapsed+operation_time, 
                         initial_time=self._time_elapsed, operators=self.operators, save_every=1)
         tdvp_sim.run(pgbar=self.progress_bar)
-        self._time_elapsed += operation_time
 
-        if self.results is None:
-            self.results = tdvp_sim.results
+        vbd_analysis = tdvp_sim.state.analyze_all_bond_dimensions()
+        changed_state = False
+        for (n1, n2, vals) in vbd_analysis:
+            if vals[-1] > self.bond_dim_tol:
+                changed_state = True
+                self.state.set_bond_dimension(n1, n2, 1, mode="add")
+        if changed_state:
+            self.run(hamiltonian, operation_time)
         else:
-            self.results = np.hstack((self.results, tdvp_sim.results[:,1:]))
+            self._state = tdvp_sim.state
+            self._time_elapsed += operation_time
+            if self.results is None:
+                self.results = tdvp_sim.results
+            else:
+                self.results = np.hstack((self.results, tdvp_sim.results[:,1:]))
     
     def provide_hamiltonian(self, hamiltonian, gate_idx_dict, operation_type="add"):
         self._hamiltonian = hamiltonian
@@ -204,6 +217,10 @@ class Circuit:
         rho_ref = rho(ref_state, qubit)
         rho_circ = rho(self.state, qubit).reshape((2, 2))
 
+        # remove global phase
+        rho_ref = rho_ref/(rho_ref[0,0]/np.abs(rho_ref[0,0]))
+        rho_circ = rho_circ/(rho_circ[0,0]/np.abs(rho_circ[0,0]))
+
         if mode=="trace_ratio":
             return np.real(np.trace(rho_circ @ rho_ref) / np.trace(rho_ref @ rho_ref))
         elif mode=="purities":
@@ -218,7 +235,9 @@ def rho(state, qubit):
     return state.reduced_density_matrix((qubit,))
 
 
-def trivial_hamiltonian(state, bond_dimension=1, targets=[]):
+def trivial_hamiltonian(state, bond_dimension=1, targets=None):
+    if targets is None:
+        targets = []
     hamiltonian = QuantumTTOperator()
     root_id = state.root_id
 
@@ -232,7 +251,9 @@ def trivial_hamiltonian(state, bond_dimension=1, targets=[]):
     return hamiltonian
 
 
-def add_children(hamiltonian, state, current_node_id, bond_dimension, targets=[]):
+def add_children(hamiltonian, state, current_node_id, bond_dimension, targets=None):
+    if targets is None:
+        targets = []
     for node_id in state[current_node_id].children_legs.keys():
 
         tensor = np.zeros([bond_dimension] * (state[node_id].tensor.ndim - 1) + [state[node_id].tensor.shape[-1]] * 2, dtype=complex)

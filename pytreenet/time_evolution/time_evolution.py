@@ -29,7 +29,7 @@ class TimeEvolutionAlgorithm:
         self._time_step_size = time_step_size
         self.final_time = final_time
         self.initial_time = initial_time
-        self.num_time_steps = int(np.ceil((final_time-initial_time) / time_step_size))
+        self.num_time_steps = int(np.round((final_time-initial_time) / time_step_size))
         self.save_every = save_every
 
         if type(operators) == dict:

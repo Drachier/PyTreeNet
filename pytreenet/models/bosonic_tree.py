@@ -24,12 +24,12 @@ def bosonic_tree_operator(num_spins, num_bosons_per_spin, boson_dimension, J, g,
                     [O, O, O, O],
                     [O, X, O, I]])        
         # Boson without interaction
-        bo = np.array([[I, O, O, O],
+        bo = np.array([[O, O, O, O],
                     [O, O, O, O],
                     [O, O, O, O],
-                    [I, O, O, I]])
+                    [I, O, O, O]])
         # Spin-Boson interaction
-        sb = np.array([[I, O, O, O],
+        sb = np.array([[O, O, O, O],
                     [O, O, O, O],
                     [O, O, O, O],
                     [g*Z, O, O, O]])

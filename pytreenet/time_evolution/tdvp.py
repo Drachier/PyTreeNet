@@ -73,7 +73,7 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
         self.site_cache = dict()
         self._site_tensors_cached = dict()
 
-        self.partial_tree_caching = True
+        self.partial_tree_caching = False  # todo chane
         self.partial_tree_cache = dict()
         self._cached_distances = dict([(node_id, self.state.distance_to_node(node_id)) for node_id in self.state.nodes.keys()])
 
@@ -99,11 +99,9 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
             return None
         else:
             self._site_tensors_cached[node_id] = 1*self.state[node_id].tensor
-        ket = self.state
-        ham = self.hamiltonian
 
-        braham_tensor = np.tensordot(ket[node_id].tensor.conj(), ham[node_id].tensor, axes=(ket[node_id].physical_leg, ham[node_id].physical_leg_bra))
-        brahamket_tensor = np.tensordot(braham_tensor, ket[node_id].tensor, axes=(ket[node_id].tensor.ndim-2 + ham[node_id].physical_leg_ket, ket[node_id].physical_leg))
+        braham_tensor = np.tensordot(1*self.state[node_id].tensor.conj(), 1*self.hamiltonian[node_id].tensor, axes=(self.state[node_id].physical_leg, self.hamiltonian[node_id].physical_leg_bra))
+        brahamket_tensor = np.tensordot(braham_tensor, 1*self.state[node_id].tensor, axes=(self.state[node_id].tensor.ndim-2 + self.hamiltonian[node_id].physical_leg_ket, self.state[node_id].physical_leg))
 
         num_cached_tensor_legs = brahamket_tensor.ndim // 3
 
@@ -116,9 +114,8 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
         shape = []
         for leg_num in range(num_cached_tensor_legs):
             shape.append(np.prod([brahamket_tensor.shape[3 * leg_num + j] for j in [0,1,2]]))
-        tensor = brahamket_tensor.reshape(shape)
+        self.site_cache[node_id] = brahamket_tensor.reshape(shape)
 
-        self.site_cache[node_id] = tensor
         if self.partial_tree_caching == True and len(self.partial_tree_cache.keys()) > 0:
             affected_trees = []
             for tree_name in self.partial_tree_cache.keys():
@@ -362,7 +359,7 @@ class TDVPAlgorithm(TimeEvolutionAlgorithm):
         else:
             link_tensor = time_evolve(link_tensor, hamiltonian_eff_link, self.time_step_size, forward=False)
         self.state[next_node_id].absorb_tensor(link_tensor, 1, self.neighbouring_nodes[next_node_id][node_id])
-        self._update_site_cache(node_id)
+        self._update_site_cache(next_node_id)
 
 
 class FirstOrderOneSiteTDVP(TDVPAlgorithm):
@@ -442,7 +439,7 @@ class SecondOrderOneSiteTDVP(TDVPAlgorithm):
                 self.state.orthogonality_center_id = second_order_orthogonalization_path[i-1][0]
                 if len(second_order_orthogonalization_path[i-1])>1:
                     self.state.orthogonalize_sequence(second_order_orthogonalization_path[i-1][1:], node_change_callback=self._update_site_cache)
-
+            
             # Update
             if i < len(second_order_update_path)//2:
                 self._update_site(node_id, half_time_step=True)

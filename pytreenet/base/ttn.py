@@ -293,7 +293,7 @@ class TreeTensorNetwork(object):
             del parent.children_legs[child_id]
             parent.children_legs.update(leg_to_child_tensor)
 
-    def set_bond_dimension(self, node_id1, node_id2, value):
+    def set_bond_dimension(self, node_id1, node_id2, value, mode="set"):
         if node_id2 not in self[node_id1].neighboring_nodes():
             raise ValueError("Node1 and Node2 are not connected!")
         if type(value) != int:
@@ -301,7 +301,23 @@ class TreeTensorNetwork(object):
 
         leg1 = self[node_id1].neighboring_nodes()[node_id2]
         leg2 = self[node_id2].neighboring_nodes()[node_id1]
-        set_leg_dimension(self[node_id1], leg1, self[node_id2], leg2, value)    
+        set_leg_dimension(self[node_id1], leg1, self[node_id2], leg2, value=value, mode=mode)  
+
+    def analyze_bond_dimension(self, node_id1, node_id2):
+        if node_id2 not in self[node_id1].neighboring_nodes():
+            raise ValueError("Node1 and Node2 are not connected!")
+        
+        leg1 = self[node_id1].neighboring_nodes()[node_id2]
+        leg2 = self[node_id2].neighboring_nodes()[node_id1]
+        bond_dim = self[node_id1].shape[leg1]
+        return set_leg_dimension(self[node_id1], leg1, self[node_id2], leg2, mode="analyze")[:bond_dim]
+    
+    def analyze_all_bond_dimensions(self):
+        results = []
+        for node_id in self.nodes.keys():
+            for child_id in self[node_id].children_legs.keys():
+                results.append((node_id, child_id, self.analyze_bond_dimension(node_id, child_id)))
+        return results
             
     # Functions below this are just wrappers of external functions that are
     # linked tightly to the TTN and its structure. This allows these functions
@@ -640,8 +656,8 @@ class QuantumTTState(TreeTensorNetwork):
         else:
             raise ValueError
         
-    def apply_tto(self, tto):
-        contract_two_ttn____(self, tto)
+    def apply_tto(self, tto, truncate=True):
+        contract_two_ttn____(self, tto, re_truncate_to_ttn1=truncate)
             
 
 

@@ -268,12 +268,24 @@ def truncated_tensor_svd(tensor, u_legs, v_legs,
 
     return u, s, vh
     
-def set_leg_dimension(node1, index1, node2, index2, value):
+def set_leg_dimension(node1, index1, node2, index2, value=10, mode="set"):
+    bond_dim = node1.tensor.shape[index1]
+    if mode == "add":
+        value += bond_dim
+
     tensor = np.tensordot(node1.tensor, node2.tensor, axes=(index1,index2))
     all_legs = [i for i in range(tensor.ndim)]
     node1_legs = [i for i in range(node1.tensor.ndim-1)]
     node2_legs = [i for i in all_legs if i not in node1_legs]
     u, s, vh = tensor_svd(tensor, node1_legs, node2_legs)
+
+    if mode == "analyze":
+        if s.shape[0] < bond_dim:
+            s_ = np.zeros((bond_dim,))
+            s_[:s.shape[0]] += s
+            return s_
+        return s
+
     q = np.tensordot(u, np.diag(s), axes=(-1, 0))
     r = vh
 
