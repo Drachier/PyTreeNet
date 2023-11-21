@@ -209,11 +209,11 @@ class PartialTreeCache():
             neighbour_id (str): The identifier of the neighbour
             next_node_index (int): The index value of the neighbour to which
              the open legs should point.
-            partial_tree_cache (PartialTreeChachDict): All the cached partial trees.
+            partial_tree_cache (PartialTreeChachDict): All the cached partial
+             trees.
         """
-        cached_neigbour_tree = partial_tree_cache.get_entry(neighbour_id,
-                                                             self.node.identifier)
-        cached_neighbour_tensor = cached_neigbour_tree.tensor
+        cached_neighbour_tensor = partial_tree_cache.get_cached_tensor(neighbour_id,
+                                                                    self.node.identifier)
         neighbour_index = self.node.neighbour_index(neighbour_id)
         if neighbour_index > next_node_index:
             tensor_index_to_neighbour = 1
