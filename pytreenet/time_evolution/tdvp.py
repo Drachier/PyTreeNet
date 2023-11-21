@@ -49,7 +49,7 @@ class TDVPAlgorithm(TimeEvolution):
         assert len(initial_state.nodes) == len(hamiltonian.nodes)
         self.hamiltonian = hamiltonian
         super().__init__(initial_state, time_step_size, final_time, operators)
-        self.update_path = TDVPUpdatePathFinder(self.initial_state).find_path()
+        self.update_path = self._finds_update_path()
         self.orthogonalization_path = self._find_tdvp_orthogonalization_path(self.update_path)
         self._orthogonalize_init()
 
@@ -91,6 +91,17 @@ class TDVPAlgorithm(TimeEvolution):
             sub_path = self.state.path_from_to(update_path[i], update_path[i+1])
             orthogonalization_path.append(sub_path[1::])
         return orthogonalization_path
+    
+    def _finds_update_path(self) -> List[str]:
+        """
+        Finds the update path for this TDVP Algorithm.
+         Overwrite to create custom update paths.
+
+        Returns:
+            List[str]: The order in which the nodes in the TTN should be time
+             evolved.
+        """
+        return TDVPUpdatePathFinder(self.initial_state).find_path()
 
     def _find_caching_path(self) -> Tuple[List[str], Dict[str,str]]:
         """
