@@ -225,6 +225,26 @@ class TreeStructure():
             subtree.update(self.find_subtree_of_node(child_id))
         return subtree
 
+    def leaves_under_node(self, node_id: str) -> Dict[str, GraphNode]:
+        """
+        Recursively finds all leaves below a given node.
+
+        Args:
+            node_id (str): Node from which to start
+
+        Returns:
+            Dict[str, GraphNode]: Contains all leaves that are in this tree
+             below the given node.
+        """
+        self.ensure_existence(node_id)
+        node = self.nodes[node_id]
+        if node.is_leaf():
+            return {node_id: node}
+        leaves = {}
+        for child_id in node.children:
+            leaves.update(self.leaves_under_node(child_id))
+        return leaves        
+
     def find_subtree_size_of_node(self, node_id: str, size=0) -> int:
         """
         Obtains the subtree size from a given node
