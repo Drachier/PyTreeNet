@@ -15,9 +15,9 @@ class PartialTreeChachDict(dict):
     def __init__(self,
                  dictionary: Union[Dict[Tuple[str,str],PartialTreeChache],None] = None) -> None:
         if dictionary is None:
-            self.dictionary = {}
+            dictionary = {}
         else:
-            self.dictionary = dictionary
+            dictionary = dictionary
             super().__init__(dictionary)
 
     def get_entry(self, node_id: str, next_node_id: str) -> PartialTreeChache:
@@ -33,7 +33,7 @@ class PartialTreeChachDict(dict):
         Returns:
             PartialTreeChache: The corresponding partial tree tensor.
         """
-        return self.dictionary[node_id, next_node_id]
+        return self[node_id, next_node_id]
 
     def add_entry(self, node_id: str, next_node_id: str,
                   cached_tensor: PartialTreeChach):
@@ -47,7 +47,7 @@ class PartialTreeChachDict(dict):
             next_node_id (str): The identifier to which the open legs point.
             PartialTreeChache: The corresponding partial tree tensor.
         """
-        self.dictionary[node_id, next_node_id] = cached_tensor
+        self[node_id, next_node_id] = cached_tensor
 
     def get_cached_tensor(self, node_id: str, next_node_id: str) -> np.ndarray:
         """
@@ -63,7 +63,7 @@ class PartialTreeChachDict(dict):
             np.ndarray: The corresponding partial tree tensor.
         """
         return self.get_entry(node_id, next_node_id).tensor
-    
+
     def change_next_id_for_entry(self, node_id: str, old_next_id,
                                  new_next_id: str):
         """
