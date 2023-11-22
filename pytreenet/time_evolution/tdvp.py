@@ -56,8 +56,6 @@ class TDVPAlgorithm(TimeEvolution):
         # Caching for speed up
         self.partial_tree_cache = PartialTreeChachDict()
         self._init_partial_tree_cache()
-        self.neighbouring_nodes = {node_id: deepcopy(self.state.nodes[node_id].neighbouring_nodes())
-                                    for node_id in self.state.nodes}
 
     def _orthogonalize_init(self, force_new: bool=False):
         """
@@ -91,7 +89,7 @@ class TDVPAlgorithm(TimeEvolution):
             sub_path = self.state.path_from_to(update_path[i], update_path[i+1])
             orthogonalization_path.append(sub_path[1::])
         return orthogonalization_path
-    
+
     def _finds_update_path(self) -> List[str]:
         """
         Finds the update path for this TDVP Algorithm.
