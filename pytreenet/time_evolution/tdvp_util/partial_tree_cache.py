@@ -94,8 +94,8 @@ class PartialTreeCache():
         node = state.nodes[node_id]
         if node.is_leaf():
             return cls.for_leaf(node_id,
-                                         state,
-                                         hamiltonian)
+                                state,
+                                hamiltonian)
         if partial_tree_cache is None:
             errstr = "For a general node the partial tree cache cannot be None!"
             raise ValueError(errstr)
