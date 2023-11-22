@@ -126,9 +126,14 @@ def main(filename1: str, filename2: str,
                         dset_ham_2[run, :] = obtain_bond_dimensions(ttno_ham2)
                         bond_dim_svd = obtain_bond_dimensions(ttno_svd1)
                         dset_svd_1[run, :] = deepcopy(bond_dim_svd)
-                        dset_svd_2[run, :] = deepcopy(bond_dim_svd)
-                        if np.all(dset_ham_1[run, :] > dset_svd_1[run, :]) or np.all(dset_ham_2[run, :] > dset_svd_2[run, :]):
-                            print(hamiltonian)
+                        # For root 6 the nodes are ordered differently in the TTNO
+                        new_order = [4,0,1,2,3,5,6]
+                        reordered_bond_dim = [bond_dim_svd[i] for i in new_order]
+                        dset_svd_2[run, :] = np.asarray(reordered_bond_dim)
+                        if np.any(dset_ham_1[run, :] < dset_svd_1[run, :]):
+                            print("For root 5:", hamiltonian)
+                        if np.any(dset_ham_2[run, :] < dset_svd_2[run, :]):
+                            print("For root 6:", hamiltonian)
                         run += 1
 
 if __name__ == "__main__":
