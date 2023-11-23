@@ -81,6 +81,7 @@ class TestInit(unittest.TestCase):
                                   axes=(1,0))
 
         cache = ptn.PartialTreeCache(self.state.nodes[node_id],
+                                     self.hamiltonian.nodes[node_id],
                                      "c1", self.state.tensors[node_id])
         cache._contract_neighbour_cache_to_ket("c2", 0,
                                                partial_tree_cache)
@@ -104,10 +105,11 @@ class TestInit(unittest.TestCase):
                                   axes=([1,2],[3,1]))
 
         cache = ptn.PartialTreeCache(self.state.nodes[node_id],
+                                     self.hamiltonian.nodes[node_id],
                                      "c1", self.state.tensors[node_id])
         cache._contract_neighbour_cache_to_ket("c2", 0,
                                                partial_tree_cache)
-        cache._contract_hamiltonian_tensor(0, self.hamiltonian.tensors[node_id])
+        cache._contract_hamiltonian_tensor(self.hamiltonian.tensors[node_id])
 
         self.assertTrue(np.allclose(ref_tensor, cache.tensor))
 
@@ -202,6 +204,7 @@ class TestPartialTreeCacheComplicated(unittest.TestCase):
                                   axes=(0,0))
 
         ref_cache = ptn.PartialTreeCache(deepcopy(self.ref_state.nodes["site1"]),
+                                         deepcopy(self.hamiltonian.nodes["site1"]),
                                          "site3",
                                          deepcopy(self.ref_state.tensors["site1"]))
         ref_cache._contract_neighbour_cache_to_ket("site0",2,
@@ -225,6 +228,7 @@ class TestPartialTreeCacheComplicated(unittest.TestCase):
                                   axes=(0,0))
 
         ref_cache = ptn.PartialTreeCache(deepcopy(self.ref_state.nodes["site1"]),
+                                         deepcopy(self.hamiltonian.nodes["site1"]),
                                          "site3",
                                          deepcopy(self.ref_state.tensors["site1"]))
         ref_cache._contract_all_but_one_neighbouring_cache(2,self.partial_tree_cache)
@@ -242,10 +246,11 @@ class TestPartialTreeCacheComplicated(unittest.TestCase):
                                   axes=((1,2,4),(4,0,1)))
 
         ref_cache = ptn.PartialTreeCache(deepcopy(self.ref_state.nodes["site1"]),
+                                         deepcopy(self.hamiltonian.nodes["site1"]),
                                          "site3",
                                          deepcopy(self.ref_state.tensors["site1"]))
         ref_cache._contract_all_but_one_neighbouring_cache(2,self.partial_tree_cache)
-        ref_cache._contract_hamiltonian_tensor(2,self.hamiltonian.tensors["site1"])
+        ref_cache._contract_hamiltonian_tensor(self.hamiltonian.tensors["site1"])
 
         self.assertTrue(np.allclose(ref_tensor, ref_cache.tensor))
 
@@ -264,11 +269,12 @@ class TestPartialTreeCacheComplicated(unittest.TestCase):
                                   axes=((1,2,4),(0,1,3)))
 
         ref_cache = ptn.PartialTreeCache(deepcopy(self.ref_state.nodes["site1"]),
+                                         deepcopy(self.hamiltonian.nodes["site1"]),
                                          "site3",
                                          deepcopy(self.ref_state.tensors["site1"]))
         next_node_index = 2
         ref_cache._contract_all_but_one_neighbouring_cache(next_node_index,self.partial_tree_cache)
-        ref_cache._contract_hamiltonian_tensor(next_node_index,self.hamiltonian.tensors["site1"])
+        ref_cache._contract_hamiltonian_tensor(self.hamiltonian.tensors["site1"])
         ref_cache._contract_bra_tensor(next_node_index, self.ref_state.tensors["site1"].conj())
 
         self.assertTrue(np.allclose(ref_tensor, ref_cache.tensor))
@@ -296,7 +302,140 @@ class TestPartialTreeCacheComplicated(unittest.TestCase):
         found_tensor = found_cache.tensor
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
-        
+class TestPartialTreeCacheComplicatedAfterOrth(unittest.TestCase):
+    def setUp(self):
+        self.ref_state = ptn.random_big_ttns_two_root_children()
+        self.hamiltonian = ptn.TTNO.from_hamiltonian(ptn.random_hamiltonian_compatible(),
+                                                     self.ref_state)
+        self.ref_state.canonical_form("site4") # This can change the order of children!
+        self.partial_tree_cache = ptn.PartialTreeChachDict()
+        self.partial_tree_cache.add_entry("site2","site1",
+                                           ptn.PartialTreeCache.for_leaf("site2",
+                                                                         self.ref_state,
+                                                                         self.hamiltonian))
+        self.partial_tree_cache.add_entry("site5","site3",
+                                           ptn.PartialTreeCache.for_leaf("site5",
+                                                                         self.ref_state,
+                                                                         self.hamiltonian))
+        self.partial_tree_cache.add_entry("site7","site6",
+                                           ptn.PartialTreeCache.for_leaf("site7",
+                                                                         self.ref_state,
+                                                                         self.hamiltonian))
+        self.partial_tree_cache.add_entry("site6","site0",
+                                           ptn.PartialTreeCache.with_existing_cache("site6","site0",
+                                                                                    self.partial_tree_cache,
+                                                                                    self.ref_state,
+                                                                                    self.hamiltonian))
+        self.partial_tree_cache.add_entry("site0","site1",
+                                           ptn.PartialTreeCache.with_existing_cache("site0","site1",
+                                                                                    self.partial_tree_cache,
+                                                                                    self.ref_state,
+                                                                                    self.hamiltonian))
+
+    def test_contract_neighbour_cache_to_ket_1_to_3(self):
+        ref_tensor = np.tensordot(self.ref_state.tensors["site1"],
+                                  self.partial_tree_cache.get_cached_tensor("site0","site1"),
+                                  axes=(0,0))
+
+        ref_cache = ptn.PartialTreeCache(deepcopy(self.ref_state.nodes["site1"]),
+                                         deepcopy(self.hamiltonian.nodes["site1"]),
+                                         "site3",
+                                         deepcopy(self.ref_state.tensors["site1"]))
+        ref_cache._contract_neighbour_cache_to_ket("site0",1,
+                                                   self.partial_tree_cache)
+        self.assertTrue(np.allclose(ref_tensor, ref_cache.tensor))
+
+        # Now contract the other neighbour cache
+        ref_tensor = np.tensordot(ref_tensor,
+                                  self.partial_tree_cache.get_cached_tensor("site2","site1"),
+                                  axes=(1,0))
+        ref_cache._contract_neighbour_cache_to_ket("site2",1,
+                                                   self.partial_tree_cache)
+        self.assertTrue(np.allclose(ref_tensor, ref_cache.tensor))
+
+    def test_contract_all_but_one_neighbouring_cache_1_to_3(self):
+        ref_tensor = np.tensordot(self.ref_state.tensors["site1"],
+                                  self.partial_tree_cache.get_cached_tensor("site0","site1"),
+                                  axes=(0,0))
+        ref_tensor = np.tensordot(ref_tensor,
+                                  self.partial_tree_cache.get_cached_tensor("site2","site1"),
+                                  axes=(1,0))
+
+        ref_cache = ptn.PartialTreeCache(deepcopy(self.ref_state.nodes["site1"]),
+                                         deepcopy(self.hamiltonian.nodes["site1"]),
+                                         "site3",
+                                         deepcopy(self.ref_state.tensors["site1"]))
+        ref_cache._contract_all_but_one_neighbouring_cache(1,self.partial_tree_cache)
+        self.assertTrue(np.allclose(ref_tensor, ref_cache.tensor))
+
+    def test_contract_hamiltonian_tensor_1_to_3(self):
+        ref_tensor = np.tensordot(self.ref_state.tensors["site1"],
+                                  self.partial_tree_cache.get_cached_tensor("site0","site1"),
+                                  axes=(0,0))
+        ref_tensor = np.tensordot(ref_tensor,
+                                  self.partial_tree_cache.get_cached_tensor("site2","site1"),
+                                  axes=(1,0))
+        ref_tensor = np.tensordot(ref_tensor,
+                                  self.hamiltonian.tensors["site1"],
+                                  axes=((1,2,4),(4,0,1)))
+
+        ref_cache = ptn.PartialTreeCache(deepcopy(self.ref_state.nodes["site1"]),
+                                         deepcopy(self.hamiltonian.nodes["site1"]),
+                                         "site3",
+                                         deepcopy(self.ref_state.tensors["site1"]))
+        ref_cache._contract_all_but_one_neighbouring_cache(1,self.partial_tree_cache)
+        ref_cache._contract_hamiltonian_tensor(self.hamiltonian.tensors["site1"])
+
+        self.assertTrue(np.allclose(ref_tensor, ref_cache.tensor))
+
+    def test_contract_bra_tensor_1_to_3(self):
+        ref_tensor = np.tensordot(self.ref_state.tensors["site1"],
+                                  self.partial_tree_cache.get_cached_tensor("site0","site1"),
+                                  axes=(0,0))
+        ref_tensor = np.tensordot(ref_tensor,
+                                  self.partial_tree_cache.get_cached_tensor("site2","site1"),
+                                  axes=(1,0))
+        ref_tensor = np.tensordot(ref_tensor,
+                                  self.hamiltonian.tensors["site1"],
+                                  axes=((1,2,4),(4,0,1)))
+        ref_tensor = np.tensordot(ref_tensor,
+                                  self.ref_state.tensors["site1"].conj(),
+                                  axes=((1,2,4),(0,2,3)))
+
+        ref_cache = ptn.PartialTreeCache(deepcopy(self.ref_state.nodes["site1"]),
+                                         deepcopy(self.hamiltonian.nodes["site1"]),
+                                         "site3",
+                                         deepcopy(self.ref_state.tensors["site1"]))
+        next_node_index = 1
+        ref_cache._contract_all_but_one_neighbouring_cache(next_node_index,self.partial_tree_cache)
+        ref_cache._contract_hamiltonian_tensor(self.hamiltonian.tensors["site1"])
+        ref_cache._contract_bra_tensor(next_node_index, self.ref_state.tensors["site1"].conj())
+
+        self.assertTrue(np.allclose(ref_tensor, ref_cache.tensor))
+
+    def test_with_existing_cache_1_to_3(self):
+        node_id = "site1"
+        next_node_id = "site3"
+        ref_tensor = np.tensordot(self.ref_state.tensors[node_id],
+                                  self.hamiltonian.tensors[node_id],
+                                  axes=(3,4))
+        ref_tensor = np.tensordot(ref_tensor,
+                                  self.ref_state.tensors[node_id].conj(),
+                                  axes=(6,3))
+        ref_tensor = np.tensordot(ref_tensor,
+                                  self.partial_tree_cache.get_cached_tensor("site0","site1"),
+                                  axes=((0,3,6),(0,1,2)))
+        ref_tensor = np.tensordot(ref_tensor,
+                                  self.partial_tree_cache.get_cached_tensor("site2","site1"),
+                                  axes=((1,2,5),(0,1,2)))
+
+        found_cache = ptn.PartialTreeCache.with_existing_cache(node_id,next_node_id,
+                                                               self.partial_tree_cache,
+                                                               self.ref_state,
+                                                               self.hamiltonian)
+        found_tensor = found_cache.tensor
+        self.assertTrue(np.allclose(ref_tensor,found_tensor))
+
 
 if __name__ == "__main__":
     unittest.main()

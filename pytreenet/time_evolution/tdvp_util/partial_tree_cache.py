@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Union
+from typing import Union, List
 
 import numpy as np
 
@@ -19,9 +19,10 @@ class PartialTreeCache():
      with one another and the other tensors in the subtree.
     """
 
-    def __init__(self, node: GraphNode, pointing_to_node: str,
+    def __init__(self, node: GraphNode, ham_node: GraphNode, pointing_to_node: str,
                  tensor: np.ndarray) -> None:
         self.node = node
+        self.ham_node = ham_node
         self.pointing_to_node = pointing_to_node
         self.tensor = tensor
 
@@ -143,7 +144,8 @@ class PartialTreeCache():
                                         ket_tensor, ham_tensor)
         site_triple_tensor = site_triple_tensor.contract_tensor_sandwich()
         parent_node_id = ket_node.parent
-        return PartialTreeCache(ket_node, parent_node_id, site_triple_tensor)
+        return PartialTreeCache(ket_node, ham_node,
+                                parent_node_id, site_triple_tensor)
 
     @classmethod
     def with_existing_cache(cls, node_id: str, next_node_id: str,
@@ -169,13 +171,13 @@ class PartialTreeCache():
             PartialTreeCache: _description_
         """
         ket_node, ket_tensor = state[node_id]
-        _, ham_tensor = hamiltonian[node_id]
-        cached_tensor = PartialTreeCache(ket_node, next_node_id, ket_tensor)
+        ham_node, ham_tensor = hamiltonian[node_id]
+        cached_tensor = PartialTreeCache(ket_node, ham_node,
+                                         next_node_id, ket_tensor)
         next_node_index = ket_node.neighbour_index(next_node_id)
         cached_tensor._contract_all_but_one_neighbouring_cache(next_node_index,
                                                                partial_tree_cache)
-        cached_tensor._contract_hamiltonian_tensor(next_node_index,
-                                                   ham_tensor)
+        cached_tensor._contract_hamiltonian_tensor(ham_tensor)
         cached_tensor._contract_bra_tensor(next_node_index,
                                            ket_tensor.conj())
         return cached_tensor
@@ -259,8 +261,25 @@ class PartialTreeCache():
                                                   next_node_index,
                                                   partial_tree_cache)
 
-    def _contract_hamiltonian_tensor(self, next_node_index: int,
-                                     ham_tensor: np.ndarray):
+    def find_ham_tensor_legs(self) -> List[int]:
+        """
+        Finds the legs of the hamiltonian tensor that are to be contracted
+         with the tensor aquired by contracting all neighbouring caches.
+
+        Returns:
+            List[int]: [physical_leg, leg_to_parent, leg_to_state_c1, leg_to_state_c2, ...]
+        """
+        ham_legs = [self._node_operator_input_leg()] # Physical leg is first
+        for neighbour_id in self.node.neighbouring_nodes():
+            if neighbour_id != self.pointing_to_node:
+                if neighbour_id == self.node.parent:
+                    ham_legs.append(0)
+                else:
+                    leg = self.ham_node.neighbour_index(neighbour_id)
+                    ham_legs.append(leg)
+        return ham_legs
+
+    def _contract_hamiltonian_tensor(self, ham_tensor: np.ndarray):
         """
         Contracts the hamiltonian tensor with the saved tensor. The saved
          tensor has all the other neighbouring cached subtrees contracted to
@@ -283,17 +302,13 @@ class PartialTreeCache():
                         |_____|    |______|
 
         Args:
-            next_node_index (int): The index value of the neighbour to which
-             the open legs should point.
             ham_tensor (np.ndarray): The Hamiltonian tensor corresponding to
              this site.
         """
         num_neighbours = self.node.nneighbours()
         legs_tensor = [1]
         legs_tensor.extend(range(2,2*num_neighbours,2))
-        legs_ham_tensor = [self._node_operator_input_leg()]
-        legs_ham_tensor.extend(range(next_node_index))
-        legs_ham_tensor.extend(range(next_node_index+1, num_neighbours))
+        legs_ham_tensor = self.find_ham_tensor_legs()
         self.tensor = np.tensordot(self.tensor, ham_tensor,
                                    axes=(legs_tensor, legs_ham_tensor))
 
