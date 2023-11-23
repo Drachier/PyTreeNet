@@ -345,31 +345,25 @@ class TDVPAlgorithm(TimeEvolution):
                                     correctly_ordered=True)
 
     def _update_site(self, node_id: str,
-                     half_time_step: bool = False):
+                     time_step_factor: float = 1):
         """
         Updates a single site using the effective Hamiltonian for that site.
 
         Args:
             node_id (str): The identifier of the site to update.
-            half_time_step (bool, optional): Use only a half the time step. 
-             Defaults to False.
+            time_step_factor (float, optional): A factor that should be
+             multiplied with the internal time step size. Defaults to 1.
         """
         hamiltonian_eff_site = self._get_effective_site_hamiltonian(node_id)
         psi = self.state.tensors[node_id]
-        if half_time_step is True:
-            self.state.tensors[node_id] = time_evolve(psi,
-                                                      hamiltonian_eff_site,
-                                                      self.time_step_size / 2,
-                                                      forward=True)
-        else:
-            self.state.tensors[node_id] = time_evolve(psi,
-                                                      hamiltonian_eff_site,
-                                                      self.time_step_size,
-                                                      forward=True)
+        self.state.tensors[node_id] = time_evolve(psi,
+                                                  hamiltonian_eff_site,
+                                                  self.time_step_size * time_step_factor,
+                                                  forward=True)
 
     def _update_link(self, node_id: str,
                      next_node_id: str,
-                     half_time_step: bool = False):
+                     time_step_factor: float = 1):
         """
         Updates a link tensor between two nodes using the effective link
          Hamiltonian.
@@ -377,8 +371,8 @@ class TDVPAlgorithm(TimeEvolution):
         Args:
             node_id (str): The node from which the link tensor originated.
             next_node_id (str): The other tensor the link connects to.
-            half_time_step (bool, optional): Use only half a time step.
-             Defaults to False.
+            time_step_factor (float, optional): A factor that should be
+             multiplied with the internal time step size. Defaults to 1.
         """
         assert self.state.orthogonality_center_id == node_id
         self._split_updated_site(node_id, next_node_id)
@@ -386,16 +380,10 @@ class TDVPAlgorithm(TimeEvolution):
         link_tensor = self.state.tensors[link_id]
         hamiltonian_eff_link = self._get_effective_link_hamiltonian(node_id,
                                                                     next_node_id)
-        if half_time_step is True:
-            link_tensor = time_evolve(link_tensor,
-                                      hamiltonian_eff_link,
-                                      self.time_step_size / 2,
-                                      forward=False)
-        else:
-            link_tensor = time_evolve(link_tensor,
-                                      hamiltonian_eff_link,
-                                      self.time_step_size,
-                                      forward=False)
+        self.state.tensors[node_id] = time_evolve(link_tensor,
+                                                  hamiltonian_eff_link,
+                                                  self.time_step_size * time_step_factor,
+                                                  forward=True)
         self.state.contract_nodes(link_id, next_node_id,
                                   new_identifier=next_node_id)
         self.state.orthogonality_center_id = next_node_id
