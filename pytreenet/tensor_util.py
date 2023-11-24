@@ -1,11 +1,25 @@
 """
 Helpfull functions that work with the tensors of the tensor nodes.
 """
-
+from __future__ import annotations
 from typing import Tuple, List, Union
+from enum import Enum
 
 from math import prod
 import numpy as np
+
+class SplitMode(Enum):
+    FULL = "full"
+    REDUCED = "reduced"
+    KEEP = "keep"
+
+    def numpy_qr_mode(self) -> str:
+        """
+        Returns the string required in the numpy QR decomposition.
+        """
+        if self is SplitMode.REDUCED:
+            return "reduced"
+        return "complete"
 
 def transpose_tensor_by_leg_list(tensor, first_legs, last_legs):
     """
@@ -107,49 +121,46 @@ def _determine_tensor_shape(old_shape, matrix, legs, output=True):
 
     return tuple(new_shape)
 
-
-def tensor_qr_decomposition(tensor, q_legs, r_legs, mode='reduced'):
+def tensor_qr_decomposition(tensor: np.ndarray,
+                            q_legs: Tuple[int],
+                            r_legs: Tuple[int],
+                            mode: SplitMode = SplitMode.REDUCED) -> Tuple[np.ndarray,np.ndarray]:
     """
-    Parameters
-    ----------
-    tensor : ndarray
-        Tensor on which the QR-decomp is to applied.
-    q_legs : tuple of int
-        Legs of tensor that should be associated to the Q tensor after
-        QR-decomposition.
-    r_legs : tuple of int
-        Legs of tensor that should be associated to the R tensor after
-        QR-decomposition.
-    mode: {'reduced', 'full'}
-        'reduced' returns the reduced QR-decomposition and 'full' the full QR-
-        decomposition. Refer to the documentation of numpy.linalg.qr for
-        further details. The default is 'reduced'.
+    Computes the QR decomposition of a tensor with respect to the given legs.
 
-    Returns
-    -------
-    q, r : ndarray
-        The resulting tensors from the QR-decomposition. Refer to the
-        documentation of numpy.linalg.qr for further details.
+    Args:
+        tensor (np.ndarray): Tensor on which the QR-decomp is to applied.
+        q_legs (Tuple[int]): Legs of tensor that should be associated to the
+         Q tensor after QR-decomposition.
+        r_legs (Tuple[int]): Legs of tensor that should be associated to the
+         R tensor after QR-decomposition.
+        mode (SplitMode, optional): Reduced returns a QR deocomposition with
+         minimum dimension between Q and R. Full returns the decomposition
+         with dimension between Q and R as the output dimension of Q. Keep
+         causes Q to have the same shape as the input tensor. Defaults to
+         SplitMode.Reduced.
 
+    Returns:
+        Tuple[np.ndarray,np.ndarray]: (Q, R)
     """
-    if not mode in {"reduced", "full"}:
-        errstr = f"{mode} is no acceptable value for `mode`, use 'reduced' or 'full'!"
-        raise ValueError(errstr)
-    if q_legs + r_legs == list(range(len(q_legs) + len(r_legs))):
-        correctly_order = True
-    else:
-        correctly_order = False
-    matrix = tensor_matricization(tensor, q_legs, r_legs, correctly_ordered=correctly_order)
-    q, r = np.linalg.qr(matrix, mode=mode)
+    correctly_order =  q_legs + r_legs == list(range(len(q_legs) + len(r_legs)))
+    matrix = tensor_matricization(tensor, q_legs, r_legs,
+                                  correctly_ordered=correctly_order)
+    q, r = np.linalg.qr(matrix, mode=mode.numpy_qr_mode())
     shape = tensor.shape
-
     q_shape = _determine_tensor_shape(shape, q, q_legs, output=True)
     r_shape = _determine_tensor_shape(shape, r, r_legs, output=False)
-
     q = np.reshape(q, q_shape)
     r = np.reshape(r, r_shape)
-    return q, r
 
+    if mode is SplitMode.KEEP:
+        orig_bond_dim = np.prod(r.shape[1:])
+        diff = orig_bond_dim - q.shape[-1]
+        padding = [(0,0)] * (q.ndim-1)
+        padding.append((0,diff))
+        q = np.pad(q,padding)
+
+    return q, r
 
 def tensor_svd(tensor, u_legs, v_legs, mode='reduced'):
     """
