@@ -1,4 +1,5 @@
 from __future__ import annotations
+from copy import deepcopy
 
 import numpy as np
 
@@ -35,7 +36,7 @@ class MatrixProductTree(TreeTensorNetwork):
         
         for site in range(first_site, first_site + length):
             identifier = self._node_prefix + str(site)
-            local_state = copy(tensor)
+            local_state = deepcopy(tensor)
             # A node is only linked to an actual tensor, once it is added to a TTN.
             node = Node(identifier = identifier)
             if site == first_site:
@@ -63,10 +64,44 @@ class MatrixProductState(MatrixProductTree, TreeTensorNetworkState):
         super().__init__(length, tensor, node_prefix=node_prefix, first_site=first_site)
 
 class MatrixProductOperator(MatrixProductTree, TTNO):
-    def __init__(self,  length: int, tensor: np.ndarray, 
+    def __init__(self,  length: int, tensor: np.ndarray,
         node_prefix: str = "site", first_site: int = 0):
         if tensor.ndim != 4:
             errstr = "The generating tensor of an MPO must have exactly 4 legs!\n"
             errstr += f" {tensor.ndim} != 4"
             raise ValueError(errstr)
         super().__init__(length, tensor, node_prefix=node_prefix, first_site=first_site)
+
+def constant_product_state(state_value: int,
+                           dimension: int,
+                           num_sites: int) -> MatrixProductState:
+    """
+    Generates an MPS that corresponds to a product state with the same value
+     at every site.
+
+    Args:
+        state_value (int): The state's value at every site.
+        dimension (int): The local dimension of the MPS.
+        num_sites (int): The number of sites in the MPS.
+
+    Raises:
+        ValueError: If state_value is negative or dimension non-positive.
+         Also raised if state value is larger than dimension.
+
+    Returns:
+        MatrixProductState: MPS representing a product state of the form
+         |psi> = |value> otimes |value> otimes ... |value>
+    """
+    if dimension < 1:
+        errstr = f"Dimension of a state must be positive not {dimension}!"
+        raise ValueError(errstr)
+    if state_value >= dimension:
+        errstr = "State value cannot be larger than the state's dimension!"
+        raise ValueError(errstr)
+    elif state_value < 0:
+        errstr = f"State value must be non-negative not {state_value}!"
+        raise ValueError(errstr)
+    single_site_tensor = np.zeros(dimension)
+    single_site_tensor[state_value] = 1
+    single_site_tensor = np.reshape(single_site_tensor, (1,1,dimension))
+    return MatrixProductState(num_sites, single_site_tensor)
