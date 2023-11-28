@@ -3,8 +3,10 @@ from __future__ import annotations
 from copy import copy
 
 from .leg_specification import LegSpecification
+from .tensor_util import SplitMode
 
-def canonical_form(ttn: TreeTensorNetwork, orthogonality_center_id: str):
+def canonical_form(ttn: TreeTensorNetwork, orthogonality_center_id: str,
+                   mode: SplitMode = SplitMode.REDUCED):
     """
     Modifies the TreeTensorNetwork (ttn) into canonical form with the center of orthogonality at
     node with node_id `orthogonality_center_id`.
@@ -16,6 +18,8 @@ def canonical_form(ttn: TreeTensorNetwork, orthogonality_center_id: str):
     orthogonality_center_id : str
         The id of the tensor node which is the orthogonality center for
         the canonical form
+    mode: The mode to be used for the QR decomposition. For details refer to
+     `tensor_util.tensor_qr_decomposition`.
 
     Returns
     -------
@@ -47,7 +51,8 @@ def canonical_form(ttn: TreeTensorNetwork, orthogonality_center_id: str):
                 r_legs = LegSpecification(None, [minimum_distance_neighbour_id], [])
 
             ttn.split_node_qr(node_id, q_legs, r_legs,
-                              q_identifier=node_id, r_identifier="R_tensor")
+                              q_identifier=node_id, r_identifier="R_tensor",
+                              mode=mode)
 
             if node.is_child_of(minimum_distance_neighbour_id):
                 leg_index = min_neighbour_node.get_child_leg(node_id) - min_neighbour_node.nparents()
