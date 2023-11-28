@@ -529,7 +529,8 @@ class TreeTensorNetwork(TreeStructure):
                           out_identifier=u_identifier, in_identifier=v_identifier,
                           **truncation_param)
 
-    def move_orthogonalization_center(self, new_center_id: str):
+    def move_orthogonalization_center(self, new_center_id: str,
+                                      mode: SplitMode = SplitMode.REDUCED):
         """
         Moves the orthogonalization center from the current node to a
          different node.
@@ -537,6 +538,8 @@ class TreeTensorNetwork(TreeStructure):
         Args:
             new_center (str): The identifier of the new
              orthogonalisation center.
+            mode: The mode to be used for the QR decomposition. For details refer to
+            `tensor_util.tensor_qr_decomposition`.
         """
         if self.orthogonality_center_id is None:
             errstr = "The TTN is not in canonical form, so the orth. center cannot be moved!"
@@ -549,7 +552,8 @@ class TreeTensorNetwork(TreeStructure):
         for node_id in orth_path[1:]:
             self._move_orth_center_to_neighbour(node_id)
 
-    def _move_orth_center_to_neighbour(self, new_center_id: str):
+    def _move_orth_center_to_neighbour(self, new_center_id: str,
+                                       mode: SplitMode = SplitMode.REDUCED):
         """
         Moves the orthogonality center to a neighbour of the current
          orthogonality center.
@@ -557,6 +561,8 @@ class TreeTensorNetwork(TreeStructure):
         Args:
             new_center_id (str): The identifier of a neighbour of the current
              orthogonality center.
+            mode: The mode to be used for the QR decomposition. For details refer to
+            `tensor_util.tensor_qr_decomposition`.
         """
         assert self.orthogonality_center_id is not None
         q_legs, r_legs = self.legs_before_combination(self.orthogonality_center_id,
@@ -565,7 +571,7 @@ class TreeTensorNetwork(TreeStructure):
                             new_center_id, new_identifier="contracted")
         self.split_node_qr("contracted", q_legs, r_legs,
                            q_identifier=self.orthogonality_center_id,
-                           r_identifier=new_center_id)
+                           r_identifier=new_center_id, mode=mode)
         self.orthogonality_center_id = new_center_id
 
     # Functions below this are just wrappers of external functions that are
