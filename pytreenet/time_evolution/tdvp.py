@@ -14,7 +14,7 @@ import numpy as np
 
 from ..leg_specification import LegSpecification
 from .time_evolution import TimeEvolution, time_evolve
-from ..tensor_util import tensor_matricization
+from ..tensor_util import tensor_matricization, SplitMode
 from ..ttns import TreeTensorNetworkState
 from ..ttno.ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
@@ -69,9 +69,11 @@ class TDVPAlgorithm(TimeEvolution):
              Defaults to False.
         """
         if self.state.orthogonality_center_id is None or force_new:
-            self.state.orthogonalize(self.update_path[0])
+            self.state.orthogonalize(self.update_path[0],
+                                     mode=SplitMode.KEEP)
         else:
-            self.state.move_orthogonalization_center(self.update_path[0])
+            self.state.move_orthogonalization_center(self.update_path[0],
+                                                     mode=SplitMode.KEEP)
 
     def _find_tdvp_orthogonalization_path(self,
                                           update_path: List[str]) -> List[List[str]]:
@@ -290,7 +292,8 @@ class TDVPAlgorithm(TimeEvolution):
         link_id = self.create_link_id(node_id, next_node_id)
         self.state.split_node_qr(node_id, q_legs, r_legs,
                                  q_identifier=node.identifier,
-                                 r_identifier=link_id)
+                                 r_identifier=link_id,
+                                 mode=SplitMode.KEEP)
         self._update_cache_after_split(node_id, next_node_id)
 
     def _get_effective_link_hamiltonian(self, node_id: str,
@@ -399,7 +402,8 @@ class TDVPAlgorithm(TimeEvolution):
         """
         assert self.state.orthogonality_center_id == path[0]
         for i, node_id in enumerate(path[1:-1]):
-            self.state.move_orthogonalization_center(node_id)
+            self.state.move_orthogonalization_center(node_id,
+                                                     mode=SplitMode.KEEP)
             next_node_id = path[i+2] # +2, because path starts at 1.
             self.update_tree_cache(node_id, next_node_id)
 
