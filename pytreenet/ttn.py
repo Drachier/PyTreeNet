@@ -8,7 +8,8 @@ import numpy as np
 from .tree_structure import TreeStructure
 from .node import Node
 from .tensor_util import (tensor_qr_decomposition,
-                          contr_truncated_svd_splitting)
+                          contr_truncated_svd_splitting,
+                          SplitMode)
 from .leg_specification import LegSpecification
 from .canonical_form import canonical_form
 from .tree_contraction import (completely_contract_tree,
@@ -486,7 +487,8 @@ class TreeTensorNetwork(TreeStructure):
 
     def split_node_qr(self, node_id: str,
                       q_legs: LegSpecification, r_legs: LegSpecification,
-                      q_identifier: str = "", r_identifier: str = ""):
+                      q_identifier: str = "", r_identifier: str = "",
+                      mode: SplitMode = SplitMode.REDUCED):
         """
         Splits a node into two nodes via QR-decomposition.
 
@@ -498,9 +500,12 @@ class TreeTensorNetwork(TreeStructure):
              Defaults to "".
             r_identifier (str, optional): An identifier for the R-tensor.
              Defaults to "".
+            mode: The mode to be used for the QR decomposition. For details refer to
+            `tensor_util.tensor_qr_decomposition`.
         """
         self._split_nodes(node_id, q_legs, r_legs, tensor_qr_decomposition,
-                          out_identifier=q_identifier, in_identifier=r_identifier)
+                          out_identifier=q_identifier, in_identifier=r_identifier,
+                          mode=mode)
 
     def split_node_svd(self, node_id: str,
                        u_legs: LegSpecification, v_legs: LegSpecification,
