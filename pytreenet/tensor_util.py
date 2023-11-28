@@ -332,7 +332,7 @@ def tensor_multidot(tensor: np.ndarray,
     For a given tensor, perform multiple tensor contractions at once.
 
     Args:
-        tensor (np.ndarray): _description_
+        tensor (np.ndarray): Tensor to be mutliplied with other tensors.
         other_tensors (List[np.ndarray]): The tensors that should be
          contracted with tensor.
         main_legs (List[int]): The legs of tensor which are connected to the
