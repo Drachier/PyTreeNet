@@ -574,7 +574,8 @@ class TreeTensorNetwork(TreeStructure):
     # The additional structure allows for more efficent algorithms than the
     # general case.
 
-    def canonical_form(self, orthogonality_center_id: str):
+    def canonical_form(self, orthogonality_center_id: str,
+                       mode: SplitMode = SplitMode.REDUCED):
         """
         Brings the TTN in canonical form with respect to a given orthogonality
          center.
@@ -582,16 +583,21 @@ class TreeTensorNetwork(TreeStructure):
         Args:
             orthogonality_center_id (str): The new orthogonality center of
              the TTN
+            mode: The mode to be used for the QR decomposition. For details refer to
+            `tensor_util.tensor_qr_decomposition`.
         """
-        canonical_form(self, orthogonality_center_id)
+        canonical_form(self, orthogonality_center_id, mode=mode)
 
-    def orthogonalize(self, orthogonality_center_id: str):
+    def orthogonalize(self, orthogonality_center_id: str,
+                      mode: SplitMode = SplitMode.REDUCED):
         """
         Wrapper of canonical form.
 
         Args:
             orthogonality_center_id (str): The new orthogonality center of the
              TTN.
+            mode: The mode to be used for the QR decomposition. For details refer to
+            `tensor_util.tensor_qr_decomposition`.
         """
         self.canonical_form(orthogonality_center_id)
 
