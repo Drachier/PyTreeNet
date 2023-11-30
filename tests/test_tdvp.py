@@ -268,7 +268,8 @@ class TestContractionMethods(unittest.TestCase):
         ref_state = deepcopy(self.tdvp.state)
         ref_state.split_node_qr(node_id, q_legs, r_legs,
                                 q_identifier=node_id,
-                                r_identifier=self.tdvp.create_link_id(node_id, "root"))
+                                r_identifier=self.tdvp.create_link_id(node_id, "root"),
+                                mode=ptn.SplitMode.KEEP)
         ref_old_cache = deepcopy(self.tdvp.partial_tree_cache.get_cached_tensor(node_id,"root"))
 
         self.tdvp._split_updated_site(node_id,"root")
@@ -351,7 +352,7 @@ class TestContractionMethods(unittest.TestCase):
         ref_tensor = np.tensordot(cache_c1,cache_root,
                                   axes=(1,1))
         ref_tensor = np.transpose(ref_tensor, axes=[1,3,0,2])
-        ref_tensor = np.reshape(ref_tensor, (15,15))
+        ref_tensor = np.reshape(ref_tensor, (25,25))
 
         found_tensor = self.tdvp._get_effective_link_hamiltonian(node_id,root_id)
 
