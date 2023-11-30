@@ -60,7 +60,9 @@ class MatrixProductTree(TreeTensorNetwork):
         mpt = cls()
         mpt.add_root(Node(identifier=node_prefix+str(root_site)),
                      tensor_list[root_site])
-
+        if root_site==0:
+            return cls.from_tensor_list_leftmost_node_is_root(tensor_list,
+                                                              node_prefix=node_prefix)
         left_tensors = reversed(tensor_list[0:root_site])
         for i, tensor in enumerate(left_tensors):
             site = root_site - 1 - i
@@ -72,6 +74,44 @@ class MatrixProductTree(TreeTensorNetwork):
             site = root_site + 1 + i
             mpt.attach_node_right_end(Node(identifier=node_prefix+str(site)),
                                       tensor)
+        return mpt
+
+    @classmethod
+    def from_tensor_list_leftmost_node_is_root(cls, tensor_list: List[np.ndarray],
+                                               node_prefix: str = "site") -> MatrixProductTree:
+        """
+        Generates a MatrixProductTree from a list of tensors, where the
+         leftmost tensor, i.e. index 0, corresponds to the root ndoe. The
+         nodes in the MPT will be considered as from left to right, in the
+         same way as they are in the list.
+
+        Args:
+            tensor_list (List[np.ndarray]): A list with site tensors. Their
+             legs should be of the form
+              `[left_leg,right_leg,open_legs]`
+            node_prefix (str, optional): A prefix that should be part of the
+             node identifiers before the site index. Defaults to "site".
+
+        Returns:
+            MatrixProductTree: A matrix product tree representing an MP
+             structure A_1 * A_2  ... A_N, where the A are the tensors in the
+             provided list.
+        """
+        mpt = cls()
+        mpt.add_root(Node(identifier=node_prefix+str(0)),
+                     tensor_list[0])
+        if len(tensor_list)>1:
+            node1 = Node(identifier=node_prefix+str(1))
+            mpt.add_child_to_parent(node1,
+                                    tensor_list[1],0,node_prefix+str(0),
+                                    0)
+            mpt.right_nodes[node_prefix+str(1)] = node1
+        if len(tensor_list)>2:
+            remaining_tensors = tensor_list[2:]
+            for i, tensor in enumerate(remaining_tensors):
+                site = i + 2
+                mpt.attach_node_right_end(Node(identifier=node_prefix+str(site)),
+                                            tensor)
         return mpt
 
     def attach_node_right_end(self, node: Node, tensor: np.ndarray):
