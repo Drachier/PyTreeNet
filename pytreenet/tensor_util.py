@@ -17,9 +17,9 @@ class SplitMode(Enum):
         """
         Returns the string required in the numpy QR decomposition.
         """
-        if self is SplitMode.REDUCED:
-            return "reduced"
-        return "complete"
+        if self is SplitMode.FULL:
+            return "complete"
+        return "reduced"
 
 def transpose_tensor_by_leg_list(tensor, first_legs, last_legs):
     """
@@ -156,9 +156,12 @@ def tensor_qr_decomposition(tensor: np.ndarray,
     if mode is SplitMode.KEEP:
         orig_bond_dim = np.prod(r.shape[1:])
         diff = orig_bond_dim - q.shape[-1]
-        padding = [(0,0)] * (q.ndim-1)
-        padding.append((0,diff))
-        q = np.pad(q,padding)
+        padding_q = [(0,0)] * (q.ndim-1)
+        padding_q.append((0,diff))
+        q = np.pad(q,padding_q)
+        padding_r = [(0,diff)]
+        padding_r.extend([(0,0)]*(r.ndim-1))
+        r = np.pad(r,padding_r)
 
     return q, r
 
