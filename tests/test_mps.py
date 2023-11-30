@@ -29,7 +29,7 @@ class TestMPT_Attaching(unittest.TestCase):
         ref_mpt = np.tensordot(ref_mpt,
                                self.tensors[2],
                                axes=(0,0))
-        
+
         found_mpt = self.mpt.completely_contract_tree().root[1]
         self.assertTrue(np.allclose(ref_mpt,found_mpt))
 
@@ -144,6 +144,26 @@ class TestMPT_classmethods(unittest.TestCase):
         ref_mpt = np.tensordot(ref_mpt,
                                self.tensors[3],
                                axes=(0,0))
+        ref_mpt = np.tensordot(ref_mpt,
+                               self.tensors[4],
+                               axes=(3,0))
+
+        found_mpt = mpt.completely_contract_tree().root[1]
+        self.assertTrue(np.allclose(ref_mpt,found_mpt))
+
+    def test_from_tensor_list_root_at_0(self):
+        mpt = ptn.MatrixProductTree.from_tensor_list(self.tensors,
+                                                     root_site=0)
+
+        ref_mpt = np.tensordot(self.tensors[0],
+                               self.tensors[1],
+                               axes=(0,0))
+        ref_mpt = np.tensordot(ref_mpt,
+                               self.tensors[2],
+                               axes=(1,0))
+        ref_mpt = np.tensordot(ref_mpt,
+                               self.tensors[3],
+                               axes=(2,0))
         ref_mpt = np.tensordot(ref_mpt,
                                self.tensors[4],
                                axes=(3,0))
