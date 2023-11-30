@@ -171,5 +171,25 @@ class TestMPT_classmethods(unittest.TestCase):
         found_mpt = mpt.completely_contract_tree().root[1]
         self.assertTrue(np.allclose(ref_mpt,found_mpt))
 
+    def test_from_tensor_list_root_at_last_node(self):
+        mpt = ptn.MatrixProductTree.from_tensor_list(self.tensors,
+                                                     root_site=4)
+
+        ref_mpt = np.tensordot(self.tensors[4],
+                               self.tensors[3],
+                               axes=(0,1))
+        ref_mpt = np.tensordot(ref_mpt,
+                               self.tensors[2],
+                               axes=(1,1))
+        ref_mpt = np.tensordot(ref_mpt,
+                               self.tensors[1],
+                               axes=(2,1))
+        ref_mpt = np.tensordot(ref_mpt,
+                               self.tensors[0],
+                               axes=(3,0))
+
+        found_mpt = mpt.completely_contract_tree().root[1]
+        self.assertTrue(np.allclose(ref_mpt,found_mpt))
+
 if __name__ == "__main__":
     unittest.main()
