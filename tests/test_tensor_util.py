@@ -119,6 +119,99 @@ class TestTreeTensorNetwork(unittest.TestCase):
             self.assertEqual(u.shape[0:-1], (tensor_shape[1], tensor_shape[3]))
             self.assertEqual(vh.shape[1:], (tensor_shape[0], tensor_shape[2]))
 
+class TestTensorQRDecomp(unittest.TestCase):
+    def setUp(self):
+        self.tensor = ptn.crandn((4,5,2))
+
+    def test_qr_reduced_q_legs_bigger(self):
+        q, r = ptn.tensor_qr_decomposition(self.tensor, (0,2), (1, ))
+
+        self.assertEqual((4,2,5),q.shape)
+        self.assertEqual((5,5),r.shape)
+
+        ref_tensor = np.transpose(self.tensor,(0,2,1))
+        ref_tensor = np.reshape(ref_tensor,(8,5))
+        ref_q, ref_r = np.linalg.qr(ref_tensor,mode="reduced")
+        ref_q = np.reshape(ref_q, (4,2,5))
+
+        self.assertTrue(np.allclose(ref_q, q))
+        self.assertTrue(np.allclose(ref_r, r))
+
+    def test_qr_reduced_r_legs_bigger(self):
+        q, r = ptn.tensor_qr_decomposition(self.tensor, (0, ), (1,2))
+
+        self.assertEqual((4,4),q.shape)
+        self.assertEqual((4,5,2),r.shape)
+
+        ref_tensor = np.reshape(self.tensor,(4,10))
+        ref_q, ref_r = np.linalg.qr(ref_tensor,mode="reduced")
+        ref_r = np.reshape(ref_r, (4,5,2))
+
+        self.assertTrue(np.allclose(ref_q, q))
+        self.assertTrue(np.allclose(ref_r, r))
+
+    def test_qr_full_q_legs_bigger(self):
+        q, r = ptn.tensor_qr_decomposition(self.tensor, (0,2), (1, ),
+                                           ptn.SplitMode.FULL)
+
+        self.assertEqual((4,2,8),q.shape)
+        self.assertEqual((8,5),r.shape)
+
+        ref_tensor = np.transpose(self.tensor,(0,2,1))
+        ref_tensor = np.reshape(ref_tensor,(8,5))
+        ref_q, ref_r = np.linalg.qr(ref_tensor,mode="complete")
+        ref_q = np.reshape(ref_q, (4,2,8))
+
+        self.assertTrue(np.allclose(ref_q, q))
+        self.assertTrue(np.allclose(ref_r, r))
+
+    def test_qr_full_r_legs_bigger(self):
+        q, r = ptn.tensor_qr_decomposition(self.tensor, (1, ), (0,2),
+                                           ptn.SplitMode.FULL)
+
+        self.assertEqual((5,5),q.shape)
+        self.assertEqual((5,4,2),r.shape)
+
+        ref_tensor = np.transpose(self.tensor,(1,0,2))
+        ref_tensor = np.reshape(ref_tensor,(5,8))
+        ref_q, ref_r = np.linalg.qr(ref_tensor,mode="complete")
+        ref_r = np.reshape(ref_r, (5,4,2))
+
+        self.assertTrue(np.allclose(ref_q, q))
+        self.assertTrue(np.allclose(ref_r, r))
+
+    def test_qr_keep_q_legs_bigger(self):
+        q, r = ptn.tensor_qr_decomposition(self.tensor, (0,2), (1, ),
+                                           ptn.SplitMode.KEEP)
+
+        self.assertEqual((4,2,5),q.shape)
+        self.assertEqual((5,5),r.shape)
+
+        ref_tensor = np.transpose(self.tensor,(0,2,1))
+        ref_tensor = np.reshape(ref_tensor,(8,5))
+        ref_q, ref_r = np.linalg.qr(ref_tensor,mode="reduced")
+        ref_q = np.reshape(ref_q, (4,2,5))
+
+        self.assertTrue(np.allclose(ref_q, q))
+        self.assertTrue(np.allclose(ref_r, r))
+
+    def test_qr_keep_r_legs_bigger(self):
+        q, r = ptn.tensor_qr_decomposition(self.tensor, (1, ), (0,2),
+                                           ptn.SplitMode.KEEP)
+
+        self.assertEqual((5,8),q.shape)
+        self.assertEqual((8,4,2),r.shape)
+
+        ref_tensor = np.transpose(self.tensor,(1,0,2))
+        ref_tensor = np.reshape(ref_tensor,(5,8))
+        ref_q, ref_r = np.linalg.qr(ref_tensor,mode="reduced")
+        ref_r = np.reshape(ref_r, (5,4,2))
+        ref_q = np.pad(ref_q, [(0,0),(0,3)])
+        ref_r = np.pad(ref_r, [(0,3),(0,0),(0,0)])
+
+        self.assertTrue(np.allclose(ref_q, q))
+        self.assertTrue(np.allclose(ref_r, r))
+
 
 if __name__ == "__main__":
     unittest.main()
