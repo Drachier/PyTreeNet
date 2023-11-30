@@ -57,6 +57,12 @@ class MatrixProductTree(TreeTensorNetwork):
              structure A_1 * A_2  ... A_N, where the A are the tensors in the
              provided list.
         """
+        if root_site < 0:
+            errstr = "Root site must be non-negative!"
+            raise ValueError(errstr)
+        if root_site >= len(tensor_list):
+            errstr = "Root site must be an available site!"
+            raise ValueError(errstr)
         mpt = cls()
         mpt.add_root(Node(identifier=node_prefix+str(root_site)),
                      tensor_list[root_site])
