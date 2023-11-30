@@ -80,6 +80,14 @@ def random_small_ttns() -> TreeTensorNetworkState:
     Generates a small TreeTensorNetworkState consisting of three nodes:
      The root with identifier `"root"` and its two children with identifiers
      `"c1"`and `"c2"`. The associated tensors are random, but its dimensions are set.
+
+                |2
+                |
+                r
+               / \\
+         3|  5/  6\\   |4
+          |  /     \\  |
+           c1        c2
     """
     random_ttns = TreeTensorNetworkState()
     random_ttns.add_root(Node(identifier="root"), crandn((5,6,2)))
