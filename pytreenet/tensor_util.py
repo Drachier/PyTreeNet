@@ -122,8 +122,8 @@ def _determine_tensor_shape(old_shape, matrix, legs, output=True):
     return tuple(new_shape)
 
 def tensor_qr_decomposition(tensor: np.ndarray,
-                            q_legs: Tuple[int],
-                            r_legs: Tuple[int],
+                            q_legs: Tuple[int,...],
+                            r_legs: Tuple[int,...],
                             mode: SplitMode = SplitMode.REDUCED) -> Tuple[np.ndarray,np.ndarray]:
     """
     Computes the QR decomposition of a tensor with respect to the given legs.
