@@ -1,12 +1,13 @@
 from typing import Union
 
+from ...tensor_util import SplitMode
 from ..tdvp import TDVPAlgorithm
 
 class FirstOrderOneSiteTDVP(TDVPAlgorithm):
     """
     The first order one site TDVP algorithm.
      This means we have first order Trotter splitting for the time evolution:
-      exp(A*B) approx exp(A)*exp(B)
+      exp(At+Bt) approx exp(At)*exp(Bt)
     """
 
     def _update(self, node_id: str,
@@ -28,3 +29,9 @@ class FirstOrderOneSiteTDVP(TDVPAlgorithm):
                 next_node_id = None
             # Update
             self._update(node_id, next_node_id)
+        # Orthogonalise for next time step
+        self.state.move_orthogonalization_center(self.update_path[0],
+                                                 mode = SplitMode.KEEP)
+        # We have to recache all partial tree tensors
+        self._init_partial_tree_cache()
+        
