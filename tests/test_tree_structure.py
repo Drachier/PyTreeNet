@@ -146,6 +146,41 @@ class TestTreeStructureMethods(unittest.TestCase):
         self.assertFalse(self.nodes[1].is_child_of(self.identifiers[1]))
         self.assertFalse(self.nodes[7].is_child_of(self.identifiers[1]))
 
+    def test_replace_node_in_some_neighbours_parent_and_children(self):
+        new_node = ptn.GraphNode(identifier="new")
+        new_node.children = [self.identifiers[5]]
+        new_node.parent = self.identifiers[1]
+        self.ts._nodes["new"] = new_node
+        self.ts.replace_node_in_some_neighbours("new",
+                                                self.identifiers[4],
+                                                [self.identifiers[1],self.identifiers[5]])
+        self.assertTrue(self.nodes[1].is_parent_of("new"))
+        self.assertTrue(self.nodes[5].is_child_of("new"))
+        self.assertTrue(self.nodes[6].is_child_of(self.identifiers[4]))
+        self.assertFalse(self.nodes[1].is_parent_of(self.identifiers[4]))
+        self.assertFalse(self.nodes[5].is_child_of(self.identifiers[4]))
+        self.assertFalse(self.nodes[6].is_child_of("new"))
+
+    def test_replace_node_in_some_neighbours_leaf(self):
+        new_node = ptn.GraphNode(identifier="new")
+        new_node.parent = self.identifiers[2]
+        self.ts._nodes["new"] = new_node
+        self.ts.replace_node_in_some_neighbours("new",
+                                                self.identifiers[3],
+                                                [self.identifiers[2]])
+        self.assertTrue(self.nodes[2].is_parent_of("new"))
+        self.assertFalse(self.nodes[2].is_parent_of(self.identifiers[3]))
+
+    def test_replace_node_in_some_neighbours_root(self):
+        new_node = ptn.GraphNode(identifier="new")
+        new_node.parent = self.identifiers[2]
+        self.ts._nodes["new"] = new_node
+        self.ts.replace_node_in_some_neighbours("new",
+                                                self.identifiers[3],
+                                                [self.identifiers[2]])
+        self.assertTrue(self.nodes[2].is_parent_of("new"))
+        self.assertFalse(self.nodes[2].is_parent_of(self.identifiers[3]))
+
     def test_find_path_to_root(self):
         correct_paths = {self.identifiers[0]: [self.identifiers[0]],
                          self.identifiers[1]: [self.identifiers[1], self.identifiers[0]],
