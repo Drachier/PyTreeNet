@@ -301,7 +301,7 @@ def contr_truncated_svd_splitting(tensor, u_legs, v_legs, **truncation_param):
 
 
 def compute_transfer_tensor(tensor: np.ndarray,
-                            contr_indices: Union[Tuple[int], int]) -> np.ndarray:
+                            contr_indices: Union[Tuple[int,...], int]) -> np.ndarray:
     """
     Computes the tranfer tensor of the given tensor with respect to the
      indices given. This means it contracts the tensor with its conjugate
