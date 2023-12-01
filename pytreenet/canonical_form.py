@@ -1,8 +1,10 @@
 from __future__ import annotations
+from typing import Tuple
 
 from copy import copy
 
 from .leg_specification import LegSpecification
+from .node import Node
 from .tensor_util import SplitMode
 
 def canonical_form(ttn: TreeTensorNetwork, orthogonality_center_id: str,
@@ -35,36 +37,19 @@ def canonical_form(ttn: TreeTensorNetwork, orthogonality_center_id: str,
         # Perform QR on nodes furthest away first.
         node_id_with_distance = [node_id for node_id in distance_dict.keys()
                                  if distance_dict[node_id] == distance]
-
         for node_id in node_id_with_distance:
             node = ttn.nodes[node_id]
-            minimum_distance_neighbour_id = _find_smallest_distance_neighbour(
-                node, distance_dict)
-            min_neighbour_node = ttn.nodes[minimum_distance_neighbour_id]
-
-            q_legs = LegSpecification(None, copy(node.children), node.open_legs)
-            if node.is_child_of(minimum_distance_neighbour_id):
-                r_legs = LegSpecification(minimum_distance_neighbour_id, [], [])
-            else:
-                q_legs.parent_leg = node.parent
-                q_legs.child_legs.remove(minimum_distance_neighbour_id)
-                r_legs = LegSpecification(None, [minimum_distance_neighbour_id], [])
-
+            minimum_distance_neighbour_id = _find_smallest_distance_neighbour(node,
+                                                                              distance_dict)
+            q_legs, r_legs = _build_qr_leg_specs(node,
+                                                 minimum_distance_neighbour_id)
             ttn.split_node_qr(node_id, q_legs, r_legs,
-                              q_identifier=node_id, r_identifier="R_tensor",
+                              q_identifier=node_id,
+                              r_identifier="R_tensor",
                               mode=mode)
-
-            if node.is_child_of(minimum_distance_neighbour_id):
-                leg_index = min_neighbour_node.get_child_leg(node_id) - min_neighbour_node.nparents()
-                min_neighbour_node.children[leg_index] = "R_tensor"
-            else:
-                min_neighbour_node.remove_parent()
-                min_neighbour_node.add_parent("R_tensor")
-
             ttn.contract_nodes(minimum_distance_neighbour_id, "R_tensor",
                                new_identifier=minimum_distance_neighbour_id)
     ttn.orthogonality_center_id = orthogonality_center_id
-
 
 def _find_smallest_distance_neighbour(node: Node, distance_dict: dict[str, int]) -> str:
     """
@@ -91,3 +76,29 @@ def _find_smallest_distance_neighbour(node: Node, distance_dict: dict[str, int])
     minimum_distance_neighbour_id = min(neighbour_distance_dict,
                                         key=neighbour_distance_dict.get)
     return minimum_distance_neighbour_id
+
+def _build_qr_leg_specs(node: Node,
+                        min_neighbour_id: str) -> Tuple[LegSpecification,LegSpecification]:
+    """
+    Construct the leg specifications required for the qr decompositions during
+     canonicalisation.
+
+    Args:
+        node (Node): The node which is to be split.
+        min_neighbour_id (str): The identifier of the neighbour of the node
+         which is closest to the orthogonality center.
+
+    Returns:
+        Tuple[LegSpecification,LegSpecification]: 
+         The leg specifications for the legs of the Q-tensor, i.e. what
+          remains as the node, and the R-tensor, i.e. what will be absorbed
+          into the node defined by `min_neighbour_id`.
+    """
+    q_legs = LegSpecification(None, copy(node.children), node.open_legs)
+    if node.is_child_of(min_neighbour_id):
+        r_legs = LegSpecification(min_neighbour_id, [], [])
+    else:
+        q_legs.parent_leg = node.parent
+        q_legs.child_legs.remove(min_neighbour_id)
+        r_legs = LegSpecification(None, [min_neighbour_id], [])
+    return q_legs, r_legs
