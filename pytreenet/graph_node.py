@@ -89,7 +89,7 @@ class GraphNode:
         try:
             self.children.remove(child_id)
         except ValueError as exc:
-            errstr = f"{child_id} is not a child of this node!"
+            errstr = f"{child_id} is not a child of this node ({self.identifier})!"
             raise ValueError(errstr) from exc
 
     def child_index(self, child_id: str) -> int:
@@ -99,7 +99,7 @@ class GraphNode:
         try:
             return self.children.index(child_id)
         except ValueError as exc:
-            errstr = f"{child_id} is not a child of this node!"
+            errstr = f"{child_id} is not a child of this node ({self.identifier})!"
             raise ValueError(errstr) from exc
 
     def neighbour_index(self, node_id: str) -> int:
