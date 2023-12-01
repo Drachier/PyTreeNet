@@ -77,6 +77,7 @@ class TDVPUpdatePathFinder():
         leaf_distances = {leaf_id: distance
                           for leaf_id, distance in distances_from_root.items()
                           if leaf_id in non_visited_leaves}
+        assert len(leaf_distances) != 0
         return max(leaf_distances, key=leaf_distances.get)
 
     def find_main_path_down_from_root(self, path: List[str]) -> List[str]:
@@ -150,6 +151,10 @@ class TDVPUpdatePathFinder():
             List[str]: The complete path from the root to the last leaf.
              `[root, node, node, ... , leaf]`
         """
+        root_id = self.state.root_id
+        assert root_id is not None
+        if self.state.nodes[root_id].has_x_children(1):
+            return [root_id]
         main_path_down = self.find_main_path_down_from_root(path)
         down_path = []
         for branch_origin in main_path_down:
