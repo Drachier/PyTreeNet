@@ -383,7 +383,7 @@ class TDVPAlgorithm(TimeEvolution):
         link_tensor = self.state.tensors[link_id]
         hamiltonian_eff_link = self._get_effective_link_hamiltonian(node_id,
                                                                     next_node_id)
-        self.state.tensors[node_id] = time_evolve(link_tensor,
+        self.state.tensors[link_id] = time_evolve(link_tensor,
                                                   hamiltonian_eff_link,
                                                   self.time_step_size * time_step_factor,
                                                   forward=True)
