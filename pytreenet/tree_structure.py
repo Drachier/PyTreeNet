@@ -343,13 +343,9 @@ class TreeStructure():
              of the old node and for which the connection to the old node is to be
              replaced by a connection to the new node. 
         """
-        old_node = self._nodes[old_node_id]
-        for identifier in neighbour_ids:
-            neighbour_node = self._nodes[identifier]
-            if not old_node.is_root() and old_node.parent == identifier:
-                neighbour_node.replace_child(old_node_id, new_node_id)
-            elif neighbour_node.is_child_of(old_node_id):
-                neighbour_node.parent = new_node_id
+        for neighbour_id in neighbour_ids:
+            neighbour = self.nodes[neighbour_id]
+            neighbour.replace_neighbour(old_node_id, new_node_id)
 
     def find_path_to_root(self, node_id: str) -> List[str]:
         """

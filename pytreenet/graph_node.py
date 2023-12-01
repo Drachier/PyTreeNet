@@ -129,6 +129,19 @@ class GraphNode:
             return
         self.children[self.child_index(child_id)] = new_child_id
 
+    def replace_neighbour(self, old_neighbour_id: str, new_neighbour_id: str):
+        """
+        Replaces a neighbour identifier with a new one.
+
+        Args:
+            old_neighbour_id (str): The node identifier to be replaced.
+            new_neighbour_id (str): The new node identifier to be inserted.
+        """
+        if not self.is_root() and self.parent == old_neighbour_id:
+            self.parent = new_neighbour_id
+        else:
+            self.replace_child(old_neighbour_id,new_neighbour_id)
+
     def is_root(self) -> bool:
         """
         Returns whether this node is a root node, i.e. doesn't have a parent.
