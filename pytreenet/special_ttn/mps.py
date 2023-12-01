@@ -1,7 +1,7 @@
 # TODO: Implement if the root is site 0
 
 from __future__ import annotations
-from typing import List
+from typing import List, Union
 from copy import deepcopy
 
 import numpy as np
@@ -168,7 +168,8 @@ class MatrixProductState(MatrixProductTree, TreeTensorNetworkState):
                                dimension: int,
                                num_sites: int,
                                node_prefix: str = "site",
-                               root_site: int = 0) -> MatrixProductState:
+                               root_site: int = 0,
+                               bond_dimensions: Union[List[int],None] = None) -> MatrixProductState:
         """
         Generates an MPS that corresponds to a product state with the same value
             at every site.
@@ -181,6 +182,10 @@ class MatrixProductState(MatrixProductTree, TreeTensorNetworkState):
              node identifiers before the site index. Defaults to "site".
             root_site (int, optional): Which tensor should be associated to
              the root node. Defaults to 0.
+            bond_dimensions (Union[List[int],None]): Give custom bond
+             dimensions. The zeroth entry will be the dimension between nodes
+             0 and 1 and so forth. Defaults to None, in which case the bond
+             dimensions are all zero.
 
         Raises:
             ValueError: If state_value is negative or dimension non-positive.
@@ -196,7 +201,7 @@ class MatrixProductState(MatrixProductTree, TreeTensorNetworkState):
         if state_value >= dimension:
             errstr = "State value cannot be larger than the state's dimension!"
             raise ValueError(errstr)
-        elif state_value < 0:
+        if state_value < 0:
             errstr = f"State value must be non-negative not {state_value}!"
             raise ValueError(errstr)
         if num_sites < 1:
@@ -208,6 +213,22 @@ class MatrixProductState(MatrixProductTree, TreeTensorNetworkState):
         tensor_list = [deepcopy(single_site_tensor[0,:,:])]
         tensor_list.extend([deepcopy(single_site_tensor) for _ in range(num_sites-2)])
         tensor_list.append(deepcopy(single_site_tensor[0,:,:]))
+        if bond_dimensions is not None:
+            if len(bond_dimensions) != num_sites-1:
+                errstr = "There must be as many bond dimensions as bonds!"
+                raise ValueError(errstr)
+            first_tensor = np.pad(deepcopy(tensor_list[0]),
+                                  [(0,bond_dimensions[0]-1),(0,0)])
+            new_tensors = [first_tensor]
+            padded_tensors = [np.pad(deepcopy(tensor),
+                                     [(0,bond_dimensions[i]-1),
+                                      (0,bond_dimensions[i+1]-1),(0,0)])
+                              for i, tensor in enumerate(tensor_list[1:-1])]
+            new_tensors.extend(padded_tensors)
+            final_tensor = np.pad(deepcopy(tensor_list[-1]),
+                                  [(0,bond_dimensions[-1]-1),(0,0)])
+            new_tensors.append(final_tensor)
+            tensor_list = new_tensors
         return cls.from_tensor_list(tensor_list,
                                     node_prefix=node_prefix,
                                     root_site=root_site)
