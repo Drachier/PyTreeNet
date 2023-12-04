@@ -68,12 +68,7 @@ class TestTreeTensorNetworkBasics(unittest.TestCase):
 class TestTreeTensorNetworkSimple(unittest.TestCase):
 
     def setUp(self):
-        self.tensortree = ptn.TreeTensorNetworkState()
-        self.tensortree.add_root(ptn.Node(identifier="root"), ptn.crandn((5,6,2)))
-        self.tensortree.add_child_to_parent(ptn.Node(identifier="c1"),
-            ptn.crandn((5,3)), 0, "root", 0)
-        self.tensortree.add_child_to_parent(ptn.Node(identifier="c2"),
-            ptn.crandn((6,4)), 0, "root", 1)
+        self.tensortree = ptn.random_small_ttns()
 
     def test_equality_ttn_should_be_equal_to_itself(self):
         ref_tree = deepcopy(self.tensortree)
@@ -342,6 +337,7 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
     def test_move_center_from_child_to_parent(self):
         reference_tree = self.tensortree.completely_contract_tree(to_copy=True)
         reference_tensor = reference_tree.root[1]
+        reference_tensor = np.transpose(reference_tensor,(0,2,1))
 
         self.tensortree.orthogonalize("c1")
         self.tensortree.move_orthogonalization_center("root")
