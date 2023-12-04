@@ -11,7 +11,8 @@ from .tensor_util import (tensor_qr_decomposition,
                           contr_truncated_svd_splitting,
                           SplitMode)
 from .leg_specification import LegSpecification
-from .canonical_form import canonical_form
+from .canonical_form import (canonical_form,
+                             split_qr_contract_r_to_neighbour)
 from .tree_contraction import (completely_contract_tree,
                                contract_two_ttn)
 from .ttn_exceptions import NotCompatibleException
@@ -565,13 +566,10 @@ class TreeTensorNetwork(TreeStructure):
             `tensor_util.tensor_qr_decomposition`.
         """
         assert self.orthogonality_center_id is not None
-        q_legs, r_legs = self.legs_before_combination(self.orthogonality_center_id,
-                                                      new_center_id)
-        self.contract_nodes(self.orthogonality_center_id,
-                            new_center_id, new_identifier="contracted")
-        self.split_node_qr("contracted", q_legs, r_legs,
-                           q_identifier=self.orthogonality_center_id,
-                           r_identifier=new_center_id, mode=mode)
+        split_qr_contract_r_to_neighbour(self,
+                                         self.orthogonality_center_id,
+                                         new_center_id,
+                                         mode=mode)
         self.orthogonality_center_id = new_center_id
 
     # Functions below this are just wrappers of external functions that are
