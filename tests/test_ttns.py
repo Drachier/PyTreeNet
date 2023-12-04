@@ -9,13 +9,7 @@ import pytreenet as ptn
 class TestTreeTensorNetworkStateSimple(unittest.TestCase):
     def setUp(self):
         # Initialise initial state
-        self.initial_state = ptn.TreeTensorNetworkState()
-        self.initial_state.add_root(ptn.Node(identifier="root"), ptn.crandn((5,6,2)))
-        self.initial_state.add_child_to_parent(ptn.Node(identifier="c1"),
-            ptn.crandn((5,3)), 0, "root", 0)
-        self.initial_state.add_child_to_parent(ptn.Node(identifier="c2"),
-            ptn.crandn((6,4)), 0, "root", 1)
-
+        self.initial_state = ptn.random_small_ttns()
         # Operators
         single_site_operator = ptn.TensorProduct({"root": ptn.crandn((2,2))})
         two_site_operator = ptn.TensorProduct({"c1": ptn.crandn((3,3)),
@@ -56,7 +50,7 @@ class TestTreeTensorNetworkStateSimple(unittest.TestCase):
     def test_single_site_expectation_value_canon_form(self):
         self.initial_state.canonical_form("root")
         found_result = self.initial_state.single_site_operator_expectation_value("root",
-            self.operators[0]["root"], canon=True)
+            self.operators[0]["root"])
 
         state_vector = self.initial_state.completely_contract_tree(to_copy=True)
         state_vector = state_vector.tensors[state_vector.root_id].reshape(24)
