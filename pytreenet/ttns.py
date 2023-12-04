@@ -30,8 +30,8 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         ttn = deepcopy(self)
         return ttn.contract_two_ttn(ttn.conjugate())
 
-    def single_site_operator_expectation_value(self, node_id: str, operator: np.ndarray,
-                                               canon: bool=False) -> complex:
+    def single_site_operator_expectation_value(self, node_id: str,
+                                               operator: np.ndarray) -> complex:
         """
         Find the expectation value of this TTNS given the single-site operator acting on
          the node specified.
@@ -41,13 +41,11 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             node_id (str): The identifier of the node, the operator is applied to.
             operator (np.ndarray): The operator of which we determine the expectation value.
              Note that the state will be contracted with axis/leg 0 of this operator.
-            canon (bool, optional): Whether the node is the orthogonality center of the TTNS.
-                                     Defaults to False.
 
         Returns:
             complex: The resulting expectation value < TTNS| Operator| TTN >
         """
-        if canon:
+        if self.orthogonality_center_id == node_id:
             tensor = deepcopy(self.tensors[node_id])
             tensor_op = np.tensordot(tensor, operator, axes=(-1,0))
             tensor_conj = tensor.conj()
