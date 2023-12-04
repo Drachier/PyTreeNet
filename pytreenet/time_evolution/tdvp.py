@@ -386,7 +386,7 @@ class TDVPAlgorithm(TimeEvolution):
         self.state.tensors[link_id] = time_evolve(link_tensor,
                                                   hamiltonian_eff_link,
                                                   self.time_step_size * time_step_factor,
-                                                  forward=True)
+                                                  forward=False)
         self.state.contract_nodes(link_id, next_node_id,
                                   new_identifier=next_node_id)
         self.state.orthogonality_center_id = next_node_id
