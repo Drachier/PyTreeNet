@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Tuple
+from uuid import uuid1
 
 from copy import copy
 
@@ -41,14 +42,10 @@ def canonical_form(ttn: TreeTensorNetwork, orthogonality_center_id: str,
             node = ttn.nodes[node_id]
             minimum_distance_neighbour_id = _find_smallest_distance_neighbour(node,
                                                                               distance_dict)
-            q_legs, r_legs = _build_qr_leg_specs(node,
-                                                 minimum_distance_neighbour_id)
-            ttn.split_node_qr(node_id, q_legs, r_legs,
-                              q_identifier=node_id,
-                              r_identifier="R_tensor",
-                              mode=mode)
-            ttn.contract_nodes(minimum_distance_neighbour_id, "R_tensor",
-                               new_identifier=minimum_distance_neighbour_id)
+            split_qr_contract_r_to_neighbour(ttn,
+                                             node_id,
+                                             minimum_distance_neighbour_id,
+                                             mode=mode)
     ttn.orthogonality_center_id = orthogonality_center_id
 
 def _find_smallest_distance_neighbour(node: Node, distance_dict: dict[str, int]) -> str:
@@ -76,6 +73,40 @@ def _find_smallest_distance_neighbour(node: Node, distance_dict: dict[str, int])
     minimum_distance_neighbour_id = min(neighbour_distance_dict,
                                         key=neighbour_distance_dict.get)
     return minimum_distance_neighbour_id
+
+def split_qr_contract_r_to_neighbour(ttn: TreeTensorNetwork,
+                                     node_id: str,
+                                     neighbour_id: str,
+                                     mode: SplitMode = SplitMode.REDUCED):
+    """
+    Takes a node an splits of the virtual leg to a neighbours via QR
+     decomposition. The resulting R tensor is contracted with the neighbour.
+
+         __|__      __|__        __|__      __      __|__
+      __|  N1 |____|  N2 | ---> | N1' |____|__|____|  N2 |
+        |_____|    |_____|      |_____|            |_____|
+
+                __|__      __|__ 
+      --->   __| N1' |____| N2' |
+               |_____|    |_____|
+
+    Args:
+        ttn (TreeTensorNetwork): The tree tensor network in which to perform
+         this action.
+        node_id (str): The identifier of the node to be split.
+        neighbour_id (str): The identifier of the neigbour to which to split.
+        mode: The mode to be used for the QR decomposition. For details refer to
+        `tensor_util.tensor_qr_decomposition`.
+    """
+    node = ttn.nodes[node_id]
+    q_legs, r_legs = _build_qr_leg_specs(node, neighbour_id)
+    r_tensor_id = str(uuid1()) # Avoid identifier duplication
+    ttn.split_node_qr(node_id, q_legs, r_legs,
+                        q_identifier=node_id,
+                        r_identifier=r_tensor_id,
+                        mode=mode)
+    ttn.contract_nodes(neighbour_id, r_tensor_id,
+                        new_identifier=neighbour_id)
 
 def _build_qr_leg_specs(node: Node,
                         min_neighbour_id: str) -> Tuple[LegSpecification,LegSpecification]:
