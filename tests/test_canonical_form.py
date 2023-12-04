@@ -130,7 +130,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
         ptn.canonical_form(self.ttn, "c1",
                            mode=ptn.SplitMode.KEEP)
 
-        ref_tensor = reference_ttn.completely_contract_tree().root[1]
+        ref_tensor = reference_ttn.completely_contract_tree(to_copy=True).root[1]
         found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
@@ -143,6 +143,10 @@ class TestCanonicalFormSimple(unittest.TestCase):
                                                             contr_indices)
         identity = np.eye(5)
         self.assertTrue(np.allclose(identity,found_transfer_tensor))
+        # Check, if shape is kept
+        correct_shape = reference_ttn.nodes["root"].shape
+        found_shape = self.ttn.nodes["root"].shape
+        self.assertEqual(correct_shape, found_shape)
 
         # Check, if c2 is isometry
         c2_node, c2_tensor = self.ttn["c2"]
@@ -152,13 +156,17 @@ class TestCanonicalFormSimple(unittest.TestCase):
         identity = np.eye(4)
         identity = np.pad(identity, (0,2))
         self.assertTrue(np.allclose(identity,found_transfer_tensor))
+        # Check, if shape is kept
+        correct_shape = reference_ttn.nodes["c2"].shape
+        found_shape = self.ttn.nodes["c2"].shape
+        self.assertEqual(correct_shape, found_shape)
 
     def test_canoncial_form_root_center_keep(self):
         reference_ttn = deepcopy(self.ttn)
         ptn.canonical_form(self.ttn, "root",
                            mode=ptn.SplitMode.KEEP)
 
-        ref_tensor = reference_ttn.completely_contract_tree().root[1]
+        ref_tensor = reference_ttn.completely_contract_tree(to_copy=True).root[1]
         found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
@@ -170,6 +178,10 @@ class TestCanonicalFormSimple(unittest.TestCase):
         identity = np.eye(3)
         identity = np.pad(identity, (0,2))
         self.assertTrue(np.allclose(identity,found_transfer_tensor))
+        # Check, if shape is kept
+        correct_shape = reference_ttn.nodes["c1"].shape
+        found_shape = self.ttn.nodes["c1"].shape
+        self.assertEqual(correct_shape, found_shape)
 
         # Check, if c2 is isometry
         c2_node, c2_tensor = self.ttn["c2"]
@@ -179,13 +191,17 @@ class TestCanonicalFormSimple(unittest.TestCase):
         identity = np.eye(4)
         identity = np.pad(identity, (0,2))
         self.assertTrue(np.allclose(identity,found_transfer_tensor))
+        # Check, if shape is kept
+        correct_shape = reference_ttn.nodes["c2"].shape
+        found_shape = self.ttn.nodes["c2"].shape
+        self.assertEqual(correct_shape, found_shape)
 
     def test_canoncial_form_c2_center_keep(self):
         reference_ttn = deepcopy(self.ttn)
         ptn.canonical_form(self.ttn, "c2",
                            mode=ptn.SplitMode.KEEP)
 
-        ref_tensor = reference_ttn.completely_contract_tree().root[1]
+        ref_tensor = reference_ttn.completely_contract_tree(to_copy=True).root[1]
         ref_tensor = np.transpose(ref_tensor, axes=(0,2,1))
         found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
@@ -199,6 +215,11 @@ class TestCanonicalFormSimple(unittest.TestCase):
                                                             contr_indices)
         identity = np.eye(6)
         self.assertTrue(np.allclose(identity,found_transfer_tensor))
+        # Check, if shape is kept
+        correct_shape = reference_ttn.nodes["root"].shape
+        correct_shape = tuple([correct_shape[i] for i in (1,0,2)])
+        found_shape = self.ttn.nodes["root"].shape
+        self.assertEqual(correct_shape, found_shape)
 
         # Check, if c1 is isometry
         c1_node, c1_tensor = self.ttn["c1"]
@@ -208,6 +229,10 @@ class TestCanonicalFormSimple(unittest.TestCase):
         identity = np.eye(3)
         identity = np.pad(identity, (0,2))
         self.assertTrue(np.allclose(identity,found_transfer_tensor))
+        # Check, if shape is kept
+        correct_shape = reference_ttn.nodes["c1"].shape
+        found_shape = self.ttn.nodes["c1"].shape
+        self.assertEqual(correct_shape, found_shape)
 
 class TestCanoncialFormComplicated(unittest.TestCase):
     def setUp(self) -> None:
