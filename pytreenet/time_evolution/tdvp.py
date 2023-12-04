@@ -69,7 +69,7 @@ class TDVPAlgorithm(TimeEvolution):
              Defaults to False.
         """
         if self.state.orthogonality_center_id is None or force_new:
-            self.state.orthogonalize(self.update_path[0],
+            self.state.canonical_form(self.update_path[0],
                                      mode=SplitMode.KEEP)
         else:
             self.state.move_orthogonalization_center(self.update_path[0],

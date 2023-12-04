@@ -550,7 +550,7 @@ class TreeTensorNetwork(TreeStructure):
         orth_path = self.path_from_to(self.orthogonality_center_id,
                                       new_center_id)
         for node_id in orth_path[1:]:
-            self._move_orth_center_to_neighbour(node_id)
+            self._move_orth_center_to_neighbour(node_id, mode=mode)
 
     def _move_orth_center_to_neighbour(self, new_center_id: str,
                                        mode: SplitMode = SplitMode.REDUCED):
@@ -605,7 +605,7 @@ class TreeTensorNetwork(TreeStructure):
             mode: The mode to be used for the QR decomposition. For details refer to
             `tensor_util.tensor_qr_decomposition`.
         """
-        self.canonical_form(orthogonality_center_id)
+        self.canonical_form(orthogonality_center_id, mode=mode)
 
     def completely_contract_tree(self, to_copy: bool = False):
         """
