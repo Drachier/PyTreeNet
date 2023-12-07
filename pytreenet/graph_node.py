@@ -37,13 +37,6 @@ class GraphNode:
         """
         return self._identifier
 
-    @identifier.setter
-    def identifier(self, new_identifier):
-        if new_identifier is None or new_identifier == "":
-            self._identifier = str(uuid.uuid1())
-        else:
-            self._identifier = str(new_identifier)
-
     def __eq__(self, other: GraphNode):
         """
         Two nodes are the same, if they have the same identifiers and neighbours.
