@@ -149,7 +149,7 @@ class TestTEBDsmall(unittest.TestCase):
         internal_op = self.tebd.exponents[2].operator.reshape(8,8)
         self.assertTrue(np.allclose(time_evol_matrix, internal_op))
 
-        self.tebd_no_trunc._apply_one_trotter_step_two_site(self.tebd.exponents[2])
+        self.tebd_no_trunc._apply_one_trotter_step_two_site(self.tebd_no_trunc.exponents[2])
         # The initial state should be untouched by this
         self.assertEqual(reference_state, self.tebd_no_trunc.initial_state)
 
@@ -160,6 +160,89 @@ class TestTEBDsmall(unittest.TestCase):
 
         found_state = self.tebd_no_trunc.state.completely_contract_tree(to_copy=True)
         found_state = found_state.root[1].transpose(1,0,2).reshape(24)
+        self.assertTrue(np.allclose(reference_state, found_state))
+
+    def test_apply_one_trotter_step__one_site(self):
+        reference_state = deepcopy(self.ttns)
+        factor = -1j * self.time_step_size
+        tp = self.trotter_operators[1]
+        operator = np.kron(tp["root"], tp["c1"])
+        time_evol_matrix = expm(factor * operator)
+
+        # Check equality of both time-evolution operators
+        internal_op = self.tebd.exponents[1].operator.reshape(6,6)
+        self.assertTrue(np.allclose(time_evol_matrix, internal_op))
+
+        self.tebd_no_trunc._apply_one_trotter_step(self.tebd_no_trunc.exponents[1])
+        # The initial state should be untouched by this
+        self.assertEqual(reference_state, self.tebd_no_trunc.initial_state)
+
+        reference_state = reference_state.completely_contract_tree()
+        reference_state = reference_state.root[1].reshape(24)
+        time_evol_matrix = np.kron(time_evol_matrix, np.eye(4))
+        reference_state = time_evol_matrix @ reference_state
+
+        found_state = self.tebd_no_trunc.state.completely_contract_tree(to_copy=True)
+        found_state = found_state.root[1].reshape(24)
+        self.assertTrue(np.allclose(reference_state, found_state))
+
+    def test_apply_one_trotter_step__two_site(self):
+        reference_state = deepcopy(self.ttns)
+        factor = -1j * self.time_step_size
+        tp = self.trotter_operators[2]
+        operator = np.kron(tp["c2"], tp["root"])
+        time_evol_matrix = expm(factor * operator)
+
+        # Check equality of both time-evolution operators
+        internal_op = self.tebd.exponents[2].operator.reshape(8,8)
+        self.assertTrue(np.allclose(time_evol_matrix, internal_op))
+
+        self.tebd_no_trunc._apply_one_trotter_step(self.tebd_no_trunc.exponents[2])
+        # The initial state should be untouched by this
+        self.assertEqual(reference_state, self.tebd_no_trunc.initial_state)
+
+        reference_state = reference_state.completely_contract_tree()
+        reference_state = reference_state.root[1].transpose((2,0,1)).reshape(24)
+        time_evol_matrix = np.kron(time_evol_matrix, np.eye(3))
+        reference_state = time_evol_matrix @ reference_state
+
+        found_state = self.tebd_no_trunc.state.completely_contract_tree(to_copy=True)
+        found_state = found_state.root[1].transpose(1,0,2).reshape(24)
+        self.assertTrue(np.allclose(reference_state, found_state))
+
+    def test_apply_one_trotter_step__three_sites(self):
+        operator = ptn.NumericOperator(ptn.crandn((24,24)), ["root", "c1", "c2"])
+        self.assertRaises(NotImplementedError, self.tebd_no_trunc._apply_one_trotter_step,
+                          operator)
+
+    def test_run_one_time_step(self):
+        factor = -1j * self.time_step_size
+        operator1 = np.kron(expm(factor * self.trotter_operators[0]["root"]),
+                            np.eye(3*4))
+        operator2 = np.kron(expm(np.kron(factor * self.trotter_operators[1]["root"],
+                                         self.trotter_operators[1]["c1"])),
+                            np.eye(4))
+        operator3 = expm(factor * np.kron(self.trotter_operators[2]["root"],
+                                          np.kron(np.eye(3),
+                                                  self.trotter_operators[2]["c2"])))
+        total_operator = operator3 @ operator2 @ operator1
+        # Checking the operator is correct
+        exponentials1 = np.kron(self.tebd_no_trunc.exponents[0].operator.reshape(2,2), np.eye(12))
+        exponentials2 = np.kron(self.tebd_no_trunc.exponents[1].operator.reshape(6,6), np.eye(4))
+        exponentials3 = np.kron(self.tebd_no_trunc.exponents[2].operator.reshape(8,8), np.eye(3))
+        exponentials3 = exponentials3.reshape((4,2,3,4,2,3)).transpose(1,2,0,4,5,3).reshape(24,24)
+        check_operator = exponentials3 @ exponentials2 @ exponentials1
+        self.assertTrue(np.allclose(check_operator, total_operator))
+        # Run reference computation
+        reference_state = deepcopy(self.ttns)
+        reference_state = reference_state.completely_contract_tree().root[1].reshape(24)
+        reference_state = total_operator @ reference_state
+
+        # Run time_step
+        self.tebd_no_trunc.run_one_time_step()
+        found_state = self.tebd_no_trunc.state.completely_contract_tree().root[1]
+        found_state = found_state.transpose(0,2,1).reshape(24)
+        # Compare the two time evolved states
         self.assertTrue(np.allclose(reference_state, found_state))
 
 class TestTEBD(unittest.TestCase):
