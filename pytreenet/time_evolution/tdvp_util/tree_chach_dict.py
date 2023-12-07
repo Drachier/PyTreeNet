@@ -82,5 +82,3 @@ class PartialTreeChachDict(dict):
         assert chached_tensor.pointing_to_node == old_next_id
         chached_tensor.pointing_to_node = new_next_id
         self.add_entry(node_id, new_next_id, chached_tensor)
-
-
