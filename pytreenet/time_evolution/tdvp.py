@@ -364,12 +364,35 @@ class TDVPAlgorithm(TimeEvolution):
                                                   self.time_step_size * time_step_factor,
                                                   forward=True)
 
+    def _time_evolve_link_tensor(self, node_id: str,
+                                next_node_id: str,
+                                time_step_factor: float = 1):
+        """
+        Time evolves a link tensor
+
+        Args:
+            node_id (str): The node from which the link tensor originated.
+            next_node_id (str): The other tensor the link connects to.
+            time_step_factor (float, optional): A factor that should be
+             multiplied with the internal time step size. Defaults to 1.
+        """
+        link_id = self.create_link_id(node_id, next_node_id)
+        link_tensor = self.state.tensors[link_id]
+        hamiltonian_eff_link = self._get_effective_link_hamiltonian(node_id,
+                                                                    next_node_id)
+        self.state.tensors[link_id] = time_evolve(link_tensor,
+                                                  hamiltonian_eff_link,
+                                                  self.time_step_size * time_step_factor,
+                                                  forward=False)
+
     def _update_link(self, node_id: str,
                      next_node_id: str,
                      time_step_factor: float = 1):
         """
         Updates a link tensor between two nodes using the effective link
-         Hamiltonian.
+         Hamiltonian. To achieve this the site updated latest is split via
+         QR-decomposition and the R-tensor is updated. The R-tensor is then
+         contracted with next node to be updated.
 
         Args:
             node_id (str): The node from which the link tensor originated.
@@ -379,14 +402,9 @@ class TDVPAlgorithm(TimeEvolution):
         """
         assert self.state.orthogonality_center_id == node_id
         self._split_updated_site(node_id, next_node_id)
+        self._time_evolve_link_tensor(node_id,next_node_id,
+                                      time_step_factor=time_step_factor)
         link_id = self.create_link_id(node_id, next_node_id)
-        link_tensor = self.state.tensors[link_id]
-        hamiltonian_eff_link = self._get_effective_link_hamiltonian(node_id,
-                                                                    next_node_id)
-        self.state.tensors[link_id] = time_evolve(link_tensor,
-                                                  hamiltonian_eff_link,
-                                                  self.time_step_size * time_step_factor,
-                                                  forward=False)
         self.state.contract_nodes(link_id, next_node_id,
                                   new_identifier=next_node_id)
         self.state.orthogonality_center_id = next_node_id
@@ -398,14 +416,17 @@ class TDVPAlgorithm(TimeEvolution):
 
         Args:
             path (List[str]): The path to move from. Should start with the
-             orth center and end at with the final node.
+             orth center and end at with the final node. If the path is empty
+             or only the orth center nothing happens.
         """
+        if len(path) == 0:
+            return
         assert self.state.orthogonality_center_id == path[0]
-        for i, node_id in enumerate(path[1:-1]):
+        for i, node_id in enumerate(path[1:]):
             self.state.move_orthogonalization_center(node_id,
                                                      mode=SplitMode.KEEP)
-            next_node_id = path[i+2] # +2, because path starts at 1.
-            self.update_tree_cache(node_id, next_node_id)
+            previous_node_id = path[i] # +0, because path starts at 1.
+            self.update_tree_cache(previous_node_id, node_id)
 
     @staticmethod
     def create_link_id(node_id: str, next_node_id: str) -> str:
