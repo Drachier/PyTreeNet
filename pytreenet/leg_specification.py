@@ -57,19 +57,6 @@ class LegSpecification():
         string += f"is_root: {self.is_root}"
         return string
 
-    @classmethod
-    def from_dict(cls, dictionary, node) -> LegSpecification:
-        """
-        Creates an instance from a dictionary.
-
-        Args:
-            dictionary (Dict): Has to have the keywords "parent_legs", "child_legs",
-             and "open_legs"
-            node (Node): The related node
-        """
-        return cls(dictionary["parent_leg"], dictionary["child_legs"],
-                   dictionary["open_legs"], node)
-
     def find_leg_values(self) -> List[str]:
         """
         Finds the index values of the tensor legs specified in this class
