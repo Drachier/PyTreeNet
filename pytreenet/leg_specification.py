@@ -4,6 +4,7 @@ Intendend for internal use to specify legs before splitting tensors.
 from __future__ import annotations
 from typing import Union, List
 
+from .node import Node
 
 class LegSpecification():
     """
@@ -66,12 +67,13 @@ class LegSpecification():
             List[str]: The leg values specified in the order
                 `[parent_leg, child_legs, open_legs]`
         """
+        assert self.node is not None
         if self.parent_leg is not None:
             leg_vals = [0]
         else:
             leg_vals = []
-        leg_vals.extend([self.node.get_neighbour_leg(self.child_legs[i])
-                         for i in range(len(self.child_legs))])
+        leg_vals.extend([self.node.get_neighbour_leg(child_leg)
+                         for child_leg in self.child_legs])
         leg_vals.extend(self.open_legs)
         return leg_vals
 
