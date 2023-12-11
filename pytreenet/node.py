@@ -65,7 +65,7 @@ class Node(GraphNode):
     def shape(self) -> Union[tuple, None]:
         """
         Returns the shape as it would be for the tranposed tensor.
-        E.g. the dimension of the parent leg is always output[0].
+         E.g. the dimension of the parent leg is always output[0].
         """
         if self._shape is None:
             return None
@@ -74,19 +74,18 @@ class Node(GraphNode):
     @property
     def parent_leg(self) -> int:
         """
-        Returns parent_leg according to original implementation.
+        Returns parent_leg.
         """
         return 0
 
     @property
-    def children_legs(self) -> list[int]:
+    def children_legs(self) -> List[int]:
         """ 
-        Returns the children_legs according to original implementation.
+        Returns the children_legs as index list.
 
         Returns:
-            Dict[str, int]: The children_legs according to original implementation. The keys are the
-                children identifiers and the values are the indices in the permutation list (NOT the
-                actual tensor legs)
+            List[int]: The children_legs where the values are the indices in
+             the permutation list.
         """
         return list(range(self.nparents(), self.nparents() + self.nchildren()))
 
@@ -96,7 +95,7 @@ class Node(GraphNode):
         Returns the indices of the open legs.
         """
         return list(range(self.nvirt_legs(), self.nlegs()))
-    
+
     def link_tensor(self, tensor: ndarray):
         """
         Links this node to a tensor, by saving its shape and dimension.
