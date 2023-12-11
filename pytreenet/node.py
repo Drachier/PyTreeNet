@@ -1,6 +1,5 @@
 from __future__ import annotations
-from typing import List, Dict, Union
-from copy import copy
+from typing import List, Dict, Union, Tuple
 from functools import reduce
 
 from numpy import ndarray
@@ -62,7 +61,7 @@ class Node(GraphNode):
         return self._leg_permutation
 
     @property
-    def shape(self) -> Union[tuple, None]:
+    def shape(self) -> Union[Tuple, None]:
         """
         Returns the shape as it would be for the tranposed tensor.
          E.g. the dimension of the parent leg is always output[0].
