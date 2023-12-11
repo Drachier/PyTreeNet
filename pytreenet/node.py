@@ -71,25 +71,6 @@ class Node(GraphNode):
             return None
         return tuple([self._shape[i] for i in self._leg_permutation])
 
-    def link_tensor(self, tensor: ndarray):
-        """
-        Links this node to a tensor, by saving its shape and dimension.
-
-        Args:
-            tensor (ndarray): The tensor to be linked with this node.
-        """
-        self._leg_permutation = list(range(tensor.ndim))
-        self._shape = tensor.shape
-
-    def _reset_permutation(self):
-        """
-        Resets the permutation to the standard.
-        Always call this, when the associated tensor is transposed
-            according to the permutation. This ensures, the legs still match.
-        """
-        self._shape = self.shape
-        self._leg_permutation = list(range(len(self._leg_permutation)))
-
     @property
     def parent_leg(self) -> int:
         """
@@ -115,6 +96,25 @@ class Node(GraphNode):
         Returns the indices of the open legs.
         """
         return list(range(self.nvirt_legs(), self.nlegs()))
+    
+    def link_tensor(self, tensor: ndarray):
+        """
+        Links this node to a tensor, by saving its shape and dimension.
+
+        Args:
+            tensor (ndarray): The tensor to be linked with this node.
+        """
+        self._leg_permutation = list(range(tensor.ndim))
+        self._shape = tensor.shape
+
+    def _reset_permutation(self):
+        """
+        Resets the permutation to the standard.
+        Always call this, when the associated tensor is transposed
+            according to the permutation. This ensures, the legs still match.
+        """
+        self._shape = self.shape
+        self._leg_permutation = list(range(len(self._leg_permutation)))
 
     def open_leg_to_parent(self, parent_id: [str, None], open_leg: Union[int,None]):
         """
