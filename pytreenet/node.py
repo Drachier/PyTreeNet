@@ -38,23 +38,6 @@ class Node(GraphNode):
             self._leg_permutation = None
             self._shape = None
 
-    @classmethod
-    def from_node(cls, tensor: ndarray, node: GraphNode) -> Node:
-        """
-        Generates a `Node` object from a `GraphNode` and a tensor.
-
-        Args:
-            tensor (ndarray): The tensor associated to this node
-            node (Node): A node with the same identifier as this new instance
-
-        Returns:
-            LegNode:
-        """
-        leg_node = cls(tensor=tensor, identifier=node.identifier)
-        leg_node.parent = node.parent
-        leg_node.children = copy(node.children)
-        return leg_node
-    
     def __eq__(self, other: Node) -> bool:
         """
         Two nodes are equal, if they have the same identifier, children in the right order and
