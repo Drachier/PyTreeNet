@@ -17,13 +17,13 @@ class NotCompatibleException(Exception):
     """
     pass
 
-def positiviy_check(value: int, name: Union[str,None] = None,
+def positiviy_check(value: Union[int,float], name: Union[str,None] = None,
                     errstr: Union[None,str] = None):
     """
     Check if a given value is positive.
 
     Args:
-        value (int): The value to check.
+        value (Union[int,float]): The value to check.
         name (Union[str,None], optional): A name of the value that is checked,
          will be inserted into a default error string. Defaults to None.
         errstr (Union[None,str], optional): An individual error string that
