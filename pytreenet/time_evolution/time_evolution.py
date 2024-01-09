@@ -7,7 +7,6 @@ from math import modf
 import numpy as np
 from tqdm import tqdm
 
-from ..ttns import TreeTensorNetworkState
 from ..util import fast_exp_action
 
 class TimeEvolution:
@@ -61,7 +60,7 @@ class TimeEvolution:
         return int(integer + 1)
 
     @property
-    def initial_state(self) -> TreeTensorNetworkState:
+    def initial_state(self) -> Any:
         """
         Returns the initial state.
         """
