@@ -75,9 +75,7 @@ class TimeEvolution:
         """
         Returns the currently obtained results
         """
-        if self._results is None:
-            errstr = "Currently there are no results!"
-            raise AssertionError(errstr)
+        self.check_result_exists()
         return self._results
 
     @property
@@ -93,6 +91,42 @@ class TimeEvolution:
         Returns the current number of time steps.
         """
         return self._num_time_steps
+
+    def check_result_exists(self):
+        """
+        Checks if results have been obtained.
+        """
+        if self._results is None:
+            errstr = "Currently there are no results!"
+            raise AssertionError(errstr)
+
+    def results_real(self) -> bool:
+        """
+        Checks if the results are real.
+        """
+        return np.allclose(np.imag(self.results), np.zeros_like(self._results))
+
+    def times(self) -> np.ndarray:
+        """
+        Returns the times at which the operators were evaluated.
+        """
+        return np.real(self.results[-1])
+
+    def operator_results(self, realise: bool = False) -> np.ndarray:
+        """
+        Returns the operator results.
+
+        Args:
+            realise (bool, optional): If the imaginary part of the results
+             should be discarded. Defaults to False.
+        
+        Returns:
+            np.ndarray: The operator results in the same order as the operators
+             were given.
+        """
+        if realise:
+            return np.real(self.results[0:-1])
+        return self.results[0:-1]
 
     def run_one_time_step(self):
         """
@@ -171,7 +205,7 @@ class TimeEvolution:
 
         Args:
             evaluation_time (int, optional): The difference in time steps after which
-                to evaluate the operator expectation values, e.g. for a value 0f 10
+                to evaluate the operator expectation values, e.g. for a value of 10
                 the operators are evaluated at time steps 0,10,20,... Defaults to 1.
             filepath (str, optional): If results are to be saved in an external file,
              the path to that file can be specified here. Defaults to "".
