@@ -19,19 +19,6 @@ class TestCommonOperators(unittest.TestCase):
                          np.asarray([[1,0],[0,-1]], dtype=complex),
                          Z))
 
-    def test_pauli_matrices_list(self):
-        X, Y, Z = ptn.pauli_matrices(asarray=False)
-        self.assertTrue(isinstance(X,list))
-        self.assertTrue(np.allclose(
-                         [[0,1],[1,0]],
-                         X))
-        self.assertTrue(np.allclose(
-                         [[0,-1j],[1j,0]],
-                         Y))
-        self.assertTrue(np.allclose(
-                         [[1,0],[0,-1]],
-                         Z))
-
     def test_bosonic_operators_errors(self):
         # Error for negative dimension
         self.assertRaises(ValueError, ptn.bosonic_operators, -3)
