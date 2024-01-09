@@ -8,7 +8,7 @@ import numpy as np
 
 from ..util import crandn
 
-def pauli_matrices() -> Tuple[np.ndarray,np.ndarray,np.ndarray]]:
+def pauli_matrices() -> Tuple[np.ndarray,np.ndarray,np.ndarray]:
     """
     Returns the three Pauli matrices X, Y, and Z in Z-basis as ndarray.
     """
