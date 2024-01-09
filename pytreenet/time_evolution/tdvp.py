@@ -13,7 +13,8 @@ from copy import deepcopy
 import numpy as np
 
 from ..leg_specification import LegSpecification
-from .time_evolution import TimeEvolution, time_evolve
+from .time_evolution import time_evolve
+from .ttn_time_evolution import TTNTimeEvolution
 from ..tensor_util import tensor_matricization, SplitMode
 from ..ttns import TreeTensorNetworkState
 from ..ttno.ttno import TTNO
@@ -23,10 +24,10 @@ from .tdvp_util.partial_tree_cache import PartialTreeCache
 from .tdvp_util.tree_chach_dict import PartialTreeChachDict
 from .tdvp_util.update_path import TDVPUpdatePathFinder
 
-class TDVPAlgorithm(TimeEvolution):
+class TDVPAlgorithm(TTNTimeEvolution):
     """
     The general abstract class of a TDVP algorithm. Subclasses the general
-     evolution.
+     time evolution for tree tensor networks.
     """
 
     def __init__(self, initial_state: TreeTensorNetworkState,

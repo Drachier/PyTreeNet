@@ -2,11 +2,11 @@ from __future__ import annotations
 from typing import Dict, List, Union
 
 from ..ttns import TreeTensorNetworkState
-from .time_evolution import TimeEvolution
+from .ttn_time_evolution import TTNTimeEvolution
 from .trotter import TrotterSplitting
 from ..operators.operator import NumericOperator
 
-class TEBD(TimeEvolution):
+class TEBD(TTNTimeEvolution):
     """
     Runs the TEBD algorithm on a TTN
     """
