@@ -1,3 +1,4 @@
+from .exact_time_evolution import *
 from .time_evolution import *
 from .tdvp import *
 from .tdvp_algorithms import *
