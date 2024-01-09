@@ -669,7 +669,7 @@ class TestContractionMethods(unittest.TestCase):
         self.assertEqual(ref_tdvp.state,self.tdvp.state)
         self.assertEqual(next_node_id,self.tdvp.state.orthogonality_center_id)
 
-    def test_update_link_root_to_c2(self):
+    def test_update_link_c2_to_root(self):
         node_id = "c2"
         next_node_id = "root"
         self.tdvp._move_orth_and_update_cache_for_path(["c1","root","c2"])
