@@ -7,6 +7,7 @@ from math import modf
 import numpy as np
 from tqdm import tqdm
 
+from ..ttn_exceptions import positiviy_check
 from ..util import fast_exp_action
 
 class TimeEvolution:
@@ -31,13 +32,9 @@ class TimeEvolution:
         """
         self._intital_state = initial_state
         self.state = deepcopy(initial_state)
-        if time_step_size <= 0:
-            errstr = "The size of one time step has to be positive!"
-            raise ValueError(errstr)
+        positiviy_check(time_step_size, "size of one time step")
         self._time_step_size = time_step_size
-        if final_time <= 0:
-            errstr = "The final time has to be positive!"
-            raise ValueError(errstr)
+        positiviy_check(final_time, "final time")
         self._final_time = final_time
         self._num_time_steps = self._compute_num_time_steps()
         if isinstance(operators, List):
