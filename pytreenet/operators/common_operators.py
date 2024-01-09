@@ -2,16 +2,15 @@
 This module provides commonly used operators as numpy arrays.
 """
 from __future__ import annotations
-from typing import Union, List, Tuple
+from typing import Tuple
 
 import numpy as np
 
 from ..util import crandn
 
-def pauli_matrices(asarray: bool=True) -> Union[Tuple[List,List,List],Tuple[np.ndarray,np.ndarray,np.ndarray]]:
+def pauli_matrices() -> Tuple[np.ndarray,np.ndarray,np.ndarray]]:
     """
-    Returns the three Pauli matrices X, Y, and Z in Z-basis as ndarray, if asarray is True
-    otherwise it returns them as lists.
+    Returns the three Pauli matrices X, Y, and Z in Z-basis as ndarray.
     """
     X = [[0,1],
          [1,0]]
@@ -19,11 +18,9 @@ def pauli_matrices(asarray: bool=True) -> Union[Tuple[List,List,List],Tuple[np.n
          [1j,0]]
     Z = [[1,0],
          [0,-1]]
-    if asarray:
-        X = np.asarray(X, dtype="complex")
-        Y = np.asarray(Y, dtype="complex")
-        Z = np.asarray(Z, dtype="complex")
-
+    X = np.asarray(X, dtype="complex")
+    Y = np.asarray(Y, dtype="complex")
+    Z = np.asarray(Z, dtype="complex")
     return (X, Y, Z)
 
 def bosonic_operators(dimension: int = 2) -> Tuple[np.ndarray,np.ndarray,np.ndarray]:
@@ -84,7 +81,7 @@ def swap_gate(dimension: int = 2) -> np.ndarray:
 
 def random_hermitian_matrix(size: int = 2) -> np.ndarray:
     """
-    Creates a random hermitian matrix H^\dagger = H
+    Creates a random hermitian matrix H^\\dagger = H
 
     Args:
         size (int, optional): Size of the matrix. Defaults to 2.
@@ -96,4 +93,4 @@ def random_hermitian_matrix(size: int = 2) -> np.ndarray:
         errstr = "The dimension must be positive!"
         raise ValueError(errstr)
     matrix = crandn((size,size))
-    return 0.5 * (matrix + matrix.T.conj()) 
+    return 0.5 * (matrix + matrix.T.conj())
