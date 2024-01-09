@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Union
+from typing import List, Union, Any
 
 from copy import deepcopy
 from math import modf
@@ -8,7 +8,6 @@ import numpy as np
 from tqdm import tqdm
 
 from ..ttns import TreeTensorNetworkState
-from ..operators.tensorproduct import TensorProduct
 from ..util import fast_exp_action
 
 class TimeEvolution:
@@ -16,20 +15,20 @@ class TimeEvolution:
     An abstract class that can be used for various time-evolution algorithms.
     """
 
-    def __init__(self, initial_state: TreeTensorNetworkState, time_step_size: float,
-                 final_time: float, operators: Union[List[TensorProduct], TensorProduct]):
+    def __init__(self, initial_state: Any, time_step_size: float,
+                 final_time: float, operators: Union[List[Any], Any]):
         """
-        A time evolution starting from an initial state and running to a final
-         time with a given time step size.
-
+        A time evolution starting from and initial state and running to a
+         final time with a given time step size. During the time evolution,
+         expectation values of operators are computed.
+        
         Args:
-            initial_state (TreeTensorNetworkState): The initial state of our
-             time-evolution
-            time_step_size (float): The time step size to be used.
-            final_time (float): The final time until which to run.
-            operators (Union[List[TensorProduct], TensorProduct]): Operators in 
-             the form of single site tensor products for which expectation values
-             should be determined.
+            initial_state (Any): The initial state.
+            time_step_size (float): The size of one time step.
+            final_time (float): The final time.
+            operators (Union[List[Any], Any]): The operators for which to
+             compute the expectation values. Can be a single operator or a
+             list of operators.
         """
         self._intital_state = initial_state
         self.state = deepcopy(initial_state)
@@ -42,11 +41,11 @@ class TimeEvolution:
             raise ValueError(errstr)
         self._final_time = final_time
         self._num_time_steps = self._compute_num_time_steps()
-        if isinstance(operators, TensorProduct):
+        if isinstance(operators, List):
+            self.operators = operators
+        else:
             # A single operator was provided
             self.operators = [operators]
-        else:
-            self.operators = operators
         self._results = None
 
     def _compute_num_time_steps(self) -> int:
@@ -105,7 +104,20 @@ class TimeEvolution:
         """
         raise NotImplementedError()
 
-    def evaluate_operators(self) -> List:
+    def evaluate_operator(self, operator: Any) -> complex:
+        """
+        Abstract method to evaluate the expectation value of a single operator.
+
+        Args:
+            operator (Any): The operator for which to compute the expectation
+             value.
+
+        Returns:
+            complex: The expectation value of the operator.
+        """
+        raise NotImplementedError()
+
+    def evaluate_operators(self) -> np.ndarray:
         """
         Evaluates the expectation value for all operators given in
         `self.operators` for the current TTNS.
@@ -115,8 +127,8 @@ class TimeEvolution:
              operators.
         """
         current_results = np.zeros(len(self.operators), dtype=complex)
-        for i, tensor_product in enumerate(self.operators):
-            exp_val = self.state.operator_expectation_value(tensor_product)
+        for i, operator in enumerate(self.operators):
+            exp_val = self.evaluate_operator(operator)
             current_results[i] = exp_val
         return current_results
 
@@ -170,6 +182,7 @@ class TimeEvolution:
             pgbar (bool, optional): Toggles the progress bar. Defaults to True.
         """
         self._init_results(evaluation_time)
+        assert self._results is not None
         for i in tqdm(range(self.num_time_steps + 1), disable=not pgbar):
             if i != 0:  # We also measure the initial expectation_values
                 self.run_one_time_step()
