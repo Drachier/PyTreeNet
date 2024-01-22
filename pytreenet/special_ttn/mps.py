@@ -1,7 +1,5 @@
-# TODO: Implement if the root is site 0
-
 from __future__ import annotations
-from typing import List, Union
+from typing import List, Union, Any
 from copy import deepcopy
 
 import numpy as np
@@ -37,7 +35,7 @@ class MatrixProductTree(TreeTensorNetwork):
     @classmethod
     def from_tensor_list(cls, tensor_list: List[np.ndarray],
                          node_prefix: str = "site",
-                         root_site: int = 0) -> MatrixProductTree:
+                         root_site: int = 0) -> Any:
         """
         Generates a MatrixProductTree from a list of tensors. The nodes in the
          MPT will be considered as from left to right, in the same way as they
@@ -84,7 +82,7 @@ class MatrixProductTree(TreeTensorNetwork):
 
     @classmethod
     def from_tensor_list_leftmost_node_is_root(cls, tensor_list: List[np.ndarray],
-                                               node_prefix: str = "site") -> MatrixProductTree:
+                                               node_prefix: str = "site") -> Any:
         """
         Generates a MatrixProductTree from a list of tensors, where the
          leftmost tensor, i.e. index 0, corresponds to the root ndoe. The
@@ -169,7 +167,7 @@ class MatrixProductState(MatrixProductTree, TreeTensorNetworkState):
                                num_sites: int,
                                node_prefix: str = "site",
                                root_site: int = 0,
-                               bond_dimensions: Union[List[int],None] = None) -> MatrixProductState:
+                               bond_dimensions: Union[List[int],None] = None) -> Any:
         """
         Generates an MPS that corresponds to a product state with the same value
             at every site.
@@ -185,7 +183,7 @@ class MatrixProductState(MatrixProductTree, TreeTensorNetworkState):
             bond_dimensions (Union[List[int],None]): Give custom bond
              dimensions. The zeroth entry will be the dimension between nodes
              0 and 1 and so forth. Defaults to None, in which case the bond
-             dimensions are all zero.
+             dimensions are all one.
 
         Raises:
             ValueError: If state_value is negative or dimension non-positive.
