@@ -231,5 +231,22 @@ class MatrixProductState(MatrixProductTree, TreeTensorNetworkState):
                                     node_prefix=node_prefix,
                                     root_site=root_site)
 
+    def __str__(self) -> str:
+        """
+        Returns a string representation of the MPS. The leftmost node is at
+         the top and the rightmost node at the bottom. If the MPS is empty,
+         returns "Empty MPS".
+        """
+        string = ""
+        for node_id, node in reversed(list(self.left_nodes.items())):
+            string += f"{node_id} : {node.shape}\n"
+        if self.root_id is not None:
+            string += f"{self.root_id} : {self.root[1].shape}\n"
+        else:
+            return "Empy MPS"
+        for node_id, node in self.right_nodes.items():
+            string += f"{node_id} : {node.shape}\n"
+        return string
+
 class MatrixProductOperator(MatrixProductTree, TTNO):
     pass
