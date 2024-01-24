@@ -180,7 +180,7 @@ class TimeEvolution:
         kwarg_dict["time"] = self.results[-1]
         np.savez(filepath, **kwarg_dict)
 
-    def _init_results(self, evaluation_time: int = 1):
+    def _init_results(self, evaluation_time: Union[int,"inf"] = 1):
         """
         Initialises an appropriately sized zero valued numpy array to save
          all aquired measurements into.
@@ -190,14 +190,20 @@ class TimeEvolution:
 
         Args:
             evaluation_time (int, optional): The difference in time steps after which
-                to evaluate the operator expectation values, e.g. for a value 0f 10
-                the operators are evaluated at time steps 0,10,20,... Defaults to 1.
+                to evaluate the operator expectation values, e.g. for a value of 10
+                the operators are evaluated at time steps 0,10,20,... If it is set to
+                "inf", the operators are only evaluated at the end of the time.
+                Defaults to 1.
         """
-        self._results = np.zeros((len(self.operators) + 1,
-                                  self.num_time_steps//evaluation_time + 1),
-                                  dtype=complex)
+        if evaluation_time != "inf":
+            self._results = np.zeros((len(self.operators) + 1,
+                                    self.num_time_steps//evaluation_time + 1),
+                                    dtype=complex)
+        else:
+            self._results = np.zeros((len(self.operators) + 1, 1),
+                                    dtype=complex)
 
-    def run(self, evaluation_time: int = 1, filepath: str = "",
+    def run(self, evaluation_time: Union[int,"inf"] = 1, filepath: str = "",
             pgbar: bool = True):
         """
         Runs this time evolution algorithm for the given parameters and
@@ -206,7 +212,9 @@ class TimeEvolution:
         Args:
             evaluation_time (int, optional): The difference in time steps after which
                 to evaluate the operator expectation values, e.g. for a value of 10
-                the operators are evaluated at time steps 0,10,20,... Defaults to 1.
+                the operators are evaluated at time steps 0,10,20,... If it is set to
+                "inf", the operators are only evaluated at the end of the time.
+                Defaults to 1.
             filepath (str, optional): If results are to be saved in an external file,
              the path to that file can be specified here. Defaults to "".
             pgbar (bool, optional): Toggles the progress bar. Defaults to True.
@@ -216,12 +224,16 @@ class TimeEvolution:
         for i in tqdm(range(self.num_time_steps + 1), disable=not pgbar):
             if i != 0:  # We also measure the initial expectation_values
                 self.run_one_time_step()
-            if i % evaluation_time == 0 and len(self._results) > 0:
+            if evaluation_time != "inf" and i % evaluation_time == 0 and len(self._results) > 0:
                 index = i // evaluation_time
                 current_results = self.evaluate_operators()
                 self._results[0:-1, index] = current_results
                 # Save current time
                 self._results[-1, index] = i*self.time_step_size
+        if evaluation_time == "inf":
+            current_results = self.evaluate_operators()
+            self._results[0:-1, 0] = current_results
+            self._results[-1, 0] = i*self.time_step_size
         if filepath != "":
             self.save_results_to_file(filepath)
 
