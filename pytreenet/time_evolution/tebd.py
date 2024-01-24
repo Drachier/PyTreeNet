@@ -14,8 +14,8 @@ class TEBD(TTNTimeEvolution):
     def __init__(self, initial_state: TreeTensorNetworkState,
                  trotter_splitting: TrotterSplitting, time_step_size: float,
                  final_time: float, operators: Union[List[TensorProduct], TensorProduct],
-                 max_bond_dim: Union[int, float] = 100, rel_tol: float =1e-10,
-                 total_tol: float = 1e-15):
+                 max_bond_dim: Union[int, float] = 100, rel_tol: float =1e-16,
+                 total_tol: float = 1e-16):
         """
         A class that can be used to time evolve an initial state in the form
          a tree tensor network state via the TEBD algorithm.
