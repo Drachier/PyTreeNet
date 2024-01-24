@@ -18,6 +18,11 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         Returns:
             complex: The resulting scalar product <TTNS|TTNS>
         """
+        if self.orthogonality_center_id is not None:
+            tensor = self.tensors[self.orthogonality_center_id]
+            tensor_conj = tensor.conj()
+            legs = tuple(range(tensor.ndim))
+            return complex(np.tensordot(tensor, tensor_conj, axes=(legs,legs)))
         # Very inefficient, fix later without copy
         ttn = deepcopy(self)
         return ttn.contract_two_ttn(ttn.conjugate())
