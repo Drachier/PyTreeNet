@@ -1,164 +1,260 @@
 import unittest
 import numpy as np
 
+from copy import deepcopy
+
 import pytreenet as ptn
 
 from pytreenet.canonical_form import _find_smallest_distance_neighbour
 
+
 class TestCanonicalFormSimple(unittest.TestCase):
     def setUp(self):
-        self.tree_tensor_network = ptn.TreeTensorNetwork()
+        self.ttn = ptn.random_small_ttns()
 
-        self.node1 = ptn.random_tensor_node((2,3), identifier="node1")
-        self.node2 = ptn.random_tensor_node((2,4,5), identifier="node2")
+    def test_find_smallest_distance_neighbour_to_c1(self):
+        distance_dict = self.ttn.distance_to_node("c1")
+        root_node = self.ttn.root[0]
+        mini_dist_neighbour_id = _find_smallest_distance_neighbour(root_node,
+                                                                   distance_dict)
+        self.assertEqual("c1", mini_dist_neighbour_id)
+        node_c2 = self.ttn.nodes["c2"]
+        mini_dist_neighbour_id = _find_smallest_distance_neighbour(node_c2,
+                                                                   distance_dict)
+        self.assertEqual("root", mini_dist_neighbour_id)
 
-        self.tree_tensor_network.add_root(self.node1)
-        self.tree_tensor_network.add_child_to_parent(self.node2, 0, "node1", 0)
+    def test_find_smallest_distance_neighbour_to_root(self):
+        distance_dict = self.ttn.distance_to_node("root")
+        node_c1 = self.ttn.nodes["c1"]
+        mini_dist_neighbour_id = _find_smallest_distance_neighbour(node_c1,
+                                                                   distance_dict)
+        self.assertEqual("root", mini_dist_neighbour_id)
+        node_c2 = self.ttn.nodes["c2"]
+        mini_dist_neighbour_id = _find_smallest_distance_neighbour(node_c2,
+                                                                   distance_dict)
+        self.assertEqual("root", mini_dist_neighbour_id)
 
-    def testsimple_find_smallest_distance_neighbout(self):
-        distance_dict = self.tree_tensor_network.distance_to_node("node1")
-        minimum_distance_neighbour_id = _find_smallest_distance_neighbour(self.node2, distance_dict)
-        self.assertEqual("node1", minimum_distance_neighbour_id)
+    def test_find_smallest_distance_neighbour_to_c2(self):
+        distance_dict = self.ttn.distance_to_node("c2")
+        root_node = self.ttn.root[0]
+        mini_dist_neighbour_id = _find_smallest_distance_neighbour(root_node,
+                                                                   distance_dict)
+        self.assertEqual("c2", mini_dist_neighbour_id)
+        node_c1 = self.ttn.nodes["c1"]
+        mini_dist_neighbour_id = _find_smallest_distance_neighbour(node_c1,
+                                                                   distance_dict)
+        self.assertEqual("root", mini_dist_neighbour_id)
 
-    def testsimple_canonical_form(self):
-        reference_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
-        ref_tensor = reference_ttn.nodes[reference_ttn.root_id].tensor
-        
-        node1 = self.tree_tensor_network.nodes["node1"]
-        node2 = self.tree_tensor_network.nodes["node2"]
-        ref_tensor_direct = np.tensordot(node1.tensor, node2.tensor, axes=([0],[0]))
-        self.assertTrue(np.allclose(ref_tensor, ref_tensor_direct))
+    def test_canoncial_form_c1_center(self):
+        reference_ttn = deepcopy(self.ttn)
 
-        ptn.canonical_form(self.tree_tensor_network, "node1")
+        ptn.canonical_form(self.ttn, "c1")
 
-        result_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
-        result_tensor = result_ttn.nodes[result_ttn.root_id].tensor
+        ref_tensor = reference_ttn.completely_contract_tree().root[1]
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
+        self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
-        self.assertFalse(result_ttn == reference_ttn)
-        self.assertTrue(np.allclose(ref_tensor,result_tensor))
+        # Check, if root is isometry
+        root_node, root_tensor = self.ttn.root
+        contr_indices = [root_node.child_index("c2")]
+        contr_indices.extend(root_node.open_legs)
+        contr_indices = tuple(contr_indices)
+        found_transfer_tensor = ptn.compute_transfer_tensor(root_tensor,
+                                                            contr_indices)
+        identity = np.eye(5)
+        self.assertTrue(np.allclose(identity,found_transfer_tensor))
 
-        node2 = self.tree_tensor_network.nodes["node2"]
-        tensor2 = node2.tensor
-        parent_leg2 = node2.parent_leg
-        parent_dimension2 = tensor2.shape[parent_leg2[1]]
-        identity = np.eye(parent_dimension2)
+        # Check, if c2 is isometry
+        c2_node, c2_tensor = self.ttn["c2"]
+        contr_indices = tuple(c2_node.open_legs)
+        found_transfer_tensor = ptn.compute_transfer_tensor(c2_tensor,
+                                                            contr_indices)
+        identity = np.eye(4)
+        self.assertTrue(np.allclose(identity,found_transfer_tensor))
 
-        open_indices2 = node2.open_legs
-        transfer_tensor = ptn.compute_transfer_tensor(tensor2, open_indices2)
+    def test_canoncial_form_root_center(self):
+        reference_ttn = deepcopy(self.ttn)
 
-        self.assertEqual(transfer_tensor.shape, (2,2))
-        self.assertTrue(np.allclose(identity, transfer_tensor))
+        ptn.canonical_form(self.ttn, "root")
 
+        ref_tensor = reference_ttn.completely_contract_tree().root[1]
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
+        self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
-class TestCanonicalFormComplicated(unittest.TestCase):
-    def setUp(self):
-        self.tree_tensor_network = ptn.TreeTensorNetwork()
+        # Check, if c1 is isometry
+        c1_node, c1_tensor = self.ttn["c1"]
+        contr_indices = tuple(c1_node.open_legs)
+        found_transfer_tensor = ptn.compute_transfer_tensor(c1_tensor,
+                                                            contr_indices)
+        identity = np.eye(3)
+        self.assertTrue(np.allclose(identity,found_transfer_tensor))
 
-        # Constructing a tree for tests
-        self.node1 = ptn.random_tensor_node((2,3), identifier="node1")
-        self.node2 = ptn.random_tensor_node((2,4,5), identifier="node2")
-        self.node3 = ptn.random_tensor_node((4,), identifier="node3")
-        self.node4 = ptn.random_tensor_node((5,8), identifier="node4")
-        self.node5 = ptn.random_tensor_node((3,6,7), identifier="node5")
-        self.node6 = ptn.random_tensor_node((7,10,9), identifier="node6")
-        self.node7 = ptn.random_tensor_node((10,11,12), identifier="node7")
+        # Check, if c2 is isometry
+        c2_node, c2_tensor = self.ttn["c2"]
+        contr_indices = tuple(c2_node.open_legs)
+        found_transfer_tensor = ptn.compute_transfer_tensor(c2_tensor,
+                                                            contr_indices)
+        identity = np.eye(4)
+        self.assertTrue(np.allclose(identity,found_transfer_tensor))
 
-        self.tree_tensor_network.add_root(self.node1)
-        self.tree_tensor_network.add_child_to_parent(self.node2, 0, "node1", 0)
-        self.tree_tensor_network.add_child_to_parent(self.node3, 0, "node2", 1)
-        self.tree_tensor_network.add_child_to_parent(self.node4, 0, "node2", 2)
-        self.tree_tensor_network.add_child_to_parent(self.node5, 0, "node1", 1)
-        self.tree_tensor_network.add_child_to_parent(self.node6, 0, "node5", 2)
-        self.tree_tensor_network.add_child_to_parent(self.node7, 0, "node6", 1)
+    def test_canoncial_form_c2_center(self):
+        reference_ttn = deepcopy(self.ttn)
 
-    def test_canonical_form_root(self):
-        reference_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
-        ref_tensor = reference_ttn.nodes[reference_ttn.root_id].tensor
-        
-        ptn.canonical_form(self.tree_tensor_network, "node1")
+        ptn.canonical_form(self.ttn, "c2")
 
-        result_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
-        result_tensor = result_ttn.nodes[result_ttn.root_id].tensor
+        ref_tensor = reference_ttn.completely_contract_tree().root[1]
+        ref_tensor = np.transpose(ref_tensor, axes=(0,2,1))
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
+        self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
-        self.assertTrue(np.allclose(ref_tensor,result_tensor))
-        
-        for node_id in self.tree_tensor_network.nodes:
-            if node_id != self.tree_tensor_network.root_id:
-                node = self.tree_tensor_network.nodes[node_id]
-                tensor = node.tensor
-                
-                open_leg_indices = tuple(node.open_legs)
-                children_leg_indices = tuple(node.children_legs.values())
-                total_non_center_indices = open_leg_indices + children_leg_indices
-                
-                transfer_tensor = ptn.compute_transfer_tensor(tensor, total_non_center_indices)
-                
-                dimension_to_center = node.tensor.shape[node.parent_leg[1]]
-                identity = np.eye(dimension_to_center)
-                
-                self.assertTrue(np.allclose(identity, transfer_tensor))
-    
-    def _check_node(self, ttn, node, id_neighbour_towards_center):
-        node_neighbour_legs = node.neighbouring_nodes()
-        
-        non_center_indices = [node_neighbour_legs[neighbour_id]
-                              for neighbour_id in node_neighbour_legs
-                              if neighbour_id != id_neighbour_towards_center]
-        non_center_indices.extend(node.open_legs)        
-        
-        tensor = node.tensor
-        transfer_tensor = ptn.compute_transfer_tensor(tensor, non_center_indices)
-        
-        # Dimension of leg towards the neighbour nearest to the orth. center
-        dimension_to_center = tensor.shape[node_neighbour_legs[id_neighbour_towards_center]]
-        
-        identity = np.eye(dimension_to_center)
-        
-        self.assertTrue(np.allclose(identity, transfer_tensor))
-        
-        for neighbour_id in node_neighbour_legs:
-            if neighbour_id != id_neighbour_towards_center:
-                self._check_node(ttn, ttn.nodes[neighbour_id], node.identifier)
+        # Check, if root is isometry
+        root_node, root_tensor = self.ttn.root
+        contr_indices = [root_node.child_index("c1")]
+        contr_indices.extend(root_node.open_legs)
+        contr_indices = tuple(contr_indices)
+        found_transfer_tensor = ptn.compute_transfer_tensor(root_tensor,
+                                                            contr_indices)
+        identity = np.eye(6)
+        self.assertTrue(np.allclose(identity,found_transfer_tensor))
 
-    def test_canoncial_form_non_root(self):
-        reference_ttn = ptn.completely_contract_tree(self.tree_tensor_network, to_copy=True)
-        ref_tensor = reference_ttn.nodes[reference_ttn.root_id].tensor
-        
-        # We can find the scalar product of this TTN with itself, by contracting
-        # all legs left.
-        ref_scalar_product = ptn.compute_transfer_tensor(ref_tensor, range(ref_tensor.ndim))
-        
-        for node_id_center in self.tree_tensor_network.nodes:
-            canon_ttn = ptn.TreeTensorNetwork(original_tree=self.tree_tensor_network,
-                                              deep=True)
-            
-            ptn.canonical_form(canon_ttn, node_id_center)
-            
-            # Test, if both TTN represent the same tensor network
-            result_ttn = ptn.completely_contract_tree(canon_ttn, to_copy=True)
-            result_tensor = result_ttn.nodes[result_ttn.root_id].tensor
-            
-            self.assertTrue(np.allclose(ref_tensor,result_tensor))
-            
-            # Test, if we actually have a canonical form
-            center_node = canon_ttn.nodes[node_id_center]
-            
-            # Contracting this node's tensor with the conjugate should give the
-            # same result as the total scalar product.
-            scalar_product = ptn.compute_transfer_tensor(ref_tensor,
-                                                 range(ref_tensor.ndim))
-            
-            self.assertTrue(np.allclose(ref_scalar_product, scalar_product))
-                        
-            # All other tensors should become the identity, when contracting all
-            # non_center pointing legs with the complex conjugate
-            neighbours_of_center = center_node.neighbouring_nodes()
-            
-            for neighbour_id in neighbours_of_center:
-                self._check_node(canon_ttn,
-                                 canon_ttn.nodes[neighbour_id],
-                                 node_id_center)
-                
+        # Check, if c1 is isometry
+        c1_node, c1_tensor = self.ttn["c1"]
+        contr_indices = tuple(c1_node.open_legs)
+        found_transfer_tensor = ptn.compute_transfer_tensor(c1_tensor,
+                                                            contr_indices)
+        identity = np.eye(3)
+        self.assertTrue(np.allclose(identity,found_transfer_tensor))
+
+    def test_canoncial_form_c1_center_keep(self):
+        reference_ttn = deepcopy(self.ttn)
+        ptn.canonical_form(self.ttn, "c1",
+                           mode=ptn.SplitMode.KEEP)
+
+        ref_tensor = reference_ttn.completely_contract_tree(to_copy=True).root[1]
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
+        self.assertTrue(np.allclose(ref_tensor,found_tensor))
+
+        # Check, if root is isometry
+        root_node, root_tensor = self.ttn.root
+        contr_indices = [root_node.child_index("c2")]
+        contr_indices.extend(root_node.open_legs)
+        contr_indices = tuple(contr_indices)
+        found_transfer_tensor = ptn.compute_transfer_tensor(root_tensor,
+                                                            contr_indices)
+        identity = np.eye(5)
+        self.assertTrue(np.allclose(identity,found_transfer_tensor))
+        # Check, if shape is kept
+        correct_shape = reference_ttn.nodes["root"].shape
+        found_shape = self.ttn.nodes["root"].shape
+        self.assertEqual(correct_shape, found_shape)
+
+        # Check, if c2 is isometry
+        c2_node, c2_tensor = self.ttn["c2"]
+        contr_indices = tuple(c2_node.open_legs)
+        found_transfer_tensor = ptn.compute_transfer_tensor(c2_tensor,
+                                                            contr_indices)
+        identity = np.eye(4)
+        identity = np.pad(identity, (0,2))
+        self.assertTrue(np.allclose(identity,found_transfer_tensor))
+        # Check, if shape is kept
+        correct_shape = reference_ttn.nodes["c2"].shape
+        found_shape = self.ttn.nodes["c2"].shape
+        self.assertEqual(correct_shape, found_shape)
+
+    def test_canoncial_form_root_center_keep(self):
+        reference_ttn = deepcopy(self.ttn)
+        ptn.canonical_form(self.ttn, "root",
+                           mode=ptn.SplitMode.KEEP)
+
+        ref_tensor = reference_ttn.completely_contract_tree(to_copy=True).root[1]
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
+        self.assertTrue(np.allclose(ref_tensor,found_tensor))
+
+        # Check, if c1 is isometry
+        c1_node, c1_tensor = self.ttn["c1"]
+        contr_indices = tuple(c1_node.open_legs)
+        found_transfer_tensor = ptn.compute_transfer_tensor(c1_tensor,
+                                                            contr_indices)
+        identity = np.eye(3)
+        identity = np.pad(identity, (0,2))
+        self.assertTrue(np.allclose(identity,found_transfer_tensor))
+        # Check, if shape is kept
+        correct_shape = reference_ttn.nodes["c1"].shape
+        found_shape = self.ttn.nodes["c1"].shape
+        self.assertEqual(correct_shape, found_shape)
+
+        # Check, if c2 is isometry
+        c2_node, c2_tensor = self.ttn["c2"]
+        contr_indices = tuple(c2_node.open_legs)
+        found_transfer_tensor = ptn.compute_transfer_tensor(c2_tensor,
+                                                            contr_indices)
+        identity = np.eye(4)
+        identity = np.pad(identity, (0,2))
+        self.assertTrue(np.allclose(identity,found_transfer_tensor))
+        # Check, if shape is kept
+        correct_shape = reference_ttn.nodes["c2"].shape
+        found_shape = self.ttn.nodes["c2"].shape
+        self.assertEqual(correct_shape, found_shape)
+
+    def test_canoncial_form_c2_center_keep(self):
+        reference_ttn = deepcopy(self.ttn)
+        ptn.canonical_form(self.ttn, "c2",
+                           mode=ptn.SplitMode.KEEP)
+
+        ref_tensor = reference_ttn.completely_contract_tree(to_copy=True).root[1]
+        ref_tensor = np.transpose(ref_tensor, axes=(0,2,1))
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
+        self.assertTrue(np.allclose(ref_tensor,found_tensor))
+
+        # Check, if root is isometry
+        root_node, root_tensor = self.ttn.root
+        contr_indices = [root_node.child_index("c1")]
+        contr_indices.extend(root_node.open_legs)
+        contr_indices = tuple(contr_indices)
+        found_transfer_tensor = ptn.compute_transfer_tensor(root_tensor,
+                                                            contr_indices)
+        identity = np.eye(6)
+        self.assertTrue(np.allclose(identity,found_transfer_tensor))
+        # Check, if shape is kept
+        correct_shape = reference_ttn.nodes["root"].shape
+        correct_shape = tuple([correct_shape[i] for i in (1,0,2)])
+        found_shape = self.ttn.nodes["root"].shape
+        self.assertEqual(correct_shape, found_shape)
+
+        # Check, if c1 is isometry
+        c1_node, c1_tensor = self.ttn["c1"]
+        contr_indices = tuple(c1_node.open_legs)
+        found_transfer_tensor = ptn.compute_transfer_tensor(c1_tensor,
+                                                            contr_indices)
+        identity = np.eye(3)
+        identity = np.pad(identity, (0,2))
+        self.assertTrue(np.allclose(identity,found_transfer_tensor))
+        # Check, if shape is kept
+        correct_shape = reference_ttn.nodes["c1"].shape
+        found_shape = self.ttn.nodes["c1"].shape
+        self.assertEqual(correct_shape, found_shape)
+
+class TestCanoncialFormComplicated(unittest.TestCase):
+    def setUp(self) -> None:
+        self.ttn = ptn.random_big_ttns_two_root_children()
+        self.ref_ttn = deepcopy(self.ttn)
+
+    def test_canoncial_form_0_center(self):
+        center_id = "site" + str(0)
+        ptn.canonical_form(self.ttn, center_id)
+
+        ref_tensor = self.ref_ttn.completely_contract_tree().root[1]
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
+        self.assertTrue(np.allclose(ref_tensor,found_tensor))
+
+    def test_canoncial_form_1_center(self):
+        center_id = "site" + str(1)
+        ptn.canonical_form(self.ttn, center_id)
+
+        ref_tensor = self.ref_ttn.completely_contract_tree().root[1]
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
+        self.assertTrue(np.allclose(ref_tensor,found_tensor))
+
 
 if __name__ == "__main__":
     unittest.main()

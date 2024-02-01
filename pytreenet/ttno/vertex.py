@@ -13,7 +13,8 @@ class Vertex():
         # Needed for runtime-reset
         self._already_checked = False
 
-        # Needed to obtain an MPO (leg_index, index_value)
+        # Fixes the vertices value in the TTNO bond.
+        # Needed to obtain an TTNO
         self.index = None
 
     def __repr__(self):
@@ -23,7 +24,7 @@ class Vertex():
             string += "(" + he.label + ", " + he.corr_node_id + "), "
 
         return string
-    
+
     def add_hyperedge(self, hyperedge):
         """
         Adds a hyperedge to this vertex and adds this vertex to the hyperedge's vertices.

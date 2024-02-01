@@ -1,18 +1,22 @@
 from __future__ import annotations
+from typing import Dict, Union, List
+from enum import Enum, auto
 from numpy.random import default_rng
-from numpy import prod, eye, tensordot, reshape, transpose, kron
+from numpy import asarray, ndarray, eye
 
 from .ttn_exceptions import NotCompatibleException
-
-from enum import Enum, auto
-
+from .operators.operator import NumericOperator
+from .operators.tensorproduct import TensorProduct
+from .operators.common_operators import random_hermitian_matrix
+from .ttns import random_big_ttns_two_root_children
+from .util import compare_lists_by_value
 
 class PadMode(Enum):
     risky = auto()
     safe = auto()
 
 
-class Hamiltonian(object):
+class Hamiltonian():
     """
     Represents the Hamiltonian on a TTN.
     The entries of the main list should represent the terms of the Hamiltonian
@@ -21,80 +25,108 @@ class Hamiltonian(object):
     that node/site.
     """
 
-    def __init__(self, terms: list[dict] = None, conversion_dictionary: dict = None):
+    def __init__(self, terms: Union[List[TensorProduct],TensorProduct,None] = None,
+                 conversion_dictionary: Union[Dict[str, ndarray],None] = None):
         """
-        Parameters
-        ----------
-        terms : list of dictionaries, optional
-            A list of dictionaries containing the terms of the Hamiltonian. The
-            keys are identifiers of the site to which the value, an operator,
-            is to be applied. (Operators can be symbolic, i.e. strings or explicit
-            i.e. ndarrays)
-            The default is None.
-        conversion_dictionary : dict
-            A dictionary that contains keys corresponding to certain tensors.
-            Thus the terms can contain labels rather than the whole numpy arrays
-            representing the operators.
+        Initialises a Hamiltonian from a number of terms represented by a TensorProduct each:
+            H = sum( terms )
 
+        Args:
+            terms (list[TensorProduct], optional): A list of TensorProduct making up the
+             Hamiltonian. Defaults to None.
+            conversion_dictionary (dict, optional): A conversion dictionary might be supplied.
+             It is used, if the tensor products are symbolic. Defaults to None.
         """
-        if terms == None:
+        if terms is None:
             self.terms = []
+        elif isinstance(terms, TensorProduct):
+            self.terms = [terms]
         else:
             self.terms = terms
 
-        if conversion_dictionary == None:
-            self.conversion_dictionary = []
+        if conversion_dictionary is None:
+            self.conversion_dictionary = {}
         else:
             self.conversion_dictionary = conversion_dictionary
 
-        self.check_conversion_dict_valid()
+    def __repr__(self):
+        return str(self.terms)
 
-    def check_conversion_dict_valid(self):
-        for label in self.conversion_dictionary:
-            operator = self.conversion_dictionary[label]
+    def __eq__(self, other_hamiltonian):
+        """
+        Two Hamiltonians are equal, if all of their terms are equal.
+        """
+        return compare_lists_by_value(self.terms, other_hamiltonian.terms)
 
-            shape = operator.shape
-            assert len(
-                shape) == 2,  f"Operator with label {label} is not a matrix!"
-            assert shape[0] == shape[1], f"Matrix with label {label} is not square!"
+    def __add__(self, other: Union[TensorProduct, Hamiltonian]) -> Hamiltonian:
+        if isinstance(other, TensorProduct):
+            self.add_term(other)
+        elif isinstance(other, Hamiltonian):
+            self.add_hamiltonian(other)
+        else:
+            errstr = f"Addition between Hamiltonian and {type(other)} not supported!"
+            raise TypeError(errstr)
+        return self
 
-    def add_term(self, term: dict):
-        if not (type(term) == dict):
-            try:
-                term = dict(term)
-            except TypeError:
-                raise TypeError(f"{term} cannot be converted to a dictionary.")
+    def add_term(self, term: TensorProduct):
+        """
+        Adds a term to the Hamiltonian.
 
+        Args:
+            term (TensorProduct): The term to be added in the form of a TensorProduct
+        """
         self.terms.append(term)
 
-    def add_multiple_terms(self, terms: list[dict]):
-        if type(terms) == list:
-            for term in terms:
-                self.add_term(term)
-        else:
-            raise TypeError("'terms' has to be a list of dictionaries")
-
-    def pad_with_identity(self, reference_ttn: TreeTensorNetwork, mode: PadMode = PadMode.safe, identity=None):
+    def add_hamiltonian(self, other: Hamiltonian):
         """
-        Pads all terms with an identity according to the reference reference_ttn
+        Adds one Hamiltonian to this Hamiltonian. The other Hamiltonian will not be modified.
 
-        Parameters
-        ----------
-        reference_ttn : TreeTensorNetwork
-            reference_ttn with reference to which the identities are to be padded. From
-            here the site_ids and operator dimension is inferred.
-        mode : Enum, optional
-            Whether to perform checks ('safe') or not ('risky').
-            For big reference_ttn the checks can take a long time.
-            The default is 'safe'.
-        identity :
-            If None, an appropriately sized identity is determined. Else the
-            value is inserted as a placeholder.
+        Args:
+            other (Hamiltonian): Hamiltonian to be added.
+        """
+        self.terms.extend(other.terms)
+        self.conversion_dictionary.update(other.conversion_dictionary)
 
-        Returns
-        -------
-        None.
+    def add_multiple_terms(self, terms: list[TensorProduct]):
+        """
+        Add multiple terms to this Hamiltonian
 
+        Args:
+            terms (list[TensorProduct]): Terms to be added.
+        """
+        self.terms.extend(terms)
+
+    def is_compatible_with(self, ttn: TreeTensorNetwork) -> bool:
+        """
+        Returns, if the Hamiltonian is compatible with the provided TTN. Compatibility means
+         that all node identifiers that appear any term of this Hamiltonian are identifiers
+         of nodes in the TTN
+
+        Args:
+            ttn (TreeTensorNetwork): The TTN to check against.
+
+        Returns:
+            bool: Whether the two are compatible or not.
+        """
+        for term in self.terms:
+            for site_id in term:
+                if not site_id in ttn.nodes:
+                    return False
+        return True
+
+    def perform_compatibility_checks(self, mode: PadMode,
+                                     reference_ttn: TreeTensorNetwork):
+        """
+        Performs the check of the mode and the check of compatibility, if desired.
+
+        Args:
+            mode (PadMode, optional): 'safe' performs a compatability check with the reference
+             ttn. Risky will not run this check, which might be time consuming for large
+             TTN. Defaults to PadMode.safe.
+
+        Raises:
+            NotCompatibleException: If the Hamiltonian and TTN are not compatible
+            ValueError: If a wrong mode is used.
         """
         if mode == PadMode.safe:
             if not self.is_compatible_with(reference_ttn):
@@ -104,149 +136,106 @@ class Hamiltonian(object):
             raise ValueError(
                 f"{mode} is not a valid option for 'mode'. (Only 'safe' and 'risky are)!")
 
-        for site_id in reference_ttn.nodes:
-
-            if identity == None:
-                site_node = reference_ttn.nodes[site_id]
-                physical_dim = prod(
-                    site_node.shape_of_legs(site_node.open_legs))
-                site_identity = eye(physical_dim)
-            else:
-                site_identity = identity
-
-            for term in self.terms:
-                if not (site_id in term):
-                    term[site_id] = site_identity
-
-    def is_compatible_with(self, ttn: TreeTensorNetwork):
+    def pad_with_identities(self, reference_ttn: TreeTensorNetwork,
+                          mode: PadMode = PadMode.safe, 
+                          symbolic: bool = True) -> Hamiltonian:
         """
-        Checks if the Hamiltonian is compatible with the givent TTN.
+        Returns a Hamiltonian, where all terms are padded with an identity according to
+         the refereence reference_ttn.
 
-        Parameters
-        ----------
-        ttn : TreeTensorNetwork
-            The TTN to be checked against.
+        Args:
+            reference_ttn (TreeTensorNetwork): Provides the structure on which padding should
+             occur. Furthermore the dimension of the open legs of each provide the new
+             identities' dimensions.
+            mode (PadMode, optional): 'safe' performs a compatability check with the reference
+             ttn. Risky will not run this check, which might be time consuming for large
+             TTN. Defaults to PadMode.safe.
+            symbolic (bool, optional): Whether the terms should be padded with a symbolic
+             identity or an actual array. Defaults to True.
 
-        Returns
-        -------
-        compatability: bool
-            If the current Hamiltonian ist compatible with the given TTN.
-
+        Raises:
+            NotCompatibleException: If the Hamiltonian and TTN are not compatible
+            ValueError: If a wrong mode is used.
         """
-
+        self.perform_compatibility_checks(mode=mode, reference_ttn=reference_ttn)
+        new_terms = []
         for term in self.terms:
-            for site_id in term:
-                if not site_id in ttn.nodes:
-                    return False
+            new_term = term.pad_with_identities(reference_ttn, symbolic=symbolic)
+            new_terms.append(new_term)
+        return Hamiltonian(new_terms, conversion_dictionary=self.conversion_dictionary)
 
-        return True
-
-    def to_tensor(self, ref_ttn: TreeTensorNetwork, use_padding: bool = False):
+    def to_matrix(self, ref_ttn: TreeTensorNetwork, use_padding: bool = True,
+                  mode: PadMode = PadMode.safe) -> NumericOperator:
         """
-        Creates a tensor ndarray representing this Hamiltonian assuming it is
-        defined on the structure of ttn.
+        Creates a Numeric operator that is equivalent to the Hamiltonian.
+         The resulting operator can get very large very fast, so this should only be used
+         for debugging. The result is a matrix valued operator.
 
-        Parameters
-        ----------
-        ref_ttn : TreeTensorNetwork
-            TTN giving the tree structure which the Hamiltonian should respect.
+        Args:
+            ref_ttn (TreeTensorNetwork): TTN giving the tree structure which the
+             Hamiltonian should respect.
+            use_padding (bool, optional): Enable, if the Hamiltonian requires padding with
+             respect to the reference TTN. Defaults to True.
+            mode (PadMode, optional): 'safe' performs a compatability check with the reference
+             ttn. Risky will not run this check, which might be time consuming for large
+             TTN. Defaults to PadMode.safe.
 
-        Returns
-        -------
-        full_tensor: ndarray
-            A tensor representing the Hamiltonian. Every node in the ref_ttn
-            corresponds to two legs in the tensor.
-
+        Returns:
+            NumericOperator: Operator corresponding to the Hamiltonian.
         """
+        self.perform_compatibility_checks(mode=mode, reference_ttn=ref_ttn)
         if use_padding:
-            self.pad_with_identity(ref_ttn)
-
-        first = True
-        for term in self.terms:
-
-            term_tensor = self.conversion_dictionary[term[ref_ttn.root_id]]
-            term_tensor = self._to_tensor_rec(ref_ttn,
-                                              ref_ttn.root_id,
-                                              term,
-                                              term_tensor)
-
-            if first:
-                full_tensor = term_tensor
-                first = False
+            self.pad_with_identities(ref_ttn)
+        full_tensor = asarray([0], dtype=complex)
+        identifiers = list(ref_ttn.nodes.keys())
+        for i, term in enumerate(self.terms):
+            term_operator = term.into_operator(conversion_dict=self.conversion_dictionary,
+                                               order=identifiers)
+            if i == 0:
+                full_tensor = term_operator.operator
             else:
-                full_tensor += term_tensor
+                full_tensor += term_operator.operator
+        return NumericOperator(full_tensor.T, identifiers)
 
-        # Separating input and output legs
-        permutation = list(range(0, full_tensor.ndim, 2))
-        permutation.extend(list(range(1, full_tensor.ndim, 2)))
-        full_tensor = full_tensor.transpose(permutation)
-        return full_tensor
-
-    def _to_tensor_rec(self, ttn: TreeTensorNetwork, node_id: str, term: dict, tensor: TensorNode):
-        for child_id in ttn.nodes[node_id].children_legs:
-            child_tensor = self.conversion_dictionary[term[child_id]]
-            tensor = tensordot(tensor, child_tensor, axes=0)
-            tensor = self._to_tensor_rec(ttn, child_id, term, tensor)
-
-        return tensor
-
-    def to_matrix(self, ttn: TreeTensorNetwork):
+    def to_tensor(self, ref_ttn: TreeTensorNetwork, use_padding: bool = True,
+                  mode: PadMode = PadMode.safe) -> NumericOperator:
         """
-        Creates a matrix ndarray representing this Hamiltonian assuming it is
-        defined on the structure of ttn.
+        Creates a NumericOperator that is equivalent to the Hamiltonian.
+         The resulting operator can get very large very fast, so this should only be used
+         for debugging. The result is a tensor with multiple legs.
 
-        Parameters
-        ----------
-        ttn : TreeTensorNetwork
-            TTN giving the tree structure which the Hamiltonian should respect.
+        Args:
+            ref_ttn (TreeTensorNetwork): TTN giving the tree structure which the
+             Hamiltonian should respect.
+            use_padding (bool, optional): Enable, if the Hamiltonian requires padding with
+             respect to the reference TTN. Defaults to True.
+            mode (PadMode, optional): 'safe' performs a compatability check with the reference
+             ttn. Risky will not run this check, which might be time consuming for large
+             TTN. Defaults to PadMode.safe.
 
-        Returns
-        -------
-        matrix: ndarray
-            A matrix representing the Hamiltonian.
-
+        Returns:
+            NumericOperator: Operator corresponding to the Hamiltonian.
         """
-        matrix = self.to_tensor(ttn)
-        half_dim = matrix.ndim / 2
-        matrix_size = prod(matrix.shape[0:half_dim])
+        matrix_operator = self.to_matrix(ref_ttn,use_padding=use_padding,mode=mode)
+        shape = [node.open_dimension() for node in ref_ttn.nodes.values()]
+        shape *= 2
+        tensor_operator = matrix_operator.operator.reshape(shape)
+        return NumericOperator(tensor_operator, matrix_operator.node_identifiers)
 
-        return matrix.reshape((matrix_size, matrix_size))
-
-    def contains_duplicates(self):
+    def contains_duplicates(self) -> bool:
         """
-        If the there are equal terms contained. Especially important to recheck
-        after padding.
+        Checks, if there are duplicates of terms. Can be especially important after padding.
 
-        Returns
-        -------
-        result: bool
-
+        Returns:
+            bool: True if there are duplicates, False otherwise
         """
         dup = [term for term in self.terms if self.terms.count(term) > 1]
         return len(dup) > 0
 
-    def __add__(self, other_hamiltonian: Hamiltonian):
-
-        total_terms = []
-        total_terms.extend(self.terms)
-        total_terms.extend(other_hamiltonian.terms)
-
-        new_hamiltonian = Hamiltonian(terms=total_terms)
-        return new_hamiltonian
-
-    def __repr__(self):
-        return str(self.terms)
-
-    def __eq__(self, other_hamiltonian):
-        """
-        Two Hamiltonians are equal, if all of their terms are equal.
-        """
-        return self.terms == other_hamiltonian.terms
-
-
 def random_terms(
         num_of_terms: int, possible_operators: list, sites: list[str],
-        min_strength: float = -1, max_strength: float = 1, min_num_sites: int = 2, max_num_sites: int = 2):
+        min_strength: float = -1, max_strength: float = 1, min_num_sites: int = 2,
+        max_num_sites: int = 2):
     """
     Creates random interaction terms.
 
@@ -314,7 +303,8 @@ def random_terms(
 
 
 def random_symbolic_terms(num_of_terms: int, possible_operators: list[ndarray], sites: list[str],
-                          min_num_sites: int = 2,  max_num_sites: int = 2, seed=None):
+                          min_num_sites: int = 2,  max_num_sites: int = 2,
+                          seed=None) -> List[TensorProduct]:
     """
     Creates random interaction terms.
 
@@ -339,48 +329,60 @@ def random_symbolic_terms(num_of_terms: int, possible_operators: list[ndarray], 
     rterms : list of dictionaries
         A list containing all the random terms.
     """
-
     rterms = []
-
     rng = default_rng(seed=seed)
-    number_of_sites = rng.integers(low=min_num_sites, high=max_num_sites + 1,
-                                   size=num_of_terms)
-
-    for num_sites in number_of_sites:
+    for _ in range(num_of_terms):
+        number_of_sites = rng.integers(low=min_num_sites,
+                                        high=max_num_sites + 1,
+                                        size=1)
         term = random_symbolic_term(possible_operators, sites,
-                                    num_sites=num_sites, seed=rng)
-
+                                    num_sites=number_of_sites,
+                                    seed=rng)
         while term in rterms:
             term = random_symbolic_term(possible_operators, sites,
-                                        num_sites=num_sites, seed=rng)
-
+                                        num_sites=number_of_sites,
+                                        seed=rng)
         rterms.append(term)
-
     return rterms
 
 
-def random_symbolic_term(possible_operators: list[ndarray], sites: list[str], num_sites: int = 2, seed=None):
+def random_symbolic_term(possible_operators: list[str], sites: list[str],
+                         num_sites: int = 2, seed: Union[int, None]=None) -> TensorProduct:
     """
     Creates a random interaction term.
 
-    Parameters
-    ----------
-    possible_operators : list of arrays
-        A list of all possible single site operators. We assume all sites have
-        the same physical dimension.
-    sites : list of str
-        A list containing the possible identifiers of site nodes.
-    num_sites : int, optional
-        The number of sites that are non-trivial in this term. The default is 2.
+    Args:
+        possible_operators (list[ndarray]): Symbolic operators to choose from.
+        sites (list[str]): Identifiers of the nodes to which they may be applied.
+        num_sites (int, optional): Number of non-trivial sites in a term. Defaults to 2.
+        seed (Union[int, None], optional): A seed for the random number generator. Defaults to None.
 
-    Returns
-    -------
-    rterm : dict
-        A dictionary containing the sites as keys and the symbolic operators
-        as value.
+    Returns:
+        TensorProduct: A random term in the form of a tensor product
     """
     rng = default_rng(seed=seed)
     rand_sites = rng.choice(sites, size=num_sites, replace=False)
     rand_operators = rng.choice(possible_operators, size=num_sites)
+    return TensorProduct(dict(zip(rand_sites, rand_operators)))
 
-    return dict(zip(rand_sites, rand_operators))
+def random_hamiltonian_compatible() -> Hamiltonian:
+    """
+    Generates a Hamiltonian that is compatible with the TTNS produced by
+     `ptn.ttns.random_big_ttns_two_root_children`. It is already padded with
+     identities.
+
+    Returns:
+        Hamiltonian: A Hamiltonian to use for testing.
+    """
+    conversion_dict = {chr(i): random_hermitian_matrix()
+                       for i in range(65,70)} # A, B, C, D, E
+    conversion_dict["I2"] = eye(2)
+    terms = [TensorProduct({"site1": "A", "site2": "B", "site0": "C"}),
+             TensorProduct({"site4": "A", "site3": "D", "site5": "C"}),
+             TensorProduct({"site4": "A", "site3": "B", "site1": "A"}),
+             TensorProduct({"site0": "C", "site6": "E", "site7": "C"}),
+             TensorProduct({"site2": "A", "site1": "A", "site6": "D"}),
+             TensorProduct({"site1": "A", "site3": "B", "site5": "C"})]
+    ham = Hamiltonian(terms, conversion_dictionary=conversion_dict)
+    ref_tree = random_big_ttns_two_root_children()
+    return ham.pad_with_identities(ref_tree)

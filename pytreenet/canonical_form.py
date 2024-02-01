@@ -1,68 +1,62 @@
 from __future__ import annotations
-import numpy as np
+from typing import Tuple
+from uuid import uuid1
 
-from .tensor_util import tensor_qr_decomposition
+from copy import copy
 
+from .leg_specification import LegSpecification
+from .node import Node
+from .tensor_util import SplitMode
 
-def canonical_form(tree_tensor_network: TreeTensorNetwork, orthogonality_center_id: str):
+def canonical_form(ttn: TreeTensorNetwork, orthogonality_center_id: str,
+                   mode: SplitMode = SplitMode.REDUCED):
     """
-    Brings the tree_tensor_network in canonical form with
+    Modifies the TreeTensorNetwork (ttn) into canonical form with the center of orthogonality at
+    node with node_id `orthogonality_center_id`.
 
     Parameters
     ----------
     tree_tensor_network : TreeTensorNetwork
         The TTN for which to find the canonical form
     orthogonality_center_id : str
-        The id of the tensor node, which sould be the orthogonality center for
+        The id of the tensor node which is the orthogonality center for
         the canonical form
+    mode: The mode to be used for the QR decomposition. For details refer to
+     `tensor_util.tensor_qr_decomposition`.
 
     Returns
     -------
     None.
 
     """
-    distance_dict = tree_tensor_network.distance_to_node(
+    distance_dict = ttn.distance_to_node(
         orthogonality_center_id)
-
     maximum_distance = max(distance_dict.values())
 
     # Perform QR-decomposition on all TensorNodes but the orthogonality center
     for distance in reversed(range(1, maximum_distance+1)):
+        # Perform QR on nodes furthest away first.
         node_id_with_distance = [node_id for node_id in distance_dict.keys()
                                  if distance_dict[node_id] == distance]
-
         for node_id in node_id_with_distance:
-            node = tree_tensor_network.nodes[node_id]
-            minimum_distance_neighbour_id = _find_smallest_distance_neighbour(
-                node, distance_dict)
-            minimum_distance_neighbour_index = _find_smalles_distance_neighbour_index(
-                node, minimum_distance_neighbour_id)
-            all_leg_indices = list(range(0, node.tensor.ndim))
-            all_leg_indices.remove(minimum_distance_neighbour_index)
+            node = ttn.nodes[node_id]
+            minimum_distance_neighbour_id = _find_smallest_distance_neighbour(node,
+                                                                              distance_dict)
+            split_qr_contract_r_to_neighbour(ttn,
+                                             node_id,
+                                             minimum_distance_neighbour_id,
+                                             mode=mode)
+    ttn.orthogonality_center_id = orthogonality_center_id
 
-            q, r = tensor_qr_decomposition(node.tensor, all_leg_indices, [
-                                           minimum_distance_neighbour_index])
-
-            reshape_order = _correct_ordering_of_q_legs(
-                node, minimum_distance_neighbour_index)
-            node.tensor = np.transpose(q, axes=reshape_order)
-
-            neighbour_tensor = tree_tensor_network.nodes[minimum_distance_neighbour_id]
-            legs_to_neighbours_neighbours = neighbour_tensor.neighbouring_nodes()
-            neighbour_index_to_contract = legs_to_neighbours_neighbours[node_id]
-            neighbour_tensor.absorb_tensor(
-                r, (1,), (neighbour_index_to_contract,))
-
-
-def _find_smallest_distance_neighbour(node, distance_dict: dict[str, int]):
+def _find_smallest_distance_neighbour(node: Node, distance_dict: dict[str, int]) -> str:
     """
     Finds identifier of the neighbour of node with the minimal distance in
     distance dict, i.e. minimum distance to the orthogonality center.
 
     Parameters
     ----------
-    node : TensorNode
-        TensorNode for which to search.
+    node : Node
+        Node for which to search.
     distance_dict : dict
         Dictionary with the distance of every node to the orthogonality center.
 
@@ -73,43 +67,69 @@ def _find_smallest_distance_neighbour(node, distance_dict: dict[str, int]):
         distance_dict.
 
     """
-    neighbour_ids = node.neighbouring_nodes(with_legs=False)
+    neighbour_ids = node.neighbouring_nodes()
     neighbour_distance_dict = {neighbour_id: distance_dict[neighbour_id]
                                for neighbour_id in neighbour_ids}
-    minimum_distance_neighbour_id = min(
-        neighbour_distance_dict, key=neighbour_distance_dict.get)
+    minimum_distance_neighbour_id = min(neighbour_distance_dict,
+                                        key=neighbour_distance_dict.get)
     return minimum_distance_neighbour_id
 
-
-def _find_smalles_distance_neighbour_index(node, minimum_distance_neighbour_id: str):
+def split_qr_contract_r_to_neighbour(ttn: TreeTensorNetwork,
+                                     node_id: str,
+                                     neighbour_id: str,
+                                     mode: SplitMode = SplitMode.REDUCED):
     """
+    Takes a node an splits of the virtual leg to a neighbours via QR
+     decomposition. The resulting R tensor is contracted with the neighbour.
 
-    Parameters
-    ----------
-    node : TensorNode
-        Node for which to find the leg.
-    minimum_distance_neighbour_id : str
-        Identifier of the neighbour of node with minimum distance in
-        distance_dict
+         __|__      __|__        __|__      __      __|__
+      __|  N1 |____|  N2 | ---> | N1' |____|__|____|  N2 |
+        |_____|    |_____|      |_____|            |_____|
 
-    Returns
-    -------
-     : str
-     The index of leg attached to the neighbour with smallest distance in distance_dict.
+                __|__      __|__ 
+      --->   __| N1' |____| N2' |
+               |_____|    |_____|
 
+    Args:
+        ttn (TreeTensorNetwork): The tree tensor network in which to perform
+         this action.
+        node_id (str): The identifier of the node to be split.
+        neighbour_id (str): The identifier of the neigbour to which to split.
+        mode: The mode to be used for the QR decomposition. For details refer to
+        `tensor_util.tensor_qr_decomposition`.
     """
-    neighbour_index = node.neighbouring_nodes()
-    return neighbour_index[minimum_distance_neighbour_id]
+    node = ttn.nodes[node_id]
+    q_legs, r_legs = _build_qr_leg_specs(node, neighbour_id)
+    r_tensor_id = str(uuid1()) # Avoid identifier duplication
+    ttn.split_node_qr(node_id, q_legs, r_legs,
+                        q_identifier=node_id,
+                        r_identifier=r_tensor_id,
+                        mode=mode)
+    ttn.contract_nodes(neighbour_id, r_tensor_id,
+                        new_identifier=neighbour_id)
 
-
-def _correct_ordering_of_q_legs(node, minimum_distance_neighbour_leg: tuple[int]):
+def _build_qr_leg_specs(node: Node,
+                        min_neighbour_id: str) -> Tuple[LegSpecification,LegSpecification]:
     """
-    Finds the correct ordering of the legs of the q-tensor after perfomring
-    QR-decomposition on the tensor of node.
+    Construct the leg specifications required for the qr decompositions during
+     canonicalisation.
 
+    Args:
+        node (Node): The node which is to be split.
+        min_neighbour_id (str): The identifier of the neighbour of the node
+         which is closest to the orthogonality center.
+
+    Returns:
+        Tuple[LegSpecification,LegSpecification]: 
+         The leg specifications for the legs of the Q-tensor, i.e. what
+          remains as the node, and the R-tensor, i.e. what will be absorbed
+          into the node defined by `min_neighbour_id`.
     """
-    number_legs = node.tensor.ndim
-    first_part = tuple(range(0, minimum_distance_neighbour_leg))
-    last_part = tuple(range(minimum_distance_neighbour_leg, number_legs-1))
-    reshape_order = first_part + (number_legs-1,) + last_part
-    return reshape_order
+    q_legs = LegSpecification(None, copy(node.children), node.open_legs)
+    if node.is_child_of(min_neighbour_id):
+        r_legs = LegSpecification(min_neighbour_id, [], [])
+    else:
+        q_legs.parent_leg = node.parent
+        q_legs.child_legs.remove(min_neighbour_id)
+        r_legs = LegSpecification(None, [min_neighbour_id], [])
+    return q_legs, r_legs

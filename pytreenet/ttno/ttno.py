@@ -1,19 +1,17 @@
 from __future__ import annotations
+from typing import Dict
+from enum import Enum
 import numpy as np
 
 from ..ttn import TreeTensorNetwork
 from ..tensor_util import tensor_qr_decomposition, tensor_svd, truncated_tensor_svd
-from ..tensornode import TensorNode
+from ..node import Node
 from .state_diagram import StateDiagram
 
-from enum import Enum, auto
-
-
 class Decomposition(Enum):
-    SVD = auto()
-    QR = auto()
-    tSVD = auto()
-
+    SVD = "SVD"
+    QR = "QR"
+    tSVD = "tSVD"
 
 class TTNO(TreeTensorNetwork):
     """
@@ -33,97 +31,74 @@ class TTNO(TreeTensorNetwork):
 
     """
 
-    def __init__(self, **kwargs):
-        TreeTensorNetwork.__init__(self, **kwargs)
+    def __init__(self):
+        super().__init__()
 
     @classmethod
-    def from_hamiltonian(cls, hamiltonian: Hamiltonian, reference_tree: TreeTensorNetwork):
+    def from_hamiltonian(cls, hamiltonian: Hamiltonian,
+                            reference_tree: TreeStructure) -> TTNO:
         """
+        Generates a TTNO from a Hamiltonian.
 
-        Parameters
-        ----------
-        hamiltonian : Hamiltonian
-            The Hamiltonian which is to be brought into TTNO form. Should contain
-            a conversion dictionary to allow for better compression.
-        reference_tree : TreeTensorNetwork
-            A TTN which has the same underlying tree topology as the TTNO is
-            supposed to have.
+        Args:
+            hamiltonian (Hamiltonian): The Hamiltonian, to which the TTNO
+             should be equivalent.
+            reference_tree (TreeStructure): The tree structure which the TTNO
+             should respect.
 
-        Returns
-        -------
-        new_TTNO: TTNO
-
+        Returns:
+            TTNO: The resulting TTNO.
         """
-
         state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
                                                       reference_tree)
-        ttno = TTNO(original_tree=reference_tree)
-        for node_id, hyperedge_coll in state_diagram.hyperedge_colls.items():
-            local_tensor, leg_dict = ttno._setup_for_from_hamiltonian(node_id,
-                                                                      state_diagram,
-                                                                      hamiltonian.conversion_dictionary)
-            # Adding the operator corresponding to each hyperedge to the tensor
-
-            for he in hyperedge_coll.contained_hyperedges:
-                operator_label = he.label
-                operator = hamiltonian.conversion_dictionary[operator_label]
-
-                index_value = [0] * len(he.vertices)
-                index_value.extend([slice(None), slice(None)])
-
-                for vertex in he.vertices:
-                    index_value[vertex.index[0]] = vertex.index[1]
-                index_value = tuple(index_value)
-                local_tensor[index_value] += operator
-
-            new_node = TensorNode(local_tensor, identifier=node_id)
-
-            node = reference_tree.nodes[node_id]
-            if not node.is_root():
-                parent_id = node.get_parent_id()
-                new_node.open_leg_to_parent(leg_dict[parent_id], parent_id)
-                del leg_dict[parent_id]
-
-            new_node.open_legs_to_children(leg_dict.values(), leg_dict.keys())
-            ttno.nodes[node_id] = new_node
-
+        ttno = TTNO()
+        root_id = reference_tree.root_id
+        root_shape = state_diagram.obtain_tensor_shape(root_id,
+                                                       hamiltonian.conversion_dictionary)
+        root_tensor = np.zeros(root_shape, dtype=complex)
+        root_node = Node(identifier=root_id)
+        ttno.add_root(root_node, root_tensor)
+        for child_id in reference_tree.nodes[root_id].children:
+            ttno._rec_zero_ttno(child_id, state_diagram,
+                                hamiltonian.conversion_dictionary)
+        # Now we have a TTNO filled with zero tensors of the correct shape.
+        state_diagram.set_all_vertex_indices() # Fixing index_values
+        for he in state_diagram.get_all_hyperedges():
+            position = he.find_tensor_position(reference_tree)
+            operator = hamiltonian.conversion_dictionary[he.label]
+            ttno.tensors[he.corr_node_id][position] += operator
         return ttno
 
-    def _setup_for_from_hamiltonian(self, node_id, state_diagram, conversion_dict):
-        he = state_diagram.hyperedge_colls[node_id].contained_hyperedges[0]
-        operator_label = he.label
-        operator = conversion_dict[operator_label]
-        # Should be square operators
-        phys_dim = operator.shape[0]
+    def _rec_zero_ttno(self, node_id: str, state_diagram: StateDiagram,
+                       conversion_dict: Dict[str, np.ndarray]):
+        """
+        Recursively creates an empty TTNO, i.e., one with all zeros as entries.
 
-        total_tensor_shape = [0] * len(he.vertices)
-        total_tensor_shape.extend([phys_dim, phys_dim])
-
-        node = self.nodes[node_id]
-        neighbours = node.neighbouring_nodes(with_legs=False)
-        leg_dict = {}
-        for leg_index, neighbour_id in enumerate(neighbours):
-            leg_dict[neighbour_id] = leg_index
-
-            vertex_coll = state_diagram.get_vertex_coll_two_ids(
-                node_id, neighbour_id)
-            for index_value, vertex in enumerate(vertex_coll.contained_vertices):
-                vertex.index = (leg_index, index_value)
-            # The number of vertices is equal to the number of bond-dimensions required.
-            total_tensor_shape[leg_index] = len(vertex_coll.contained_vertices)
-
-        local_tensor = np.zeros(total_tensor_shape, dtype=complex)
-
-        return local_tensor, leg_dict
+        Args:
+            root_id (str): The identifier of the current_node.
+            state_diagram (StateDiagram): A state diagram used to determine the
+             dimensions and the tree topology.
+            conversion_dict (Dict[str, np.ndarray]): A conversion dictionary to
+             determine the physical dimensions required.
+        """
+        tensor_shape = state_diagram.obtain_tensor_shape(node_id,
+                                                         conversion_dict)
+        node_tensor = np.zeros(tensor_shape, dtype=complex)
+        node = Node(identifier=node_id)
+        parent_id = state_diagram.reference_tree.nodes[node_id].parent
+        parent_leg = self.nodes[parent_id].nneighbours()
+        self.add_child_to_parent(node, node_tensor, 0, parent_id, parent_leg)
+        for child_id in state_diagram.reference_tree.nodes[node_id].children:
+            self._rec_zero_ttno(child_id, state_diagram, conversion_dict)
 
     @classmethod
     def from_tensor(
-            cls, reference_tree: TreeTensorNetwork, tensor: np.nadarray, leg_dict: dict[str, int],
+            cls, reference_tree: TreeStructure, tensor: np.nadarray, leg_dict: dict[str, int],
             mode: Decomposition = Decomposition.QR):
         """
         Parameters
         ----------
-        reference_tree : TreeTensorNetwork
+        reference_tree : TreeStructure
             A tree used as a reference. The TTNO will have the same underlying
             tree structure and the same node_ids.
         tensor : ndarray
@@ -152,22 +127,47 @@ class TTNO(TreeTensorNetwork):
         half_dim = int(tensor.ndim / 2)
         # Ensure that operator matches number of lattice sites in TTN
         assert half_dim == len(reference_tree.nodes)
+        # Ensure that tensor input and output dimensions are the same
+        # assert tensor.shape[:half_dim] == tensor.shape[half_dim:]
 
         root_id = reference_tree.root_id
         new_leg_dict = {node_id: [leg_dict[node_id], half_dim + leg_dict[node_id]]
                         for node_id in leg_dict}
 
-        root_node = TensorNode(tensor, identifier=root_id)
+        tensor_shape = cls._get_qr_decomposition_shape(reference_tree, new_leg_dict, [], root_id)
+
+        tensor = np.transpose(tensor, axes=tensor_shape)
+
+        root_node = Node(tensor, identifier=root_id)
 
         new_TTNO = TTNO()
-        new_TTNO.add_root(root_node)
+        new_TTNO.add_root(root_node, tensor)
 
         new_TTNO._from_tensor_rec(
-            reference_tree, root_node, new_leg_dict, mode=mode)
+            reference_tree, root_node, mode=mode)
         return new_TTNO
 
+    @classmethod
+    def _get_qr_decomposition_shape(
+            cls, reference_tree: TreeStructure, leg_dict: dict[str, list[int]],
+            shape_tensor: list[int],
+            current_id: str) -> list[int]:
+
+        if reference_tree.nodes[current_id].is_leaf():
+            shape_tensor = leg_dict[current_id] + shape_tensor
+            # shape_tensor.extend(leg_dict[current_id])
+            return shape_tensor
+
+        for children_id in reference_tree.nodes[current_id].children:
+            shape_tensor = cls._get_qr_decomposition_shape(reference_tree, leg_dict, shape_tensor, children_id)
+
+        # shape_tensor.extend(leg_dict[current_id])
+        shape_tensor = leg_dict[current_id] + shape_tensor
+
+        return shape_tensor
+
     def _from_tensor_rec(
-            self, reference_tree: TreeTensorNetwork, current_node: TensorNode, leg_dict: dict[str, int],
+            self, reference_tree: TreeStructure, current_node: str,
             mode: Decomposition = Decomposition.QR):
         """
         Recursive part to obtain a TTNO from a tensor. For each child of the
@@ -176,10 +176,10 @@ class TTNO(TreeTensorNetwork):
 
         Parameters
         ----------
-        reference_tree : TreeTensorNetwork
+        reference_tree : TreeStructure
             A tree used as a reference. The TTNO will have the same underlying
             tree structure and the same node_ids.
-        current_node : TensorNode
+        current_node : Node
             The current node which we want to split via a QR-decomposition.
         leg_dict : dict
             A dictionary it contains node_identifiers as keys and leg indices
@@ -196,18 +196,18 @@ class TTNO(TreeTensorNetwork):
 
         """
         # At a leaf, we can immediately stop
-        if reference_tree.nodes[current_node.identifier].is_leaf():
+        current_node_id = current_node.identifier
+        if reference_tree.nodes[current_node_id].is_leaf():
             return
 
-        current_children = reference_tree.nodes[current_node.identifier].get_children_ids(
-        )
+        current_children = reference_tree.nodes[current_node_id].children
+        current_node = self.nodes[current_node.identifier]
+        current_tensor = self.tensors[current_node_id]
 
         for child_id in current_children:
-
-            q_legs, r_legs, q_leg_dict, r_leg_dict = TTNO._prepare_legs_for_QR(
-                reference_tree, current_node, child_id, leg_dict)
-
-            current_tensor = current_node.tensor
+            n_recursive_children = 2*reference_tree.find_subtree_size_of_node(child_id)
+            q_legs = list(range(current_tensor.ndim-n_recursive_children))
+            r_legs = list(range(current_tensor.ndim-n_recursive_children, current_tensor.ndim))
             if mode == Decomposition.QR:
                 Q, R = tensor_qr_decomposition(current_tensor, q_legs, r_legs)
             elif mode == Decomposition.SVD:
@@ -219,30 +219,20 @@ class TTNO(TreeTensorNetwork):
             else:
                 raise ValueError(f"{mode} is not a valid keyword for mode.")
 
-            q_node = TTNO._create_q_node(Q, current_node, q_leg_dict)
-            new_q_leg_dict = TTNO._find_new_leg_dict(q_leg_dict, c=0)
-
             # Replace current_node with q_node in the TTNO
-            self.nodes[current_node.identifier] = q_node
+            self.nodes[current_node_id].link_tensor(Q)
+            self.tensors[current_node_id] = Q
 
-            r_node = TensorNode(R, identifier=child_id)
+            r_node = Node(R, identifier=child_id)
 
             # We have to add this node as an additional child to the current node
             self.add_child_to_parent(
-                r_node, 0, q_node.identifier, q_node.tensor.ndim - 1)
+                r_node, R, 0, current_node.identifier, Q.ndim - 1)
 
-            if reference_tree.nodes[r_node.identifier].is_leaf():
-                new_r_leg_dict = None
-            else:
-                # Every r_node will have a parent, so c=1
-                new_r_leg_dict = TTNO._find_new_leg_dict(r_leg_dict, c=1)
+            self._from_tensor_rec(reference_tree, r_node, mode=mode)
 
-            self._from_tensor_rec(reference_tree, r_node,
-                                  new_r_leg_dict, mode=mode)
-
-            # Prepare to repeat for next child
-            current_node = self.nodes[current_node.identifier]
-            leg_dict = new_q_leg_dict
+            # Prepare to repeat for next child, this transposes the tensor to the correct shape
+            current_tensor = self.tensors[current_node_id]
 
         return
 
