@@ -74,7 +74,7 @@ def fast_exp_action(exponent: np.ndarray,
                              traceA=np.trace(exponent))
     if mode == "sparse":
         exponent = csr_matrix(exponent)
-        vector = csr_matrix(exponent).transpose()
+        vector = csr_matrix(vector).transpose()
         exponent_ = expm_sparse(exponent)
         result = exponent_.dot(vector)
         return result.toarray()
