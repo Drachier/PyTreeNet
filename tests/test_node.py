@@ -436,5 +436,60 @@ class TestNodeMethods(unittest.TestCase):
             self.assertEqual(open_dimensions[ids],
                              self.nodes[ids].open_dimension())
 
+    def test_eq_to_self(self):
+        for ids, node in self.nodes.items():
+            for ids2, node2 in self.nodes.items():
+                if ids == ids2:
+                    self.assertTrue(node == node2)
+                else:
+                    self.assertFalse(node == node2)
+
+class TestNodeEq(unittest.TestCase):
+    """
+    Testing equality only according to shape. The neigbours are already 
+        tested in the parent class tests.
+        c.f. test_graph_node.TestGraphNode.test_eq
+    """
+    def setUp(self) -> None:
+        self.shape = (2, 3, 4)
+        tensor1 = ptn.crandn(self.shape)
+        tensor2 = ptn.crandn(self.shape)
+        identifier = "id"
+        self.node1 = ptn.Node(identifier=identifier, tensor=tensor1)
+        self.node2 = ptn.Node(identifier=identifier, tensor=tensor2)
+
+    def test_eq_shape_same_ext_shape_same_internal_shape(self):
+        """
+        Test equality with same shape.
+        """
+        self.assertTrue(self.node1 == self.node2)
+        self.assertTrue(self.node2 == self.node1)
+
+    def test_eq_shape_same_ext_shape_different_internal_shape(self):
+        """
+        It does not matter, if the internal shape is different.
+        """
+        self.node2._shape = (4,3,2)
+        self.node2._leg_permutation = [2,1,0]
+        self.assertTrue(self.node1 == self.node2)
+        self.assertTrue(self.node2 == self.node1)
+
+    def test_eq_shape_different_ext_shape_same_internal_shape(self):
+        """
+        It does not matter, if the external shape is different.
+        """
+        self.node2._shape = (4,3,2)
+        self.assertFalse(self.node1 == self.node2)
+        self.assertFalse(self.node2 == self.node1)
+
+    def test_eq_shape_different_ext_shape_different_internal_shape(self):
+        """
+        It does not matter, if the external shape is different.
+        """
+        self.node2._shape = (4,3,2)
+        self.node2._leg_permutation = [0,2,1]
+        self.assertFalse(self.node1 == self.node2)
+        self.assertFalse(self.node2 == self.node1)
+
 if __name__ == "__main__":
     unittest.main()

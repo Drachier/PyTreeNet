@@ -39,19 +39,15 @@ class Node(GraphNode):
 
     def __eq__(self, other: Node) -> bool:
         """
-        Two nodes are equal, if they have the same identifier, children in the right order and
-         the same parent.
+        Two nodes are equal, if they have the same identifier, children in the
+         right order and the same parent and have the same external shape, i.e.
+         the internal `_shape` can be different.
+        Note that the permutation is not checked and the associated tensor is not
+         checked, as it is stored independently.
         """
-        identifier_eq = self.identifier == other.identifier
-        children_eq = self.children == other.children
-        # Needed to avoid string to None comparison
-        if self.is_root() and other.is_root():
-            parent_eq = True
-        elif self.is_root() or other.is_root():
-            parent_eq = False
-        else:
-            parent_eq = self.parent == other.parent
-        return identifier_eq and children_eq and parent_eq
+        graphnode_eq = super().__eq__(other)
+        shape_eq = self.shape == other.shape
+        return graphnode_eq and shape_eq
 
     @property
     def leg_permutation(self):
@@ -114,7 +110,7 @@ class Node(GraphNode):
         self._shape = self.shape
         self._leg_permutation = list(range(len(self._leg_permutation)))
 
-    def open_leg_to_parent(self, parent_id: [str, None], open_leg: Union[int,None]):
+    def open_leg_to_parent(self, parent_id: Union[str, None], open_leg: Union[int,None]):
         """
         Changes an open leg into the leg towards a parent.
 
