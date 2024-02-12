@@ -65,6 +65,20 @@ class TestTreeTensorNetworkBasics(unittest.TestCase):
         self.assertEqual(self.tensortree.nodes["new_root"].children, ["orig_root"])
         self.assertEqual(self.tensortree.nodes["orig_root"].parent, "new_root")
 
+    def test_root_property(self):
+        ttn = ptn.TreeTensorNetwork()
+        node0, tensor0 = ptn.random_tensor_node((4,3,2),"node0")
+        tensor0_ref_transposed = np.transpose(tensor0, (2,1,0))
+        node1, tensor1 = ptn.random_tensor_node((2, ),"node1")
+        node2, tensor2 = ptn.random_tensor_node((3, ),"node2")
+        ttn.add_root(node0, tensor0)
+        ttn.add_child_to_parent(node1, tensor1, 0, "node0", 2)
+        ttn.add_child_to_parent(node2, tensor2, 0, "node0", 2)
+        root_node, root_tensor = ttn.root
+        self.assertTrue(np.allclose(tensor0_ref_transposed, root_tensor))
+        self.assertEqual((2,3,4), root_node.shape)
+
+
 class TestTreeTensorNetworkSimple(unittest.TestCase):
 
     def setUp(self):
@@ -73,7 +87,7 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
     def test_equality_ttn_should_be_equal_to_itself(self):
         ref_tree = deepcopy(self.tensortree)
         self.assertEqual(ref_tree,self.tensortree)
-    
+
     # TODO: Test other situations
 
     def test_conjugate(self):
