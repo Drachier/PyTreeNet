@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Union
 from copy import copy, deepcopy
 from collections import UserDict
 
@@ -116,15 +116,44 @@ class TreeTensorNetwork(TreeStructure):
         if not len(self.nodes) == len(other.nodes):
             # Avoid the case that one is the subtree of the other.
             return False
-        for node_id, node in self.nodes.items():
+        for node_id in self.nodes:
             if node_id in other.nodes: # Avoid KeyError
-                nodes_equal = node == other.nodes[node_id]
-                tensors_equal = np.allclose(self.tensors[node_id], other.tensors[node_id])
-                if not (nodes_equal and tensors_equal):
+                if not self.nodes_equal(node_id, other):
                     return False
             else:
                 return False # Some node_id is not the same
         return True
+
+    def nodes_equal(self, node_id: str, other: TreeTensorNetwork, 
+                    other_node_id : Union[None,str] = None) -> bool:
+        """
+        Compares a node in this tree with a node in a different TTN.
+
+        Args:
+            node_id (str): Identifier of a node in this TTN to use for
+             comparison.
+             other (TreeTensorNetwork): A different TTN to compare to.
+             other_node_id (Union[None, str]), Optional: A node identifier
+              for the node in the other tree. If it is `None`, the same
+              identifier is used for both TTN. Defaults to None.
+
+        Returns:
+            bool: If the two nodes are equal and the associated tensors close
+             to each other.
+        """
+        if other_node_id is None:
+            other_node, test_tensor = other[node_id]
+            test_node = other_node
+        else:
+            other_node, test_tensor = other[other_node_id]
+            test_node = other_node.copy_with_new_id(node_id)
+        node, tensor = self[node_id]
+        nodes_equal = test_node == node
+        if not nodes_equal:
+            # Avoids a potential numpy exception due to shape mismatch
+            return False
+        tensors_equal = np.allclose(test_tensor, tensor)
+        return tensors_equal
 
     def add_root(self, node: Node, tensor: np.ndarray):
         """
