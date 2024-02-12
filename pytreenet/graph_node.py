@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import List
 import uuid
+from copy import deepcopy
 
 class GraphNode:
     """
@@ -29,6 +30,20 @@ class GraphNode:
         # Information about connectivity
         self.parent = None
         self.children = []
+
+    def copy_with_new_id(self, new_id: str) -> GraphNode:
+        """
+        Creates a copy of this GraphNode with a new identifier.
+
+        Args:
+            new_id (str): The new identifier.
+
+        Returns:
+            GraphNode: A deepcopy of this GraphNode with a new identifier.
+        """
+        new_node = deepcopy(self)
+        new_node.identifier = new_id
+        return new_node
 
     @property
     def identifier(self):
