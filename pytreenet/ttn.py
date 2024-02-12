@@ -215,33 +215,50 @@ class TreeTensorNetwork(TreeStructure):
             ttn_conj.tensors[node_id] = tensor.conj()
         return ttn_conj
 
-    def absorb_tensor(self, node_id: str, absorbed_tensor: np.ndarray,
-                      absorbed_tensors_leg_index: int,
-                      this_tensors_leg_index: int):
+    def absorb_matrix(self, node_id: str, absorbed_matrix: np.ndarray,
+                      this_tensors_leg_index: int,
+                      absorbed_matrix_leg_index: int = 1):
         """
-        Absorbs `absorbed_tensor` into this instance's tensor by contracting
-        the absorbed_tensors_leg of the absorbed_tensor and the leg
-        this_tensors_leg of this instance's tensor'
+        Absorbs a matrix into one of this TTN's tensors at a given tensor
+         leg.
 
-        Parameters
-        ----------
-        absorbed_tensor: np.ndarray
-            Tensor to be absorbed.
-        absorbed_tensors_leg_index: int
-            Leg that is to be contracted with this instance's tensor.
-        this_tensors_leg_index:
-            The leg of this instance's tensor that is to be contracted with
-            the absorbed tensor.
+        Args:
+        node_id (str): Identifier of the node/tensor into which the matrix
+         should be absorbed.
+        absorbed_matrix (np.ndarray): Matrix to be absorbed. Has to be a
+         square matrix, as otherwise the tensor shape is changed. If you
+         desire to contract a non-square matrix/ a higher-degree tensor, add
+         a new child to this tensor and contract it with this tensor.
+        this_tensors_leg_index (int): The leg of this TTN's tensor that is to
+         be contracted with the absorbed tensor.
+        absorbed_tensors_leg_index (int, Optional): Leg that is to be
+         contracted with this instance's tensor. Defaults to 1, as this is
+         usually considered to be the input leg of a matrix.
         """
+        m_shape = absorbed_matrix.shape
+        if len(absorbed_matrix) != 2 or m_shape[0] != m_shape[1]:
+            errstr = "Only square Matrices can be absorbed!\n"
+            errstr += "If you desire to contract a non-square matrix/ a higher-degree tensor\n"
+            errstr += "then add it as a new child to this TTN and contract it."
+            raise AssertionError(errstr)
         node_tensor = self.tensors[node_id]
-        new_tensor = np.tensordot(node_tensor, absorbed_tensor,
-                                  axes=(this_tensors_leg_index, absorbed_tensors_leg_index))
+        new_tensor = np.tensordot(node_tensor, absorbed_matrix,
+                                  axes=(this_tensors_leg_index, absorbed_matrix_leg_index))
 
         this_tensors_indices = tuple(range(new_tensor.ndim))
         transpose_perm = (this_tensors_indices[0:this_tensors_leg_index]
                           + (this_tensors_indices[-1], )
                           + this_tensors_indices[this_tensors_leg_index:-1])
         self.tensors[node_id] = new_tensor.transpose(transpose_perm)
+
+    def absorb_tensor(self, node_id: str, absorbed_tensor: np.ndarray,
+                      absorbed_tensors_leg_index: int,
+                      this_tensors_leg_index: int):
+        """
+        DEPRECIATED. Use `absorb_matrix` instead.
+        """
+        return self.absorb_matrix(node_id, absorbed_tensor, absorbed_tensors_leg_index,
+                                  this_tensors_leg_index)
 
     def absorb_tensor_into_neighbour_leg(self, node_id: str, neighbour_id: str,
                                          tensor: np.ndarray, tensor_leg: int):
@@ -259,7 +276,7 @@ class TreeTensorNetwork(TreeStructure):
         assert tensor.ndim == 2
         node = self.nodes[node_id]
         neighbour_leg = node.get_neighbour_leg(neighbour_id)
-        self.absorb_tensor(node_id, tensor, tensor_leg, neighbour_leg)
+        self.absorb_matrix(node_id, tensor, tensor_leg, neighbour_leg)
 
     def absorb_into_open_legs(self, node_id: str, tensor: np.ndarray):
         """
