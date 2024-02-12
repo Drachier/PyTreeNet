@@ -126,7 +126,7 @@ class TestGraphNode(unittest.TestCase):
         self.node.add_children([self.child1_id,self.child2_id])
         self.assertRaises(ValueError,self.node.replace_neighbour,
                           "false","other")
-        
+
     def test_replace_neighbour_parent(self):
         self.node.add_parent(self.parent_id)
         self.node.replace_neighbour(self.parent_id,"new")
@@ -282,6 +282,33 @@ class TestGraphNode(unittest.TestCase):
         other_node.remove_child("Carneval!")
         other_node.add_children([self.child1_id, self.child2_id])
         self.assertTrue(other_node == self.node)
+
+    def test_eq_root_chenanigans(self):
+        """
+        Tests the special cases, where roots are involved.
+        """
+        # Different roots
+        other_node = ptn.GraphNode(identifier="other")
+        self.assertFalse(other_node == self.node)
+
+        # Same root
+        other_node = ptn.GraphNode(identifier="this")
+        self.assertTrue(other_node == self.node)
+
+        # One root, but not the other
+        other_node = ptn.GraphNode(identifier="this")
+        other_node.add_parent("parent")
+        self.assertFalse(other_node == self.node)
+        self.assertFalse(self.node == other_node)
+
+        # With children
+        other_node = ptn.GraphNode(identifier="this")
+        self.node.add_children([self.child1_id, self.child2_id])
+        self.assertFalse(other_node == self.node)
+        other_node.add_children([self.child1_id, self.child2_id])
+        self.assertTrue(other_node == self.node)
+
+
 
 if __name__ == "__main__":
     unittest.main()

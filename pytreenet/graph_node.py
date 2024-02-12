@@ -37,14 +37,21 @@ class GraphNode:
         """
         return self._identifier
 
-    def __eq__(self, other: GraphNode):
+    def __eq__(self, other: GraphNode) -> bool:
         """
-        Two nodes are the same, if they have the same identifiers and neighbours.
+        Two GraphNodes are the same, if they have the same identifier,
+         children in the right order and the same parent.
         """
-        same_id = self.identifier == other.identifier
-        same_parent = self.parent == other.parent
-        same_children = self.children == other.children
-        return same_id and same_parent and same_children
+        identifier_eq = self.identifier == other.identifier
+        children_eq = self.children == other.children
+        # Needed to avoid string to None comparison
+        if self.is_root() and other.is_root():
+            parent_eq = True
+        elif self.is_root() or other.is_root():
+            parent_eq = False
+        else:
+            parent_eq = self.parent == other.parent
+        return identifier_eq and children_eq and parent_eq
 
     def add_parent(self, parent_id: str):
         """
