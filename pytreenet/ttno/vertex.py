@@ -32,13 +32,14 @@ class Vertex():
         self.hyperedges.append(hyperedge)
         hyperedge.append(self)
 
-    def add_hyperedges(self, hyperedges: list):
+    def add_hyperedge(self, hyperedge):
         """
-        Adds hyperedges to this vertex and adds this vertex to the hyperedges' vertices.
+        Adds a hyperedge to this vertex and adds this vertex to the hyperedge's vertices.
         """
-        self.hyperedges.extend(hyperedges)
-        for hyperedge in hyperedges:
-            hyperedge.vertices.append(self)
+        self_copy = deepcopy(self)
+        for i in range(len(hyperedge)):
+            self.hyperedges.append(hyperedge[i])
+            hyperedge[i].vertices.append(self_copy)
 
     def check_validity_of_node(self, node_id):
         """Cecks if the current vertex corresponds to an edge of node_id."""
