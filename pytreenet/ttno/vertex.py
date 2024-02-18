@@ -30,7 +30,7 @@ class Vertex():
         Adds a hyperedge to this vertex and adds this vertex to the hyperedge's vertices.
         """
         self.hyperedges.append(hyperedge)
-        hyperedge.append(self)
+        hyperedge.vertices.append(self)
 
     def add_hyperedges(self, hyperedges: list):
         """
