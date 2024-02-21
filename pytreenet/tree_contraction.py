@@ -11,17 +11,10 @@ def completely_contract_tree(ttn: TreeTensorNetwork, to_copy: bool=False) -> Tre
     Completely contracts the given tree_tensor_network by combining all nodes.
     (WARNING: Can get very costly very fast. Only use for debugging.)
 
-    Parameters
-    ----------
-    tree_tensor_network : TreeTensorNetwork
-        The TTN to be contracted.
-    to_copy: bool
-        Wether or not the contraction should be perfomed on a deep copy.
-        Default is False.
-
-    Returns
-    -------
-    work_ttn (TreeTensorNetwork): A ttn with a single node containing the contracted tensor.
+    Args:
+        ttn (TreeTensorNetwork): The TTN to be contracted.
+        to_copy (bool): Wether or not the contraction should be perfomed on a deep copy.
+            Default is False.
     """
     work_ttn = copy_object(ttn, deep=to_copy)
 
@@ -32,7 +25,7 @@ def completely_contract_tree(ttn: TreeTensorNetwork, to_copy: bool=False) -> Tre
 
 def _completely_contract_tree_rec(work_ttn: TreeTensorNetwork, current_node_id: str):
     """
-    Recursively runs through the tree contracting it from leaf to root.
+    Recursively contracts the complete subtree of the given node.
 
     Args:
         work_ttn (TreeTensorNetwork): The TTN to be contracted
