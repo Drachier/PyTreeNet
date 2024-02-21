@@ -83,7 +83,10 @@ class TreeTensorNetwork(TreeStructure):
         Returns the root node and the associated tensor
 
         Returns:
-            Tuple[Node, np.ndarray]: _description_
+            Tuple[Node, np.ndarray]: The root node and the associated tensor.
+
+        Raises:
+            KeyError: If there is no root in the TTN.
         """
         if self.root_id is None:
             errstr = "There is no root!"
