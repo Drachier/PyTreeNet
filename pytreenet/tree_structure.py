@@ -393,7 +393,8 @@ class TreeStructure():
             List[str]: The identifiers of the nodes in the order they are visited.
         """
         linearised = []
-        self._linearised_rec(self._root_id, linearised)
+        if not self._root_id is None:
+            self._linearised_rec(self._root_id, linearised)
         return linearised
 
     def _linearised_rec(self, node_id: str, linearised: List[str]):

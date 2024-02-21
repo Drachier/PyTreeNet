@@ -244,5 +244,11 @@ class TestTreeStructureMethods(unittest.TestCase):
             found_path = self.ts.path_from_to(identifiers[0], identifiers[1])
             self.assertEqual(correct_path, found_path)
 
+    def test_linearise(self):
+        found_list = self.ts.linearise()
+        correct_list = ["node3", "node2", "node5", "node6", "node4",
+                        "node1", "node8", "node7", "node0"]
+        self.assertEqual(correct_list,found_list)
+
 if __name__ == "__main__":
     unittest.main()
