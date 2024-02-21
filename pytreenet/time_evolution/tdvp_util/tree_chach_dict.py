@@ -82,3 +82,13 @@ class PartialTreeChachDict(dict):
         assert chached_tensor.pointing_to_node == old_next_id
         chached_tensor.pointing_to_node = new_next_id
         self.add_entry(node_id, new_next_id, chached_tensor)
+
+    def delete_entry(self, node_id: str, next_node_id: str):
+        """
+        Deletes the entry with the given node_id and next_node_id.
+
+        Args:
+            node_id (str): The identifier where the partial tree ends.
+            next_node_id (str): The identifier to which the open legs point.
+        """
+        del self[node_id, next_node_id]
