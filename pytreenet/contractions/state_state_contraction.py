@@ -5,6 +5,18 @@ import numpy as np
 from ..time_evolution.tdvp_util.partial_tree_cache import PartialTreeChachDict
 from ..node import Node
 
+def contract_two_ttn(ttn1: TreeTensorNetwork, ttn2: TreeTensorNetwork) -> complex:
+    """
+    Contracts two TreeTensorNetworks.
+
+    Args:
+        ttn1 (TreeTensorNetwork): The first TreeTensorNetwork.
+        ttn2 (TreeTensorNetwork): The second TreeTensorNetwork.
+
+    Returns:
+        complex: The resulting scalar product <TTN1|TTN2>
+    """
+    return 
 
 def contract_leafs(node_id: str, state1: TreeTensorNetworkState,
                    state2: TreeTensorNetworkState) -> np.ndarray:
