@@ -383,3 +383,27 @@ class TreeStructure():
         sub_path_end_center_no_duplicates.reverse()
         sub_path = sub_path_start_center_no_duplicates + sub_path_end_center_no_duplicates
         return sub_path
+
+    def linearise(self) -> List[str]:
+        """
+        Linearises the tree the children of a node will always appear before the
+         node itself.
+
+        Returns:
+            List[str]: The identifiers of the nodes in the order they are visited.
+        """
+        linearised = []
+        self._linearised_rec(self._root_id, linearised)
+        return linearised
+
+    def _linearised_rec(self, node_id: str, linearised: List[str]):
+        """
+        The recursive part of the linearise function.
+
+        Args:
+            node_id (str): The identifier of the node to be linearised.
+            linearised (List[str]): The list to which the identifiers are added.
+        """
+        for child_id in self._nodes[node_id].children:
+            self._linearised_rec(child_id, linearised)
+        linearised.append(node_id)
