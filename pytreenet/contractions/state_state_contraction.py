@@ -23,8 +23,8 @@ def contract_two_ttns(ttn1: TreeTensorNetworkState,
     dictionary = PartialTreeCachDict()
     computation_order = ttn1.linearise() # Getting a linear list of all identifiers
     errstr = "The last element of the linearisation should be the root node."
-    assert computation_order[:-1] == ttn1.root_id, errstr
-    assert computation_order[:-1] == ttn2.root_id, errstr
+    assert computation_order[-1] == ttn1.root_id, errstr
+    assert computation_order[-1] == ttn2.root_id, errstr
     for node_id in computation_order[:-1]: # The last one is the root node
         node = ttn1.nodes[node_id]
         parent_id = node.parent
@@ -38,9 +38,9 @@ def contract_two_ttns(ttn1: TreeTensorNetworkState,
         for child_id in children:
             dictionary.delete_entry(child_id,node_id)
     # Now everything remaining is contracted into the root tensor.
-    return contract_node_with_environment(ttn1.root_id,
-                                          ttn1, ttn2,
-                                          dictionary)[0]
+    return complex(contract_node_with_environment(ttn1.root_id,
+                                                  ttn1, ttn2,
+                                                  dictionary))
 
 def contract_node_with_environment(node_id: str,
                                    state1: TreeTensorNetworkState,
@@ -88,11 +88,11 @@ def contract_any(node_id: str, next_node_id: str,
     node = state1.nodes[node_id]
     if node.is_leaf():
         return contract_leafs(node_id, state1, state2)
-    contract_subtrees_using_dictionary(node_id,
-                                           next_node_id,
-                                           state1,
-                                           state2,
-                                           dictionary)
+    return contract_subtrees_using_dictionary(node_id,
+                                              next_node_id,
+                                              state1,
+                                              state2,
+                                              dictionary)
 
 def contract_leafs(node_id: str, state1: TreeTensorNetworkState,
                    state2: TreeTensorNetworkState) -> np.ndarray:
@@ -208,8 +208,8 @@ def contract_neighbour_block_to_ket(ket_tensor: np.ndarray,
                         |  A  |    |      |
                         |_____|    |______|
     """
-    cached_neighbour_tensor = partial_tree_cache.get_cached_tensor(neighbour_id,
-                                                                   ket_node.identifier)
+    cached_neighbour_tensor = partial_tree_cache.get_entry(neighbour_id,
+                                                           ket_node.identifier)
     if tensor_leg_to_neighbour is None:
         tensor_leg_to_neighbour = ket_node.neighbour_index(neighbour_id)
     return np.tensordot(ket_tensor, cached_neighbour_tensor,
@@ -287,7 +287,7 @@ def contract_neighbour_block_to_ket_ignore_one_leg(ket_tensor: np.ndarray,
     next_node_index = ket_node.neighbour_index(ignoring_node_id)
     neighbour_index = ket_node.neighbour_index(neighbour_id)
     assert next_node_index != neighbour_index, "The next node should not be touched!"
-    tensor_index_to_neighbour = int(next_node_index > neighbour_index)
+    tensor_index_to_neighbour = int(next_node_index < neighbour_index)
     return contract_neighbour_block_to_ket(ket_tensor, ket_node,
                                            neighbour_id,
                                            partial_tree_cache,
@@ -310,11 +310,12 @@ def contract_all_but_one_neighbour_block_to_ket(ket_tensor: np.ndarray,
     """
     result_tensor = ket_tensor
     for neighbour_id in ket_node.neighbouring_nodes():
-        result_tensor = contract_neighbour_block_to_ket_ignore_one_leg(result_tensor,
-                                                                       ket_node,
-                                                                       next_node_id,
-                                                                       neighbour_id,
-                                                                       partial_tree_cache)
+        if neighbour_id != next_node_id:
+            result_tensor = contract_neighbour_block_to_ket_ignore_one_leg(result_tensor,
+                                                                           ket_node,
+                                                                           neighbour_id,
+                                                                           next_node_id,
+                                                                           partial_tree_cache)
     return result_tensor
 
 def contract_bra_to_ket_and_blocks(bra_tensor: np.ndarray,
