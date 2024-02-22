@@ -69,7 +69,7 @@ def random_big_ttns(option: str) -> TreeTensorNetworkState:
         random_ttns.add_child_to_parent(node8, tensor8, 0, "site6", 2)
     return random_ttns
 
-def random_big_ttns_two_root_children() -> TreeTensorNetworkState:
+def random_big_ttns_two_root_children(mode:str="same_dimension") -> TreeTensorNetworkState:
     """
     Provides a ttns of the form
                 0
@@ -82,8 +82,15 @@ def random_big_ttns_two_root_children() -> TreeTensorNetworkState:
                / \\
               /   \\
              4     5
+    
     """
-    shapes = [(2,2,2),(2,2,2,2),(2,2),(2,2,2,2),(2,2),(2,2),(2,2,2),(2,2)]
+    if mode == "same_dimension":
+        shapes = [(2,2,2),(2,2,2,2),(2,2),(2,2,2,2),
+                  (2,2),(2,2),(2,2,2),(2,2)]
+    elif mode == "different_virt_dimensions":
+        shapes = [(7,6,2),(7,4,5,2),(4,2),(5,2,3,2),
+                  (2,2),(3,2),(6,3,2),(3,2)]
+
     nodes = [random_tensor_node(shape, identifier="site"+str(i))
              for i, shape in enumerate(shapes)]
     random_ttns = TreeTensorNetworkState()
