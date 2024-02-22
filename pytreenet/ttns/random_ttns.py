@@ -8,9 +8,17 @@ represented by the indices of these tensors.
 This module is part of a larger package for working with Tree Tensor Networks.
 """
 from __future__ import annotations
+from enum import Enum
 
 from .ttns import TreeTensorNetworkState
 from ..node import random_tensor_node
+
+class RandomTTNSMode(Enum):
+    """
+    An enumeration for the different modes of random generation of TTNS.
+    """
+    SAME = "same_dimension"
+    DIFFVIRT = "different_virt_dimensions"
 
 def random_small_ttns() -> TreeTensorNetworkState:
     """
@@ -35,18 +43,17 @@ def random_small_ttns() -> TreeTensorNetworkState:
     random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, "root", 1)
     return random_ttns
 
-def random_big_ttns(option: str) -> TreeTensorNetworkState:
+def random_big_ttns(mode: RandomTTNSMode = RandomTTNSMode.SAME) -> TreeTensorNetworkState:
     """
     Generates a big TTNS with identifiers of the form `"site" + int`.
      The identifiers and dimensions are set, but the associated tensors
      are random.
 
     Args:
-        option (str): A parameter to choose between different topologies and
-         dimensions.
+        mode (RandomTTNSMode): The mode of random generation of the TTNS.
     """
 
-    if option == "same_dimension":
+    if mode == RandomTTNSMode.SAME:
         # All dimensions virtual and physical are initially the same
         # We need a ttn to work on.
         node1, tensor1 = random_tensor_node((2,2,2,2), identifier="site1")
@@ -69,7 +76,7 @@ def random_big_ttns(option: str) -> TreeTensorNetworkState:
         random_ttns.add_child_to_parent(node8, tensor8, 0, "site6", 2)
     return random_ttns
 
-def random_big_ttns_two_root_children(mode:str="same_dimension") -> TreeTensorNetworkState:
+def random_big_ttns_two_root_children(mode: RandomTTNSMode = RandomTTNSMode.SAME) -> TreeTensorNetworkState:
     """
     Provides a ttns of the form
                 0
@@ -83,11 +90,13 @@ def random_big_ttns_two_root_children(mode:str="same_dimension") -> TreeTensorNe
               /   \\
              4     5
     
+    Args:
+        mode (RandomTTNSMode): The mode of random generation of the TTNS.
     """
-    if mode == "same_dimension":
+    if mode == RandomTTNSMode.SAME:
         shapes = [(2,2,2),(2,2,2,2),(2,2),(2,2,2,2),
                   (2,2),(2,2),(2,2,2),(2,2)]
-    elif mode == "different_virt_dimensions":
+    elif mode == RandomTTNSMode.DIFFVIRT:
         shapes = [(7,6,2),(7,4,5,2),(4,2),(5,2,3,2),
                   (2,2),(3,2),(6,3,2),(3,2)]
 
