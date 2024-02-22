@@ -69,7 +69,7 @@ class TestInit(unittest.TestCase):
         self.assertTrue(np.allclose(ref_tensor, found_cache.tensor))
 
     def test_contract_neighbour_cache_to_ket(self):
-        partial_tree_cache = ptn.PartialTreeChachDict(
+        partial_tree_cache = ptn.PartialTreeCachDict(
                              {("c1", "root"):
                               ptn.PartialTreeCache.for_leaf("c1", self.state, self.hamiltonian),
                               ("c2", "root"):
@@ -89,7 +89,7 @@ class TestInit(unittest.TestCase):
         self.assertTrue(np.allclose(ref_tensor, cache.tensor))
 
     def test_contract_hamiltonian_tensor(self):
-        partial_tree_cache = ptn.PartialTreeChachDict(
+        partial_tree_cache = ptn.PartialTreeCachDict(
                              {("c1", "root"):
                               ptn.PartialTreeCache.for_leaf("c1", self.state, self.hamiltonian),
                               ("c2", "root"):
@@ -114,7 +114,7 @@ class TestInit(unittest.TestCase):
         self.assertTrue(np.allclose(ref_tensor, cache.tensor))
 
     def test_init_with_existing_cache_for_root_c1(self):
-        partial_tree_cache = ptn.PartialTreeChachDict(
+        partial_tree_cache = ptn.PartialTreeCachDict(
                              {("c1", "root"):
                               ptn.PartialTreeCache.for_leaf("c1", self.state, self.hamiltonian),
                               ("c2", "root"):
@@ -142,7 +142,7 @@ class TestInit(unittest.TestCase):
         self.assertTrue(np.allclose(ref_tensor, found_cache.tensor))
 
     def test_init_with_existing_cache_for_root_c2(self):
-        partial_tree_cache = ptn.PartialTreeChachDict(
+        partial_tree_cache = ptn.PartialTreeCachDict(
                              {("c1", "root"):
                               ptn.PartialTreeCache.for_leaf("c1", self.state, self.hamiltonian),
                               ("c2", "root"):
@@ -174,7 +174,7 @@ class TestPartialTreeCacheComplicated(unittest.TestCase):
         self.ref_state = ptn.random_big_ttns_two_root_children()
         self.hamiltonian = ptn.TTNO.from_hamiltonian(ptn.random_hamiltonian_compatible(),
                                                      self.ref_state)
-        self.partial_tree_cache = ptn.PartialTreeChachDict()
+        self.partial_tree_cache = ptn.PartialTreeCachDict()
         self.partial_tree_cache.add_entry("site2","site1",
                                            ptn.PartialTreeCache.for_leaf("site2",
                                                                          self.ref_state,
@@ -308,7 +308,7 @@ class TestPartialTreeCacheComplicatedAfterOrth(unittest.TestCase):
         self.hamiltonian = ptn.TTNO.from_hamiltonian(ptn.random_hamiltonian_compatible(),
                                                      self.ref_state)
         self.ref_state.canonical_form("site4") # This can change the order of children!
-        self.partial_tree_cache = ptn.PartialTreeChachDict()
+        self.partial_tree_cache = ptn.PartialTreeCachDict()
         self.partial_tree_cache.add_entry("site2","site1",
                                            ptn.PartialTreeCache.for_leaf("site2",
                                                                          self.ref_state,

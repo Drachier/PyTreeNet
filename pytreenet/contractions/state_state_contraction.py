@@ -3,7 +3,7 @@ from typing import Union
 
 import numpy as np
 
-from .tree_cach_dict import PartialTreeChachDict
+from .tree_cach_dict import PartialTreeCachDict
 from ..node import Node
 
 __all__ = ['contract_two_ttns']
@@ -20,7 +20,7 @@ def contract_two_ttns(ttn1: TreeTensorNetworkState,
     Returns:
         complex: The resulting scalar product <TTN1|TTN2>
     """
-    dictionary = PartialTreeChachDict()
+    dictionary = PartialTreeCachDict()
     computation_order = ttn1.linearise() # Getting a linear list of all identifiers
     errstr = "The last element of the linearisation should be the root node."
     assert computation_order[:-1] == ttn1.root_id, errstr
@@ -45,7 +45,7 @@ def contract_two_ttns(ttn1: TreeTensorNetworkState,
 def contract_node_with_environment(node_id: str,
                                    state1: TreeTensorNetworkState,
                                    state2: TreeTensorNetworkState,
-                                   dictionary: PartialTreeChachDict) -> np.ndarray:
+                                   dictionary: PartialTreeCachDict) -> np.ndarray:
     """
     Contracts a node with its environment, assuming all subtrees going aeays
      from the node are already contracted.
@@ -84,7 +84,7 @@ def contract_node_with_environment(node_id: str,
 def contract_any(node_id: str, next_node_id: str,
                  state1: TreeTensorNetworkState,
                  state2: TreeTensorNetworkState,
-                 dictionary: PartialTreeChachDict) -> np.ndarray:
+                 dictionary: PartialTreeCachDict) -> np.ndarray:
     node = state1.nodes[node_id]
     if node.is_leaf():
         return contract_leafs(node_id, state1, state2)
@@ -131,7 +131,7 @@ def contract_leafs(node_id: str, state1: TreeTensorNetworkState,
 def contract_subtrees_using_dictionary(node_id: str, next_node_id: str,
                                        state1: TreeTensorNetworkState,
                                        state2: TreeTensorNetworkState,
-                                       dictionary: PartialTreeChachDict) -> np.ndarray:
+                                       dictionary: PartialTreeCachDict) -> np.ndarray:
     """
     The tensor with only two open legs, pointing to the same neighbour, after
      contracting a hole subtree. The subtrees attached to the other virtual
@@ -178,7 +178,7 @@ def contract_subtrees_using_dictionary(node_id: str, next_node_id: str,
 def contract_neighbour_block_to_ket(ket_tensor: np.ndarray,
                                     ket_node: Node,
                                     neighbour_id: str,
-                                    partial_tree_cache: PartialTreeChachDict,
+                                    partial_tree_cache: PartialTreeCachDict,
                                     tensor_leg_to_neighbour: Union[None,int]=None) -> np.ndarray:
     """
     Contracts the ket tensor, i.e. A in the diagrams, with one neighbouring
@@ -217,7 +217,7 @@ def contract_neighbour_block_to_ket(ket_tensor: np.ndarray,
 
 def contract_all_neighbour_blocks_to_ket(ket_tensor: np.ndarray,
                                          ket_node: Node,
-                                         partial_tree_cache: PartialTreeChachDict) -> np.ndarray:
+                                         partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
     """
     Contract all neighbour blocks to the ket tensor.
 
@@ -255,7 +255,7 @@ def contract_neighbour_block_to_ket_ignore_one_leg(ket_tensor: np.ndarray,
                                                      ket_node: Node,
                                                      neighbour_id: str,
                                                      ignoring_node_id: str,
-                                                     partial_tree_cache: PartialTreeChachDict) -> np.ndarray:
+                                                     partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
     """
     Contracts the ket tensor, i.e. A in the diagrams, with one neighbouring
      block, C in the diagrams, ignoring one leg.
@@ -296,7 +296,7 @@ def contract_neighbour_block_to_ket_ignore_one_leg(ket_tensor: np.ndarray,
 def contract_all_but_one_neighbour_block_to_ket(ket_tensor: np.ndarray,
                                                 ket_node: Node,
                                                 next_node_id: str,
-                                                partial_tree_cache: PartialTreeChachDict) -> np.ndarray:
+                                                partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
     """
     Contract all neighbour blocks to the ket tensor.
 

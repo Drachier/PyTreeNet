@@ -3,7 +3,7 @@ from typing import Union, Dict, Tuple
 
 import numpy as np
 
-class PartialTreeChachDict(dict):
+class PartialTreeCachDict(dict):
     """
     Basically a dictionary to save the chached partial trees during TDVP.
      However, the trees are saved by a specific convention:

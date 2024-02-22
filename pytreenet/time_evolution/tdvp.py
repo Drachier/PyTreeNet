@@ -21,7 +21,7 @@ from ..ttno.ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
 from ..ttn_exceptions import NoConnectionException
 from .tdvp_util.partial_tree_cache import PartialTreeCache
-from ..contractions.tree_cach_dict import PartialTreeChachDict
+from ..contractions.tree_cach_dict import PartialTreeCachDict
 from .tdvp_util.update_path import TDVPUpdatePathFinder
 
 class TDVPAlgorithm(TTNTimeEvolution):
@@ -55,7 +55,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
         self._orthogonalize_init()
 
         # Caching for speed up
-        self.partial_tree_cache = PartialTreeChachDict()
+        self.partial_tree_cache = PartialTreeCachDict()
         self._init_partial_tree_cache()
 
     def _orthogonalize_init(self, force_new: bool=False):

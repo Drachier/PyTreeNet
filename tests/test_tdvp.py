@@ -53,7 +53,7 @@ class TestTDVPInit(unittest.TestCase):
     def test_init_partial_tree_cache(self):
         # Creating reference
         ref_tdvp = deepcopy(self.tdvp)
-        partial_tree_cache = ptn.PartialTreeChachDict()
+        partial_tree_cache = ptn.PartialTreeCachDict()
         c2_cache = ptn.PartialTreeCache.for_leaf("c2", ref_tdvp.state,
                                                  ref_tdvp.hamiltonian)
         partial_tree_cache.add_entry("c2", "root", c2_cache)

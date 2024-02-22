@@ -8,7 +8,7 @@ from ...ttno.ttno import TTNO
 from ...graph_node import GraphNode
 
 from .cached_tensor import CachedSiteTensor
-from ...contractions.tree_cach_dict import PartialTreeChachDict
+from ...contractions.tree_cach_dict import PartialTreeCachDict
 
 class PartialTreeCache():
     """
@@ -50,7 +50,7 @@ class PartialTreeCache():
     def for_all_nodes(cls, node_id: str, next_node_id: str,
                       state: TreeTensorNetworkState,
                       hamiltonian: TTNO,
-                      partial_tree_cache: Union[PartialTreeChachDict,None] = None) -> PartialTreeCache:
+                      partial_tree_cache: Union[PartialTreeCachDict,None] = None) -> PartialTreeCache:
         """
         Generates the PartialTreeCache for a given node and direction for the
          open legs to point to. This means it is automatically chosen, if the
@@ -65,7 +65,7 @@ class PartialTreeCache():
              computation in TTNS form.
             hamiltonian (TTNO): A Hamiltonian to be used for the computation
              in TTNO form.
-            partial_tree_cache (Union[PartialTreeChachDict,None], optional): 
+            partial_tree_cache (Union[PartialTreeCachDict,None], optional): 
              Potentially a dictionary of already computed tensors. Defaults to
               None.
 
@@ -149,7 +149,7 @@ class PartialTreeCache():
 
     @classmethod
     def with_existing_cache(cls, node_id: str, next_node_id: str,
-                            partial_tree_cache: PartialTreeChachDict,
+                            partial_tree_cache: PartialTreeCachDict,
                             state: TreeTensorNetworkState,
                             hamiltonian: TTNO) -> PartialTreeCache:
         """
@@ -160,7 +160,7 @@ class PartialTreeCache():
             node_id (str): Identifier of the node this partial tree ends at.
             next_node_id (str): The identifier to which the open legs should
              point.
-            partial_tree_cache (PartialTreeChachDict): The tensors already
+            partial_tree_cache (PartialTreeCachDict): The tensors already
              cached.
             state (TreeTensorNetworkState): The state on which to perform
              this action in TTNS form.
@@ -185,7 +185,7 @@ class PartialTreeCache():
     def _contract_neighbour_cache_to_ket(self,
                                          neighbour_id: str,
                                          next_node_index: int,
-                                         partial_tree_cache: PartialTreeChachDict):
+                                         partial_tree_cache: PartialTreeCachDict):
         """
         Contracts a cached contracted tree C that originates at the neighbour
          node with the tensor of this node, which is currently a ket node A,
@@ -211,7 +211,7 @@ class PartialTreeCache():
             neighbour_id (str): The identifier of the neighbour
             next_node_index (int): The index value of the neighbour to which
              the open legs should point.
-            partial_tree_cache (PartialTreeChachDict): All the cached partial
+            partial_tree_cache (PartialTreeCachDict): All the cached partial
              trees.
         """
         cached_neighbour_tensor = partial_tree_cache.get_cached_tensor(neighbour_id,
@@ -228,7 +228,7 @@ class PartialTreeCache():
 
     def _contract_all_but_one_neighbouring_cache(self,
                                                  next_node_index: int,
-                                                 partial_tree_cache: PartialTreeChachDict):
+                                                 partial_tree_cache: PartialTreeCachDict):
         """
         Contracts all cached contracted trees C that originates at neighbour
          nodes with the tensor of this node, which is currently the ket node A.
@@ -252,7 +252,7 @@ class PartialTreeCache():
         Args:
             next_node_index (int): The index value of the neighbour to which
              the open legs should point.
-            partial_tree_cache (PartialTreeChachDict): All the cached partial trees.
+            partial_tree_cache (PartialTreeCachDict): All the cached partial trees.
         """
         neighbours_wo_next = [n_id for i, n_id in enumerate(self.node.neighbouring_nodes())
                               if i != next_node_index]
