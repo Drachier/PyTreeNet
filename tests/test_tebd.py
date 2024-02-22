@@ -105,13 +105,13 @@ class TestTEBDsmall(unittest.TestCase):
         # The initial state should be untouched by this
         self.assertEqual(reference_state, self.tebd.initial_state)
 
-        reference_state = reference_state.completely_contract_tree()
-        reference_state = reference_state.root[1].reshape(24)
+        reference_state = reference_state.completely_contract_tree()[0]
+        reference_state = reference_state.reshape(24)
         time_evol_matrix = np.kron(time_evol_matrix, np.eye(12))
         reference_state = time_evol_matrix @ reference_state
 
-        found_state = self.tebd.state.completely_contract_tree(to_copy=True)
-        found_state = found_state.root[1].reshape(24)
+        found_state = self.tebd.state.completely_contract_tree(to_copy=True)[0]
+        found_state = found_state.reshape(24)
         self.assertTrue(np.allclose(reference_state, found_state))
 
     def test_apply_one_trotter_step_two_site_order_as_in_nodes(self):
@@ -129,13 +129,13 @@ class TestTEBDsmall(unittest.TestCase):
         # The initial state should be untouched by this
         self.assertEqual(reference_state, self.tebd_no_trunc.initial_state)
 
-        reference_state = reference_state.completely_contract_tree()
-        reference_state = reference_state.root[1].reshape(24)
+        reference_state = reference_state.completely_contract_tree()[0]
+        reference_state = reference_state.reshape(24)
         time_evol_matrix = np.kron(time_evol_matrix, np.eye(4))
         reference_state = time_evol_matrix @ reference_state
 
-        found_state = self.tebd_no_trunc.state.completely_contract_tree(to_copy=True)
-        found_state = found_state.root[1].reshape(24)
+        found_state = self.tebd_no_trunc.state.completely_contract_tree(to_copy=True)[0]
+        found_state = found_state.reshape(24)
         self.assertTrue(np.allclose(reference_state, found_state))
 
     def test_apply_one_trotter_step_two_site_order_not_as_in_nodes(self):
@@ -153,13 +153,13 @@ class TestTEBDsmall(unittest.TestCase):
         # The initial state should be untouched by this
         self.assertEqual(reference_state, self.tebd_no_trunc.initial_state)
 
-        reference_state = reference_state.completely_contract_tree()
-        reference_state = reference_state.root[1].transpose((2,0,1)).reshape(24)
+        reference_state = reference_state.completely_contract_tree()[0]
+        reference_state = reference_state.transpose((2,0,1)).reshape(24)
         time_evol_matrix = np.kron(time_evol_matrix, np.eye(3))
         reference_state = time_evol_matrix @ reference_state
 
-        found_state = self.tebd_no_trunc.state.completely_contract_tree(to_copy=True)
-        found_state = found_state.root[1].transpose(1,0,2).reshape(24)
+        found_state = self.tebd_no_trunc.state.completely_contract_tree(to_copy=True)[0]
+        found_state = found_state.transpose(1,0,2).reshape(24)
         self.assertTrue(np.allclose(reference_state, found_state))
 
     def test_apply_one_trotter_step__one_site(self):
@@ -177,13 +177,13 @@ class TestTEBDsmall(unittest.TestCase):
         # The initial state should be untouched by this
         self.assertEqual(reference_state, self.tebd_no_trunc.initial_state)
 
-        reference_state = reference_state.completely_contract_tree()
-        reference_state = reference_state.root[1].reshape(24)
+        reference_state = reference_state.completely_contract_tree()[0]
+        reference_state = reference_state.reshape(24)
         time_evol_matrix = np.kron(time_evol_matrix, np.eye(4))
         reference_state = time_evol_matrix @ reference_state
 
-        found_state = self.tebd_no_trunc.state.completely_contract_tree(to_copy=True)
-        found_state = found_state.root[1].reshape(24)
+        found_state = self.tebd_no_trunc.state.completely_contract_tree(to_copy=True)[0]
+        found_state = found_state.reshape(24)
         self.assertTrue(np.allclose(reference_state, found_state))
 
     def test_apply_one_trotter_step__two_site(self):
@@ -201,13 +201,13 @@ class TestTEBDsmall(unittest.TestCase):
         # The initial state should be untouched by this
         self.assertEqual(reference_state, self.tebd_no_trunc.initial_state)
 
-        reference_state = reference_state.completely_contract_tree()
-        reference_state = reference_state.root[1].transpose((2,0,1)).reshape(24)
+        reference_state = reference_state.completely_contract_tree()[0]
+        reference_state = reference_state.transpose((2,0,1)).reshape(24)
         time_evol_matrix = np.kron(time_evol_matrix, np.eye(3))
         reference_state = time_evol_matrix @ reference_state
 
-        found_state = self.tebd_no_trunc.state.completely_contract_tree(to_copy=True)
-        found_state = found_state.root[1].transpose(1,0,2).reshape(24)
+        found_state = self.tebd_no_trunc.state.completely_contract_tree(to_copy=True)[0]
+        found_state = found_state.transpose(1,0,2).reshape(24)
         self.assertTrue(np.allclose(reference_state, found_state))
 
     def test_apply_one_trotter_step__three_sites(self):
@@ -235,12 +235,12 @@ class TestTEBDsmall(unittest.TestCase):
         self.assertTrue(np.allclose(check_operator, total_operator))
         # Run reference computation
         reference_state = deepcopy(self.ttns)
-        reference_state = reference_state.completely_contract_tree().root[1].reshape(24)
+        reference_state = reference_state.completely_contract_tree()[0].reshape(24)
         reference_state = total_operator @ reference_state
 
         # Run time_step
         self.tebd_no_trunc.run_one_time_step()
-        found_state = self.tebd_no_trunc.state.completely_contract_tree().root[1]
+        found_state = self.tebd_no_trunc.state.completely_contract_tree()[0]
         found_state = found_state.transpose(0,2,1).reshape(24)
         # Compare the two time evolved states
         self.assertTrue(np.allclose(reference_state, found_state))

@@ -57,9 +57,7 @@ class TestTTNOBasics(unittest.TestCase):
             found_shape = tensor.shape[-2:]
             self.assertEqual(correct_shape, found_shape)
 
-        contracted_ttno = ttno.completely_contract_tree(to_copy=True)
-        contracted_tensor = contracted_ttno.tensors[contracted_ttno.root_id]
-
+        contracted_tensor = ttno.completely_contract_tree(to_copy=True)[0]
         # The shape is not retained throughout the entire procedure
         correct_tensor = start_tensor.transpose((0, 4, 1, 5, 2, 6, 3, 7))
 
@@ -87,8 +85,7 @@ class TestTTNOBasics(unittest.TestCase):
         leg_dict = {"id" + str(i + 1): i for i in range(num_nodes)}
         ttno = ptn.TTNO.from_tensor(reference_tree, start_tensor, leg_dict)
 
-        contracted_ttno = ttno.completely_contract_tree(to_copy=True)
-        contracted_tensor = contracted_ttno.tensors[contracted_ttno.root_id]
+        contracted_tensor = ttno.completely_contract_tree(to_copy=True)[0]
         # The shape is not retained throughout the entire procedure
         permutation = []
         self._find_permutation_rec(ttno, leg_dict, ttno.root_id, permutation)
@@ -128,8 +125,7 @@ class TestTTNOBasics(unittest.TestCase):
         leg_dict = {"id" + str(i + 1): i for i in range(num_nodes)}
         ttno = ptn.TTNO.from_tensor(reference_tree, start_tensor, leg_dict)
 
-        contracted_ttno = ttno.completely_contract_tree(to_copy=True)
-        contracted_tensor = contracted_ttno.tensors[contracted_ttno.root_id]
+        contracted_tensor = ttno.completely_contract_tree(to_copy=True)[0]
 
         # The shape is not retained throughout the entire procedure
         permutation = []
@@ -156,9 +152,7 @@ class TestTTNOBasics(unittest.TestCase):
         leg_dict = {"node"+str(i): i for i in range(len(nodes))}
         ttno = ptn.TTNO.from_tensor(reference_tree, deepcopy(start_tensor), leg_dict)
 
-        contracted_ttno = ttno.completely_contract_tree(to_copy=True)
-        contracted_tensor = contracted_ttno.root[1]
-         
+        contracted_tensor = ttno.completely_contract_tree(to_copy=True)[0]
         # The shape is not retained throughout the entire procedure
         permutation = []
         self._find_permutation_rec(ttno, leg_dict, ttno.root_id, permutation)
@@ -224,7 +218,7 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
                 self.assertEqual(1, shape[node.parent_leg])
 
         hamiltonian_tensor = hamiltonian.to_tensor(self.ref_tree).operator.transpose(self.transpose_permutation)
-        found_tensor = ttno.completely_contract_tree().root[1]
+        found_tensor = ttno.completely_contract_tree()[0]
         self.assertTrue(np.allclose(hamiltonian_tensor, found_tensor))
 
     def test_from_hamiltonian_one_term_different_phys_dim(self):
@@ -278,7 +272,7 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
                 self.assertEqual(1, shape[node.parent_leg])
 
         hamiltonian_tensor = hamiltonian.to_tensor(ref_tree).operator.transpose(self.transpose_permutation)
-        found_tensor = ttno.completely_contract_tree().root[1]
+        found_tensor = ttno.completely_contract_tree()[0]
         self.assertTrue(np.allclose(hamiltonian_tensor, found_tensor))
 
     def test_from_hamiltonian_two_terms_one_operator_different(self):
@@ -325,7 +319,7 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
 
         # The TTNO and Hamiltonian should be equal
         hamiltonian_tensor = hamiltonian.to_tensor(self.ref_tree).operator.transpose(self.transpose_permutation)
-        found_tensor = ttno.completely_contract_tree().root[1]
+        found_tensor = ttno.completely_contract_tree()[0]
         self.assertTrue(np.allclose(hamiltonian_tensor, found_tensor))
 
     def test_from_hamiltonian_two_terms_completely_different(self):
@@ -374,7 +368,7 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
     
         # The TTNO and Hamiltonian should be equal
         hamiltonian_tensor = hamiltonian.to_tensor(self.ref_tree).operator.transpose(self.transpose_permutation)
-        found_tensor = ttno.completely_contract_tree().root[1]
+        found_tensor = ttno.completely_contract_tree()[0]
         self.assertTrue(np.allclose(hamiltonian_tensor, found_tensor))
 
     def test_from_hamiltonian_two_terms_all_but_root_different(self):
@@ -422,7 +416,7 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
 
         # The TTNO and Hamiltonian should be equal
         hamiltonian_tensor = hamiltonian.to_tensor(self.ref_tree).operator.transpose(self.transpose_permutation)
-        found_tensor = ttno.completely_contract_tree().root[1]
+        found_tensor = ttno.completely_contract_tree()[0]
         self.assertTrue(np.allclose(hamiltonian_tensor, found_tensor))
 
 

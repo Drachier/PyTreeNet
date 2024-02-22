@@ -106,8 +106,8 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         found_results = self.time_evol.evaluate_operators()
 
         # Find reference results
-        state_vector = self.time_evol.initial_state.completely_contract_tree(to_copy=True)
-        state_vector = state_vector.tensors[state_vector.root_id].reshape(24)
+        state_vector = self.time_evol.initial_state.completely_contract_tree(to_copy=True)[0]
+        state_vector = state_vector.reshape(24)
         op1 = self.operators[0].pad_with_identities(self.initial_state).into_operator()
         result1 = state_vector.conj().T @ op1.operator.T @ state_vector
 

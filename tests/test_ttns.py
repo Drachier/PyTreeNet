@@ -24,8 +24,8 @@ class TestTreeTensorNetworkStateSimple(unittest.TestCase):
     def test_scalar_product(self):
         found_result = self.initial_state.scalar_product()
 
-        state_vector = self.initial_state.completely_contract_tree(to_copy=True)
-        state_vector = state_vector.tensors[state_vector.root_id].reshape(24)
+        state_vector = self.initial_state.completely_contract_tree(to_copy=True)[0]
+        state_vector = state_vector.reshape(24)
         reference_result = state_vector.conj().T @ state_vector
 
         self.assertAlmostEqual(reference_result, found_result)
@@ -40,8 +40,8 @@ class TestTreeTensorNetworkStateSimple(unittest.TestCase):
         found_result = self.initial_state.single_site_operator_expectation_value("root",
             self.operators[0]["root"])
 
-        state_vector = self.initial_state.completely_contract_tree(to_copy=True)
-        state_vector = state_vector.tensors[state_vector.root_id].reshape(24)
+        state_vector = self.initial_state.completely_contract_tree(to_copy=True)[0]
+        state_vector = state_vector.reshape(24)
         op1 = np.kron(np.kron(self.operators[0]["root"], np.eye(3)), np.eye(4))
         reference_result = state_vector.conj().T @ op1.T @ state_vector
 
@@ -52,8 +52,8 @@ class TestTreeTensorNetworkStateSimple(unittest.TestCase):
         found_result = self.initial_state.single_site_operator_expectation_value("root",
             self.operators[0]["root"])
 
-        state_vector = self.initial_state.completely_contract_tree(to_copy=True)
-        state_vector = state_vector.tensors[state_vector.root_id].reshape(24)
+        state_vector = self.initial_state.completely_contract_tree(to_copy=True)[0]
+        state_vector = state_vector.reshape(24)
         op1 = np.kron(np.kron(self.operators[0]["root"], np.eye(3)), np.eye(4))
         reference_result = state_vector.conj().T @ op1.T @ state_vector
 
@@ -62,8 +62,8 @@ class TestTreeTensorNetworkStateSimple(unittest.TestCase):
     def test_operator_expectation_value_single_site(self):
         found_result = self.initial_state.operator_expectation_value(self.operators[0])
 
-        state_vector = self.initial_state.completely_contract_tree(to_copy=True)
-        state_vector = state_vector.tensors[state_vector.root_id].reshape(24)
+        state_vector = self.initial_state.completely_contract_tree(to_copy=True)[0]
+        state_vector = state_vector.reshape(24)
         op1 = np.kron(np.kron(self.operators[0]["root"], np.eye(3)), np.eye(4))
         reference_result = state_vector.conj().T @ op1.T @ state_vector
 
@@ -72,8 +72,8 @@ class TestTreeTensorNetworkStateSimple(unittest.TestCase):
     def test_operator_expectation_value_full_tree(self):
         found_result = self.initial_state.operator_expectation_value(self.operators[2])
 
-        state_vector = self.initial_state.completely_contract_tree(to_copy=True)
-        state_vector = state_vector.tensors[state_vector.root_id].reshape(24)
+        state_vector = self.initial_state.completely_contract_tree(to_copy=True)[0]
+        state_vector = state_vector.reshape(24)
         op1 = self.operators[2].into_operator().to_matrix().operator
         reference_result = state_vector.conj().T @ op1.T @ state_vector
 
@@ -82,8 +82,8 @@ class TestTreeTensorNetworkStateSimple(unittest.TestCase):
     def test_operator_expectation_value_non_neighbour_sites(self):
         found_result = self.initial_state.operator_expectation_value(self.operators[1])
 
-        state_vector = self.initial_state.completely_contract_tree(to_copy=True)
-        state_vector = state_vector.tensors[state_vector.root_id].reshape(24)
+        state_vector = self.initial_state.completely_contract_tree(to_copy=True)[0]
+        state_vector = state_vector.reshape(24)
         op1 = np.kron(np.eye(2), self.operators[1].into_operator().to_matrix().operator)
         reference_result = state_vector.conj().T @ op1.T @ state_vector
 

@@ -92,13 +92,11 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
 
     def test_conjugate(self):
         ref_ttn = deepcopy(self.tensortree)
-        reference_result = ref_ttn.completely_contract_tree()
-        reference_result = reference_result.tensors[reference_result.root_id]
+        reference_result = ref_ttn.completely_contract_tree()[0]
         reference_result = reference_result.conj()
 
         found_result = self.tensortree.conjugate()
-        found_result = found_result.completely_contract_tree()
-        found_result = found_result.tensors[found_result.root_id]
+        found_result = found_result.completely_contract_tree()[0]
 
         self.assertTrue(np.allclose(reference_result, found_result))
 
@@ -214,8 +212,8 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         self.assertTrue(np.allclose(identity, found_identity))
 
         # Since no truncation happend, the two TTN should be the same
-        reference = ref_tree.completely_contract_tree().root[1]
-        found = self.tensortree.completely_contract_tree().root[1]
+        reference = ref_tree.completely_contract_tree()[0]
+        found = self.tensortree.completely_contract_tree()[0]
         self.assertTrue(np.allclose(reference, found))
 
     def test_contract_and_split_with_svd_no_truncation_c2_root(self):
@@ -264,8 +262,8 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         self.assertTrue(np.allclose(identity, found_identity))
 
         # Since no truncation happend, the two TTN should be the same
-        reference = ref_tree.completely_contract_tree().root[1].transpose(1,0,2)
-        found = self.tensortree.completely_contract_tree().root[1]
+        reference = ref_tree.completely_contract_tree()[0].transpose(1,0,2)
+        found = self.tensortree.completely_contract_tree()[0]
         self.assertTrue(np.allclose(reference, found))
 
     def test_move_orthogonalisation_center_None(self):
@@ -274,8 +272,7 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
                           "root")
 
     def test_move_center_to_itself(self):
-        reference_tree = self.tensortree.completely_contract_tree(to_copy=True)
-        reference_tensor = reference_tree.root[1]
+        reference_tensor = self.tensortree.completely_contract_tree(to_copy=True)[0]
 
         self.tensortree.orthogonalize("root")
         self.tensortree.move_orthogonalization_center("root")
@@ -293,12 +290,11 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         self.assertTrue(np.allclose(identity, transfer_tensor))
 
         # Test equality of tensor network
-        found_tensor = self.tensortree.completely_contract_tree().root[1]
+        found_tensor = self.tensortree.completely_contract_tree()[0]
         self.assertTrue(np.allclose(reference_tensor, found_tensor))
 
     def test_move_center_to_child(self):
-        reference_tree = self.tensortree.completely_contract_tree(to_copy=True)
-        reference_tensor = reference_tree.root[1]
+        reference_tensor = self.tensortree.completely_contract_tree(to_copy=True)[0]
 
         self.tensortree.orthogonalize("root")
         self.tensortree.move_orthogonalization_center("c1")
@@ -319,12 +315,11 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         self.assertTrue(np.allclose(identity, transfer_tensor))
 
         # Test equality of tensor network
-        found_tensor = self.tensortree.completely_contract_tree().root[1]
+        found_tensor = self.tensortree.completely_contract_tree()[0]
         self.assertTrue(np.allclose(reference_tensor, found_tensor))
 
     def test_move_center_to_other_child(self):
-        reference_tree = self.tensortree.completely_contract_tree(to_copy=True)
-        reference_tensor = reference_tree.root[1]
+        reference_tensor = self.tensortree.completely_contract_tree(to_copy=True)[0]
 
         self.tensortree.orthogonalize("root")
         self.tensortree.move_orthogonalization_center("c2")
@@ -345,12 +340,11 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         self.assertTrue(np.allclose(identity, transfer_tensor))
 
         # Test equality of tensor network
-        found_tensor = self.tensortree.completely_contract_tree().root[1]
+        found_tensor = self.tensortree.completely_contract_tree()[0]
         self.assertTrue(np.allclose(reference_tensor, found_tensor.transpose([0,2,1])))
 
     def test_move_center_from_child_to_parent(self):
-        reference_tree = self.tensortree.completely_contract_tree(to_copy=True)
-        reference_tensor = reference_tree.root[1]
+        reference_tensor = self.tensortree.completely_contract_tree(to_copy=True)[0]
         reference_tensor = np.transpose(reference_tensor,(0,2,1))
 
         self.tensortree.orthogonalize("c1")
@@ -369,12 +363,11 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         self.assertTrue(np.allclose(identity, transfer_tensor))
 
         # Test equality of tensor network
-        found_tensor = self.tensortree.completely_contract_tree().root[1]
+        found_tensor = self.tensortree.completely_contract_tree()[0]
         self.assertTrue(np.allclose(reference_tensor, found_tensor))
 
     def test_move_center_from_child_to_other_child(self):
-        reference_tree = self.tensortree.completely_contract_tree(to_copy=True)
-        reference_tensor = reference_tree.root[1]
+        reference_tensor = self.tensortree.completely_contract_tree(to_copy=True)[0]
 
         self.tensortree.orthogonalize("c1")
         self.tensortree.move_orthogonalization_center("c2")
@@ -395,7 +388,7 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         self.assertTrue(np.allclose(identity, transfer_tensor))
 
         # Test equality of tensor network
-        found_tensor = self.tensortree.completely_contract_tree().root[1]
+        found_tensor = self.tensortree.completely_contract_tree()[0]
         self.assertTrue(np.allclose(reference_tensor, found_tensor.transpose([0,2,1])))
 
 class TestTreeTensorNetworkBigTree(unittest.TestCase):

@@ -50,8 +50,8 @@ class TestCanonicalFormSimple(unittest.TestCase):
 
         ptn.canonical_form(self.ttn, "c1")
 
-        ref_tensor = reference_ttn.completely_contract_tree().root[1]
-        found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
+        ref_tensor = reference_ttn.completely_contract_tree()[0]
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True)[0]
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
         # Check, if root is isometry
@@ -77,8 +77,8 @@ class TestCanonicalFormSimple(unittest.TestCase):
 
         ptn.canonical_form(self.ttn, "root")
 
-        ref_tensor = reference_ttn.completely_contract_tree().root[1]
-        found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
+        ref_tensor = reference_ttn.completely_contract_tree()[0]
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True)[0]
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
         # Check, if c1 is isometry
@@ -102,9 +102,9 @@ class TestCanonicalFormSimple(unittest.TestCase):
 
         ptn.canonical_form(self.ttn, "c2")
 
-        ref_tensor = reference_ttn.completely_contract_tree().root[1]
+        ref_tensor = reference_ttn.completely_contract_tree()[0]
         ref_tensor = np.transpose(ref_tensor, axes=(0,2,1))
-        found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True)[0]
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
         # Check, if root is isometry
@@ -130,8 +130,8 @@ class TestCanonicalFormSimple(unittest.TestCase):
         ptn.canonical_form(self.ttn, "c1",
                            mode=ptn.SplitMode.KEEP)
 
-        ref_tensor = reference_ttn.completely_contract_tree(to_copy=True).root[1]
-        found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
+        ref_tensor = reference_ttn.completely_contract_tree(to_copy=True)[0]
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True)[0]
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
         # Check, if root is isometry
@@ -166,8 +166,8 @@ class TestCanonicalFormSimple(unittest.TestCase):
         ptn.canonical_form(self.ttn, "root",
                            mode=ptn.SplitMode.KEEP)
 
-        ref_tensor = reference_ttn.completely_contract_tree(to_copy=True).root[1]
-        found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
+        ref_tensor = reference_ttn.completely_contract_tree(to_copy=True)[0]
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True)[0]
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
         # Check, if c1 is isometry
@@ -201,9 +201,9 @@ class TestCanonicalFormSimple(unittest.TestCase):
         ptn.canonical_form(self.ttn, "c2",
                            mode=ptn.SplitMode.KEEP)
 
-        ref_tensor = reference_ttn.completely_contract_tree(to_copy=True).root[1]
+        ref_tensor = reference_ttn.completely_contract_tree(to_copy=True)[0]
         ref_tensor = np.transpose(ref_tensor, axes=(0,2,1))
-        found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True)[0]
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
         # Check, if root is isometry
@@ -243,16 +243,16 @@ class TestCanoncialFormComplicated(unittest.TestCase):
         center_id = "site" + str(0)
         ptn.canonical_form(self.ttn, center_id)
 
-        ref_tensor = self.ref_ttn.completely_contract_tree().root[1]
-        found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
+        ref_tensor = self.ref_ttn.completely_contract_tree()[0]
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True)[0]
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
     def test_canoncial_form_1_center(self):
         center_id = "site" + str(1)
         ptn.canonical_form(self.ttn, center_id)
 
-        ref_tensor = self.ref_ttn.completely_contract_tree().root[1]
-        found_tensor = self.ttn.completely_contract_tree(to_copy=True).root[1]
+        ref_tensor = self.ref_ttn.completely_contract_tree()[0]
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True)[0]
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
 

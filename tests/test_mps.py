@@ -31,7 +31,7 @@ class TestMPT_Attaching(unittest.TestCase):
                                self.tensors[2],
                                axes=(0, 0))
 
-        found_mpt = self.mpt.completely_contract_tree().root[1]
+        found_mpt = self.mpt.completely_contract_tree()[0]
         self.assertTrue(np.allclose(ref_mpt, found_mpt))
 
     def test_add_right_first(self):
@@ -53,7 +53,7 @@ class TestMPT_Attaching(unittest.TestCase):
         ref_mpt = np.transpose(ref_mpt,
                                (0, 3, 4, 1, 2))
 
-        found_mpt = self.mpt.completely_contract_tree().root[1]
+        found_mpt = self.mpt.completely_contract_tree()[0]
         self.assertTrue(np.allclose(ref_mpt, found_mpt))
 
     def test_add_two_left_nodes(self):
@@ -74,7 +74,7 @@ class TestMPT_Attaching(unittest.TestCase):
                                self.tensors[0],
                                axes=(2, 0))
 
-        found_mpt = self.mpt.completely_contract_tree().root[1]
+        found_mpt = self.mpt.completely_contract_tree()[0]
         self.assertTrue(np.allclose(ref_mpt, found_mpt))
 
     def test_add_two_right_nodes(self):
@@ -94,7 +94,7 @@ class TestMPT_Attaching(unittest.TestCase):
                                self.tensors[3],
                                axes=(2, 0))
 
-        found_mpt = self.mpt.completely_contract_tree().root[1]
+        found_mpt = self.mpt.completely_contract_tree()[0]
         self.assertTrue(np.allclose(ref_mpt, found_mpt))
 
     def test_add_four_nodes(self):
@@ -126,7 +126,7 @@ class TestMPT_Attaching(unittest.TestCase):
                                self.tensors[3],
                                axes=(3, 0))
 
-        found_mpt = self.mpt.completely_contract_tree().root[1]
+        found_mpt = self.mpt.completely_contract_tree()[0]
         self.assertTrue(np.allclose(ref_mpt, found_mpt))
 
 
@@ -152,7 +152,7 @@ class TestMPT_classmethods(unittest.TestCase):
                                self.tensors[4],
                                axes=(3, 0))
 
-        found_mpt = mpt.completely_contract_tree().root[1]
+        found_mpt = mpt.completely_contract_tree()[0]
         self.assertTrue(np.allclose(ref_mpt, found_mpt))
 
     def test_from_tensor_list_root_at_0(self):
@@ -172,7 +172,7 @@ class TestMPT_classmethods(unittest.TestCase):
                                self.tensors[4],
                                axes=(3, 0))
 
-        found_mpt = mpt.completely_contract_tree().root[1]
+        found_mpt = mpt.completely_contract_tree()[0]
         self.assertTrue(np.allclose(ref_mpt, found_mpt))
 
     def test_from_tensor_list_root_at_last_node(self):
@@ -192,7 +192,7 @@ class TestMPT_classmethods(unittest.TestCase):
                                self.tensors[0],
                                axes=(3, 0))
 
-        found_mpt = mpt.completely_contract_tree().root[1]
+        found_mpt = mpt.completely_contract_tree()[0]
         self.assertTrue(np.allclose(ref_mpt, found_mpt))
 
 
@@ -226,7 +226,7 @@ class TestMPS(unittest.TestCase):
 
         ref_mps = np.zeros(2**5)
         ref_mps[0] = 1
-        found_mps = mps.completely_contract_tree().root[1]
+        found_mps = mps.completely_contract_tree()[0]
         found_mps = np.reshape(found_mps,32)
         self.assertTrue(np.allclose(ref_mps,found_mps))
 
@@ -252,7 +252,7 @@ class TestMPS(unittest.TestCase):
 
         ref_mps = np.zeros(2**5)
         ref_mps[0] = 1
-        found_mps = mps.completely_contract_tree().root[1]
+        found_mps = mps.completely_contract_tree()[0]
         found_mps = np.reshape(found_mps,32)
         self.assertTrue(np.allclose(ref_mps,found_mps))
 

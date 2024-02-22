@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Tuple, Callable, Union
+from typing import Tuple, Callable, Union, List
 from copy import copy, deepcopy
 from collections import UserDict
 
@@ -677,23 +677,21 @@ class TreeTensorNetwork(TreeStructure):
         """
         self.canonical_form(orthogonality_center_id, mode=mode)
 
-    def completely_contract_tree(self, to_copy: bool = False):
+    def completely_contract_tree(self,
+                                 to_copy: bool=False) -> Tuple[np.ndarray, List[str]]:
         """
-        Completely contracts the given tree_tensor_network by combining all
-        nodes.
+        Completely contracts the given tree_tensor_network by combining all nodes.
         (WARNING: Can get very costly very fast. Only use for debugging.)
 
-        Parameters
-        ----------
-        to_copy: bool
-            Wether or not the contraction should be perfomed on a deep copy.
-            Default is False.
+        Args:
+            ttn (TreeTensorNetwork): The TTN to be contracted.
+            to_copy (bool): Wether or not the contraction should be perfomed on a deep copy.
+                Default is False.
 
-        Returns
-        -------
-        In case copy is True a deep copy of the completely contracted TTN is
-        returned.
-
+        Returns:
+            Tuple[np.ndarray, List[str]]: The contracted TTN and the list of the
+                identifiers of the contracted nodes in the order they were contracted.
+                The latter is very useful for debugging.
         """
         return completely_contract_tree(self, to_copy=to_copy)
 
