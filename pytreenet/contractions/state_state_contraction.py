@@ -3,10 +3,13 @@ from typing import Union
 
 import numpy as np
 
-from ..time_evolution.tdvp_util.partial_tree_cache import PartialTreeChachDict
+from .tree_chach_dict import PartialTreeChachDict
 from ..node import Node
 
-def contract_two_ttn(ttn1: TreeTensorNetwork, ttn2: TreeTensorNetwork) -> complex:
+__all__ = ['contract_two_ttns']
+
+def contract_two_ttns(ttn1: TreeTensorNetworkState,
+                      ttn2: TreeTensorNetworkState) -> complex:
     """
     Contracts two TreeTensorNetworks.
 
@@ -37,7 +40,7 @@ def contract_two_ttn(ttn1: TreeTensorNetwork, ttn2: TreeTensorNetwork) -> comple
     # Now everything remaining is contracted into the root tensor.
     return contract_node_with_environment(ttn1.root_id,
                                           ttn1, ttn2,
-                                          dictionary)
+                                          dictionary)[0]
 
 def contract_node_with_environment(node_id: str,
                                    state1: TreeTensorNetworkState,

@@ -13,8 +13,7 @@ from .tensor_util import (tensor_qr_decomposition,
 from .leg_specification import LegSpecification
 from .canonical_form import (canonical_form,
                              split_qr_contract_r_to_neighbour)
-from .tree_contraction import (completely_contract_tree,
-                               contract_two_ttn)
+from .tree_contraction import completely_contract_tree
 from .ttn_exceptions import NotCompatibleException
 
 
@@ -697,23 +696,6 @@ class TreeTensorNetwork(TreeStructure):
 
         """
         return completely_contract_tree(self, to_copy=to_copy)
-
-    def contract_two_ttn(self, other):
-        """
-        Contracts two TTN with the same structure. Assumes both TTN use the same
-        identifiers for the nodes.
-
-        Parameters
-        ----------
-        other : TreeTensorNetwork
-
-        Returns
-        -------
-        result_tensor: np.ndarray
-            The contraction result.
-
-        """
-        return contract_two_ttn(self, other)
 
     def apply_hamiltonian(
             self, hamiltonian: Hamiltonian, conversion_dict: dict[str, np.ndarray],

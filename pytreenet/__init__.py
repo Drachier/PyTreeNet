@@ -1,6 +1,7 @@
 
 
 from .canonical_form import *
+from .contractions import *
 from .hamiltonian import *
 from .node import *
 from .leg_specification import *

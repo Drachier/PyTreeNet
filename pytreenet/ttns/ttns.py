@@ -5,6 +5,7 @@ import numpy as np
 
 from ..ttn import TreeTensorNetwork
 from ..operators.tensorproduct import TensorProduct
+from ..contractions.state_state_contraction import contract_two_ttns
 
 class TreeTensorNetworkState(TreeTensorNetwork):
     """
@@ -25,7 +26,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             return complex(np.tensordot(tensor, tensor_conj, axes=(legs,legs)))
         # Very inefficient, fix later without copy
         ttn = deepcopy(self)
-        return ttn.contract_two_ttn(ttn.conjugate())
+        return contract_two_ttns(ttn, ttn.conjugate())
 
     def single_site_operator_expectation_value(self, node_id: str,
                                                operator: np.ndarray) -> complex:
@@ -68,4 +69,4 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         conj_ttn = ttn.conjugate()
         for node_id, single_site_operator in operator.items():
             ttn.absorb_into_open_legs(node_id, single_site_operator)
-        return ttn.contract_two_ttn(conj_ttn)
+        return contract_two_ttns(ttn, conj_ttn)

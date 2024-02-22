@@ -21,7 +21,7 @@ from ..ttno.ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
 from ..ttn_exceptions import NoConnectionException
 from .tdvp_util.partial_tree_cache import PartialTreeCache
-from .tdvp_util.tree_chach_dict import PartialTreeChachDict
+from ..contractions.tree_chach_dict import PartialTreeChachDict
 from .tdvp_util.update_path import TDVPUpdatePathFinder
 
 class TDVPAlgorithm(TTNTimeEvolution):

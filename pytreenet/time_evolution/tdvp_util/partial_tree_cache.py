@@ -8,7 +8,7 @@ from ...ttno.ttno import TTNO
 from ...graph_node import GraphNode
 
 from .cached_tensor import CachedSiteTensor
-from .tree_chach_dict import PartialTreeChachDict
+from ...contractions.tree_chach_dict import PartialTreeChachDict
 
 class PartialTreeCache():
     """
