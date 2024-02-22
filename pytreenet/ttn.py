@@ -13,7 +13,7 @@ from .tensor_util import (tensor_qr_decomposition,
 from .leg_specification import LegSpecification
 from .canonical_form import (canonical_form,
                              split_qr_contract_r_to_neighbour)
-from .tree_contraction import completely_contract_tree
+from .contractions.tree_contraction import completely_contract_tree
 from .ttn_exceptions import NotCompatibleException
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import copy
 
-from .util import copy_object
+from ..util import copy_object
 
 def completely_contract_tree(ttn: TreeTensorNetwork,
                              to_copy: bool=False) -> TreeTensorNetwork:

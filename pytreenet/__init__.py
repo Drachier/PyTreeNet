@@ -7,7 +7,7 @@ from .node import *
 from .leg_specification import *
 from .time_evolution import *
 from .tensor_util import *
-from .tree_contraction import *
+from .contractions.tree_contraction import *
 from .ttn_exceptions import *
 from .graph_node import *
 from .special_ttn import *
