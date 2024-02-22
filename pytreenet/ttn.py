@@ -127,6 +127,30 @@ class TreeTensorNetwork(TreeStructure):
                 return False # Some node_id is not the same
         return True
 
+    def num_nodes(self) -> int:
+        """
+        Returns the number of nodes in the TTN.
+
+        Returns:
+            int: The number of nodes in the TTN.
+
+        Raises:
+            AssertionError: If the number of nodes and the number of tensors
+             are not the same.
+        """
+        errstr = "The number of nodes and the number of tensors are not the same!"
+        assert len(self.nodes) == len(self.tensors), errstr
+        return len(self.nodes)
+    
+    def __len__(self) -> int:
+        """
+        Returns the number of nodes in the TTN.
+
+        Returns:
+            int: The number of nodes in the TTN.
+        """
+        return self.num_nodes()
+
     def nodes_equal(self, node_id: str, other: TreeTensorNetwork, 
                     other_node_id : Union[None,str] = None) -> bool:
         """
