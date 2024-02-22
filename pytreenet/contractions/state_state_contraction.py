@@ -3,7 +3,7 @@ from typing import Union
 
 import numpy as np
 
-from .tree_chach_dict import PartialTreeChachDict
+from .tree_cach_dict import PartialTreeChachDict
 from ..node import Node
 
 __all__ = ['contract_two_ttns']
