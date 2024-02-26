@@ -39,10 +39,10 @@ def _completely_contract_tree_rec(work_ttn: TreeTensorNetwork,
     """
     current_node = work_ttn.nodes[current_node_id]
     children = copy(current_node.children)
+    contraction_order.append(current_node_id)
     for child_id in children:
         # Contracts the complete subtree into this child
         _completely_contract_tree_rec(work_ttn, child_id,
                                       contraction_order)
         work_ttn.contract_nodes(current_node_id, child_id,
                                 new_identifier=current_node_id)
-    contraction_order.append(current_node_id)
