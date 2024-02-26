@@ -46,7 +46,7 @@ class TestContractTwoTTNsComplicated(unittest.TestCase):
         self.assertEqual(self.refs[1], self.ttns2)
 
         # Reference Computation
-        tensor1 = self.ttns1.completely_contract_tree(to_copy=True)[1]
+        tensor1 = self.ttns1.completely_contract_tree(to_copy=True)[0]
         tensor2 = self.ttns2.completely_contract_tree(to_copy=True)[0]
         legs = tuple(range(len(self.ttns1)))
         ref = np.tensordot(tensor1, tensor2, axes=(legs, legs))
