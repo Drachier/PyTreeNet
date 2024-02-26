@@ -1,3 +1,4 @@
+from contextlib import AbstractContextManager
 import unittest
 
 import numpy as np
@@ -65,11 +66,11 @@ class TestTimeEvolutionInit(unittest.TestCase):
         self.assertTrue(isinstance(time_evo.operators, list))
         self.assertEqual(time_evo.operators[0], self.operators[0])
 
-    def test_results_shape(self):
-        for i in range(0,4):
-            time_evo = ptn.TimeEvolution(self.initial_state, self.time_step_size,
-                self.final_time, self.operators[0:i])
-            self.assertEqual((i+1, 11), time_evo.results.shape)
+    def test_results(self):
+        '''
+        The results are only initialised once a time evolution is run.
+        '''
+        self.assertEqual(None, self.time_evol._results)
 
 class TestTimeEvolutionMethods(unittest.TestCase):
     def setUp(self):
@@ -103,15 +104,110 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         self.assertRaises(NotImplementedError, self.time_evol.run_one_time_step)
 
     def test_evaluate_operators_for_single_site(self):
-        found_results = self.time_evol.evaluate_operators()
+        self.assertRaises(NotImplementedError, self.time_evol.evaluate_operators)
 
-        # Find reference results
-        state_vector = self.time_evol.initial_state.completely_contract_tree(to_copy=True)[0]
-        state_vector = state_vector.reshape(24)
-        op1 = self.operators[0].pad_with_identities(self.initial_state).into_operator()
-        result1 = state_vector.conj().T @ op1.operator.T @ state_vector
+    def test_init_results(self):
+        """
+        Initialising the results with standard evaluation_time.
+        """
+        self.time_evol._init_results()
+        results = self.time_evol._results
+        correct_shape = (4,11)
+        self.assertEqual(correct_shape, results.shape)
+        correct_results = np.zeros(correct_shape)
+        self.assertTrue(np.allclose(correct_results, results))
 
-        self.assertAlmostEqual(found_results[0], result1)
+    def test_init_results_with_custom_evaluation_time(self):
+        """
+        Initialising the results with custom evaluation_time.
+        """
+        evaluation_time = 2
+        self.time_evol._init_results(evaluation_time=evaluation_time)
+        results = self.time_evol._results
+        correct_shape = (4,6)
+        self.assertEqual(correct_shape, results.shape)
+        correct_results = np.zeros(correct_shape)
+        self.assertTrue(np.allclose(correct_results, results))
+
+    def test_init_results_with_inf(self):
+        """
+        Initialising the results with evalutation_time = "inf".
+        Thus only the last result is saved.
+        """
+        evaluation_time = "inf"
+        self.time_evol._init_results(evaluation_time=evaluation_time)
+        results = self.time_evol._results
+        correct_shape = (4,1)
+        self.assertEqual(correct_shape, results.shape)
+        correct_results = np.zeros(correct_shape)
+        self.assertTrue(np.allclose(correct_results, results))
+
+    def test_check_result_exists(self):
+        """
+        The results are only initialised once a time evolution is run.
+        Therefore, this method should raise an error, if called before
+        the time evolution is run.
+        """
+        self.assertRaises(AssertionError, self.time_evol.check_result_exists)
+
+    def test_check_result_exists_after_run(self):
+        """
+        The results are only initialised once a time evolution is run.
+        Therefore, this method should not raise an error, if called after
+        the time evolution is run.
+        """
+        # As the time-evolution is an abstract method, we run the method
+        # _init_results before calling check_result_exists
+        self.time_evol._init_results()
+        self.time_evol.check_result_exists()
+
+    def test_results_real_true(self):
+        """
+        Should be True for real results.
+        """
+        self.time_evol._init_results()
+        test_results = np.real(ptn.crandn(self.time_evol.results.shape))
+        self.time_evol._results = test_results
+        self.assertTrue(self.time_evol.results_real())
+
+    def test_results_real_false(self):
+        """
+        Should be False for complex results.
+        """
+        self.time_evol._init_results()
+        test_results = ptn.crandn(self.time_evol.results.shape)
+        self.time_evol._results = test_results
+        self.assertFalse(self.time_evol.results_real())
+
+    def test_times(self):
+        """
+        Should return the times at which the operators were evaluated.
+        They are always assumed to be real.
+        """
+        self.time_evol._init_results()
+        times = ptn.crandn((11, ))
+        self.time_evol._results[-1] = times
+        self.assertFalse(np.allclose(times, self.time_evol.times()))
+        times = np.real(times)
+        self.assertTrue(np.allclose(times, self.time_evol.times()))
+
+    def test_operator_results_no_realise(self):
+        """
+        Should return the operator results without realising them.
+        """
+        self.time_evol._init_results()
+        results = ptn.crandn(self.time_evol.results.shape)
+        self.time_evol._results = results
+        self.assertTrue(np.allclose(results[0:-1], self.time_evol.operator_results()))
+
+    def test_operator_results_realise(self):
+        """
+        Should return the operator results and realise them.
+        """
+        self.time_evol._init_results()
+        results = ptn.crandn(self.time_evol.results.shape)
+        self.time_evol._results = results
+        self.assertTrue(np.allclose(np.real(results[0:-1]), self.time_evol.operator_results(realise=True)))
 
 if __name__ == "__main__":
     unittest.main()
