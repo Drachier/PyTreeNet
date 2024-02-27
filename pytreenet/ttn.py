@@ -240,6 +240,24 @@ class TreeTensorNetwork(TreeStructure):
         for node_id, tensor in ttn_conj.tensors.items():
             ttn_conj.tensors[node_id] = tensor.conj()
         return ttn_conj
+    
+    def max_bond_dim(self) -> int:
+        """
+        Find the maximum virtual bond dimension in this TTN.
+
+        Returns:
+            int: The maximum bond dimension of this TTN.
+        """
+        if len(self.nodes) <= 1:
+            errstr = "This TTN has no virtual bond dimension!"
+            raise AssertionError(errstr)
+        max_bd = 0
+        for node in self.nodes:
+            if not node.is_root():
+                parent_bd = node.shape(node.neighbour_index(node.parent))
+                if parent_bd > max_bd:
+                    max_bd = parent_bd
+        return max_bd
 
     def absorb_matrix(self, node_id: str, absorbed_matrix: np.ndarray,
                       this_tensors_leg_index: int,
