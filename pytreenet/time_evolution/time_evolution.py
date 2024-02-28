@@ -128,7 +128,7 @@ class TimeEvolution:
             return np.real(self.results[0:-1])
         return self.results[0:-1]
 
-    def run_one_time_step(self):
+    def run_one_time_step(self, **kwargs):
         """
         Abstract method to run one time step.
         """
