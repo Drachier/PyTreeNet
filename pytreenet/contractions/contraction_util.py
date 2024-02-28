@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from ..node import Node
 
-def determine_leg_with_ignored_leg(node: Node,
-                                   neighbour_id: str,
-                                   ignoring_node_id: str) -> int:
+def determine_index_with_ignored_leg(node: Node,
+                                     neighbour_id: str,
+                                     ignoring_node_id: str) -> int:
     """
     Sometimes when contracting all the neighbouring cached environments, we
      want to ignore the leg to a specific neighbour node. This means we do

@@ -10,7 +10,7 @@ import numpy as np
 from .tree_cach_dict import PartialTreeCachDict
 from ..node import Node
 
-from .contraction_util import determine_leg_with_ignored_leg
+from .contraction_util import determine_index_with_ignored_leg
 
 __all__ = ['contract_two_ttns']
 
@@ -290,9 +290,9 @@ def contract_neighbour_block_to_ket_ignore_one_leg(ket_tensor: np.ndarray,
                         |  A  |    |      |
                         |_____|    |______|
     """
-    tensor_index_to_neighbour = determine_leg_with_ignored_leg(ket_node,
-                                                               neighbour_id,
-                                                               ignoring_node_id)
+    tensor_index_to_neighbour = determine_index_with_ignored_leg(ket_node,
+                                                                 neighbour_id,
+                                                                 ignoring_node_id)
     return contract_neighbour_block_to_ket(ket_tensor, ket_node,
                                            neighbour_id,
                                            partial_tree_cache,
