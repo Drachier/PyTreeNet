@@ -10,6 +10,8 @@ import numpy as np
 from .tree_cach_dict import PartialTreeCachDict
 from ..node import Node
 
+from .contraction_util import determine_leg_with_ignored_leg
+
 __all__ = ['contract_two_ttns']
 
 def contract_two_ttns(ttn1: TreeTensorNetworkState,
@@ -288,10 +290,9 @@ def contract_neighbour_block_to_ket_ignore_one_leg(ket_tensor: np.ndarray,
                         |  A  |    |      |
                         |_____|    |______|
     """
-    next_node_index = ket_node.neighbour_index(ignoring_node_id)
-    neighbour_index = ket_node.neighbour_index(neighbour_id)
-    assert next_node_index != neighbour_index, "The next node should not be touched!"
-    tensor_index_to_neighbour = int(next_node_index < neighbour_index)
+    tensor_index_to_neighbour = determine_leg_with_ignored_leg(ket_node,
+                                                               neighbour_id,
+                                                               ignoring_node_id)
     return contract_neighbour_block_to_ket(ket_tensor, ket_node,
                                            neighbour_id,
                                            partial_tree_cache,
