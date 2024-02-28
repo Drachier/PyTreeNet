@@ -1,3 +1,7 @@
+"""
+This module provides functions to contract two TreeTensorNetworkStates.
+"""
+
 from __future__ import annotations
 from typing import Union
 
