@@ -105,7 +105,7 @@ def contract_leafs(node_id: str, state1: TreeTensorNetworkState,
         state2 (TreeTensorNetworkState): The second TTN state.
 
     Returns:
-        SubTreeSandwichContraction: The tensor resulting from the contraction:
+        np.ndarray: The tensor resulting from the contraction:
                      _____
                 ____|     |
                     |  B  |
