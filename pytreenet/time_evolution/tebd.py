@@ -5,6 +5,7 @@ from ..ttns import TreeTensorNetworkState
 from .ttn_time_evolution import TTNTimeEvolution
 from .trotter import TrotterSplitting
 from ..operators.operator import NumericOperator
+from ..operators.tensorproduct import TensorProduct
 
 class TEBD(TTNTimeEvolution):
     """
