@@ -167,14 +167,12 @@ def contract_subtrees_using_dictionary(node_id: str, next_node_id: str,
                         |  A  |    |      |
                         |_____|    |______|
     """
-    ket_node = state1.nodes[node_id]
-    ket_tensor = state1.tensors[node_id]
+    ket_node, ket_tensor = state1[node_id]
     ketblock_tensor = contract_all_but_one_neighbour_block_to_ket(ket_tensor,
                                                                   ket_node,
                                                                   next_node_id,
                                                                   dictionary)
-    bra_tensor = state2.tensors[node_id]
-    bra_node = state2.nodes[node_id]
+    bra_tensor, bra_node = state2[node_id]
     return contract_bra_to_ket_and_blocks_ignore_one_leg(bra_tensor,
                                                          ketblock_tensor,
                                                          bra_node,
