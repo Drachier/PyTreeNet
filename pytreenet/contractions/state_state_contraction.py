@@ -3,14 +3,14 @@ This module provides functions to contract two TreeTensorNetworkStates.
 """
 
 from __future__ import annotations
-from typing import Union
 
 import numpy as np
 
 from .tree_cach_dict import PartialTreeCachDict
 from ..node import Node
 
-from .contraction_util import contract_all_but_one_neighbour_block_to_ket
+from .contraction_util import (contract_all_but_one_neighbour_block_to_ket,
+                               contract_all_neighbour_blocks_to_ket) 
 
 __all__ = ['contract_two_ttns']
 
@@ -178,82 +178,6 @@ def contract_subtrees_using_dictionary(node_id: str, next_node_id: str,
                                                          bra_node,
                                                          ket_node,
                                                          next_node_id)
-
-def contract_neighbour_block_to_ket(ket_tensor: np.ndarray,
-                                    ket_node: Node,
-                                    neighbour_id: str,
-                                    partial_tree_cache: PartialTreeCachDict,
-                                    tensor_leg_to_neighbour: Union[None,int]=None) -> np.ndarray:
-    """
-    Contracts the ket tensor, i.e. A in the diagrams, with one neighbouring
-     block, C in the diagrams.
-
-    Args:
-        ket_tensor (np.ndarray): The tensor of the ket node.
-        ket_node (Node): The ket node.
-        neighbour_id (str): The identifier of the neighbour node which is the
-            root node of the subtree that has already been contracted and is
-            saved in the dictionary.
-        tensor_leg_to_neighbour (int): The index of the leg of the ket tensor
-            that points to the neighbour block and is thus to be contracted.
-        partial_tree_cache (PartialTreeCacheDict): The dictionary containing the
-            already contracted subtrees.
-    
-    Returns:
-        np.ndarray: The resulting tensor.
-                                    ______
-                               ____|      |
-                                   |      |
-                                   |      |
-                                   |      |
-                           |       |  C   |
-                         __|__     |      |
-                    ____|     |____|      |
-                        |  A  |    |      |
-                        |_____|    |______|
-    """
-    cached_neighbour_tensor = partial_tree_cache.get_entry(neighbour_id,
-                                                           ket_node.identifier)
-    if tensor_leg_to_neighbour is None:
-        tensor_leg_to_neighbour = ket_node.neighbour_index(neighbour_id)
-    return np.tensordot(ket_tensor, cached_neighbour_tensor,
-                        axes=([tensor_leg_to_neighbour],[0]))
-
-def contract_all_neighbour_blocks_to_ket(ket_tensor: np.ndarray,
-                                         ket_node: Node,
-                                         partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
-    """
-    Contract all neighbour blocks to the ket tensor.
-
-    Args:
-        ket_tensor (np.ndarray): The tensor of the ket node.
-        ket_node (Node): The ket node.
-        partial_tree_cache (PartialTreeCacheDict): The dictionary containing the
-            already contracted subtrees.
-
-    Returns:
-        np.ndarray: The resulting tensor.
-             ______                 ______
-            |      |____       ____|      |
-            |      |               |      |
-            |      |               |      |
-            |      |               |      |
-            |  C1  |       |       |  C2  |
-            |      |     __|__     |      |
-            |      |____|     |____|      |
-            |      |    |  A  |    |      |
-            |______|    |_____|    |______|
-        """
-    result_tensor = ket_tensor
-    for neighbour_id in ket_node.neighbouring_nodes():
-        # A the neighbours are the same as the leg order, the tensor_leg_to_neighbour
-        # is always 0.
-        result_tensor = contract_neighbour_block_to_ket(result_tensor,
-                                                        ket_node,
-                                                        neighbour_id,
-                                                        partial_tree_cache,
-                                                        tensor_leg_to_neighbour=0)
-    return result_tensor
 
 def contract_bra_to_ket_and_blocks(bra_tensor: np.ndarray,
                                    ketblock_tensor: np.ndarray,
