@@ -172,7 +172,7 @@ def contract_subtrees_using_dictionary(node_id: str, next_node_id: str,
                                                                   ket_node,
                                                                   next_node_id,
                                                                   dictionary)
-    bra_tensor, bra_node = state2[node_id]
+    bra_node, bra_tensor = state2[node_id]
     return contract_bra_to_ket_and_blocks_ignore_one_leg(bra_tensor,
                                                          ketblock_tensor,
                                                          bra_node,
