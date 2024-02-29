@@ -182,7 +182,7 @@ def contract_operator_tensor_ignoring_one_leg(current_tensor: np.ndarray,
     tensor_legs = list(range(2,2*ket_node.nneighbours(),2))
     # Adding the physical legs
     tensor_legs.append(1)
-    op_legs.append(_node_operator_output_leg(op_node))
+    op_legs.append(_node_operator_input_leg(op_node))
     return np.tensordot(current_tensor, op_tensor,
                         axes=(tensor_legs, op_legs))
 
