@@ -10,7 +10,7 @@ import numpy as np
 from ..node import Node
 from .tree_cach_dict import PartialTreeCachDict
 
-from .contraction_util import (determine_index_with_ignored_leg,
+from .contraction_util import (contract_all_but_one_neighbour_block_to_ket,
                                 get_equivalent_legs)
 
 def contract_any(node_id: str, next_node_id: str,
@@ -138,79 +138,6 @@ def contract_subtrees_using_dictionary(node_id: str, ignored_node_id: str,
                                               tensor,
                                               ket_node,
                                               ignored_node_id)
-
-def contract_neighbour_block_to_ket_ignore_one_leg(ket_tensor: np.ndarray,
-                                                   ket_node: Node,
-                                                   neighbour_id: str,
-                                                   ignoring_node_id: str,
-                                                   partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
-    """
-    Contracts a cached contracted tree C that originates at the neighbour
-        node with the tensor of this node, which is currently a ket node A,
-        possibly with other neighbour caches already contracted.
-
-    Args:
-        ket_tensor (np.ndarray): The tensor of the ket node.
-        ket_node (Node): The ket node.
-        neighbour_id (str): The identifier of the neighbour node which is the
-         root node of the subtree that has already been contracted and is 
-         saved in the dictionary.
-        ignoring_node_id (str): The identifier of the node to which the
-         virtual node should not point.
-        partiral_tree_cache (PartialTreeCachDict): The dictionary containing
-            the already contracted subtrees.
-        
-    Returns:
-        np.ndarray: The contracted tensor:
-                                ______
-                               |      |
-                        _______|      |
-                               |      |
-                               |      |
-                               |      |
-                               |      |
-                        _______|      |
-                               |  C   |
-                               |      |
-                       |       |      |
-                       |       |      |
-                     __|__     |      |
-                ____|     |____|      |
-                    |  A  |    |      |
-                    |_____|    |______|
-    """
-    tensor_index_to_neighbour = determine_index_with_ignored_leg(ket_node,
-                                                                 neighbour_id,
-                                                                 ignoring_node_id)
-    cached_neighbour_tensor = partial_tree_cache.get_entry(neighbour_id,
-                                                           ket_node.identifier)
-    return np.tensordot(ket_tensor, cached_neighbour_tensor,
-                        axes=([tensor_index_to_neighbour],[0]))
-
-def contract_all_but_one_neighbour_block_to_ket(ket_tensor: np.ndarray,
-                                                ket_node: Node,
-                                                ignoring_node_id: str,
-                                                partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
-    """
-    Contract all neighbour blocks to the ket tensor.
-
-    Args:
-        ket_tensor (np.ndarray): The tensor of the ket node.
-        ket_node (Node): The ket node.
-        ignoring_node_id (str): The identifier of the node to which the remaining
-            virtual legs point.
-        partial_tree_cache (PartialTreeCacheDict): The dictionary containing the
-         already contracted subtrees.
-    """
-    result_tensor = ket_tensor
-    for neighbour_id in ket_node.neighbouring_nodes():
-        if neighbour_id != ignoring_node_id:
-            result_tensor = contract_neighbour_block_to_ket_ignore_one_leg(result_tensor,
-                                                                           ket_node,
-                                                                           neighbour_id,
-                                                                           ignoring_node_id,
-                                                                           partial_tree_cache)
-    return result_tensor
 
 def contract_operator_tensor_ignoring_one_leg(current_tensor: np.ndarray,
                                               ket_node: Node,
