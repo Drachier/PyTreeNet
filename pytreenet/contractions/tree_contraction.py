@@ -5,6 +5,8 @@ from copy import copy
 
 from ..util import copy_object
 
+__all__ = ['completely_contract_tree']
+
 def completely_contract_tree(ttn: TreeTensorNetwork,
                              to_copy: bool=False) -> Tuple[np.ndarray, List[str]]:
     """
