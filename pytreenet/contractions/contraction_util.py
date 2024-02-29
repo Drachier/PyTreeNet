@@ -29,7 +29,7 @@ def determine_index_with_ignored_leg(node: Node,
 
 def get_equivalent_legs(node1: Node,
                         node2: Node,
-                        ignore_legs: Union[None,List[str],str]) -> Tuple[List[int],List[int]]:
+                        ignore_legs: Union[None,List[str],str] = None) -> Tuple[List[int],List[int]]:
     """
     Get the equivalent legs of two nodes. This is useful when contracting
      two nodes with equal neighbour identifiers, that may potentially be in
@@ -166,4 +166,40 @@ def contract_all_but_one_neighbour_block_to_ket(ket_tensor: np.ndarray,
                                                                            neighbour_id,
                                                                            next_node_id,
                                                                            partial_tree_cache)
+    return result_tensor
+
+def contract_all_neighbour_blocks_to_ket(ket_tensor: np.ndarray,
+                                         ket_node: Node,
+                                         partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
+    """
+    Contract all neighbour blocks to the ket tensor.
+
+    Args:
+        ket_tensor (np.ndarray): The tensor of the ket node.
+        ket_node (Node): The ket node.
+        partial_tree_cache (PartialTreeCacheDict): The dictionary containing the
+            already contracted subtrees.
+
+    Returns:
+        np.ndarray: The resulting tensor.
+             ______                 ______
+            |      |____       ____|      |
+            |      |n             n|      |
+            |      | :           : |      |
+            |      |____       ____|      |
+            |  C1  |1      |      1|  C2  |
+            |      |     __|__     |      |
+            |      |____|     |____|      |
+            |      |0   |  A  |   0|      |
+            |______|    |_____|    |______|
+        """
+    result_tensor = ket_tensor
+    for neighbour_id in ket_node.neighbouring_nodes():
+        # A the neighbours are the same as the leg order, the tensor_leg_to_neighbour
+        # is always 0.
+        result_tensor = contract_neighbour_block_to_ket(result_tensor,
+                                                        ket_node,
+                                                        neighbour_id,
+                                                        partial_tree_cache,
+                                                        tensor_leg_to_neighbour=0)
     return result_tensor
