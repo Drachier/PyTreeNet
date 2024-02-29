@@ -10,7 +10,7 @@ import numpy as np
 from .tree_cach_dict import PartialTreeCachDict
 from ..node import Node
 
-from .contraction_util import determine_index_with_ignored_leg
+from .contraction_util import contract_all_but_one_neighbour_block_to_ket
 
 __all__ = ['contract_two_ttns']
 
@@ -253,72 +253,6 @@ def contract_all_neighbour_blocks_to_ket(ket_tensor: np.ndarray,
                                                         neighbour_id,
                                                         partial_tree_cache,
                                                         tensor_leg_to_neighbour=0)
-    return result_tensor
-
-def contract_neighbour_block_to_ket_ignore_one_leg(ket_tensor: np.ndarray,
-                                                     ket_node: Node,
-                                                     neighbour_id: str,
-                                                     ignoring_node_id: str,
-                                                     partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
-    """
-    Contracts the ket tensor, i.e. A in the diagrams, with one neighbouring
-     block, C in the diagrams, ignoring one leg.
-
-    Args:
-        ket_tensor (np.ndarray): The tensor of the ket node.
-        ket_node (Node): The ket node.
-        neighbour_id (str): The identifier of the neighbour node which is the
-            root node of the subtree that has already been contracted and is
-            saved in the dictionary.
-        ignoring_node_id (str): The identifier of the node to which the virtual
-            leg should not point.
-        partial_tree_cache (PartialTreeCacheDict): The dictionary containing the
-         already contracted subtrees.
-
-    Returns:
-        np.ndarray: The resulting tensor.
-                                    ______
-                               ____|      |
-                                   |      |
-                                   |      |
-                                   |      |
-                           |       |  C   |
-                         __|__     |      |
-                    ____|     |____|      |
-                        |  A  |    |      |
-                        |_____|    |______|
-    """
-    tensor_index_to_neighbour = determine_index_with_ignored_leg(ket_node,
-                                                                 neighbour_id,
-                                                                 ignoring_node_id)
-    return contract_neighbour_block_to_ket(ket_tensor, ket_node,
-                                           neighbour_id,
-                                           partial_tree_cache,
-                                           tensor_leg_to_neighbour=tensor_index_to_neighbour)        
-
-def contract_all_but_one_neighbour_block_to_ket(ket_tensor: np.ndarray,
-                                                ket_node: Node,
-                                                next_node_id: str,
-                                                partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
-    """
-    Contract all neighbour blocks to the ket tensor.
-
-    Args:
-        ket_tensor (np.ndarray): The tensor of the ket node.
-        ket_node (Node): The ket node.
-        next_node_id (str): The identifier of the node to which the remaining
-            virtual legs point.
-        partial_tree_cache (PartialTreeCacheDict): The dictionary containing the
-         already contracted subtrees.
-    """
-    result_tensor = ket_tensor
-    for neighbour_id in ket_node.neighbouring_nodes():
-        if neighbour_id != next_node_id:
-            result_tensor = contract_neighbour_block_to_ket_ignore_one_leg(result_tensor,
-                                                                           ket_node,
-                                                                           neighbour_id,
-                                                                           next_node_id,
-                                                                           partial_tree_cache)
     return result_tensor
 
 def contract_bra_to_ket_and_blocks(bra_tensor: np.ndarray,
