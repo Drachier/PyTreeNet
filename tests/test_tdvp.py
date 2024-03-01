@@ -6,6 +6,7 @@ import numpy as np
 from scipy.linalg import expm
 
 import pytreenet as ptn
+from pytreenet.contractions.state_operator_contraction import (contract_any)
 
 class TestTDVPInit(unittest.TestCase):
 
@@ -54,18 +55,20 @@ class TestTDVPInit(unittest.TestCase):
         # Creating reference
         ref_tdvp = deepcopy(self.tdvp)
         partial_tree_cache = ptn.PartialTreeCachDict()
-        c2_cache = ptn.PartialTreeCache.for_leaf("c2", ref_tdvp.state,
-                                                 ref_tdvp.hamiltonian)
-        partial_tree_cache.add_entry("c2", "root", c2_cache)
-        root_cache = ptn.PartialTreeCache.with_existing_cache("root", "c1",
-                                                              partial_tree_cache,
-                                                              ref_tdvp.state,
-                                                              ref_tdvp.hamiltonian)
-        partial_tree_cache.add_entry("root", "c1", root_cache)
+        c2_block = contract_any("c2", "root",
+                                ref_tdvp.state,
+                                ref_tdvp.hamiltonian,
+                                partial_tree_cache)
+        partial_tree_cache.add_entry("c2", "root", c2_block)
+        root_block = contract_any("root", "c1",
+                                  ref_tdvp.state,
+                                  ref_tdvp.hamiltonian,
+                                  partial_tree_cache)
+        partial_tree_cache.add_entry("root", "c1", root_block)
 
-        for ids, cache in partial_tree_cache.items():
-            found_cache = self.tdvp.partial_tree_cache.get_entry(ids[0], ids[1])
-            self.assertTrue(cache.close_to(found_cache))
+        for ids, tensor in partial_tree_cache.items():
+            found_tensor = self.tdvp.partial_tree_cache.get_entry(ids[0], ids[1])
+            self.assertTrue(np.allclose(tensor, found_tensor))
 
 class TestContractionMethods(unittest.TestCase):
 
@@ -90,43 +93,40 @@ class TestContractionMethods(unittest.TestCase):
                                       0.1, 1, operator)
 
         # Computing the other cached tensors for use
-        c1_cache = ptn.PartialTreeCache.for_leaf("c1", self.tdvp.state,
-                                                  self.tdvp.hamiltonian)
+        c1_cache = contract_any("c1", "root",
+                                self.tdvp.state, self.tdvp.hamiltonian,
+                                self.tdvp.partial_tree_cache)
         self.tdvp.partial_tree_cache.add_entry("c1", "root", c1_cache)
-        root_to_c2_cache = ptn.PartialTreeCache.with_existing_cache("root",
-                                                                    "c2",
-                                                                    self.tdvp.partial_tree_cache,
-                                                                    self.tdvp.state,
-                                                                    self.tdvp.hamiltonian)
+        root_to_c2_cache = contract_any("root", "c2",
+                                        self.tdvp.state, self.tdvp.hamiltonian,
+                                        self.tdvp.partial_tree_cache)
         self.tdvp.partial_tree_cache.add_entry("root", "c2", root_to_c2_cache)
 
     def test_move_orth_and_update_cache_for_path_c1_to_c2(self):
-        path = ["c1","root","c2"]
         ref_tdvp = deepcopy(self.tdvp)
         ref_tdvp.state.move_orthogonalization_center("c2",
                                                      mode=ptn.SplitMode.KEEP)
-        update_c1_cache = ptn.PartialTreeCache.for_leaf("c1",
-                                                        ref_tdvp.state,
-                                                        ref_tdvp.hamiltonian)
+        update_c1_cache = contract_any("c1", "root",
+                                       ref_tdvp.state, ref_tdvp.hamiltonian,
+                                       ref_tdvp.partial_tree_cache)
         ref_tdvp.partial_tree_cache.add_entry("c1","root",
                                               update_c1_cache)
-        update_root_to_c2_cache = ptn.PartialTreeCache.with_existing_cache("root",
-                                                                           "c2",
-                                                                           ref_tdvp.partial_tree_cache,
-                                                                           ref_tdvp.state,
-                                                                           ref_tdvp.hamiltonian)
+        update_root_to_c2_cache = contract_any("root", "c2",
+                                               ref_tdvp.state,
+                                               ref_tdvp.hamiltonian,
+                                               ref_tdvp.partial_tree_cache)
         ref_tdvp.partial_tree_cache.add_entry("root","c2",
                                               update_root_to_c2_cache)
 
     def test_move_orth_and_update_cache_for_path_c1_to_root_to_c2(self):
         path1 = ["c1","root"]
-        path2 = ["root","c2"]
         ref_tdvp = deepcopy(self.tdvp)
         ref_tdvp.state.move_orthogonalization_center("root",
                                                      mode=ptn.SplitMode.KEEP)
-        update_c1_cache = ptn.PartialTreeCache.for_leaf("c1",
-                                                        ref_tdvp.state,
-                                                        ref_tdvp.hamiltonian)
+        update_c1_cache = contract_any("c1", "root",
+                                       ref_tdvp.state,
+                                       ref_tdvp.hamiltonian,
+                                       ref_tdvp.partial_tree_cache)
         ref_tdvp.partial_tree_cache.add_entry("c1","root",
                                               update_c1_cache)
 
@@ -135,19 +135,17 @@ class TestContractionMethods(unittest.TestCase):
         self.assertEqual("root",self.tdvp.state.orthogonality_center_id)
         self.assertEqual(ref_tdvp.state,self.tdvp.state)
         for identifiers in ref_tdvp.partial_tree_cache:
-            correct_cache = ref_tdvp.partial_tree_cache.get_cached_tensor(identifiers[0],
+            correct_cache = ref_tdvp.partial_tree_cache.get_entry(identifiers[0],
                                                                           identifiers[1])
-            found_cache = self.tdvp.partial_tree_cache.get_cached_tensor(identifiers[0],
+            found_cache = self.tdvp.partial_tree_cache.get_entry(identifiers[0],
                                                                          identifiers[1])
             self.assertTrue(np.allclose(correct_cache,found_cache))
 
         ref_tdvp.state.move_orthogonalization_center("c2",
                                                      mode=ptn.SplitMode.KEEP)
-        update_root_to_c2_cache = ptn.PartialTreeCache.with_existing_cache("root",
-                                                                           "c2",
-                                                                           ref_tdvp.partial_tree_cache,
-                                                                           ref_tdvp.state,
-                                                                           ref_tdvp.hamiltonian)
+        update_root_to_c2_cache = contract_any("root", "c2",
+                                               ref_tdvp.state, ref_tdvp.hamiltonian,
+                                               ref_tdvp.partial_tree_cache)
         ref_tdvp.partial_tree_cache.add_entry("root","c2",
                                               update_root_to_c2_cache)
 
@@ -160,9 +158,9 @@ class TestContractionMethods(unittest.TestCase):
         self.assertEqual("c1",self.tdvp.state.orthogonality_center_id)
         self.assertEqual(ref_tdvp.state,self.tdvp.state)
         for identifiers in ref_tdvp.partial_tree_cache:
-            correct_cache = ref_tdvp.partial_tree_cache.get_cached_tensor(identifiers[0],
+            correct_cache = ref_tdvp.partial_tree_cache.get_entry(identifiers[0],
                                                                           identifiers[1])
-            found_cache = self.tdvp.partial_tree_cache.get_cached_tensor(identifiers[0],
+            found_cache = self.tdvp.partial_tree_cache.get_entry(identifiers[0],
                                                                          identifiers[1])
             self.assertTrue(np.allclose(correct_cache,found_cache))
 
@@ -175,9 +173,9 @@ class TestContractionMethods(unittest.TestCase):
         self.assertEqual("c1",self.tdvp.state.orthogonality_center_id)
         self.assertEqual(ref_tdvp.state,self.tdvp.state)
         for identifiers in ref_tdvp.partial_tree_cache:
-            correct_cache = ref_tdvp.partial_tree_cache.get_cached_tensor(identifiers[0],
+            correct_cache = ref_tdvp.partial_tree_cache.get_entry(identifiers[0],
                                                                           identifiers[1])
-            found_cache = self.tdvp.partial_tree_cache.get_cached_tensor(identifiers[0],
+            found_cache = self.tdvp.partial_tree_cache.get_entry(identifiers[0],
                                                                          identifiers[1])
             self.assertTrue(np.allclose(correct_cache,found_cache))
 
@@ -189,7 +187,7 @@ class TestContractionMethods(unittest.TestCase):
     def test_contract_all_except_node_c1(self):
         # Compute Reference
         ham_tensor = self.tdvp.hamiltonian.tensors["c1"]
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("root", "c1")
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("root", "c1")
         ref_tensor = np.tensordot(ham_tensor, cache_tensor,
                                   axes=(0,1))
         ref_tensor = np.transpose(ref_tensor, axes=[3,0,2,1])
@@ -200,7 +198,7 @@ class TestContractionMethods(unittest.TestCase):
     def test_contract_all_except_node_c2(self):
         # Compute Reference
         ham_tensor = self.tdvp.hamiltonian.tensors["c2"]
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("root", "c2")
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("root", "c2")
         ref_tensor = np.tensordot(ham_tensor, cache_tensor,
                                   axes=(0,1))
         ref_tensor = np.transpose(ref_tensor, axes=[3,0,2,1])
@@ -212,10 +210,10 @@ class TestContractionMethods(unittest.TestCase):
     def test_contract_all_except_node_root(self):
         # Compute Reference
         ham_tensor = self.tdvp.hamiltonian.tensors["root"]
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("c1", "root")
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("c1", "root")
         ref_tensor = np.tensordot(ham_tensor, cache_tensor,
                                   axes=(0,1))
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("c2", "root")
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("c2", "root")
         ref_tensor = np.tensordot(ref_tensor, cache_tensor,
                                   axes=(0,1))
         ref_tensor = np.transpose(ref_tensor, axes=[3,5,0,2,4,1])
@@ -226,7 +224,7 @@ class TestContractionMethods(unittest.TestCase):
 
     def test_get_effective_site_hamiltonian_c1(self):
         # Copmute Reference
-        ref_tensor = np.tensordot(self.tdvp.partial_tree_cache.get_cached_tensor("root", "c1"),
+        ref_tensor = np.tensordot(self.tdvp.partial_tree_cache.get_entry("root", "c1"),
                                   self.tdvp.hamiltonian.tensors["c1"],
                                   axes=(1,0))
         ref_tensor = np.transpose(ref_tensor, axes=(1,2,0,3))
@@ -238,7 +236,7 @@ class TestContractionMethods(unittest.TestCase):
     def test_get_effective_site_hamiltonian_c2(self):
         # Compute Reference
         ham_tensor = self.tdvp.hamiltonian.tensors["c2"]
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("root", "c2")
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("root", "c2")
         ref_tensor = np.tensordot(ham_tensor, cache_tensor,
                                   axes=(0,1))
         ref_tensor = np.transpose(ref_tensor, axes=[3,0,2,1])
@@ -251,10 +249,10 @@ class TestContractionMethods(unittest.TestCase):
     def test_get_effective_site_hamiltonian_root(self):
         # Compute Reference
         ham_tensor = self.tdvp.hamiltonian.tensors["root"]
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("c1", "root")
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("c1", "root")
         ref_tensor = np.tensordot(ham_tensor, cache_tensor,
                                   axes=(0,1))
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("c2", "root")
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("c2", "root")
         ref_tensor = np.tensordot(ref_tensor, cache_tensor,
                                   axes=(0,1))
         ref_tensor = np.transpose(ref_tensor, axes=[3,5,0,2,4,1])
@@ -281,7 +279,7 @@ class TestContractionMethods(unittest.TestCase):
                                   axes=(2,1))
 
         self.tdvp._update_cache_after_split(node_id, "root")
-        found_tensor = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,"root")
+        found_tensor = self.tdvp.partial_tree_cache.get_entry(node_id,"root")
 
         self.assertTrue(np.allclose(ref_tensor, found_tensor))
 
@@ -302,7 +300,7 @@ class TestContractionMethods(unittest.TestCase):
                                   axes=(2,1))
 
         self.tdvp._update_cache_after_split(node_id, "root")
-        found_tensor = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,"root")
+        found_tensor = self.tdvp.partial_tree_cache.get_entry(node_id,"root")
 
         self.assertTrue(np.allclose(ref_tensor, found_tensor))
 
@@ -322,11 +320,11 @@ class TestContractionMethods(unittest.TestCase):
                                   self.tdvp.state.tensors[node_id].conj(),
                                   axes=(4,2))
         ref_tensor = np.tensordot(ref_tensor,
-                                  self.tdvp.partial_tree_cache.get_cached_tensor("c2",node_id),
+                                  self.tdvp.partial_tree_cache.get_entry("c2",node_id),
                                   axes=([1,3,5],[0,1,2]))
 
         self.tdvp._update_cache_after_split(node_id,"c1")
-        found_tensor = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,"c1")
+        found_tensor = self.tdvp.partial_tree_cache.get_entry(node_id,"c1")
 
         self.assertTrue(np.allclose(ref_tensor, found_tensor))
 
@@ -344,14 +342,14 @@ class TestContractionMethods(unittest.TestCase):
         ref_tensor = np.tensordot(ref_tensor,
                                   self.tdvp.state.tensors[node_id].conj(),
                                   axes=(4,2))
-        cached_node = self.tdvp.partial_tree_cache.get_cached_tensor("c1",node_id)
+        cached_node = self.tdvp.partial_tree_cache.get_entry("c1",node_id)
         # Note the link tensor is the first child of root not c1!
         ref_tensor = np.tensordot(ref_tensor,
                                   cached_node,
                                   axes=([1,3,5],[0,1,2]))
 
         self.tdvp._update_cache_after_split(node_id,"c2")
-        found_tensor = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,"c2")
+        found_tensor = self.tdvp.partial_tree_cache.get_entry(node_id,"c2")
 
         self.assertTrue(np.allclose(ref_tensor, found_tensor))
 
@@ -364,13 +362,13 @@ class TestContractionMethods(unittest.TestCase):
                                 q_identifier=node_id,
                                 r_identifier=self.tdvp.create_link_id(node_id, "root"),
                                 mode=ptn.SplitMode.KEEP)
-        ref_old_cache = deepcopy(self.tdvp.partial_tree_cache.get_cached_tensor(node_id,"root"))
+        ref_old_cache = deepcopy(self.tdvp.partial_tree_cache.get_entry(node_id,"root"))
 
         self.tdvp._split_updated_site(node_id,"root")
         self.assertTrue(np.allclose(ref_state.tensors[node_id],
                                     self.tdvp.state.tensors[node_id]))
         self.assertFalse(np.allclose(ref_old_cache,
-                                     self.tdvp.partial_tree_cache.get_cached_tensor(node_id,"root")))
+                                     self.tdvp.partial_tree_cache.get_entry(node_id,"root")))
         link_id = self.tdvp.create_link_id(node_id,"root")
         self.assertTrue(link_id in self.tdvp.state)
         self.assertTrue(np.allclose(ref_state.tensors[link_id],
@@ -439,8 +437,8 @@ class TestContractionMethods(unittest.TestCase):
         root_id = "root"
         node_id = "c1"
         self.tdvp._split_updated_site(node_id, root_id)
-        cache_c1 = self.tdvp.partial_tree_cache.get_cached_tensor(root_id,node_id)
-        cache_root = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,root_id)
+        cache_c1 = self.tdvp.partial_tree_cache.get_entry(root_id,node_id)
+        cache_root = self.tdvp.partial_tree_cache.get_entry(node_id,root_id)
         ref_tensor = np.tensordot(cache_c1,cache_root,
                                   axes=(1,1))
         ref_tensor = np.transpose(ref_tensor, axes=[1,3,0,2])
@@ -454,8 +452,8 @@ class TestContractionMethods(unittest.TestCase):
         root_id = "root"
         node_id = "c2"
         self.tdvp._split_updated_site(node_id, root_id)
-        cache_c1 = self.tdvp.partial_tree_cache.get_cached_tensor(root_id,node_id)
-        cache_root = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,root_id)
+        cache_c1 = self.tdvp.partial_tree_cache.get_entry(root_id,node_id)
+        cache_root = self.tdvp.partial_tree_cache.get_entry(node_id,root_id)
         ref_tensor = np.tensordot(cache_c1,cache_root,
                                   axes=(1,1))
         ref_tensor = np.transpose(ref_tensor, axes=[1,3,0,2])
@@ -469,8 +467,8 @@ class TestContractionMethods(unittest.TestCase):
         root_id = "root"
         node_id = "c1"
         self.tdvp._split_updated_site(root_id, node_id)
-        cache_c1 = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,root_id)
-        cache_root = self.tdvp.partial_tree_cache.get_cached_tensor(root_id,node_id)
+        cache_c1 = self.tdvp.partial_tree_cache.get_entry(node_id,root_id)
+        cache_root = self.tdvp.partial_tree_cache.get_entry(root_id,node_id)
         ref_tensor = np.tensordot(cache_root,cache_c1,
                                   axes=(1,1))
         ref_tensor = np.transpose(ref_tensor, axes=[1,3,0,2])
@@ -484,8 +482,8 @@ class TestContractionMethods(unittest.TestCase):
         root_id = "root"
         node_id = "c2"
         self.tdvp._split_updated_site(root_id, node_id)
-        cache_c1 = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,root_id)
-        cache_root = self.tdvp.partial_tree_cache.get_cached_tensor(root_id,node_id)
+        cache_c1 = self.tdvp.partial_tree_cache.get_entry(node_id,root_id)
+        cache_root = self.tdvp.partial_tree_cache.get_entry(root_id,node_id)
         ref_tensor = np.tensordot(cache_root,cache_c1,
                                   axes=(1,1))
         ref_tensor = np.transpose(ref_tensor, axes=[1,3,0,2])
@@ -564,35 +562,6 @@ class TestContractionMethods(unittest.TestCase):
                                     self.tdvp.state.tensors[node_id]))
         self.assertTrue(np.allclose(ref_tdvp.state.tensors[link_id],
                                     self.tdvp.state.tensors[link_id]))
-
-    def test_TESTESTESTETSTETSTETSTETSTETSTETTETSTETST(self):
-        node_id = "c1"
-        next_node_id = "root"
-        ref_tdvp = deepcopy(self.tdvp)
-        ref_tdvp._split_updated_site(node_id,next_node_id)
-        link_id = ref_tdvp.create_link_id(node_id,next_node_id)
-        ref_tensor = ref_tdvp.state[link_id][1]
-        ref_tensor = np.reshape(ref_tensor, 25)
-        eff_link_ham = ref_tdvp._get_effective_link_hamiltonian(node_id,
-                                                                next_node_id)
-        exponent = expm(1j * ref_tdvp.time_step_size * eff_link_ham)
-        updated_ref_tensor = exponent @ ref_tensor
-        updated_ref_tensor = np.reshape(updated_ref_tensor, (5,5))
-        ref_tdvp.state.tensors[link_id] = updated_ref_tensor
-
-        self.tdvp._split_updated_site(node_id,next_node_id)
-        self.tdvp._time_evolve_link_tensor(node_id,next_node_id)
-        self.assertTrue(np.allclose(ref_tdvp.state.tensors[node_id],
-                                    self.tdvp.state.tensors[node_id]))
-        self.assertTrue(np.allclose(ref_tdvp.state.tensors[link_id],
-                                    self.tdvp.state.tensors[link_id]))
-
-        ref_tdvp.state.contract_nodes(link_id,next_node_id,
-                                      new_identifier=next_node_id)
-        self.tdvp.state.contract_nodes(link_id,next_node_id,
-                                       new_identifier=next_node_id)
-        self.assertTrue(np.allclose(ref_tdvp.state.tensors[next_node_id],
-                                    self.tdvp.state.tensors[next_node_id]))
 
     def test_update_link_wrong_orth_center(self):
         self.assertRaises(AssertionError, self.tdvp._update_link,
@@ -738,7 +707,7 @@ class TestTDVPInitComplicated(unittest.TestCase):
                                   axes=(2,1))
         self.assertTrue((node_id,next_node_id) in self.tdvp.partial_tree_cache)
 
-        found_tensor = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,next_node_id)
+        found_tensor = self.tdvp.partial_tree_cache.get_entry(node_id,next_node_id)
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
     def test_init_tree_cache_2_to_1(self):
@@ -752,7 +721,7 @@ class TestTDVPInitComplicated(unittest.TestCase):
                                   axes=(2,1))
         self.assertTrue((node_id,next_node_id) in self.tdvp.partial_tree_cache)
 
-        found_tensor = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,next_node_id)
+        found_tensor = self.tdvp.partial_tree_cache.get_entry(node_id,next_node_id)
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
     def test_init_tree_cache_5_to_3(self):
@@ -766,7 +735,7 @@ class TestTDVPInitComplicated(unittest.TestCase):
                                   axes=(2,1))
         self.assertTrue((node_id,next_node_id) in self.tdvp.partial_tree_cache)
 
-        found_tensor = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,next_node_id)
+        found_tensor = self.tdvp.partial_tree_cache.get_entry(node_id,next_node_id)
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
     def test_init_tree_cache_6_to_0(self):
@@ -779,11 +748,11 @@ class TestTDVPInitComplicated(unittest.TestCase):
                                   self.tdvp.state.tensors[node_id].conj(),
                                   axes=(4,2))
         ref_tensor = np.tensordot(ref_tensor,
-                                  self.tdvp.partial_tree_cache.get_cached_tensor("site7","site6"),
+                                  self.tdvp.partial_tree_cache.get_entry("site7","site6"),
                                   axes=((1,3,5),(0,1,2)))
         self.assertTrue((node_id,next_node_id) in self.tdvp.partial_tree_cache)
 
-        found_tensor = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,next_node_id)
+        found_tensor = self.tdvp.partial_tree_cache.get_entry(node_id,next_node_id)
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
     def test_init_tree_cache_0_to_1(self):
@@ -796,11 +765,11 @@ class TestTDVPInitComplicated(unittest.TestCase):
                                   self.tdvp.state.tensors[node_id].conj(),
                                   axes=(4,2))
         ref_tensor = np.tensordot(ref_tensor,
-                                  self.tdvp.partial_tree_cache.get_cached_tensor("site6","site0"),
+                                  self.tdvp.partial_tree_cache.get_entry("site6","site0"),
                                   axes=((1,3,5),(0,1,2)))
         self.assertTrue((node_id,next_node_id) in self.tdvp.partial_tree_cache)
 
-        found_tensor = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,next_node_id)
+        found_tensor = self.tdvp.partial_tree_cache.get_entry(node_id,next_node_id)
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
     def test_init_tree_cache_1_to_3(self):
@@ -813,14 +782,14 @@ class TestTDVPInitComplicated(unittest.TestCase):
                                   self.tdvp.state.tensors[node_id].conj(),
                                   axes=(6,3))
         ref_tensor = np.tensordot(ref_tensor,
-                                  self.tdvp.partial_tree_cache.get_cached_tensor("site0",node_id),
+                                  self.tdvp.partial_tree_cache.get_entry("site0",node_id),
                                   axes=((0,3,6),(0,1,2)))
         ref_tensor = np.tensordot(ref_tensor,
-                                  self.tdvp.partial_tree_cache.get_cached_tensor("site2",node_id),
+                                  self.tdvp.partial_tree_cache.get_entry("site2",node_id),
                                   axes=((1,2,5),(0,1,2)))
 
         self.assertTrue((node_id,next_node_id) in self.tdvp.partial_tree_cache)
-        found_tensor = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,next_node_id)
+        found_tensor = self.tdvp.partial_tree_cache.get_entry(node_id,next_node_id)
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
     def test_init_tree_cache_3_to_4(self):
@@ -833,14 +802,14 @@ class TestTDVPInitComplicated(unittest.TestCase):
                                   self.tdvp.state.tensors[node_id].conj(),
                                   axes=(6,3))
         ref_tensor = np.tensordot(ref_tensor,
-                                  self.tdvp.partial_tree_cache.get_cached_tensor("site5",node_id),
+                                  self.tdvp.partial_tree_cache.get_entry("site5",node_id),
                                   axes=((2,5,8),(0,1,2)))
         ref_tensor = np.tensordot(ref_tensor,
-                                  self.tdvp.partial_tree_cache.get_cached_tensor("site1",node_id),
+                                  self.tdvp.partial_tree_cache.get_entry("site1",node_id),
                                   axes=((0,2,4),(0,1,2)))
 
         self.assertTrue((node_id,next_node_id) in self.tdvp.partial_tree_cache)
-        found_tensor = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,next_node_id)
+        found_tensor = self.tdvp.partial_tree_cache.get_entry(node_id,next_node_id)
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
 class TestContractionMethodsComplicated(unittest.TestCase):
@@ -859,7 +828,7 @@ class TestContractionMethodsComplicated(unittest.TestCase):
 
     def test_contract_all_except_node_4(self):
         node_id = "site4"
-        ref_tensor = np.tensordot(self.tdvp.partial_tree_cache.get_cached_tensor("site3",node_id),
+        ref_tensor = np.tensordot(self.tdvp.partial_tree_cache.get_entry("site3",node_id),
                                   self.tdvp.hamiltonian.tensors[node_id],
                                   axes=(1,0))
         ref_tensor = np.transpose(ref_tensor, [1,2,0,3])
@@ -869,7 +838,7 @@ class TestContractionMethodsComplicated(unittest.TestCase):
 
     def test_contract_all_except_node_5(self):
         node_id = "site5"
-        ref_tensor = np.tensordot(self.tdvp.partial_tree_cache.get_cached_tensor("site3",node_id),
+        ref_tensor = np.tensordot(self.tdvp.partial_tree_cache.get_entry("site3",node_id),
                                   self.tdvp.hamiltonian.tensors[node_id],
                                   axes=(1,0))
         ref_tensor = np.transpose(ref_tensor, [1,2,0,3])
@@ -879,7 +848,7 @@ class TestContractionMethodsComplicated(unittest.TestCase):
 
     def test_contract_all_except_node_2(self):
         node_id = "site2"
-        ref_tensor = np.tensordot(self.tdvp.partial_tree_cache.get_cached_tensor("site1",node_id),
+        ref_tensor = np.tensordot(self.tdvp.partial_tree_cache.get_entry("site1",node_id),
                                   self.tdvp.hamiltonian.tensors[node_id],
                                   axes=(1,0))
         ref_tensor = np.transpose(ref_tensor, [1,2,0,3])
@@ -889,7 +858,7 @@ class TestContractionMethodsComplicated(unittest.TestCase):
 
     def test_contract_all_except_node_7(self):
         node_id = "site7"
-        ref_tensor = np.tensordot(self.tdvp.partial_tree_cache.get_cached_tensor("site6",node_id),
+        ref_tensor = np.tensordot(self.tdvp.partial_tree_cache.get_entry("site6",node_id),
                                   self.tdvp.hamiltonian.tensors[node_id],
                                   axes=(1,0))
         ref_tensor = np.transpose(ref_tensor, [1,2,0,3])
@@ -900,11 +869,11 @@ class TestContractionMethodsComplicated(unittest.TestCase):
     def test_contract_all_except_node_0(self):
         node_id = "site0"
         ham_tensor = self.tdvp.hamiltonian.tensors[node_id]
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("site1",node_id)
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("site1",node_id)
         ref_tensor = np.tensordot(ham_tensor,
                                   cache_tensor,
                                   axes=(0,1))
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("site6",node_id)
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("site6",node_id)
         ref_tensor = np.tensordot(ref_tensor,
                                   cache_tensor,
                                   axes=(0,1))
@@ -916,11 +885,11 @@ class TestContractionMethodsComplicated(unittest.TestCase):
     def test_contract_all_except_node_6(self):
         node_id = "site6"
         ham_tensor = self.tdvp.hamiltonian.tensors[node_id]
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("site0",node_id)
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("site0",node_id)
         ref_tensor = np.tensordot(ham_tensor,
                                   cache_tensor,
                                   axes=(0,1))
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("site7",node_id)
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("site7",node_id)
         ref_tensor = np.tensordot(ref_tensor,
                                   cache_tensor,
                                   axes=(0,1))
@@ -932,15 +901,15 @@ class TestContractionMethodsComplicated(unittest.TestCase):
     def test_contract_all_except_node_1(self):
         node_id = "site1"
         ham_tensor = self.tdvp.hamiltonian.tensors[node_id]
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("site0",node_id)
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("site0",node_id)
         ref_tensor = np.tensordot(ham_tensor,
                                   cache_tensor,
                                   axes=(0,1))
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("site3",node_id)
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("site3",node_id)
         ref_tensor = np.tensordot(ref_tensor,
                                   cache_tensor,
                                   axes=(0,1))
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("site2",node_id)
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("site2",node_id)
         ref_tensor = np.tensordot(ref_tensor,
                                   cache_tensor,
                                   axes=(0,1))
@@ -952,15 +921,15 @@ class TestContractionMethodsComplicated(unittest.TestCase):
     def test_contract_all_except_node_3(self):
         node_id = "site3"
         ham_tensor = self.tdvp.hamiltonian.tensors[node_id]
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("site1",node_id)
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("site1",node_id)
         ref_tensor = np.tensordot(ham_tensor,
                                   cache_tensor,
                                   axes=(0,1))
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("site4",node_id)
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("site4",node_id)
         ref_tensor = np.tensordot(ref_tensor,
                                   cache_tensor,
                                   axes=(0,1))
-        cache_tensor = self.tdvp.partial_tree_cache.get_cached_tensor("site5",node_id)
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("site5",node_id)
         ref_tensor = np.tensordot(ref_tensor,
                                   cache_tensor,
                                   axes=(0,1))
@@ -1049,14 +1018,14 @@ class TestContractionMethodsComplicated(unittest.TestCase):
                                   self.tdvp.state.tensors[node_id].conj(),
                                   axes=(6,3))
         ref_tensor = np.tensordot(ref_tensor,
-                                  self.tdvp.partial_tree_cache.get_cached_tensor("site0",node_id),
+                                  self.tdvp.partial_tree_cache.get_entry("site0",node_id),
                                   axes=([0,3,6],[0,1,2]))
         ref_tensor = np.tensordot(ref_tensor,
-                                  self.tdvp.partial_tree_cache.get_cached_tensor("site3",node_id),
+                                  self.tdvp.partial_tree_cache.get_entry("site3",node_id),
                                   axes=([1,3,5],[0,1,2]))
 
         self.tdvp._update_cache_after_split(node_id,"site2")
-        found_tensor = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,"site2")
+        found_tensor = self.tdvp.partial_tree_cache.get_entry(node_id,"site2")
 
         self.assertTrue(np.allclose(ref_tensor, found_tensor))
 
@@ -1075,14 +1044,14 @@ class TestContractionMethodsComplicated(unittest.TestCase):
                                   self.tdvp.state.tensors[node_id].conj(),
                                   axes=(6,3))
         ref_tensor = np.tensordot(ref_tensor,
-                                  self.tdvp.partial_tree_cache.get_cached_tensor("site0",node_id),
+                                  self.tdvp.partial_tree_cache.get_entry("site0",node_id),
                                   axes=([0,3,6],[0,1,2]))
         ref_tensor = np.tensordot(ref_tensor,
-                                  self.tdvp.partial_tree_cache.get_cached_tensor("site2",node_id),
+                                  self.tdvp.partial_tree_cache.get_entry("site2",node_id),
                                   axes=([1,2,5],[0,1,2]))
 
         self.tdvp._update_cache_after_split(node_id,"site3")
-        found_tensor = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,"site3")
+        found_tensor = self.tdvp.partial_tree_cache.get_entry(node_id,"site3")
 
         self.assertTrue(np.allclose(ref_tensor, found_tensor))
 
@@ -1126,8 +1095,8 @@ class TestContractionMethodsComplicated(unittest.TestCase):
         node_id = "site1"
         next_node_id = "site2"
         self.tdvp._split_updated_site(node_id,next_node_id)
-        cache_1 = self.tdvp.partial_tree_cache.get_cached_tensor(next_node_id,node_id)
-        cache_2 = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,next_node_id)
+        cache_1 = self.tdvp.partial_tree_cache.get_entry(next_node_id,node_id)
+        cache_2 = self.tdvp.partial_tree_cache.get_entry(node_id,next_node_id)
         ref_tensor = np.tensordot(cache_2,cache_1,
                                   axes=(1,1))
         ref_tensor = np.transpose(ref_tensor, axes=[1,3,0,2])
@@ -1141,8 +1110,8 @@ class TestContractionMethodsComplicated(unittest.TestCase):
         node_id = "site2"
         next_node_id = "site1"
         self.tdvp._split_updated_site(node_id,next_node_id)
-        cache_1 = self.tdvp.partial_tree_cache.get_cached_tensor(next_node_id,node_id)
-        cache_2 = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,next_node_id)
+        cache_1 = self.tdvp.partial_tree_cache.get_entry(next_node_id,node_id)
+        cache_2 = self.tdvp.partial_tree_cache.get_entry(node_id,next_node_id)
         ref_tensor = np.tensordot(cache_1,cache_2,
                                   axes=(1,1))
         ref_tensor = np.transpose(ref_tensor, axes=[1,3,0,2])
@@ -1156,8 +1125,8 @@ class TestContractionMethodsComplicated(unittest.TestCase):
         node_id = "site1"
         next_node_id = "site3"
         self.tdvp._split_updated_site(node_id,next_node_id)
-        cache_1 = self.tdvp.partial_tree_cache.get_cached_tensor(next_node_id,node_id)
-        cache_2 = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,next_node_id)
+        cache_1 = self.tdvp.partial_tree_cache.get_entry(next_node_id,node_id)
+        cache_2 = self.tdvp.partial_tree_cache.get_entry(node_id,next_node_id)
         ref_tensor = np.tensordot(cache_2,cache_1,
                                   axes=(1,1))
         ref_tensor = np.transpose(ref_tensor, axes=[1,3,0,2])
@@ -1171,8 +1140,8 @@ class TestContractionMethodsComplicated(unittest.TestCase):
         node_id = "site3"
         next_node_id = "site1"
         self.tdvp._split_updated_site(node_id,next_node_id)
-        cache_1 = self.tdvp.partial_tree_cache.get_cached_tensor(next_node_id,node_id)
-        cache_2 = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,next_node_id)
+        cache_1 = self.tdvp.partial_tree_cache.get_entry(next_node_id,node_id)
+        cache_2 = self.tdvp.partial_tree_cache.get_entry(node_id,next_node_id)
         ref_tensor = np.tensordot(cache_1,cache_2,
                                   axes=(1,1))
         ref_tensor = np.transpose(ref_tensor, axes=[1,3,0,2])
@@ -1186,8 +1155,8 @@ class TestContractionMethodsComplicated(unittest.TestCase):
         node_id = "site1"
         next_node_id = "site0"
         self.tdvp._split_updated_site(node_id,next_node_id)
-        cache_1 = self.tdvp.partial_tree_cache.get_cached_tensor(next_node_id,node_id)
-        cache_2 = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,next_node_id)
+        cache_1 = self.tdvp.partial_tree_cache.get_entry(next_node_id,node_id)
+        cache_2 = self.tdvp.partial_tree_cache.get_entry(node_id,next_node_id)
         ref_tensor = np.tensordot(cache_1,cache_2,
                                   axes=(1,1))
         ref_tensor = np.transpose(ref_tensor, axes=[1,3,0,2])
@@ -1201,8 +1170,8 @@ class TestContractionMethodsComplicated(unittest.TestCase):
         node_id = "site0"
         next_node_id = "site1"
         self.tdvp._split_updated_site(node_id,next_node_id)
-        cache_1 = self.tdvp.partial_tree_cache.get_cached_tensor(next_node_id,node_id)
-        cache_2 = self.tdvp.partial_tree_cache.get_cached_tensor(node_id,next_node_id)
+        cache_1 = self.tdvp.partial_tree_cache.get_entry(next_node_id,node_id)
+        cache_2 = self.tdvp.partial_tree_cache.get_entry(node_id,next_node_id)
         ref_tensor = np.tensordot(cache_2,cache_1,
                                   axes=(1,1))
         ref_tensor = np.transpose(ref_tensor, axes=[1,3,0,2])
