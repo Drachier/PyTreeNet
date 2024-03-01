@@ -20,8 +20,8 @@ from ..ttns import TreeTensorNetworkState
 from ..ttno.ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
 from ..ttn_exceptions import NoConnectionException
-from .tdvp_util.partial_tree_cache import PartialTreeCache
 from ..contractions.tree_cach_dict import PartialTreeCachDict
+from ..contractions.state_operator_contraction import contract_any
 from .tdvp_util.update_path import TDVPUpdatePathFinder
 
 class TDVPAlgorithm(TTNTimeEvolution):
@@ -174,11 +174,10 @@ class TDVPAlgorithm(TTNTimeEvolution):
             next_node_id (str): The identifier of the node to which the open
              legs of the tensor point.
         """
-        new_cache = PartialTreeCache.for_all_nodes(node_id, next_node_id,
-                                                   self.state,
-                                                   self.hamiltonian,
-                                                   self.partial_tree_cache)
-        self.partial_tree_cache.add_entry(node_id, next_node_id, new_cache)
+        new_tensor = contract_any(node_id, next_node_id,
+                                  self.state, self.hamiltonian,
+                                  self.partial_tree_cache)
+        self.partial_tree_cache.add_entry(node_id, next_node_id, new_tensor)
 
     def _contract_all_except_node(self,
                                   target_node_id: str) -> np.ndarray:
@@ -216,9 +215,9 @@ class TDVPAlgorithm(TTNTimeEvolution):
         neighbours = target_node.neighbouring_nodes()
         tensor = self.hamiltonian.tensors[target_node_id]
         for neighbour_id in neighbours:
-            chached_tensor = self.partial_tree_cache.get_cached_tensor(neighbour_id,
-                                                                       target_node_id)
-            tensor = np.tensordot(tensor, chached_tensor,
+            cached_tensor = self.partial_tree_cache.get_entry(neighbour_id,
+                                                                target_node_id)
+            tensor = np.tensordot(tensor, cached_tensor,
                                   axes=(([0],[1])))
         # Transposing to have correct leg order
         axes = [i+1 for i in range(2,2*len(neighbours)+2,2)]
@@ -256,12 +255,10 @@ class TDVPAlgorithm(TTNTimeEvolution):
             next_node_id (str): Next node to which the link is found
         """
         link_id = self.create_link_id(node_id, next_node_id)
-        new_cache = PartialTreeCache.for_all_nodes(node_id, link_id,
-                                                   self.state,
-                                                   self.hamiltonian,
-                                                   self.partial_tree_cache)
-        new_cache.pointing_to_node = next_node_id
-        self.partial_tree_cache.add_entry(node_id, next_node_id, new_cache)
+        new_tensor = contract_any(node_id, link_id,
+                                  self.state, self.hamiltonian,
+                                  self.partial_tree_cache)
+        self.partial_tree_cache.add_entry(node_id, next_node_id, new_tensor)
 
     def _split_updated_site(self,
                             node_id: str,
@@ -332,9 +329,9 @@ class TDVPAlgorithm(TTNTimeEvolution):
         target_node = self.state.nodes[link_id]
         assert not target_node.is_root()
         assert len(target_node.children) == 1
-        new_cache_tensor = self.partial_tree_cache.get_cached_tensor(node_id, next_node_id)
+        new_cache_tensor = self.partial_tree_cache.get_entry(node_id, next_node_id)
         # We get the cached tensor of the other neighbour of the link
-        other_cache_tensor = self.partial_tree_cache.get_cached_tensor(next_node_id, node_id)
+        other_cache_tensor = self.partial_tree_cache.get_entry(next_node_id, node_id)
         # Contract the Hamiltonian legs
         if target_node.is_parent_of(node_id):
             tensor = np.tensordot(other_cache_tensor,
