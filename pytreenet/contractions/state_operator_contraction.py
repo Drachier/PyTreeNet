@@ -33,7 +33,7 @@ def contract_any(node_id: str, next_node_id: str,
     Returns:
         np.ndarray: The contracted tensor.
     """
-    node = state.get_node(node_id)
+    node = state.nodes[node_id]
     if node.is_leaf():
         return contract_leaf(node_id, state, operator)
     return contract_subtrees_using_dictionary(node_id,
