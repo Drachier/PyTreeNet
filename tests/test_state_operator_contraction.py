@@ -233,5 +233,34 @@ class TestStateOperatorContraction(unittest.TestCase):
                                                           "c1")
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
+# class TestPartialTreeCacheComplicated(unittest.TestCase):
+#     def setUp(self):
+#         self.ref_state = ptn.random_big_ttns_two_root_children()
+#         self.hamiltonian = ptn.TTNO.from_hamiltonian(ptn.random_hamiltonian_compatible(),
+#                                                      self.ref_state)
+#         self.partial_tree_cache = ptn.PartialTreeCachDict()
+#         self.partial_tree_cache.add_entry("site2","site1",
+#                                            ptn.PartialTreeCache.for_leaf("site2",
+#                                                                          self.ref_state,
+#                                                                          self.hamiltonian))
+#         self.partial_tree_cache.add_entry("site5","site3",
+#                                            ptn.PartialTreeCache.for_leaf("site5",
+#                                                                          self.ref_state,
+#                                                                          self.hamiltonian))
+#         self.partial_tree_cache.add_entry("site7","site6",
+#                                            ptn.PartialTreeCache.for_leaf("site7",
+#                                                                          self.ref_state,
+#                                                                          self.hamiltonian))
+#         self.partial_tree_cache.add_entry("site6","site0",
+#                                            ptn.PartialTreeCache.with_existing_cache("site6","site0",
+#                                                                                     self.partial_tree_cache,
+#                                                                                     self.ref_state,
+#                                                                                     self.hamiltonian))
+#         self.partial_tree_cache.add_entry("site0","site1",
+#                                            ptn.PartialTreeCache.with_existing_cache("site0","site1",
+#                                                                                     self.partial_tree_cache,
+#                                                                                     self.ref_state,
+#                                                                                     self.hamiltonian))
+
 if __name__ == "__main__":
     unittest.main()
