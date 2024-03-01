@@ -13,47 +13,16 @@ class PartialTreeCachDict(dict):
     """
 
     def __init__(self,
-                 dictionary: Union[Dict[Tuple[str,str],PartialTreeChache],None] = None) -> None:
+                 dictionary: Union[Dict[Tuple[str,str]],None] = None) -> None:
         if dictionary is None:
             dictionary = {}
-        else:
-            dictionary = dictionary
-            super().__init__(dictionary)
+        super().__init__(dictionary)
 
-    def get_entry(self, node_id: str, next_node_id: str) -> PartialTreeChache:
+    def get_entry(self, node_id: str, next_node_id: str) -> np.ndarray:
         """
         Returns the cached partial tree tensor that ends at the node with
          identifier node_id and has its open legs point to the node with
          identifier next_node_id.
-
-        Args:
-            node_id (str): The identifier where the partial tree ends.
-            next_node_id (str): The identifier to which the open legs point.
-
-        Returns:
-            PartialTreeChache: The corresponding partial tree tensor.
-        """
-        return self[node_id, next_node_id]
-
-    def add_entry(self, node_id: str, next_node_id: str,
-                  cached_tensor: PartialTreeChach):
-        """
-        Sets the cached partial tree tensor that ends at the node with
-         identifier node_id and has its open legs point to the node with
-         identifier next_node_id.
-
-        Args:
-            node_id (str): The identifier where the partial tree ends.
-            next_node_id (str): The identifier to which the open legs point.
-            PartialTreeChache: The corresponding partial tree tensor.
-        """
-        self[node_id, next_node_id] = cached_tensor
-
-    def get_cached_tensor(self, node_id: str, next_node_id: str) -> np.ndarray:
-        """
-        Returns the cached partial tree tensor that ends at the node with
-         identifier node_id and has its open legs point to the node with
-         identifier next_node_id as array.
 
         Args:
             node_id (str): The identifier where the partial tree ends.
@@ -62,7 +31,21 @@ class PartialTreeCachDict(dict):
         Returns:
             np.ndarray: The corresponding partial tree tensor.
         """
-        return self.get_entry(node_id, next_node_id).tensor
+        return self[node_id, next_node_id]
+
+    def add_entry(self, node_id: str, next_node_id: str,
+                  cached_tensor: np.ndarray):
+        """
+        Sets the cached partial tree tensor that ends at the node with
+         identifier node_id and has its open legs point to the node with
+         identifier next_node_id.
+
+        Args:
+            node_id (str): The identifier where the partial tree ends.
+            next_node_id (str): The identifier to which the open legs point.
+            cached_tensor (np.ndarray): The corresponding partial tree tensor.
+        """
+        self[node_id, next_node_id] = cached_tensor
 
     def change_next_id_for_entry(self, node_id: str, old_next_id,
                                  new_next_id: str):
@@ -78,9 +61,7 @@ class PartialTreeCachDict(dict):
             new_next_id (str): The new identifier of the node to which the
              open legs point.
         """
-        chached_tensor = self.pop[(node_id, old_next_id)]
-        assert chached_tensor.pointing_to_node == old_next_id
-        chached_tensor.pointing_to_node = new_next_id
+        chached_tensor = self.pop((node_id, old_next_id))
         self.add_entry(node_id, new_next_id, chached_tensor)
 
     def delete_entry(self, node_id: str, next_node_id: str):
