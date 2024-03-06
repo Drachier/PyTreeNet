@@ -7,7 +7,7 @@ from math import modf
 import numpy as np
 from tqdm import tqdm
 
-from ..ttn_exceptions import positiviy_check
+from ..ttn_exceptions import positiviy_check, non_negativity_check
 from ..util import fast_exp_action
 
 class TimeEvolution:
@@ -91,6 +91,26 @@ class TimeEvolution:
         Returns the current number of time steps.
         """
         return self._num_time_steps
+
+    def set_num_time_steps(self, num_time_steps: int):
+        """
+        Sometimes it is more convenient to define the time_step_size and the
+         number of time steps directly, rather than using the final time.
+        This method sets the number of time steps and computes the final time
+         accordingly using the time_step_size property.
+        """
+        non_negativity_check(num_time_steps, "number of time steps")
+        self._num_time_steps = num_time_steps
+        self._final_time = num_time_steps * self._time_step_size
+
+    def set_num_time_steps_constant_final_time(self, num_time_steps: int):
+        """
+        Sets the number of time-steps and keeps the final time constant.
+        Thus the time_step_size is adjusted.
+        """
+        non_negativity_check(num_time_steps, "number of time steps")
+        self._num_time_steps = num_time_steps
+        self._time_step_size = self._final_time / num_time_steps
 
     def check_result_exists(self):
         """
