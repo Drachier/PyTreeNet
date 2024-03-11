@@ -826,6 +826,54 @@ class TestContractionMethodsComplicated(unittest.TestCase):
         for pair in non_init_pairs:
             self.tdvp.update_tree_cache(pair[0],pair[1])
 
+    def test_find_tensor_leg_permutation_node_4(self):
+        node_id = "site4"
+        ref_perm = (3,0,2,1)
+        found_perm = self.tdvp._find_tensor_leg_permutation(node_id)
+        self.assertEqual(ref_perm,found_perm)
+
+    def test_find_tensor_leg_permutation_node_5(self):
+        node_id = "site5"
+        ref_perm = (3,0,2,1)
+        found_perm = self.tdvp._find_tensor_leg_permutation(node_id)
+        self.assertEqual(ref_perm,found_perm)
+
+    def test_find_tensor_leg_permutation_node_2(self):
+        node_id = "site2"
+        ref_perm = (3,0,2,1)
+        found_perm = self.tdvp._find_tensor_leg_permutation(node_id)
+        self.assertEqual(ref_perm,found_perm)
+
+    def test_find_tensor_leg_permutation_node_7(self):
+        node_id = "site7"
+        ref_perm = (3,0,2,1)
+        found_perm = self.tdvp._find_tensor_leg_permutation(node_id)
+        self.assertEqual(ref_perm,found_perm)
+
+    def test_find_tensor_leg_permutation_node_0(self):
+        node_id = "site0"
+        ref_perm = (3,5,0,2,4,1)
+        found_perm = self.tdvp._find_tensor_leg_permutation(node_id)
+        self.assertEqual(ref_perm,found_perm)
+
+    def test_find_tensor_leg_permutation_node_6(self):
+        node_id = "site6"
+        ref_perm = (3,5,0,2,4,1)
+        found_perm = self.tdvp._find_tensor_leg_permutation(node_id)
+        self.assertEqual(ref_perm,found_perm)
+
+    def test_find_tensor_leg_permutation_node_1(self):
+        node_id = "site1"
+        ref_perm = (3,5,7,0,2,4,6,1)
+        found_perm = self.tdvp._find_tensor_leg_permutation(node_id)
+        self.assertEqual(ref_perm,found_perm)
+
+    def test_find_tensor_leg_permutation_node_3(self):
+        node_id = "site3"
+        ref_perm = (3,5,7,0,2,4,6,1)
+        found_perm = self.tdvp._find_tensor_leg_permutation(node_id)
+        self.assertEqual(ref_perm,found_perm)
+
     def test_contract_all_except_node_4(self):
         node_id = "site4"
         ref_tensor = np.tensordot(self.tdvp.partial_tree_cache.get_entry("site3",node_id),
@@ -905,11 +953,11 @@ class TestContractionMethodsComplicated(unittest.TestCase):
         ref_tensor = np.tensordot(ham_tensor,
                                   cache_tensor,
                                   axes=(0,1))
-        cache_tensor = self.tdvp.partial_tree_cache.get_entry("site3",node_id)
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("site2",node_id)
         ref_tensor = np.tensordot(ref_tensor,
                                   cache_tensor,
                                   axes=(0,1))
-        cache_tensor = self.tdvp.partial_tree_cache.get_entry("site2",node_id)
+        cache_tensor = self.tdvp.partial_tree_cache.get_entry("site3",node_id)
         ref_tensor = np.tensordot(ref_tensor,
                                   cache_tensor,
                                   axes=(0,1))
