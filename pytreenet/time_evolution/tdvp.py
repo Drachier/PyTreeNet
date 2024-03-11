@@ -179,6 +179,29 @@ class TDVPAlgorithm(TTNTimeEvolution):
                                   self.partial_tree_cache)
         self.partial_tree_cache.add_entry(node_id, next_node_id, new_tensor)
 
+    def _find_tensor_leg_permutation(self, node_id: str) -> Tuple[int,...]:
+        """
+        After contracting all the cached tensors to the site Hamiltonian, the
+         legs of the resulting tensor are in the order of the Hamiltonian TTNO.
+         However, they need to be permuted to match the legs of the site's
+         state tensor. Such that the two can be easily contracted.
+        """
+        state_node = self.state.nodes[node_id]
+        hamiltonian_node = self.hamiltonian.nodes[node_id]
+        permutation = []
+        for neighbour_id in state_node.neighbouring_nodes():
+            hamiltonian_index = hamiltonian_node.neighbour_index(neighbour_id)
+            permutation.append(hamiltonian_index)
+        output_legs = []
+        input_legs = []
+        for hamiltonian_index in range(len(permutation)):
+            output_legs.append(2*hamiltonian_index+3)
+            input_legs.append(2*hamiltonian_index+2)
+        output_legs.append(0)
+        input_legs.append(1)
+        output_legs.extend(input_legs)
+        return tuple(output_legs)
+
     def _contract_all_except_node(self,
                                   target_node_id: str) -> np.ndarray:
         """
@@ -211,19 +234,16 @@ class TDVPAlgorithm(TTNTimeEvolution):
 
                 where n is the number of neighbours of the node.
         """
-        target_node = self.state.nodes[target_node_id]
+        target_node = self.hamiltonian.nodes[target_node_id]
         neighbours = target_node.neighbouring_nodes()
         tensor = self.hamiltonian.tensors[target_node_id]
         for neighbour_id in neighbours:
             cached_tensor = self.partial_tree_cache.get_entry(neighbour_id,
                                                                 target_node_id)
             tensor = np.tensordot(tensor, cached_tensor,
-                                  axes=(([0],[1])))
+                                  axes=((0,1)))
         # Transposing to have correct leg order
-        axes = [i+1 for i in range(2,2*len(neighbours)+2,2)]
-        axes.append(0)
-        axes.extend(range(2,2*len(neighbours)+2,2))
-        axes.append(1)
+        axes = self._find_tensor_leg_permutation(target_node_id)
         tensor = np.transpose(tensor, axes=axes)
         return tensor
 
