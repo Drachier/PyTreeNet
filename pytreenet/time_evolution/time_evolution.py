@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Union, Any
+from typing import List, Union, Any, Dict
 
 from copy import deepcopy
 from math import modf
@@ -16,7 +16,7 @@ class TimeEvolution:
     """
 
     def __init__(self, initial_state: Any, time_step_size: float,
-                 final_time: float, operators: Union[List[Any], Any]):
+                 final_time: float, operators: Union[List[Any], Dict[str, Any], Any]):
         """
         A time evolution starting from and initial state and running to a
          final time with a given time step size. During the time evolution,
@@ -26,9 +26,10 @@ class TimeEvolution:
             initial_state (Any): The initial state.
             time_step_size (float): The size of one time step.
             final_time (float): The final time.
-            operators (Union[List[Any], Any]): The operators for which to
-             compute the expectation values. Can be a single operator or a
-             list of operators.
+            operators (Union[List[Any], Dict[str, Any], Any]): The operators
+             for which to compute the expectation values. Can be a single
+             operator or a list of operators. If a dictionary is given, the
+             results can be called by using the keys of the dictionary.
         """
         self._intital_state = initial_state
         self.state = deepcopy(initial_state)
@@ -37,8 +38,11 @@ class TimeEvolution:
         positiviy_check(final_time, "final time")
         self._final_time = final_time
         self._num_time_steps = self._compute_num_time_steps()
+        self._operator_index_dict = self._init_operator_index_dict(operators)
         if isinstance(operators, List):
             self.operators = operators
+        elif isinstance(operators, Dict):
+            self.operators = list(operators.values())
         else:
             # A single operator was provided
             self.operators = [operators]
@@ -55,6 +59,25 @@ class TimeEvolution:
         if decimal < 0.1:
             return int(integer)
         return int(integer + 1)
+    
+    def _init_operator_index_dict(self,
+                                  operators: Union[List[Any], Dict[str, Any], Any]) -> Dict[str, int]:
+        """
+        Initialises a dictionary that maps the operators to their index in the
+         results array. If the operator is given alone or as a list, an empty
+         dictionary is returned. If a dictionary is given, the keys of the
+         dictionary are used as keys for the operator index dictionary.
+        
+        Args:
+            operators (Union[List[Any], Dict[str, Any], Any]): The operators
+             for which to compute the expectation values.
+        
+        Returns:
+            Dict[str, int]: The operator index dictionary.
+        """
+        if isinstance(operators, dict):
+            return {key: i for i, key in enumerate(operators.keys())}
+        return {}
 
     @property
     def initial_state(self) -> Any:
@@ -131,10 +154,30 @@ class TimeEvolution:
         Returns the times at which the operators were evaluated.
         """
         return np.real(self.results[-1])
+    
+    def operator_result(self, operator_id: Union[str, int],
+                        realise: bool = False) -> np.ndarray:
+        """
+        Returns the result of a single operator.
+
+        Args:
+            operator_id (Union[str, int]): The index or key of the operator.
+            realise (bool, optional): If the imaginary part of the results
+             should be discarded. Defaults to False.
+        
+        Returns:
+            np.ndarray: The result of the operator as a vector.
+        """
+        self.check_result_exists()
+        if isinstance(operator_id, str):
+            operator_id = self._operator_index_dict[operator_id]
+        if realise:
+            return np.real(self.results[operator_id])
+        return self.results[operator_id]
 
     def operator_results(self, realise: bool = False) -> np.ndarray:
         """
-        Returns the operator results.
+        Returns all of the operator results.
 
         Args:
             realise (bool, optional): If the imaginary part of the results
