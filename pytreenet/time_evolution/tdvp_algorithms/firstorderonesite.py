@@ -18,7 +18,7 @@ class FirstOrderOneSiteTDVP(TDVPAlgorithm):
         assert self.state.nodes[node_id].is_leaf(), errstr
 
     def _update_site_and_link(self, node_id: str, update_index: int):
-        assert update_index < len(self.orthogonalization_path) - 1
+        assert update_index < len(self.orthogonalization_path)
         self._update_site(node_id)
         next_node_id = self.orthogonalization_path[update_index][0]
         self._update_link(node_id, next_node_id)
@@ -41,17 +41,19 @@ class FirstOrderOneSiteTDVP(TDVPAlgorithm):
         self._init_partial_tree_cache()
 
     def _final_update(self, node_id: str):
-        current_orth_path = self.orthogonalization_path[-1]
-        self._move_orth_and_update_cache_for_path(current_orth_path)
-        self._assert_leaf_node(node_id) # The final site to be updated should be a leaf node
+        if len(self.orthogonalization_path) > 0: # Not for the special case of one node
+            current_orth_path = self.orthogonalization_path[-1]
+            self._move_orth_and_update_cache_for_path(current_orth_path)
+        if len(self.state.nodes) > 2: # Not for the special case of two nodes
+            self._assert_leaf_node(node_id) # The final site to be updated should be a leaf node
         self._update_site(node_id)
         self._reset_for_next_time_step()
 
     def run_one_time_step(self):
         for i, node_id in enumerate(self.update_path):
-            if i == 0:
-                self._first_update(node_id)
-            elif i == len(self.update_path)-1:
+            if i == len(self.update_path)-1:
                 self._final_update(node_id)
+            elif i == 0:
+                self._first_update(node_id)
             else:
                 self._normal_update(node_id, i)
