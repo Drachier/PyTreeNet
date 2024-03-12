@@ -864,7 +864,7 @@ class TestContractionMethodsComplicated(unittest.TestCase):
 
     def test_find_tensor_leg_permutation_node_1(self):
         node_id = "site1"
-        ref_perm = (3,5,7,0,2,4,6,1)
+        ref_perm = (3,7,5,0,2,6,4,1)
         found_perm = self.tdvp._find_tensor_leg_permutation(node_id)
         self.assertEqual(ref_perm,found_perm)
 
@@ -961,7 +961,7 @@ class TestContractionMethodsComplicated(unittest.TestCase):
         ref_tensor = np.tensordot(ref_tensor,
                                   cache_tensor,
                                   axes=(0,1))
-        ref_tensor = np.transpose(ref_tensor, axes=(3,5,7,0,2,4,6,1))
+        ref_tensor = np.transpose(ref_tensor, axes=(3,7,5,0,2,6,4,1))
 
         found_tensor = self.tdvp._contract_all_except_node(node_id)
         self.assertTrue(np.allclose(ref_tensor,found_tensor))

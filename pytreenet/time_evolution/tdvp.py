@@ -194,7 +194,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
             permutation.append(hamiltonian_index)
         output_legs = []
         input_legs = []
-        for hamiltonian_index in range(len(permutation)):
+        for hamiltonian_index in permutation:
             output_legs.append(2*hamiltonian_index+3)
             input_legs.append(2*hamiltonian_index+2)
         output_legs.append(0)
