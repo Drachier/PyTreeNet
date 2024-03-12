@@ -303,7 +303,6 @@ class TestTDVPonMPS(unittest.TestCase):
         for node_id, next_node_id in pairs_to_check:
             self.assertTrue(np.allclose(ref_cache_dict.get_entry(node_id, next_node_id),
                                         tdvp.partial_tree_cache.get_entry(node_id, next_node_id)))
-            
         # Thus all functions running one after the other work as expected
         # Now we want to test the run_one_time_step function
 
