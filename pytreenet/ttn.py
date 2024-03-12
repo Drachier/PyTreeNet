@@ -115,6 +115,8 @@ class TreeTensorNetwork(TreeStructure):
         Two TTN are considered equal, if all their nodes are equal and then the tensors
          corresponding to these nodes are equal.
         """
+        if not self.orthogonality_center_id == other.orthogonality_center_id:
+            return False
         if not len(self.nodes) == len(other.nodes):
             # Avoid the case that one is the subtree of the other.
             return False
