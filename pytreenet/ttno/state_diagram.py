@@ -1,12 +1,19 @@
 from __future__ import annotations
 from typing import Dict, Tuple
 from copy import copy
+from collections import deque
 
+from enum import Enum
 from .vertex import Vertex
 from .hyperedge import HyperEdge
 from .collections import VertexColl, HyperEdgeColl
 from .single_term_diagram import SingleTermDiagram
+from ..bipartite_graph import BipartiteGraph, minimum_vertex_cover
 
+
+class method(Enum):
+    TREE = "Tree"
+    BIPARTITE = "Bipartite"
 
 class StateDiagram():
     """ 
@@ -108,7 +115,7 @@ class StateDiagram():
                 f"No node with identifier {node_id} in reference tree.")
 
     @classmethod
-    def from_hamiltonian(cls, hamiltonian, ref_tree) -> StateDiagram:
+    def from_hamiltonian(cls, hamiltonian, ref_tree, method: method = method.TREE) -> StateDiagram:
         """Creates a state diagram equivalent to a given Hamiltonian
 
         Args:
@@ -123,11 +130,15 @@ class StateDiagram():
 
         state_diagram = None
 
-        for term in hamiltonian.terms:
-            if state_diagram is None:
-                state_diagram = cls.from_single_term(term, ref_tree)
-            else:
-                state_diagram.add_single_term(term)
+        if method == method.BIPARTITE:
+            state_diagram = cls.from_hamiltonian_bipartite(hamiltonian, ref_tree)
+        
+        elif method == method.TREE:
+            for term in hamiltonian.terms:
+                if state_diagram is None:
+                    state_diagram = cls.from_single_term(term, ref_tree)
+                else:
+                    state_diagram.add_single_term(term)
 
         return state_diagram
 
@@ -347,3 +358,383 @@ class StateDiagram():
             for vertex in vertex_col.contained_vertices:
                 vertex.contained = False
                 vertex.new = False
+
+    @classmethod
+    def from_hamiltonian_bipartite(cls, hamiltonian, ref_tree) -> StateDiagram:
+        """Creates a state diagram equivalent to a given Hamiltonian
+
+        Args:
+            hamiltonian (Hamiltonian): Hamiltonian for which the state
+                diagram is to be found
+            ref_tree (TreeTensorNetwork): Supplies the tree topology which
+                is to be incorporated into the state diagram.
+
+        Returns:
+            StateDiagram: The final state diagram
+        """
+
+        state_diagrams = cls.get_state_diagrams(hamiltonian,ref_tree)
+        compound_state_diagram = cls.get_state_diagram_compound(state_diagrams)
+        #print(compound_state_diagram)
+
+        #for vert in compound_state_diagram.get_all_vertices():
+        #    print(vert.identifier, vert)
+        #print("-------------------------------------------------")
+        #for hyp in compound_state_diagram.get_all_hyperedges():
+        #    print(hyp.hash, hyp)
+        
+        
+        #print("----------------->>>>>>>>>><<<<<<<<<<-----------------")
+        
+        coeffs_next = [state.coeff for state in state_diagrams]
+        queue = deque()
+
+        for child in ref_tree.nodes[ref_tree.root_id].children:
+            queue.append((ref_tree.root_id,child))
+
+
+        while queue:
+            
+            level_size = len(queue)
+
+            for parent, current_node in queue:
+                
+                #print("current node" , current_node, " children: ", len(compound_state_diagram.hyperedge_colls[current_node].contained_hyperedges)) 
+                
+                local_hyperedges = [ ]
+                #local_vertices = [ ]
+                p_vs = []
+
+                for he in compound_state_diagram.hyperedge_colls[current_node].contained_hyperedges:
+                    p_v = he.find_vertex(parent)
+                    p_vs.append(p_v)
+
+                    #collected_vertices, collected_edges = cls.traverse_subtree(he,visited=[p_v.identifier])
+                    local_hyperedges.append(he)
+
+                    #local_hyperedges.append(collected_edges)
+                    #local_vertices.append(collected_vertices)
+                
+                #print([x.identifier for x in p_vs])
+                #print([x.identifier for x in compound_state_diagram.vertex_colls[(parent, current_node)].contained_vertices])
+                #print("----- Are they same ??")
+                compound_state_diagram.combine_u(local_hyperedges, parent, p_vs)
+                                
+                #print(len(combined))
+                #print(compound_state_diagram)
+                #print(combination_info)
+                #for hyp in compound_state_diagram.get_all_hyperedges():
+                #    print(hyp.hash, hyp)
+                        
+            for _ in range(level_size):
+                parent, current_node = queue.popleft()
+                
+                #print("current node" , current_node, " parent: ", parent) 
+                
+                local_vs = copy(compound_state_diagram.hyperedge_colls[parent].contained_hyperedges)
+                #print(local_vs)
+
+                compound_state_diagram.combine_v(local_vs, current_node, parent)
+                
+                ulist = []
+                vlist = []
+                edges = []
+                edge_vertices = compound_state_diagram.get_vertex_coll_two_ids(parent, current_node).contained_vertices
+
+                #print(edge_vertices, "-----")
+                
+                for vert in edge_vertices:
+                    
+                    us = vert.get_hyperedges_for_one_node_id(current_node)
+                    vs = vert.get_hyperedges_for_one_node_id(parent)
+                    
+                    for i in range(len(us)):
+                        for j in range(len(vs)):
+                            edges.append((i + len(ulist),j + len(vlist)))
+                    ulist.extend(us)
+                    vlist.extend(vs)
+
+                    for u in us:
+                        u.vertices.remove(vert)
+                    for v in vs:
+                        v.vertices.remove(vert)
+
+                
+                compound_state_diagram.vertex_colls[(parent,current_node)].contained_vertices = []
+
+                
+                #print(ulist) 
+                #print(vlist)
+                #print(edges)
+
+                bigraph = BipartiteGraph(len(ulist), len(vlist), edges)
+                u_cover, v_cover = minimum_vertex_cover(bigraph)
+                #print(u_cover, v_cover)
+
+
+
+                for i in u_cover:
+                    vert = None
+                    for j in bigraph.adj_u[i]:
+                        #print("connecting:   " , ulist[i], vlist[j])
+                        if vert == None:
+                            vert = Vertex((parent, current_node), [ulist[i], vlist[j]])
+                            compound_state_diagram.vertex_colls[(parent,current_node)].contained_vertices.append(vert)
+                            ulist[i].vertices.append(vert)
+                            vlist[j].vertices.append(vert)
+                        else:
+                            vert.hyperedges.append(vlist[j])
+                            vlist[j].vertices.append(vert)
+
+                        #print("connected vertices: ---", compound_state_diagram.vertex_colls[(parent,current_node)].contained_vertices)
+                        
+
+                        edges.remove((i, j))
+
+
+                for j in v_cover:
+                    vert = None
+                    for i in bigraph.adj_v[j]:
+                        if (i, j) not in edges:
+                            continue
+
+                        #print("V-connecting:   " , ulist[i], vlist[j])
+                        if vert == None:
+                            vert = Vertex((parent, current_node), [ulist[i], vlist[j]])
+                            compound_state_diagram.vertex_colls[(parent,current_node)].contained_vertices.append(vert)
+                            ulist[i].vertices.append(vert)
+                            vlist[j].vertices.append(vert)
+                        else:
+                            vert.hyperedges.append(ulist[i])
+                            ulist[i].vertices.append(vert)
+                        
+                    edges.remove((i, j))
+                
+                for child in ref_tree.nodes[current_node].children:
+                    queue.append((current_node,child))
+
+                #print(compound_state_diagram)
+                            
+            #process_state_diagrams = new_state_diagrams
+            #print(len(new_state_diagrams))
+            #print(new_state_diagrams)
+            #print("----------------------------")       
+            
+
+        return compound_state_diagram
+
+    @classmethod
+    def sum_states(cls, s1, s2,ref_tree):
+        
+        state_diag= cls(ref_tree)
+
+        for n1,h1 in s1.hyperedge_colls.items():
+            if n1 in s2.hyperedge_colls:
+                state_diag.hyperedge_colls[n1] = HyperEdgeColl(n1,h1.contained_hyperedges + s2.hyperedge_colls[n1].contained_hyperedges)
+            else:
+                state_diag.hyperedge_colls[n1] = h1
+        for n2, h2 in s2.hyperedge_colls.items():
+            if n2 not in state_diag.hyperedge_colls:
+                state_diag.hyperedge_colls[n2] = h2
+
+
+        for n1,h1 in s1.vertex_colls.items():
+            if n1 in s2.vertex_colls:
+                state_diag.vertex_colls[n1] = VertexColl(n1,h1.contained_vertices + s2.vertex_colls[n1].contained_vertices)
+            else:
+                state_diag.vertex_colls[n1] = h1
+        for n2, h2 in s2.vertex_colls.items():
+            if n2 not in state_diag.vertex_colls:
+                state_diag.vertex_colls[n2] = h2
+
+        return state_diag
+
+    def erase_subtree(self, start_edge, erased=None):
+        if erased is None:
+            # To Do : Apply hash method here
+            erased = []  # Tracks visited nodes to avoid cycles
+        
+        #visited.append(start_edge)
+        
+        #print(start_edge)
+        
+        for i in range(len(self.hyperedge_colls[start_edge.corr_node_id].contained_hyperedges)):
+            if self.hyperedge_colls[start_edge.corr_node_id].contained_hyperedges[i].identifier == start_edge.identifier:
+                self.hyperedge_colls[start_edge.corr_node_id].contained_hyperedges.pop(i)
+                break
+
+
+        #print(start_edge.vertices)
+        for vertex in start_edge.vertices:
+            # Check if the vertex has been visited to avoid processing the same edge multiple times
+            if vertex not in erased:
+                
+                erased.append(vertex)
+                self.vertex_colls[vertex.corr_edge].contained_vertices.remove(vertex)
+
+                for edge in vertex.hyperedges:
+                    if edge != start_edge:
+                        
+                        self.erase_subtree(edge, erased)
+
+    """@classmethod
+    def traverse_subtree(cls, start_edge, visited=None, collected_vertices=None, collected_edges=None):
+        if visited is None:
+            # To Do : Apply hash method here
+            visited = []  # Tracks visited nodes to avoid cycles
+        if collected_vertices is None:
+            collected_vertices = []  # List to collect nodes in the subtree
+        if collected_edges is None:
+            collected_edges = []  # List to collect hyperedges in the subtree
+
+        #visited.append(start_edge)
+        collected_edges.append(start_edge)
+
+        for vertex in start_edge.vertices:
+            # Check if the vertex has been visited to avoid processing the same edge multiple times
+            if vertex.identifier not in visited:
+                collected_vertices.append(vertex)
+                visited.append(vertex.identifier)
+                for edge in vertex.hyperedges:
+                    if edge not in collected_edges:
+                        cls.traverse_subtree(edge, visited, collected_vertices, collected_edges)
+
+        return collected_vertices, collected_edges"""
+
+    def combine_v(self, local_vs, current_node, parent):
+        combined = set()
+
+        for i, element1 in enumerate(local_vs):
+            if i in combined:
+                continue
+            for j in range(i+1,len(local_vs)) :
+                element2 = local_vs[j]
+                if j in combined:
+                    continue
+
+                if element1.label == element2.label:
+                    same = True
+                    for v in element1.vertices:
+                        if not(v.corr_edge == (current_node,parent) or v.corr_edge == (parent,current_node)):
+                            if not v in element2.vertices:
+                                same = False
+                                break
+                    
+                    v_num = len(element1.find_vertex(current_node).get_hyperedges_for_one_node_id(parent)) * len(element2.find_vertex(current_node).get_hyperedges_for_one_node_id(parent))
+                    if same and len(element1.vertices) == len(element2.vertices) and v_num == 1:
+
+                        #print(i,j)
+                        #print(element1.label,element2.label)
+
+                        combined.add(j)
+
+
+
+                        son = None
+                        del_vertex = element2.find_vertex(current_node)
+                        for h in del_vertex.hyperedges:
+                            if h.corr_node_id == current_node:
+                                son = h
+                        #print(son)
+                        for vert in element2.vertices:
+                            #print(vert, (parent,current_node))
+                            if vert.corr_edge == (current_node,parent) or vert.corr_edge == (parent,current_node):
+                                
+                                self.vertex_colls[(parent,current_node)].contained_vertices.remove(vert)
+                            
+                                element1.find_vertex(current_node).add_hyperedge(son)
+                                son.vertices.remove(vert)
+                            else:
+                                vert.hyperedges.remove(element2)
+
+                        
+                                
+
+
+
+
+                        self.hyperedge_colls[element2.corr_node_id].contained_hyperedges.remove(element2)
+
+
+
+                        #print(compound_state_diagram)
+
+    def combine_u(self, local_hyperedges, parent, p_vs):
+        combined = set()
+
+        for i, element1 in enumerate(local_hyperedges):
+            if i in combined:
+                continue
+            for j in range(i+1,len(local_hyperedges)) :
+                element2 = local_hyperedges[j]
+                if j in combined:
+                    continue
+
+                if element1.hash == element2.hash:
+
+                    #print(i,j)
+                    combined.add(j)
+                    
+                    #print("element to delete: " , element2)
+                    self.erase_subtree(element2, erased=[p_vs[j]])
+
+                    #print(self)
+
+                    father = None
+                    for h in p_vs[j].hyperedges:
+                        if h.corr_node_id == parent:
+                            father = h
+
+                    #print("before remove: ", p_vs[j].identifier,[x.identifier for x in self.vertex_colls[p_vs[j].corr_edge].contained_vertices]) 
+                    self.vertex_colls[p_vs[j].corr_edge].contained_vertices.remove(p_vs[j])
+                
+                    father.vertices.remove(p_vs[j])
+
+                   
+                    #print(p_vs[i],p_vs[i].identifier)
+                    #print([x.identifier for x in self.vertex_colls[p_vs[j].corr_edge].contained_vertices])
+
+                    p_vs[i].add_hyperedge(father)
+
+                    #for vert in self.vertex_colls[p_vs[j].corr_edge].contained_vertices:
+                        #print(vert, vert.identifier)
+                    #    if vert.hyperedges ==  p_vs[i].hyperedges:
+                    #        vert.add_hyperedge(father)
+
+    def calculate_hashes(self, node, ref_tree):
+        # Base case: if the node is None, just return
+        if node is None:
+            return ""
+        # Process all children first
+        children_hash = ""
+        for child_id in node.children:
+            children_hash += self.calculate_hashes(ref_tree.nodes[child_id], ref_tree)
+        # Process the current node (parent node is processed after its children)
+        return self.hyperedge_colls[node.identifier].contained_hyperedges[0].calculate_hash(children_hash) 
+
+    @classmethod
+    def get_state_diagram_compound(cls, state_diagrams):
+        
+        state_diagram = None
+
+        for term in state_diagrams:
+            if state_diagram != None:
+                state_diagram = cls.sum_states(state_diagram, term, term.reference_tree)
+            else:
+                state_diagram = term
+            
+            
+        return state_diagram
+
+    @classmethod
+    def get_state_diagrams(cls, hamiltonian, ref_tree):
+        
+        state_diagrams = []
+
+        for term in hamiltonian.terms:
+            state_diagram = cls.from_single_term(term, ref_tree)
+            state_diagrams.append(state_diagram)
+
+            state_diagram.calculate_hashes(ref_tree.nodes[ref_tree.root_id],ref_tree)
+            
+        return state_diagrams
