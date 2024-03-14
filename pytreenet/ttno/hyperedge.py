@@ -1,5 +1,7 @@
 from __future__ import annotations
 from typing import List, Tuple
+import hashlib
+
 
 import uuid
 
@@ -8,6 +10,8 @@ class HyperEdge():
         self.corr_node_id = corr_node_id
         self.label = label
         self.vertices = vertices
+
+        self.hash = hashlib.sha256(self.label.encode()).hexdigest()
 
         self.identifier = str(uuid.uuid1())
 
@@ -34,6 +38,23 @@ class HyperEdge():
         labels_eq = self.label == other_he.label
         corr_node_id_eq = self.corr_node_id == other_he.corr_node_id
         return labels_eq and corr_node_id_eq
+
+    def __hash__(self):
+        """
+        Generate a hash value of the Hyperedge
+        """
+        return hash((frozenset(self.vertices), self.corr_node_id,self.label))
+    
+    def calculate_hash(self, children_hash: str = None):
+        """
+        Calculate the hash of the hyperedge
+        """
+
+        hash_text = self.label + children_hash
+
+        self.hash = hashlib.sha256(hash_text.encode()).hexdigest()
+        return self.hash
+    
 
     def add_vertex(self, vertex: Vertex):
         """
