@@ -55,6 +55,16 @@ class HyperEdge():
         self.hash = hashlib.sha256(hash_text.encode()).hexdigest()
         return self.hash
     
+    def get_hash(self):
+        """
+        Return the hash of the hyperedge
+        """
+        return self.hash
+    def set_hash(self, hash: str):
+        """
+        Set the hash of the hyperedge
+        """
+        self.hash = hash
 
     def add_vertex(self, vertex: Vertex):
         """
