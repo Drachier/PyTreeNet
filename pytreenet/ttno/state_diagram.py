@@ -620,44 +620,179 @@ class StateDiagram():
                                 same = False
                                 break
                     
-                    v_num = len(element1.find_vertex(current_node).get_hyperedges_for_one_node_id(parent)) * len(element2.find_vertex(current_node).get_hyperedges_for_one_node_id(parent))
-                    if same and len(element1.vertices) == len(element2.vertices) and v_num == 1:
+                    
+                    if same and len(element1.vertices) == len(element2.vertices) :
+
 
                         #print(i,j)
                         #print(element1.label,element2.label)
 
+                        
+
+                        d1 = len(element1.find_vertex(current_node).get_hyperedges_for_one_node_id(parent)) > 1
+                        d2 = len(element2.find_vertex(current_node).get_hyperedges_for_one_node_id(parent)) > 1
+
+                        if d1 and d2:
+                            continue
+
                         combined.add(j)
 
-
-
                         son = None
+                        son2 = None
+
                         del_vertex = element2.find_vertex(current_node)
                         for h in del_vertex.hyperedges:
                             if h.corr_node_id == current_node:
                                 son = h
-                        #print(son)
-                        for vert in element2.vertices:
-                            #print(vert, (parent,current_node))
-                            if vert.corr_edge == (current_node,parent) or vert.corr_edge == (parent,current_node):
-                                
-                                self.vertex_colls[(parent,current_node)].contained_vertices.remove(vert)
-                            
-                                element1.find_vertex(current_node).add_hyperedge(son)
-                                son.vertices.remove(vert)
-                            else:
-                                vert.hyperedges.remove(element2)
 
+                        other_vertex = element1.find_vertex(current_node)
+                        for h in other_vertex.hyperedges:
+                            if h.corr_node_id == current_node:
+                                son2 = h
                         
                                 
 
+                        if not (d1 or d2):
+                            for vert in element2.vertices:
+                                if vert.corr_edge == (current_node,parent) or vert.corr_edge == (parent,current_node):
+                                    # Del_vertex from the vertex collection
+                                    self.vertex_colls[(parent,current_node)].contained_vertices.remove(vert)
+
+                                    # Add son to element 1 vertex collection
+                                    element1.find_vertex(current_node).add_hyperedge(son)
+
+                                    # Remove del_vertex from the son hyperedge
+                                    son.vertices.remove(vert)
+                                else:
+                                    # Just delete hyperedge from other vertices
+                                    #vert.hyperedges.remove(element2)
+
+                                    for i in range(len(vert.hyperedges)):
+                                        if vert.hyperedges[i].identifier == element2.identifier:
+                                            vert.hyperedges.pop(i)
+                                            break
+
+                            
+                            # Remove Hyperedge from state diagram        
+                            #self.hyperedge_colls[element2.corr_node_id].contained_hyperedges.remove(element2)
+                            self._remove_hyperedge(element2)
+                            
+
+                        elif d1:
+                            for vert in element2.vertices:
+                                if vert.corr_edge == (current_node,parent) or vert.corr_edge == (parent,current_node):
+                                    # Del_vertex from the vertex collection
+                                    self.vertex_colls[(parent,current_node)].contained_vertices.remove(vert)
+
+                                    # Remove del_vertex from the son hyperedge
+                                    son.vertices.remove(vert)
+
+                                    # Create new hyperedge
+                                    new_h = HyperEdge(current_node, son2.label, [])
+                                    new_h.set_hash(son2.hash)
+
+                                    # Add vertices to new hyperedge unrelated to current node-parent
+                                    for v in son2.vertices:
+                                        if not(v.corr_edge == (current_node,parent) or v.corr_edge == (parent,current_node)):
+                                            new_h.add_vertex(v)
+                                    
+                                    # Create a new vertex
+                                    new_v = Vertex((parent, current_node), [new_h])
 
 
+                                    deleted_hyperedges = []
+                                    # Add new hyperedges to the vertex
+                                    for h in other_vertex.hyperedges:
+                                        if h.identifier != son2.identifier and h.identifier != element1.identifier :
+                                            #print("visiting other vertice hyperedges: ", h.identifier, h.vertices)
+                                            
+                                            try:
+                                                h.vertices.remove(other_vertex)
+                                            except:
+                                                print("Hamiltonian: ", self.hamiltonian)
+                                                
+                                                raise ValueError("Error")
+                                            deleted_hyperedges.append(h)
+                                            new_v.add_hyperedge(h)
+                                            #print("vertices after adding: ", h.identifier, h.vertices)
 
-                        self.hyperedge_colls[element2.corr_node_id].contained_hyperedges.remove(element2)
+                                    while len(deleted_hyperedges) > 0:
+                                        for i in range(len(other_vertex.hyperedges)):
+                                            if other_vertex.hyperedges[i].identifier == deleted_hyperedges[0].identifier:
+                                                other_vertex.hyperedges.pop(i)
+                                                deleted_hyperedges.pop(0)
+                                                break
+                                    
 
 
+                                    self.vertex_colls[(parent,current_node)].contained_vertices.append(new_v)
+                                    new_h.vertices.append(new_v)
 
-                        #print(compound_state_diagram)
+                                    self.add_hyperedge(new_h)
+
+                                    # Add son to element 1 vertex collection
+                                    other_vertex.add_hyperedge(son)
+
+                                    
+                                else:
+                                    # Just delete hyperedge from other vertices
+                                    for i in range(len(vert.hyperedges)):
+                                        if vert.hyperedges[i].identifier == element2.identifier:
+                                            vert.hyperedges.pop(i)
+                                            break
+
+                            self._remove_hyperedge(element2)
+                            
+
+                        elif d2:
+                            for vert in element2.vertices:
+                                if vert.corr_edge == (current_node,parent) or vert.corr_edge == (parent,current_node):
+                                    # Del_vertex from the vertex collection
+                                    self.vertex_colls[(parent,current_node)].contained_vertices.remove(vert)
+
+                                    # Remove del_vertex from the son hyperedge
+                                    son.vertices.remove(vert)
+
+                                    # Create new hyperedge
+                                    new_h = HyperEdge(current_node, son.label, [])
+                                    new_h.set_hash(son.hash)
+
+                                    # Add vertices to new hyperedge unrelated to current node-parent
+                                    for v in son.vertices:
+                                        if not(v.corr_edge == (current_node,parent) or v.corr_edge == (parent,current_node)):
+                                            new_h.add_vertex(v)
+                                    
+                                    # Create new vertex
+                                    new_v = Vertex((parent, current_node), [new_h])
+
+
+                                    # Add new hyperedges to the vertex
+                                    for h in del_vertex.hyperedges:
+                                        if h.identifier != son.identifier and h.identifier != element2.identifier :
+                                            h.vertices.remove(del_vertex)
+                                            new_v.add_hyperedge(h)
+
+                                    self.vertex_colls[(parent,current_node)].contained_vertices.append(new_v)
+                                    new_h.vertices.append(new_v)
+
+                                    self.add_hyperedge(new_h)
+                                    
+
+                                    # Add son to element 1 vertex collection
+                                    other_vertex.add_hyperedge(son)
+
+                                    
+                                else:
+                                    # Just delete hyperedge from other vertices
+                                    for i in range(len(vert.hyperedges)):
+                                        if vert.hyperedges[i].identifier == element2.identifier:
+                                            vert.hyperedges.pop(i)
+                                            break
+                                    
+                            self._remove_hyperedge(element2)
+
+
+                        #print(self)
 
     def combine_u(self, local_hyperedges, parent, p_vs):
         combined = set()
@@ -680,21 +815,23 @@ class StateDiagram():
 
                     #print(self)
 
-                    father = None
+                    fathers = []
                     for h in p_vs[j].hyperedges:
                         if h.corr_node_id == parent:
-                            father = h
+                            fathers.append(h)
 
                     #print("before remove: ", p_vs[j].identifier,[x.identifier for x in self.vertex_colls[p_vs[j].corr_edge].contained_vertices]) 
                     self.vertex_colls[p_vs[j].corr_edge].contained_vertices.remove(p_vs[j])
                 
-                    father.vertices.remove(p_vs[j])
+                    for father in fathers:
+                        father.vertices.remove(p_vs[j])
 
                    
                     #print(p_vs[i],p_vs[i].identifier)
                     #print([x.identifier for x in self.vertex_colls[p_vs[j].corr_edge].contained_vertices])
 
-                    p_vs[i].add_hyperedge(father)
+                    for father in fathers:
+                        p_vs[i].add_hyperedge(father)
 
                     #for vert in self.vertex_colls[p_vs[j].corr_edge].contained_vertices:
                         #print(vert, vert.identifier)
@@ -738,3 +875,9 @@ class StateDiagram():
             state_diagram.calculate_hashes(ref_tree.nodes[ref_tree.root_id],ref_tree)
             
         return state_diagrams
+
+    def _remove_hyperedge(self, element):
+        for i in range(len(self.hyperedge_colls[element.corr_node_id].contained_hyperedges)):
+            if self.hyperedge_colls[element.corr_node_id].contained_hyperedges[i].identifier == element.identifier:
+                self.hyperedge_colls[element.corr_node_id].contained_hyperedges.pop(i)
+                break
