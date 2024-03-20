@@ -372,9 +372,10 @@ class StateDiagram():
         Returns:
             StateDiagram: The final state diagram
         """
-
+        
         state_diagrams = cls.get_state_diagrams(hamiltonian,ref_tree)
         compound_state_diagram = cls.get_state_diagram_compound(state_diagrams)
+        compound_state_diagram.hamiltonian = hamiltonian
         #print(compound_state_diagram)
 
         #for vert in compound_state_diagram.get_all_vertices():
@@ -387,6 +388,7 @@ class StateDiagram():
         #print("----------------->>>>>>>>>><<<<<<<<<<-----------------")
         
         coeffs_next = [state.coeff for state in state_diagrams]
+        
         queue = deque()
 
         for child in ref_tree.nodes[ref_tree.root_id].children:
@@ -399,7 +401,7 @@ class StateDiagram():
 
             for parent, current_node in queue:
                 
-                #print("current node" , current_node, " children: ", len(compound_state_diagram.hyperedge_colls[current_node].contained_hyperedges)) 
+                #print("current node" , current_node, " parent: ", parent) 
                 
                 local_hyperedges = [ ]
                 #local_vertices = [ ]
@@ -420,13 +422,14 @@ class StateDiagram():
                 #print("----- Are they same ??")
                 compound_state_diagram.combine_u(local_hyperedges, parent, p_vs)
                                 
-                #print(len(combined))
+                #print(len(compound_state_diagram.get_all_vertices()))
                 #print(compound_state_diagram)
                 #print(combination_info)
                 #for hyp in compound_state_diagram.get_all_hyperedges():
                 #    print(hyp.hash, hyp)
-                        
+            
             for _ in range(level_size):
+                
                 parent, current_node = queue.popleft()
                 
                 #print("current node" , current_node, " parent: ", parent) 
@@ -434,93 +437,115 @@ class StateDiagram():
                 local_vs = copy(compound_state_diagram.hyperedge_colls[parent].contained_hyperedges)
                 #print(local_vs)
 
-                compound_state_diagram.combine_v(local_vs, current_node, parent)
-                
-                ulist = []
-                vlist = []
-                edges = []
-                edge_vertices = compound_state_diagram.get_vertex_coll_two_ids(parent, current_node).contained_vertices
+                fc = compound_state_diagram.combine_v(local_vs, current_node, parent)
+                if fc == 1:
 
-                #print(edge_vertices, "-----")
-                
-                for vert in edge_vertices:
                     
-                    us = vert.get_hyperedges_for_one_node_id(current_node)
-                    vs = vert.get_hyperedges_for_one_node_id(parent)
+                    ulist = []
+                    vlist = []
+                    edges = []
+                    edge_vertices = compound_state_diagram.get_vertex_coll_two_ids(parent, current_node).contained_vertices
+
+                    #print(edge_vertices, "-----")
                     
-                    for i in range(len(us)):
-                        for j in range(len(vs)):
-                            edges.append((i + len(ulist),j + len(vlist)))
-                    ulist.extend(us)
-                    vlist.extend(vs)
-
-                    for u in us:
-                        u.vertices.remove(vert)
-                    for v in vs:
-                        v.vertices.remove(vert)
-
-                
-                compound_state_diagram.vertex_colls[(parent,current_node)].contained_vertices = []
-
-                
-                #print(ulist) 
-                #print(vlist)
-                #print(edges)
-
-                bigraph = BipartiteGraph(len(ulist), len(vlist), edges)
-                u_cover, v_cover = minimum_vertex_cover(bigraph)
-                #print(u_cover, v_cover)
-
-
-
-                for i in u_cover:
-                    vert = None
-                    for j in bigraph.adj_u[i]:
-                        #print("connecting:   " , ulist[i], vlist[j])
-                        if vert == None:
-                            vert = Vertex((parent, current_node), [ulist[i], vlist[j]])
-                            compound_state_diagram.vertex_colls[(parent,current_node)].contained_vertices.append(vert)
-                            ulist[i].vertices.append(vert)
-                            vlist[j].vertices.append(vert)
-                        else:
-                            vert.hyperedges.append(vlist[j])
-                            vlist[j].vertices.append(vert)
-
-                        #print("connected vertices: ---", compound_state_diagram.vertex_colls[(parent,current_node)].contained_vertices)
+                    for vert in edge_vertices:
+                        #print("vert:  ", vert)
                         
+                        us = vert.get_hyperedges_for_one_node_id(current_node)
+                        
+                        vs = vert.get_hyperedges_for_one_node_id(parent)
+                        
+                        #print("vs:  ", vs)
+                        
+                        for i in range(len(us)):
+                            for j in range(len(vs)):
+                                edges.append((i + len(ulist),j + len(vlist)))
+                        ulist.extend(us)
+                        vlist.extend(vs)
 
+                        for u in us:
+                            u.vertices.remove(vert)
+                        for v in vs:
+                            #print(v.vertices)
+                            #try:
+                            v.vertices.remove(vert)
+                            #except:
+                            #    print(compound_state_diagram)
+                            #    print(edge_vertices, "-----")
+                            #    print("vert:  ", vert)
+                            #    print("vs:  ", vs)
+                            #    print(v.vertices)
+
+                    
+                    compound_state_diagram.vertex_colls[(parent,current_node)].contained_vertices = []
+
+                    
+                    #print(ulist) 
+                    #print(vlist)
+                    #print(edges)
+
+                    bigraph = BipartiteGraph(len(ulist), len(vlist), edges)
+                    u_cover, v_cover = minimum_vertex_cover(bigraph)
+                    #print(u_cover, v_cover)
+
+
+
+                    for i in u_cover:
+                        vert = None
+                        for j in bigraph.adj_u[i]:
+                            #print("connecting:   " , ulist[i], vlist[j])
+                            if vert == None:
+                                vert = Vertex((parent, current_node), [ulist[i], vlist[j]])
+                                compound_state_diagram.vertex_colls[(parent,current_node)].contained_vertices.append(vert)
+                                ulist[i].vertices.append(vert)
+                                vlist[j].vertices.append(vert)
+                            else:
+                                vert.hyperedges.append(vlist[j])
+                                vlist[j].vertices.append(vert)
+
+                            #print("connected vertices: ---", compound_state_diagram.vertex_colls[(parent,current_node)].contained_vertices)
+                            
+
+                            edges.remove((i, j))
+
+
+                    for j in v_cover:
+                        vert = None
+                        for i in bigraph.adj_v[j]:
+                            if (i, j) not in edges:
+                                continue
+
+                            #print("V-connecting:   " , ulist[i], vlist[j])
+                            if vert == None:
+                                vert = Vertex((parent, current_node), [ulist[i], vlist[j]])
+                                compound_state_diagram.vertex_colls[(parent,current_node)].contained_vertices.append(vert)
+                                ulist[i].vertices.append(vert)
+                                vlist[j].vertices.append(vert)
+                            else:
+                                vert.hyperedges.append(ulist[i])
+                                ulist[i].vertices.append(vert)
+                            
                         edges.remove((i, j))
-
-
-                for j in v_cover:
-                    vert = None
-                    for i in bigraph.adj_v[j]:
-                        if (i, j) not in edges:
-                            continue
-
-                        #print("V-connecting:   " , ulist[i], vlist[j])
-                        if vert == None:
-                            vert = Vertex((parent, current_node), [ulist[i], vlist[j]])
-                            compound_state_diagram.vertex_colls[(parent,current_node)].contained_vertices.append(vert)
-                            ulist[i].vertices.append(vert)
-                            vlist[j].vertices.append(vert)
-                        else:
-                            vert.hyperedges.append(ulist[i])
-                            ulist[i].vertices.append(vert)
-                        
-                    edges.remove((i, j))
                 
                 for child in ref_tree.nodes[current_node].children:
                     queue.append((current_node,child))
 
                 #print(compound_state_diagram)
-                            
+
+                                           
             #process_state_diagrams = new_state_diagrams
             #print(len(new_state_diagrams))
             #print(new_state_diagrams)
             #print("----------------------------")       
             
 
+        #print("hyperedges: ")
+        #for h in compound_state_diagram.get_all_hyperedges():
+        #    print(h, h.vertices)
+        #
+        #print("vertices: ")
+        #for v in compound_state_diagram.get_all_vertices():
+        #    print(v, v.hyperedges)
         return compound_state_diagram
 
     @classmethod
@@ -601,6 +626,7 @@ class StateDiagram():
 
         return collected_vertices, collected_edges"""
 
+
     def combine_v(self, local_vs, current_node, parent):
         combined = set()
 
@@ -623,19 +649,19 @@ class StateDiagram():
                     
                     if same and len(element1.vertices) == len(element2.vertices) :
 
-
                         #print(i,j)
                         #print(element1.label,element2.label)
 
-                        
 
-                        d1 = len(element1.find_vertex(current_node).get_hyperedges_for_one_node_id(parent)) > 1
-                        d2 = len(element2.find_vertex(current_node).get_hyperedges_for_one_node_id(parent)) > 1
 
-                        if d1 and d2:
+                        d1 = element1.find_vertex(current_node).num_hyperedges_to_node(parent) > 1
+                        d2 = element2.find_vertex(current_node).num_hyperedges_to_node(parent) > 1
+
+                        f1 = element1.find_vertex(current_node).num_hyperedges_to_node(current_node) > 1
+                        f2 = element2.find_vertex(current_node).num_hyperedges_to_node(current_node) > 1
+
+                        if (d1 and f1) or (d2 and f2):
                             continue
-
-                        combined.add(j)
 
                         son = None
                         son2 = None
@@ -650,19 +676,85 @@ class StateDiagram():
                             if h.corr_node_id == current_node:
                                 son2 = h
                         
+                        if d1 and d2:
+                            result = True
+                            if del_vertex.num_hyperedges_to_node(parent) == other_vertex.num_hyperedges_to_node(parent):
+                                first_set = del_vertex.get_hyperedges_for_one_node_id(parent)
+                                second_set = other_vertex.get_hyperedges_for_one_node_id(parent)
+                                for h1 in first_set:
+                                    h_match = False
+                                    for h2 in second_set:
+                                        same = False
+                                        if h1.label == h2.label:
+                                            same = True
+                                            for v in h1.vertices:
+                                                if not(v.corr_edge == (current_node,parent) or v.corr_edge == (parent,current_node)):
+                                                    if not v in h2.vertices:
+                                                        same = False
+                                                        break
+                    
+                    
+                                            if same and len(h1.vertices) == len(h2.vertices) :
+                                                h_match = True
+                                                break
+                                    if not h_match:
+                                        result = False
+                                        break
+                            else:
+                                result = False
+                            if not result:
+                                continue
+                            else:
+                                del_hyperedges = del_vertex.get_hyperedges_for_one_node_id(parent)
+                                for h in del_hyperedges:
+                                    for vert in h.vertices:
+                                        if (vert.corr_edge == (current_node,parent) or vert.corr_edge == (parent,current_node) ) and vert in self.vertex_colls[(parent,current_node)].contained_vertices:
+                                            # Del_vertex from the vertex collection
+                                            
+                                            
+                                            self.vertex_colls[(parent,current_node)].contained_vertices.remove(vert) 
+
+                                            # Add son to element 1 vertex collection
+                                            other_vertex.add_hyperedge(son)
+
+                                            # Remove del_vertex from the son hyperedge
+                                            son.vertices.remove(vert)
+                                            
+                                        else:
+                                            # Just delete hyperedge from other vertices
+                                            #vert.hyperedges.remove(element2)
+
+                                            for i in range(len(vert.hyperedges)):
+                                                if vert.hyperedges[i].identifier == h.identifier:
+                                                    vert.hyperedges.pop(i)
+                                                    break
+
+                            
+                                    # Remove Hyperedge from state diagram        
+                                    #self.hyperedge_colls[element2.corr_node_id].contained_hyperedges.remove(element2)
+                                    self._remove_hyperedge(h)
+
+                                local_vs = copy(self.hyperedge_colls[parent].contained_hyperedges)
+                                self.combine_v(local_vs, current_node, parent)
+                                return -1
                                 
 
+
+
+
+                        combined.add(j)
+                                
                         if not (d1 or d2):
                             for vert in element2.vertices:
                                 if vert.corr_edge == (current_node,parent) or vert.corr_edge == (parent,current_node):
                                     # Del_vertex from the vertex collection
                                     self.vertex_colls[(parent,current_node)].contained_vertices.remove(vert)
 
-                                    # Add son to element 1 vertex collection
-                                    element1.find_vertex(current_node).add_hyperedge(son)
-
                                     # Remove del_vertex from the son hyperedge
-                                    son.vertices.remove(vert)
+                                    for h in del_vertex.get_hyperedges_for_one_node_id(current_node):
+                                        # Remove del_vertex from the son hyperedge
+                                        h.vertices.remove(vert)
+                                        other_vertex.add_hyperedge(h)
                                 else:
                                     # Just delete hyperedge from other vertices
                                     #vert.hyperedges.remove(element2)
@@ -684,8 +776,7 @@ class StateDiagram():
                                     # Del_vertex from the vertex collection
                                     self.vertex_colls[(parent,current_node)].contained_vertices.remove(vert)
 
-                                    # Remove del_vertex from the son hyperedge
-                                    son.vertices.remove(vert)
+
 
                                     # Create new hyperedge
                                     new_h = HyperEdge(current_node, son2.label, [])
@@ -706,12 +797,9 @@ class StateDiagram():
                                         if h.identifier != son2.identifier and h.identifier != element1.identifier :
                                             #print("visiting other vertice hyperedges: ", h.identifier, h.vertices)
                                             
-                                            try:
-                                                h.vertices.remove(other_vertex)
-                                            except:
-                                                print("Hamiltonian: ", self.hamiltonian)
-                                                
-                                                raise ValueError("Error")
+                                            
+                                            h.vertices.remove(other_vertex)
+                                            
                                             deleted_hyperedges.append(h)
                                             new_v.add_hyperedge(h)
                                             #print("vertices after adding: ", h.identifier, h.vertices)
@@ -731,7 +819,10 @@ class StateDiagram():
                                     self.add_hyperedge(new_h)
 
                                     # Add son to element 1 vertex collection
-                                    other_vertex.add_hyperedge(son)
+                                    for h in del_vertex.get_hyperedges_for_one_node_id(current_node):
+                                        # Remove del_vertex from the son hyperedge
+                                        h.vertices.remove(vert)
+                                        other_vertex.add_hyperedge(h)
 
                                     
                                 else:
@@ -751,7 +842,7 @@ class StateDiagram():
                                     self.vertex_colls[(parent,current_node)].contained_vertices.remove(vert)
 
                                     # Remove del_vertex from the son hyperedge
-                                    son.vertices.remove(vert)
+                                    #son.vertices.remove(vert)
 
                                     # Create new hyperedge
                                     new_h = HyperEdge(current_node, son.label, [])
@@ -779,7 +870,9 @@ class StateDiagram():
                                     
 
                                     # Add son to element 1 vertex collection
-                                    other_vertex.add_hyperedge(son)
+                                    for h in del_vertex.get_hyperedges_for_one_node_id(current_node):
+                                        h.vertices.remove(del_vertex) 
+                                        other_vertex.add_hyperedge(h)
 
                                     
                                 else:
@@ -793,7 +886,13 @@ class StateDiagram():
 
 
                         #print(self)
-
+        if combined:
+            #print(self)
+            local_vs = copy(self.hyperedge_colls[parent].contained_hyperedges)
+            return self.combine_v(local_vs, current_node, parent)
+            
+        return 1
+    
     def combine_u(self, local_hyperedges, parent, p_vs):
         combined = set()
 
