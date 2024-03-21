@@ -142,7 +142,7 @@ class TreeTensorNetwork(TreeStructure):
         errstr = "The number of nodes and the number of tensors are not the same!"
         assert len(self.nodes) == len(self.tensors), errstr
         return len(self.nodes)
-    
+
     def __len__(self) -> int:
         """
         Returns the number of nodes in the TTN.
@@ -242,7 +242,7 @@ class TreeTensorNetwork(TreeStructure):
         for node_id, tensor in ttn_conj.tensors.items():
             ttn_conj.tensors[node_id] = tensor.conj()
         return ttn_conj
-    
+
     def max_bond_dim(self) -> int:
         """
         Find the maximum virtual bond dimension in this TTN.
