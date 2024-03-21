@@ -63,6 +63,38 @@ class TestTDVPonMPS(unittest.TestCase):
                                                      ref_cache_dict)
         ref_cache_dict.add_entry("site_2", "site_3", cache_2)
         return ref_cache_dict
+    
+    def _check_cache_initialization(self, tdvp: ptn.FirstOrderOneSiteTDVP,
+                                    ref_cache_dict: ptn.PartialTreeCachDict):
+        """
+        Check that the cache is correctly initialized.
+        """
+        self.assertEqual(len(tdvp.partial_tree_cache), 3)
+        self.assertTrue(np.allclose(ref_cache_dict.get_entry("site_0", "site_1"),
+                                    tdvp.partial_tree_cache.get_entry("site_0", "site_1")))
+
+        self.assertTrue(np.allclose(ref_cache_dict.get_entry("site_1", "site_2"),
+                                    tdvp.partial_tree_cache.get_entry("site_1", "site_2")))
+
+        self.assertTrue(np.allclose(ref_cache_dict.get_entry("site_2", "site_3"),
+                                    tdvp.partial_tree_cache.get_entry("site_2", "site_3")))
+
+    def _check_init_tdvp1(self, tdvp: ptn.TDVPAlgorithm,
+                          ref_mps: ptn.TreeTensorNetworkState):
+        """
+        Checks that the tdvp algorithm is correctly initialized.
+        """
+        mps: ptn.TreeTensorNetworkState = tdvp.state
+        correct_update_path = ["site_" + str(3-i) for i in range(4)]
+        self.assertEqual(correct_update_path, tdvp.update_path)
+        correct_orth_path = [[i] for i in correct_update_path[1:]]
+        self.assertEqual(correct_orth_path, tdvp.orthogonalization_path)
+        self.assertEqual(mps.orthogonality_center_id, "site_3")
+        self.assertTrue(mps.is_in_canonical_form("site_3"))
+        ref_mps.orthogonalize("site_3", mode=ptn.SplitMode.KEEP)
+        self.assertEqual(mps,ref_mps)
+        ref_cache_dict = self._init_ref_cache(ref_mps, tdvp.hamiltonian)
+        self._check_cache_initialization(tdvp, ref_cache_dict)
 
     def reference_update_of_site_3(self,
                                    ref_mps: ptn.TreeTensorNetworkState,
@@ -229,26 +261,8 @@ class TestTDVPonMPS(unittest.TestCase):
         mps : ptn.TreeTensorNetworkState = tdvp.state
 
         # Checking for correct initialization
-        correct_update_path = ["site_" + str(3-i) for i in range(4)]
-        self.assertEqual(correct_update_path, tdvp.update_path)
-        correct_orth_path = [[i] for i in correct_update_path[1:]]
-        self.assertEqual(correct_orth_path, tdvp.orthogonalization_path)
-        self.assertEqual(mps.orthogonality_center_id, "site_3")
-        self.assertTrue(mps.is_in_canonical_form("site_3"))
-        ref_mps.orthogonalize("site_3", mode=ptn.SplitMode.KEEP)
-        self.assertEqual(mps,ref_mps)
-
-        # Checking for correct cache initialization
-        self.assertEqual(len(tdvp.partial_tree_cache), 3)
+        self._check_init_tdvp1(tdvp, ref_mps)
         ref_cache_dict = self._init_ref_cache(ref_mps, mpo)
-        self.assertTrue(np.allclose(ref_cache_dict.get_entry("site_0", "site_1"),
-                                    tdvp.partial_tree_cache.get_entry("site_0", "site_1")))
-
-        self.assertTrue(np.allclose(ref_cache_dict.get_entry("site_1", "site_2"),
-                                    tdvp.partial_tree_cache.get_entry("site_1", "site_2")))
-
-        self.assertTrue(np.allclose(ref_cache_dict.get_entry("site_2", "site_3"),
-                                    tdvp.partial_tree_cache.get_entry("site_2", "site_3")))
 
         # Running the first time_step
         ## Updating Site 3
@@ -327,6 +341,298 @@ class TestTDVPonMPS(unittest.TestCase):
 
         self.assertEqual(ref_tdvp.state, tdvp.state)
         pairs_to_check = [("site_0", "site_1"), ("site_1", "site_2"), ("site_2", "site_3")]
+        for node_id, next_node_id in pairs_to_check:
+            self.assertTrue(np.allclose(ref_tdvp.partial_tree_cache.get_entry(node_id, next_node_id),
+                                        tdvp.partial_tree_cache.get_entry(node_id, next_node_id)))
+
+    def _check_init_tdvp2(self, tdvp: ptn.SecondOrderOneSiteTDVP):
+        """
+        Performs the additional checks needed for the second order TDVP.
+        """
+        correct_backwards_up_path = ["site_" + str(i) for i in range(4)]
+        self.assertEqual(correct_backwards_up_path, tdvp.backwards_update_path)
+        correct_backwards_orth_path = [[i] for i in correct_backwards_up_path[1:]]
+        self.assertEqual(correct_backwards_orth_path, tdvp.backwards_orth_path)
+
+    def _reference_final_forward_update(self,
+                                        ref_tdvp: ptn.FirstOrderOneSiteTDVP) -> ptn.FirstOrderOneSiteTDVP:
+        """
+        A reference implmentation of the final forward update.
+        The final node must be time evolved by 2*(time_step_size/2),
+         i.e. with a normal time-step.
+        """
+        ref_mps = ref_tdvp.state
+        mpo = ref_tdvp.hamiltonian
+        cache_dict = ref_tdvp.partial_tree_cache
+        heff = np.tensordot(mpo.tensors["site_0"],
+                            cache_dict.get_entry("site_1", "site_0"),
+                            axes=(0,1))
+        heff = heff.transpose(3,0,2,1)
+        heff = heff.reshape(8,8)
+        time_step_size = 2 * ref_tdvp.time_step_size
+        u = expm(-1j*time_step_size*heff)
+        u = u.reshape(4,2,4,2)
+        ref_mps.tensors["site_0"] = np.tensordot(u,
+                                                 ref_mps.tensors["site_0"],
+                                                 axes=((2,3),(0,1)))
+        self.assertEqual("site_0", ref_mps.orthogonality_center_id)
+        return ref_tdvp
+
+    def _reference_first_backwards_link_update(self,
+                                               ref_tdvp: ptn.FirstOrderOneSiteTDVP) -> ptn.FirstOrderOneSiteTDVP:
+        """
+        A reference implmentation of the first backwards link update.
+         In this case the link between site_0 and site_1 is updated.
+        """
+        ref_mps = ref_tdvp.state
+        mpo = ref_tdvp.hamiltonian
+        cache_dict = ref_tdvp.partial_tree_cache
+        q, r = ptn.tensor_qr_decomposition(ref_mps.tensors["site_0"],
+                                           (1, ), (0, ),
+                                           mode=ptn.SplitMode.KEEP)
+        ref_mps.tensors["site_0"] = q.transpose(1,0)
+        new_cache = contract_leaf("site_0", ref_mps, mpo)
+        cache_dict.add_entry("site_0", "site_1", new_cache)
+        heff = np.tensordot(cache_dict.get_entry("site_0", "site_1"),
+                            cache_dict.get_entry("site_1", "site_0"),
+                            axes=(1,1))
+        heff = np.transpose(heff, (1,3,0,2)).reshape(16,16)
+        time_step_size = ref_tdvp.time_step_size
+        u = expm(1j*time_step_size*heff)
+        u = u.reshape(4,4,4,4)
+        updated_r = np.tensordot(u,r,axes=((2,3),(0,1)))
+        next_site = np.tensordot(updated_r,
+                                 ref_mps.tensors["site_1"],
+                                 axes=(1,0))
+        ref_mps.tensors["site_1"] = next_site
+        ref_mps.orthogonality_center_id = "site_1"
+        return ref_tdvp
+
+    def _reference_backward_update_site_1(self,
+                                          ref_tdvp: ptn.FirstOrderOneSiteTDVP) -> ptn.FirstOrderOneSiteTDVP:
+        """
+        A reference implmentation of the backward update of the site_1 tensor.
+        """
+        ref_mps = ref_tdvp.state
+        mpo = ref_tdvp.hamiltonian
+        cache_dict = ref_tdvp.partial_tree_cache
+        # Site update
+        heff = np.tensordot(mpo.tensors["site_1"],
+                            cache_dict.get_entry("site_0", "site_1"),
+                            axes=(0,1))
+        heff = np.tensordot(heff,
+                            cache_dict.get_entry("site_2", "site_1"),
+                            axes=(0,1))
+        heff = heff.transpose(3,5,0,2,4,1)
+        heff = heff.reshape(60,60)
+        time_step_size = ref_tdvp.time_step_size
+        u = expm(-1j*time_step_size*heff)
+        u = u.reshape(4,5,3,4,5,3)
+        next_site = ref_mps.tensors["site_1"]
+        updated_site = np.tensordot(u, next_site,
+                                    axes=((3,4,5),(0,1,2)))
+        ref_mps.tensors["site_1"] = updated_site
+        self.assertTrue(ref_mps.is_in_canonical_form("site_1"))
+        q, r = ptn.tensor_qr_decomposition(ref_mps.tensors["site_1"],
+                                           (0,2), (1, ),
+                                           mode= ptn.SplitMode.KEEP)
+        ref_mps.tensors["site_1"] = q.transpose(0,2,1)
+        # The order of the two children is changed in the actual tdvp
+        ref_mps.nodes["site_1"].swap_two_child_legs("site_0","site_2")
+        new_cache = contract_subtrees_using_dictionary("site_1", "site_2",
+                                                       ref_mps, mpo,
+                                                       cache_dict)
+        cache_dict.add_entry("site_1", "site_2", new_cache)
+        # Link update
+        heff = np.tensordot(cache_dict.get_entry("site_1", "site_2"),
+                            cache_dict.get_entry("site_2", "site_1"),
+                            axes=(1,1))
+        heff = np.transpose(heff, (1,3,0,2)).reshape(25,25)
+        u = expm(1j*time_step_size*heff)
+        u = u.reshape(5,5,5,5)
+        updated_r = np.tensordot(u,r,axes=((2,3),(0,1)))
+        next_site = np.tensordot(updated_r,
+                                 ref_mps.tensors["site_2"],
+                                 axes=(1,0))
+        ref_mps.tensors["site_2"] = next_site
+        ref_mps.orthogonality_center_id = "site_2"
+        self.assertTrue(ref_mps.is_in_canonical_form("site_2"))
+        return ref_tdvp
+    
+    def _reference_backward_update_site_2(self,
+                                          ref_tdvp: ptn.FirstOrderOneSiteTDVP) -> ptn.FirstOrderOneSiteTDVP:
+        """
+        A reference implmentation of the backward update of the site_2 tensor.
+        """
+        ref_mps = ref_tdvp.state
+        mpo = ref_tdvp.hamiltonian
+        cache_dict = ref_tdvp.partial_tree_cache
+        # Site update
+        heff = np.tensordot(mpo.tensors["site_2"],
+                            cache_dict.get_entry("site_1", "site_2"),
+                            axes=(0,1))
+        heff = np.tensordot(heff,
+                            cache_dict.get_entry("site_3", "site_2"),
+                            axes=(0,1))
+        heff = heff.transpose(3,5,0,2,4,1)
+        heff = heff.reshape(120,120)
+        time_step_size = ref_tdvp.time_step_size
+        u = expm(-1j*time_step_size*heff)
+        u = u.reshape(5,6,4,5,6,4)
+        next_site = ref_mps.tensors["site_2"]
+        updated_site = np.tensordot(u, next_site,
+                                    axes=((3,4,5),(0,1,2)))
+        ref_mps.tensors["site_2"] = updated_site
+        self.assertTrue(ref_mps.is_in_canonical_form("site_2"))
+        # Link update
+        q, r = ptn.tensor_qr_decomposition(ref_mps.tensors["site_2"],
+                                           (0,2), (1, ),
+                                           mode= ptn.SplitMode.KEEP)
+        ref_mps.tensors["site_2"] = q.transpose(0,2,1)
+        new_cache = contract_subtrees_using_dictionary("site_2", "site_3",
+                                                       ref_mps, mpo,
+                                                       cache_dict)
+        cache_dict.add_entry("site_2", "site_3", new_cache)
+        heff = np.tensordot(cache_dict.get_entry("site_2", "site_3"),
+                            cache_dict.get_entry("site_3", "site_2"),
+                            axes=(1,1))
+        heff = np.transpose(heff, (1,3,0,2)).reshape(36,36)
+        u = expm(1j*time_step_size*heff)
+        u = u.reshape(6,6,6,6)
+        updated_r = np.tensordot(u,r,axes=((2,3),(0,1)))
+        next_site = np.tensordot(updated_r,
+                                 ref_mps.tensors["site_3"],
+                                 axes=(1,0))
+        ref_mps.tensors["site_3"] = next_site
+        ref_mps.orthogonality_center_id = "site_3"
+        self.assertTrue(ref_mps.is_in_canonical_form("site_3"))
+        return ref_tdvp
+    
+    def _reference_final_backwards_update(self,
+                                          ref_tdvp: ptn.FirstOrderOneSiteTDVP) -> ptn.FirstOrderOneSiteTDVP:
+        """
+        A reference implementation of the final backwards update.
+        """
+        ref_mps = ref_tdvp.state
+        mpo = ref_tdvp.hamiltonian
+        cache_dict = ref_tdvp.partial_tree_cache
+        # Site update
+        heff = np.tensordot(mpo.tensors["site_3"],
+                            cache_dict.get_entry("site_2", "site_3"),
+                            axes=(0,1))
+        heff = heff.transpose(3,0,2,1)
+        heff = heff.reshape(30,30)
+        time_step_size =  ref_tdvp.time_step_size
+        u = expm(-1j*time_step_size*heff)
+        u = u.reshape(6,5,6,5)
+        next_site = ref_mps.tensors["site_3"]
+        updated_site = np.tensordot(u, next_site,
+                                    axes=((2,3),(0,1)))
+        ref_mps.tensors["site_3"] = updated_site
+        self.assertTrue(ref_mps.is_in_canonical_form("site_3"))
+        return ref_tdvp
+
+    def test_second_order_tdvp_main(self):
+        """
+        This function tests a full time step, i.e. a left to right sweep of
+         the second order TDVP algorithm on an MPS against a manual reference
+         computation.
+        """
+        # Preparing the tensor structures
+        mps, _ = self._create_mps()
+        mpo = self._create_hamiltonian_mpo(mps)
+        operators = self._create_operators()
+
+        # Initialise the TDVP algorithms
+        time_step_size = 0.1
+        final_time = 1.0
+        tdvp = ptn.SecondOrderOneSiteTDVP(mps, mpo,
+                                          time_step_size, final_time,
+                                          operators)
+        ref_tdvp =  ptn.FirstOrderOneSiteTDVP(mps, mpo,
+                                              time_step_size / 2,
+                                              final_time,
+                                              operators)
+        mps : ptn.TreeTensorNetworkState = tdvp.state
+        ref_mps : ptn.TreeTensorNetworkState = ref_tdvp.state
+
+        # Checking for correct initialization
+        self._check_init_tdvp1(tdvp, ref_mps)
+        self._check_init_tdvp2(tdvp)
+
+        # Running forward sweep
+        ref_tdvp._first_update("site_3")
+        ref_tdvp._normal_update("site_2", 1)
+        ref_tdvp._normal_update("site_1", 2)
+        tdvp.forward_sweep()
+        self.assertEqual(ref_tdvp.state, tdvp.state)
+        pairs_to_check = [("site_3", "site_2"), ("site_2", "site_1"), ("site_1", "site_0")]
+        for node_id, next_node_id in pairs_to_check:
+            self.assertTrue(np.allclose(ref_tdvp.partial_tree_cache.get_entry(node_id, next_node_id),
+                                        tdvp.partial_tree_cache.get_entry(node_id, next_node_id)))
+
+        ## Running the final forward update
+        ref_tdvp = self._reference_final_forward_update(ref_tdvp)
+        tdvp._final_forward_update()
+        self.assertEqual(ref_mps, mps)
+        self.assertEqual(ref_mps.orthogonality_center_id,
+                         mps.orthogonality_center_id)
+
+        # Running the backward sweep
+        ## First backward update of a link
+        ref_tdvp = self._reference_first_backwards_link_update(ref_tdvp)
+        tdvp._update_first_backward_link()
+        self.assertEqual(ref_mps, mps)
+        self.assertTrue(np.allclose(ref_tdvp.partial_tree_cache.get_entry("site_0", "site_1"),
+                                    tdvp.partial_tree_cache.get_entry("site_0", "site_1")))
+
+        ## Running the backward update of site_1
+        ref_tdvp = self._reference_backward_update_site_1(ref_tdvp)
+        tdvp._normal_backward_update("site_1", 1)
+        self.assertEqual(ref_mps, mps)
+        self.assertTrue(np.allclose(ref_tdvp.partial_tree_cache.get_entry("site_1", "site_2"),
+                                    tdvp.partial_tree_cache.get_entry("site_1", "site_2")))
+
+        ## Running the backward update of site_2
+        ref_tdvp = self._reference_backward_update_site_2(ref_tdvp)
+        tdvp._normal_backward_update("site_2", 2)
+        self.assertEqual(ref_mps, mps)
+        self.assertTrue(np.allclose(ref_tdvp.partial_tree_cache.get_entry("site_2", "site_3"),
+                                    tdvp.partial_tree_cache.get_entry("site_2", "site_3")))
+
+        ## Running the final backward update
+        ref_tdvp = self._reference_final_backwards_update(ref_tdvp)
+        tdvp._final_backward_update()
+        self.assertEqual(ref_mps, mps)
+        self.assertTrue(mps.is_in_canonical_form("site_3"))
+
+    def test_second_order_tdvp_run_one_time_step(self):
+        # Preparing the tensor structures
+        mps, _ = self._create_mps()
+        mpo = self._create_hamiltonian_mpo(mps)
+        operators = self._create_operators()
+
+        # Initialise the TDVP algorithms
+        time_step_size = 0.1
+        final_time = 1.0
+        tdvp = ptn.SecondOrderOneSiteTDVP(mps, mpo,
+                                          time_step_size, final_time,
+                                          operators)
+        ref_tdvp =  deepcopy(tdvp)
+
+        # Running reference using implemented functions
+        ref_tdvp.forward_sweep()
+        ref_tdvp._final_forward_update()
+        ref_tdvp._update_first_backward_link()
+        ref_tdvp._normal_backward_update("site_1", 1)
+        ref_tdvp._normal_backward_update("site_2", 2)
+        ref_tdvp._final_backward_update()
+
+        # Running the actual TDVP
+        tdvp.run_one_time_step()
+
+        self.assertEqual(ref_tdvp.state, tdvp.state)
+        pairs_to_check = [("site_2", "site_3"), ("site_1", "site_2"), ("site_0", "site_1")]
         for node_id, next_node_id in pairs_to_check:
             self.assertTrue(np.allclose(ref_tdvp.partial_tree_cache.get_entry(node_id, next_node_id),
                                         tdvp.partial_tree_cache.get_entry(node_id, next_node_id)))

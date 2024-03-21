@@ -28,7 +28,7 @@ class SecondOrderOneSiteTDVP(TDVPAlgorithm):
         """
         return list(reversed(self.update_path))
 
-    def _init_second_order_orth_path(self) -> List[str]:
+    def _init_second_order_orth_path(self) -> List[List[str]]:
         """
         Find the orthogonalisation paths for the backwards run.
         """
@@ -41,8 +41,8 @@ class SecondOrderOneSiteTDVP(TDVPAlgorithm):
         back_orthogonalization_path.append([self.backwards_update_path[-1]])
         return back_orthogonalization_path
 
-    def _update_forward(self, node_id: str,
-                        next_node_id: str):
+    def _update_forward_site_and_link(self, node_id: str,
+                                      next_node_id: str):
         """
         Run the forward update with half time step.
         First the site tensor is updated and then the link tensor.
@@ -66,38 +66,68 @@ class SecondOrderOneSiteTDVP(TDVPAlgorithm):
             if i>0:
                 self._move_orth_and_update_cache_for_path(self.orthogonalization_path[i-1])
             # Select Next Node
-            if i+1 < len(self.update_path):
-                next_node_id = self.orthogonalization_path[i][0]
-                # Update
-                self._update_forward(node_id, next_node_id)
+            next_node_id = self.orthogonalization_path[i][0]
+            # Update
+            self._update_forward_site_and_link(node_id, next_node_id)
 
-    def _final_forward_update(self, node_id: str):
+    def _final_forward_update(self):
         """
         Perform the final forward update. To save some computation, the update
          is performed with a full time step. Since the first update backwards
          occurs on the same node.
+        """
+        node_id = self.update_path[-1]
+        assert node_id == self.backwards_update_path[0]
+        assert self.state.orthogonality_center_id == node_id
+        self._update_site(node_id)
 
-        Args:
-            node_id (str): The identifier of the site to be updated.
+    def _update_first_backward_link(self):
+        """
+        Update the link between the first and second node in the backwards
+         update path with a half time step.
+         We have already updated the first site on the backwards update path
+         and the link will always be next to it, so the orthogonality center
+         is already at the correct position.
+        """
+        next_node_id = self.backwards_update_path[1]
+        self._update_link(self.state.orthogonality_center_id,
+                          next_node_id,
+                          time_step_factor=0.5)
+
+    def _normal_backward_update(self, node_id: str,
+                                update_index: int):
+        """
+        The normal way to make a backwards update.
+        First the site tensor is updated. Then the orthogonality center is
+         moved, if needed. Finally the link tensor between the new
+         orthogonality center and the next node is updated. 
         """
         assert self.state.orthogonality_center_id == node_id
-        assert self.update_path[-1] == self.backwards_update_path[0]
-        self._update_site(node_id)
+        self._update_site(node_id, time_step_factor=0.5)
+        new_orth_center = self.backwards_orth_path[update_index-1]
+        self._move_orth_and_update_cache_for_path(new_orth_center)
+        next_node_id = self.backwards_update_path[update_index+1]
+        self._update_link(self.state.orthogonality_center_id,
+                          next_node_id,
+                          time_step_factor=0.5)
+
+    def _final_backward_update(self):
+        """
+        Perform the final backward update. Since this is the last node that
+         needs updating, no link update is required afterwards.
+        """
+        node_id = self.backwards_update_path[-1]
+        assert self.state.orthogonality_center_id == node_id
+        self._update_site(node_id, time_step_factor=0.5)
 
     def backward_sweep(self):
         """
         Perform the backward sweep through the state.
         """
-        for i, node_id in enumerate(self.backwards_update_path):
-            if i > 0: # We already updated the last site for second time in the forward pass.
-                assert self.state.orthogonality_center_id == node_id
-                self._update_site(node_id, time_step_factor=0.5)
-                self._move_orth_and_update_cache_for_path(self.backwards_orth_path[i-1])
-            if i < len(self.backwards_update_path) - 1:
-                next_node_id = self.backwards_update_path[i+1]
-                self._update_link(self.state.orthogonality_center_id,
-                                  next_node_id,
-                                  time_step_factor=0.5)
+        self._update_first_backward_link()
+        for i, node_id in enumerate(self.backwards_update_path[1:-1]):
+            self._normal_backward_update(node_id, i+1)
+        self._final_backward_update()
 
     def run_one_time_step(self):
         """
@@ -105,5 +135,5 @@ class SecondOrderOneSiteTDVP(TDVPAlgorithm):
          and a full backward sweep through the tree.
         """
         self.forward_sweep()
-        self._final_forward_update(self.update_path[-1])
+        self._final_forward_update()
         self.backward_sweep()
