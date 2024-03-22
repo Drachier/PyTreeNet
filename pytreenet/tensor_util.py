@@ -230,7 +230,7 @@ def check_truncation_parameters(max_bond_dim: int,
     """
     if (not isinstance(max_bond_dim,int)) and (max_bond_dim != float("inf")):
         raise TypeError(f"'max_bond_dim' has to be int not {type(max_bond_dim)}!")
-    if max_bond_dim < 0:
+    if max_bond_dim <= 0:
         raise ValueError("'max_bond_dim' has to be positive.")
     if (rel_tol < 0) and (rel_tol != float("-inf")):
         raise ValueError("'rel_tol' has to be positive or -inf.")
