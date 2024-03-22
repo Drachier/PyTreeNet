@@ -195,7 +195,8 @@ def tensor_svd(tensor: np.ndarray,
          SplitMode.REDUCED.
     
     Returns:
-        Tuple[np.ndarray,np.ndarray,np.ndarray]: (U, S, V)
+        Tuple[np.ndarray,np.ndarray,np.ndarray]: (U, S, V), where S is the
+         vector of singular values and U and V are tensors.
 
     Example:
              |2                             |1
@@ -261,7 +262,8 @@ def truncated_tensor_svd(tensor: np.ndarray,
          are truncated. Defaults to 1e-15.
     
     Returns:
-        Tuple[np.ndarray,np.ndarray,np.ndarray]: (U, S, V)
+        Tuple[np.ndarray,np.ndarray,np.ndarray]: (U, S, V), where U and V are
+         the truncated tensors and S are the singular values.
 
     Example:
              |2                             |1
@@ -272,10 +274,8 @@ def truncated_tensor_svd(tensor: np.ndarray,
     """
     check_truncation_parameters(max_bond_dim, rel_tol, total_tol)
     correctly_order =  u_legs + v_legs == list(range(len(u_legs) + len(v_legs)))
-
     matrix = tensor_matricization(tensor, u_legs, v_legs, correctly_ordered=correctly_order)
     u, s, vh = np.linalg.svd(matrix)
-
     # Here the truncation happens
     max_singular_value = s[0]
     min_singular_value_cutoff = max(rel_tol * max_singular_value, total_tol)
