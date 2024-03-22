@@ -21,59 +21,58 @@ class SplitMode(Enum):
             return "complete"
         return "reduced"
 
-def transpose_tensor_by_leg_list(tensor, first_legs, last_legs):
+def transpose_tensor_by_leg_list(tensor: np.ndarray,
+                                 first_legs: List[int],
+                                 last_legs: List[int]) -> np.ndarray:
     """
     Transposes a tensor according to two lists of legs. All legs in first_legs
     will become the first legs of the new tensor and the last_legs will all
     become the last legs of the tensor.
 
-    Parameters
-    ----------
-    tensor : ndarray
-        Tensor to be transposed.
-     first_legs : list of int
-        Leg indices that are to become the first legs of the new tensor.
-    last_legs : list of int
-        Leg indices that are to become the last legs of the new tensor..
+    Args:
+        tensor (np.ndarray): Tensor to be transposed.
+        first_legs (List[int]): Leg indices that are to become the first legs
+         of the new tensor.
+        last_legs (List[int]): Leg indices that are to become the last legs
+         of the new tensor.
+    
+    Returns:
+        np.ndarray: New tensor that is the transposed input tensor.
 
-    Returns
-    -------
-    transposed_tensor: ndarray
-        New tensor that is the transposed input tensor.
-
+    Example:
+            _____       (0,2)       _____
+        ___|     |___   (1,3)   ___|     |___
+        0  |     |  1   ---->   0  |     |  2 
+        ___|     |___           ___|     |___
+        2  |_____|  3           1  |_____|  3
     """
     assert tensor.ndim == len(first_legs) + len(last_legs)
-
     correct_leg_order = first_legs + last_legs
     transposed_tensor = np.transpose(tensor, axes=correct_leg_order)
     return transposed_tensor
 
-
 def tensor_matricization(tensor: np.ndarray,
                          output_legs: Tuple[int, ...],
                          input_legs: Tuple[int, ...],
-                         correctly_ordered: bool = False):
+                         correctly_ordered: bool = False) -> np.ndarray:
     """
-    Parameters
-    ----------
-    tensor : ndarray
-        Tensor to be matricized.
-    output_legs : tuple of int
-        The tensor legs which are to be combined to be the matrix' output leg.
-    input_legs : tuple of int
-        The tensor legs which are to be combined to be the matrix' input leg.
-    correctly_ordered: bool, optional
-        If true it is assumed, the tensor does not need to be transposed, i.e.
-        this should be activated if the tensor already has the correct order
-        of legs.
+    Turns a tensor into a matrix by combining the output_legs to the output
+    leg of the matrix and the input_legs to the input leg of the matrix.
 
-    Returns
-    -------
-    matrix : ndarray
-        The resulting matrix.
+    Args:
+        tensor (np.ndarray): Tensor to be matricized.
+        output_legs (Tuple[int]): The tensor legs which are to be combined to
+         be the matrix' output leg (First index).
+        input_legs (Tuple[int]): The tensor legs which are to be combined to
+         be the matrix' input leg (Second index).
+        correctly_ordered (bool, optional): If true it is assumed, the tensor
+         does not need to be transposed, i.e. this should be activated if the
+         tensor already has the correct order of legs. Defaults to False.
+    
+    Returns:
+        np.ndarray: The resulting matrix.
     """
     assert tensor.ndim == len(output_legs) + len(input_legs)
-
     if correctly_ordered:
         tensor_correctly_ordered = tensor
     else:
@@ -83,31 +82,30 @@ def tensor_matricization(tensor: np.ndarray,
     shape = tensor_correctly_ordered.shape
     output_dimension = prod(shape[0:len(output_legs)])
     input_dimension = prod(shape[len(output_legs):])
-
-    matrix = np.reshape(tensor_correctly_ordered, (output_dimension, input_dimension))
+    matrix = np.reshape(tensor_correctly_ordered,
+                        (output_dimension, input_dimension))
     return matrix
 
-
-def _determine_tensor_shape(old_shape, matrix, legs, output=True):
+def _determine_tensor_shape(old_shape: Tuple[int,...],
+                            matrix: np.ndarray,
+                            legs: Tuple[int,...],
+                            output: bool = True) -> Tuple[int,...]:
     """
     Determines the new shape a matrix is to be reshaped to after a decomposition
-    of a tensor of old_shape.
-
-    Parameters
-    ----------
-    old_shape : tuple of int
-        Shape of the original tensor.
-    legs : tuple of int
-        Which legs of the original tensor are associated to matrix.
-    ouput : boolean, optional
-        If the legs of the original tensor are associated to the input or
-        output of matrix. The default is True.
-
-    Returns
-    -------
-    new_shape : tuple of int
-        New shape to which matrix is to be reshaped.
-
+     of a tensor with spape old_shape, to again obtain a tensor.
+    Works only if all legs to be reshaped are combined in the input or output
+     leg of the matrix.
+    
+    Args:
+        old_shape (Tuple[int]): Shape of the original tensor.
+        matrix (np.ndarray): Matrix to be reshaped.
+        legs (Tuple[int]): Which legs of the original tensor are associated to
+         the matrix.
+        output (bool, optional): If the legs of the original tensor are
+         associated to the input or output of matrix. Defaults to True.
+    
+    Returns:
+        Tuple[int]: New shape to which matrix is to be reshaped.
     """
     leg_shape = [old_shape[i] for i in legs]
     if output:
@@ -142,8 +140,17 @@ def tensor_qr_decomposition(tensor: np.ndarray,
 
     Returns:
         Tuple[np.ndarray,np.ndarray]: (Q, R)
+
+    Example:
+             |2                             |1
+           __|_      r_legs = (1, )       __|_        ____
+          |    |     q_legs = (0,2)      |    |      | R  |
+       ___|    |___  -------------->  ___| Q  |______|____|____
+       0  |____|  1                   0  |____| 2   0        1
+
+
     """
-    correctly_order =  q_legs + r_legs == list(range(len(q_legs) + len(r_legs)))
+    correctly_order = q_legs + r_legs == list(range(len(q_legs) + len(r_legs)))
     matrix = tensor_matricization(tensor, q_legs, r_legs,
                                   correctly_ordered=correctly_order)
     q, r = np.linalg.qr(matrix, mode=mode.numpy_qr_mode())
@@ -152,7 +159,6 @@ def tensor_qr_decomposition(tensor: np.ndarray,
     r_shape = _determine_tensor_shape(shape, r, r_legs, output=False)
     q = np.reshape(q, q_shape)
     r = np.reshape(r, r_shape)
-
     if mode is SplitMode.KEEP:
         orig_bond_dim = np.prod(r.shape[1:])
         diff = orig_bond_dim - q.shape[-1]
@@ -162,35 +168,36 @@ def tensor_qr_decomposition(tensor: np.ndarray,
         padding_r = [(0,diff)]
         padding_r.extend([(0,0)]*(r.ndim-1))
         r = np.pad(r,padding_r)
-
     return q, r
 
-def tensor_svd(tensor, u_legs, v_legs, mode='reduced'):
+def tensor_svd(tensor: np.ndarray,
+               u_legs: Tuple[int,...],
+               v_legs: Tuple[int,...],
+               mode: SplitMode = SplitMode.REDUCED) -> Tuple[np.ndarray,np.ndarray,np.ndarray]:
     """
-    Parameters
-    ----------
-    tensor : ndarray
-        Tensor on which the svd is to be performed.
-    u_legs : tuple of int
-        Legs of tensor that are to be associated to U after the SVD.
-    v_legs : tuple of int
-        Legs of tensor that are to be associated to V after the SVD.
-    mode : {'fulll', 'reduced'}
-        Determines if the full or reduced matrices u and vh for the SVD are
-        returned. The default is 'reduced'.
+    Perform a singular value decomposition on a tensor.
 
-    Returns
-    -------
-    u : ndarray
-        The unitary array contracted to the left of the diagonalised singular
-        values.
-    s : ndarray
-        A vector consisting of the tensor's singular values.
-    vh : ndarray
-        The unitary array contracted to the right of the diagonalised singular
-        values.
+    Args:
+        tensor (np.ndarray): Tensor on which the svd is to be performed.
+        u_legs (Tuple[int]): Legs of tensor that are to be associated to U
+         after the SVD.
+        v_legs (Tuple[int]): Legs of tensor that are to be associated to V
+         after the SVD.
+        mode (SplitMode, optional): Determines if the full or reduced matrices
+         u and vh obtained by the SVD are returned. The default is
+         SplitMode.REDUCED.
+    
+    Returns:
+        Tuple[np.ndarray,np.ndarray,np.ndarray]: (U, S, V)
 
+    Example:
+             |2                             |1
+           __|_      v_legs = (1, )       __|_        ____        ____
+          |    |     q_legs = (0,2)      |    |      |  S |      |    |
+       ___|    |___  -------------->  ___|  U |______|____|______| Vh |____1 
+       0  |____|  1                   0  |____| 2   0       1  0 |____|
     """
+    # TODO: Modify to use the Enum
     if (mode != "reduced") and (mode != "full"):
         raise ValueError(f"'mode' may only be 'full' or 'reduced' not {mode}!")
     if u_legs + v_legs == list(range(len(u_legs) + len(v_legs))):
@@ -213,9 +220,19 @@ def tensor_svd(tensor, u_legs, v_legs, mode='reduced'):
 
     return u, s, vh
 
+def check_truncation_parameters(max_bond_dim: int,
+                                rel_tol: float,
+                                total_tol: float):
+    """
+    Checks if the truncation parameters are valid.
 
-def check_truncation_parameters(max_bond_dim, rel_tol, total_tol):
-    if (type(max_bond_dim) != int) and (max_bond_dim != float("inf")):
+    Parameters:
+        max_bond_dim (int): The maximum bond dimension allowed between nodes.
+        rel_tol (float): singular values s for which ( s / largest singular value)
+         < rel_tol are truncated.
+        total_tol (float): singular values s for which s < total_tol are truncated.
+    """
+    if (not isinstance(max_bond_dim,int)) and (max_bond_dim != float("inf")):
         raise TypeError(f"'max_bond_dim' has to be int not {type(max_bond_dim)}!")
     if max_bond_dim < 0:
         raise ValueError("'max_bond_dim' has to be positive.")
@@ -224,39 +241,38 @@ def check_truncation_parameters(max_bond_dim, rel_tol, total_tol):
     if (total_tol < 0) and (total_tol != float("-inf")):
         raise ValueError("'total_tol' has to be positive or -inf.")
 
-
-def truncated_tensor_svd(tensor, u_legs, v_legs,
-                         max_bond_dim=100, rel_tol=0.01, total_tol=1e-15):
+def truncated_tensor_svd(tensor: np.ndarray,
+                         u_legs: Tuple[int,...],
+                         v_legs: Tuple[int,...],
+                         max_bond_dim: int = 100,
+                         rel_tol: float = 0.01,
+                         total_tol: float = 1e-15):
     """
-    Performs an svd including truncation, i.e. discarding some singular values.
+    Performs a singular value decomposition of a tensor including truncation,
+     i.e. discarding some singular values.
+    
+    Args:
+        tensor (np.ndarray): Tensor on which the svd is to be performed.
+        u_legs (Tuple[int]): Legs of tensor that are to be associated to U
+         after the SVD.
+        v_legs (Tuple[int]): Legs of tensor that are to be associated to V
+         after the SVD.
+        max_bond_dim (int, optional): The maximum bond dimension allowed
+         between nodes. Defaults to 100.
+        rel_tol (float, optional): singular values s for which
+         (s / largest singular value) < rel_tol are truncated. Defaults to 0.01.
+        total_tol (float, optional): singular values s for which s < total_tol
+         are truncated. Defaults to 1e-15.
+    
+    Returns:
+        Tuple[np.ndarray,np.ndarray,np.ndarray]: (U, S, V)
 
-    Parameters
-    ----------
-    tensor : ndarray
-        Tensor on which the svd is to be performed.
-    u_legs : tuple of int
-        Legs of tensor that are to be associated to U after the SVD.
-    v_legs : tuple of int
-        Legs of tensor that are to be associated to V after the SVD.
-    max_bond_dim: int
-        The maximum bond dimension allowed between nodes. Default is 100.
-    rel_tol: float
-        singular values s for which ( s / largest singular value) < rel_tol
-        are truncated. Default is 0.01.
-    total_tol: float
-        singular values s for which s < total_tol are truncated.
-        Defaults to 1e-15.
-
-    Returns
-    -------
-    u : ndarray
-        The unitary array contracted to the left of the diagonalised singular
-        values.
-    s : ndarray
-        A vector consisting of the tensor's singular values.
-    vh : ndarray
-        The unitary array contracted to the right of the diagonalised singular
-        values.
+    Example:
+             |2                             |1
+           __|_      v_legs = (1, )       __|_        ____        ____
+          |    |     q_legs = (0,2)      |    |      |  S |      |    |
+       ___|    |___  -------------->  ___|  U |______|____|______| Vh |____1 
+       0  |____|  1                   0  |____| 2   0       1  0 |____|
     """
     check_truncation_parameters(max_bond_dim, rel_tol, total_tol)
     correctly_order =  u_legs + v_legs == list(range(len(u_legs) + len(v_legs)))
@@ -290,15 +306,26 @@ def truncated_tensor_svd(tensor, u_legs, v_legs,
     return u, np.asarray(s), vh
 
 
-def contr_truncated_svd_splitting(tensor, u_legs, v_legs, **truncation_param):
+def contr_truncated_svd_splitting(tensor: np.ndarray,
+                                  u_legs: Tuple[int,...],
+                                  v_legs: Tuple[int,...],
+                                  **truncation_param):
     """
-    Performs a truncated svd, but the singular values are contracted with
-    the V tensor.
+    Performs a truncated singular value decomposition, but the singular values
+     are contracted with the V tensor.
+
+    Args:
+        tensor (np.ndarray): Tensor on which the svd is to be performed.
+        u_legs (Tuple[int]): Legs of tensor that are to be associated to U
+         after the SVD.
+        v_legs (Tuple[int]): Legs of tensor that are to be associated to V
+         after the SVD.
+        **truncation_param: Parameters for the truncation of the singular values.
+         (See truncated_tensor_svd)
     """
     u, s, vh = truncated_tensor_svd(tensor, u_legs, v_legs, **truncation_param)
     svh = np.tensordot(np.diag(s), vh, axes=(1, 0))
     return u, svh
-
 
 def compute_transfer_tensor(tensor: np.ndarray,
                             contr_indices: Union[Tuple[int,...], int]) -> np.ndarray:
