@@ -21,6 +21,13 @@ class SplitMode(Enum):
             return "complete"
         return "reduced"
 
+    def numpy_svd_mode(self) -> True:
+        """
+        Returns, if a numpy SVD decomposition computes the full or reduced
+         matrices.
+        """
+        return self is SplitMode.FULL
+
 def transpose_tensor_by_leg_list(tensor: np.ndarray,
                                  first_legs: List[int],
                                  last_legs: List[int]) -> np.ndarray:
@@ -197,27 +204,16 @@ def tensor_svd(tensor: np.ndarray,
        ___|    |___  -------------->  ___|  U |______|____|______| Vh |____1 
        0  |____|  1                   0  |____| 2   0       1  0 |____|
     """
-    # TODO: Modify to use the Enum
-    if (mode != "reduced") and (mode != "full"):
-        raise ValueError(f"'mode' may only be 'full' or 'reduced' not {mode}!")
-    if u_legs + v_legs == list(range(len(u_legs) + len(v_legs))):
-        correctly_order = True
-    else:
-        correctly_order = False
-    # Cases to deal with input format of numpy function
-    if mode == 'full':
-        full_matrices = True
-    elif mode == 'reduced':
-        full_matrices = False
-
-    matrix = tensor_matricization(tensor, u_legs, v_legs, correctly_ordered=correctly_order)
+    correctly_ordered = u_legs + v_legs == list(range(len(u_legs) + len(v_legs)))
+    full_matrices = mode.numpy_svd_mode()
+    matrix = tensor_matricization(tensor, u_legs, v_legs,
+                                  correctly_ordered=correctly_ordered)
     u, s, vh = np.linalg.svd(matrix, full_matrices=full_matrices)
     shape = tensor.shape
     u_shape = _determine_tensor_shape(shape, u, u_legs, output=True)
     vh_shape = _determine_tensor_shape(shape, vh, v_legs, output=False)
     u = np.reshape(u, u_shape)
     vh = np.reshape(vh, vh_shape)
-
     return u, s, vh
 
 def check_truncation_parameters(max_bond_dim: int,
