@@ -4,6 +4,7 @@ Helpfull functions that work with the tensors of the tensor nodes.
 from __future__ import annotations
 from typing import Tuple, List, Union
 from enum import Enum
+from warnings import warn
 
 from math import prod
 import numpy as np
@@ -238,6 +239,66 @@ def check_truncation_parameters(max_bond_dim: int,
     if (total_tol < 0) and (total_tol != float("-inf")):
         raise ValueError("'total_tol' has to be positive or -inf.")
 
+def renormalise_singular_values(s: np.ndarray,
+                                new_s: np.ndarray) -> np.ndarray:
+    """
+    Renormalises the truncated singular value vector new_s to have the same
+     sum as the original singular value vector s.
+
+    Args:
+        s (np.ndarray): The original vector of singular values.
+        new_s (np.ndarray): The truncated vector of singular values.
+
+    Returns:
+        np.ndarray: The renormalised vector new_s.
+    """
+    norm_old = np.sum(s)
+    norm_new = np.sum(new_s)
+    new_s = new_s * norm_old / norm_new
+    return new_s
+
+def truncate_singular_values(s: np.ndarray,
+                             max_bond_dim: int,
+                             rel_tol: float,
+                             total_tol: float,
+                             renorm: bool = True) -> Tuple[np.ndarray,np.ndarray]:
+    """
+    Truncates the singular values of a tensor given as a vector s.
+
+    Args:
+        s (np.ndarray): Vector of singular values sorted in descending order.
+        max_bond_dim (int, optional): The maximum bond dimension allowed
+         between nodes. Defaults to 100.
+        rel_tol (float, optional): singular values s for which
+         (s / largest singular value) < rel_tol are truncated. Defaults to 0.01.
+        total_tol (float, optional): singular values s for which s < total_tol
+         are truncated. Defaults to 1e-15.
+        renorm (bool, optional): If True, the truncated singular value vector
+         is scaled to have the same
+
+    Returns:
+        Tuple[np.ndarray,np.ndarray]: (new_s, s_trunc), where is is the
+         shortened vector of singular values and s_trunc is a vector of the
+         truncated singular values.
+    """
+    check_truncation_parameters(max_bond_dim, rel_tol, total_tol)
+    max_singular_value = s[0]
+    min_singular_value_cutoff = max(rel_tol * max_singular_value, total_tol)
+    s_temp = s[s > min_singular_value_cutoff]
+    if len(s_temp) > max_bond_dim:
+        s_trunc = s[max_bond_dim:]
+        new_s = s_temp[:max_bond_dim]
+    elif len(s_temp) == 0:
+        warn("All singular values were truncated. Returning only the largest singular value.")
+        s_trunc = s[1:]
+        new_s = [max_singular_value]
+    else:
+        s_trunc = s[len(s_temp):]
+        new_s = s_temp
+    if renorm:
+        new_s = renormalise_singular_values(s, new_s)
+    return new_s, s_trunc
+
 def truncated_tensor_svd(tensor: np.ndarray,
                          u_legs: Tuple[int,...],
                          v_legs: Tuple[int,...],
@@ -272,35 +333,13 @@ def truncated_tensor_svd(tensor: np.ndarray,
        ___|    |___  -------------->  ___|  U |______|____|______| Vh |____1 
        0  |____|  1                   0  |____| 2   0       1  0 |____|
     """
-    check_truncation_parameters(max_bond_dim, rel_tol, total_tol)
-    correctly_order =  u_legs + v_legs == list(range(len(u_legs) + len(v_legs)))
-    matrix = tensor_matricization(tensor, u_legs, v_legs, correctly_ordered=correctly_order)
-    u, s, vh = np.linalg.svd(matrix)
-    # Here the truncation happens
-    max_singular_value = s[0]
-    min_singular_value_cutoff = max(rel_tol * max_singular_value, total_tol)
-    s_temp = [singular_value for singular_value in s
-         if singular_value > min_singular_value_cutoff]
-
-    if len(s_temp) > max_bond_dim:
-        s = s_temp[:max_bond_dim]
-    elif len(s_temp) == 0:
-        s = [max_singular_value]
-    else:
-        s = s_temp
-
+    u, s, vh = tensor_svd(tensor, u_legs, v_legs)
+    s, _ = truncate_singular_values(s, max_bond_dim,
+                                          rel_tol, total_tol)
     new_bond_dim = len(s)
-    u = u[:, :new_bond_dim]
-    vh = vh[:new_bond_dim, :]
-
-    shape = tensor.shape
-    u_shape = _determine_tensor_shape(shape, u, u_legs, output=True)
-    vh_shape = _determine_tensor_shape(shape, vh, v_legs, output=False)
-    u = np.reshape(u, u_shape)
-    vh = np.reshape(vh, vh_shape)
-
+    u = u[..., :new_bond_dim]
+    vh = vh[:new_bond_dim, ...]
     return u, np.asarray(s), vh
-
 
 def contr_truncated_svd_splitting(tensor: np.ndarray,
                                   u_legs: Tuple[int,...],
