@@ -1,6 +1,7 @@
 """
 Some useful tools
 """
+from typing import Tuple
 from copy import deepcopy, copy
 from collections import Counter
 
@@ -10,7 +11,7 @@ from scipy.sparse.linalg import expm_multiply, eigsh
 from scipy.sparse.linalg import expm as expm_sparse
 from scipy.sparse import csr_matrix
 
-def crandn(size):
+def crandn(size: Tuple[int,...]) -> np.ndarray:
     """
     Draw random samples from the standard complex normal (Gaussian) distribution.
     """
