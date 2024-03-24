@@ -341,9 +341,15 @@ def truncated_tensor_svd(tensor: np.ndarray,
     vh = vh[:new_bond_dim, ...]
     return u, np.asarray(s), vh
 
+class ContractionMode(Enum):
+    UCONTR = "ucontr"
+    VCONTR = "vcontr"
+    EQUAL = "equal"
+
 def contr_truncated_svd_splitting(tensor: np.ndarray,
                                   u_legs: Tuple[int,...],
                                   v_legs: Tuple[int,...],
+                                  contr_mode: ContractionMode = ContractionMode.VCONTR,
                                   **truncation_param):
     """
     Performs a truncated singular value decomposition, but the singular values
@@ -355,12 +361,25 @@ def contr_truncated_svd_splitting(tensor: np.ndarray,
          after the SVD.
         v_legs (Tuple[int]): Legs of tensor that are to be associated to V
          after the SVD.
-        **truncation_param: Parameters for the truncation of the singular values.
-         (See truncated_tensor_svd)
+        contr_mode (ContractionMode): Determines how the singular values are
+         contracted into the other tensors.
+         VCONTR contracts them with the V-tensor, UCONTR with the U-tensor
+         and EQUAL contracts the squareroot of the singular values with each
+         tensor. Defaults to ContractionMode.VCONTR
+        **truncation_param: Parameters for the truncation of the singular
+         values. (See truncated_tensor_svd)
     """
     u, s, vh = truncated_tensor_svd(tensor, u_legs, v_legs, **truncation_param)
-    svh = np.tensordot(np.diag(s), vh, axes=(1, 0))
-    return u, svh
+    if contr_mode == ContractionMode.VCONTR:
+        svh = np.tensordot(np.diag(s), vh, axes=(1, 0))
+        return u, svh
+    if contr_mode == ContractionMode.UCONTR:
+        us = np.tensordot(u,np.diag(s), axes=(u.ndim, 0))
+        return us, vh
+    s_root = np.diag(np.sqrt(s))
+    svh = np.tensordot(s_root, vh, axes=(0,1))
+    us = np.tensordot(u,s_root,axes=(u.ndim, 0))
+    return  us, svh
 
 def compute_transfer_tensor(tensor: np.ndarray,
                             contr_indices: Union[Tuple[int,...], int]) -> np.ndarray:
