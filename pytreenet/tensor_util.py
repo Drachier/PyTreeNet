@@ -371,14 +371,15 @@ def contr_truncated_svd_splitting(tensor: np.ndarray,
     """
     u, s, vh = truncated_tensor_svd(tensor, u_legs, v_legs, **truncation_param)
     if contr_mode == ContractionMode.VCONTR:
+        us = u
         svh = np.tensordot(np.diag(s), vh, axes=(1, 0))
-        return u, svh
-    if contr_mode == ContractionMode.UCONTR:
-        us = np.tensordot(u,np.diag(s), axes=(u.ndim, 0))
-        return us, vh
-    s_root = np.diag(np.sqrt(s))
-    svh = np.tensordot(s_root, vh, axes=(0,1))
-    us = np.tensordot(u,s_root,axes=(u.ndim, 0))
+    elif contr_mode == ContractionMode.UCONTR:
+        us = np.tensordot(u,np.diag(s), axes=(-1, 0))
+        svh = vh
+    elif contr_mode == ContractionMode.EQUAL:
+        s_root = np.diag(np.sqrt(s))
+        svh = np.tensordot(s_root, vh, axes=(1, 0))
+        us = np.tensordot(u,s_root,axes=(-1, 0))
     return  us, svh
 
 def compute_transfer_tensor(tensor: np.ndarray,
