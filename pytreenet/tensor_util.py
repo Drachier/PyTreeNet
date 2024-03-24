@@ -27,7 +27,7 @@ class SplitMode(Enum):
         Returns, if a numpy SVD decomposition computes the full or reduced
          matrices.
         """
-        return self is SplitMode.FULL
+        return not self is SplitMode.REDUCED
 
 def transpose_tensor_by_leg_list(tensor: np.ndarray,
                                  first_legs: List[int],
@@ -286,15 +286,15 @@ def truncate_singular_values(s: np.ndarray,
     min_singular_value_cutoff = max(rel_tol * max_singular_value, total_tol)
     s_temp = s[s > min_singular_value_cutoff]
     if len(s_temp) > max_bond_dim:
-        s_trunc = s[max_bond_dim:]
         new_s = s_temp[:max_bond_dim]
+        s_trunc = s[max_bond_dim:]
     elif len(s_temp) == 0:
         warn("All singular values were truncated. Returning only the largest singular value.")
         s_trunc = s[1:]
-        new_s = [max_singular_value]
+        new_s = np.array([max_singular_value])
     else:
-        s_trunc = s[len(s_temp):]
         new_s = s_temp
+        s_trunc = s[len(s_temp):]
     if renorm:
         new_s = renormalise_singular_values(s, new_s)
     return new_s, s_trunc
