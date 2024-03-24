@@ -14,9 +14,9 @@ class TestTreeTensorNetwork(unittest.TestCase):
         self.tensor2 = ptn.crandn((32, 22, 14, 16))
 
     def test_matricization(self):
-        matrix = ptn.tensor_matricization(
-            self.tensor1, self.output_legs, self.input_legs)
-
+        matrix = ptn.tensor_matricization(self.tensor1,
+                                          self.output_legs,
+                                          self.input_legs)
         self.assertEqual(matrix.shape, (3*5, 2*4))
 
     def test_determine_tensor_shape(self):
@@ -46,15 +46,12 @@ class TestTreeTensorNetwork(unittest.TestCase):
     def test_tensor_qr_decomposition(self):
         q, r = ptn.tensor_qr_decomposition(
             self.tensor1, self.output_legs, self.input_legs)
-
         self.assertEqual(q.shape[-1], r.shape[0])
         tensor_shape = self.tensor1.shape
         self.assertEqual(q.shape[0:-1], (tensor_shape[1], tensor_shape[3]))
         self.assertEqual(r.shape[1:], (tensor_shape[0], tensor_shape[2]))
-
         recontracted_tensor = np.einsum("ijk,klm->limj", q, r)
         self.assertTrue(np.allclose(recontracted_tensor, self.tensor1))
-
         # q should be orthonormal
         connection_dimension = q.shape[-1]
         identity = np.eye(connection_dimension)
