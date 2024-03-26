@@ -94,6 +94,24 @@ def tensor_matricization(tensor: np.ndarray,
                         (output_dimension, input_dimension))
     return matrix
 
+def tensor_matricisation_half(tensor: np.ndarray) -> np.ndarray:
+    """
+    Turns a tensor ito a matrix by combining the first half of the legs to
+     the output leg of the matrix and the second half of the legs to the
+     input leg.
+
+    Args:
+        tensor (np.ndarray): Tensor to be matricized.
+    
+    Returns:
+        np.ndarray: The resulting matrix.
+    """
+    assert tensor.ndim % 2 == 0
+    output_legs = tuple(range(0,tensor.ndim//2))
+    input_legs = tuple(range(tensor.ndim//2,tensor.ndim))
+    return tensor_matricization(tensor, output_legs, input_legs,
+                                correctly_ordered=True)
+
 def _determine_tensor_shape(old_shape: Tuple[int,...],
                             matrix: np.ndarray,
                             legs: Tuple[int,...],
