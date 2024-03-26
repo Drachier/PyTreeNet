@@ -15,7 +15,7 @@ import numpy as np
 from ..leg_specification import LegSpecification
 from .time_evolution import time_evolve
 from .ttn_time_evolution import TTNTimeEvolution
-from ..tensor_util import tensor_matricization, SplitMode
+from ..tensor_util import tensor_matricisation_half, SplitMode
 from ..ttns import TreeTensorNetworkState
 from ..ttno.ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
@@ -260,10 +260,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
             np.ndarray: The effective site Hamiltonian
         """
         tensor = self._contract_all_except_node(node_id)
-        output_legs = tuple(range(0,tensor.ndim//2))
-        input_legs = tuple(range(tensor.ndim//2,tensor.ndim))
-        return tensor_matricization(tensor, output_legs, input_legs,
-                                    correctly_ordered=False)
+        return tensor_matricisation_half(tensor)
 
     def _update_cache_after_split(self, node_id: str, next_node_id: str):
         """
@@ -362,8 +359,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
                                   other_cache_tensor,
                                   axes=(1,1))
         tensor = np.transpose(tensor, axes=[1,3,0,2])
-        return tensor_matricization(tensor, (0,1), (2,3),
-                                    correctly_ordered=True)
+        return tensor_matricisation_half(tensor)
 
     def _update_site(self, node_id: str,
                      time_step_factor: float = 1):
