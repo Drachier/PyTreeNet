@@ -6,7 +6,7 @@ Implements the mother class for all two-site TDVP algorithms.
 from typing import List, Union, Dict, Tuple
 import numpy as np
 
-from ..tdvp import TDVPAlgorithm
+from .tdvp_algorithm import TDVPAlgorithm
 from ..time_evolution import time_evolve
 from ...ttns.ttns import TreeTensorNetworkState
 from ...ttno.ttno import TTNO

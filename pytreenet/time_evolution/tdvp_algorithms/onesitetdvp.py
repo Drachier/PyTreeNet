@@ -7,7 +7,7 @@ from copy import deepcopy
 
 import numpy as np
 
-from ..tdvp import TDVPAlgorithm
+from .tdvp_algorithm import TDVPAlgorithm
 from ..time_evolution import time_evolve
 from ...tensor_util import tensor_matricisation_half, SplitMode
 from ...leg_specification import LegSpecification
