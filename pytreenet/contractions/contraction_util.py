@@ -3,6 +3,8 @@ Modul that contains utility functions for contractions, i.e. those needed
  in multiple kinds of contraction to avoid code duplication.
 """
 
+# TODO: Refactorise to avoid code duplication for ket and hamiltonian contractions.
+
 from __future__ import annotations
 from typing import List, Union, Tuple
 
@@ -101,10 +103,10 @@ def contract_neighbour_block_to_ket(ket_tensor: np.ndarray,
                         axes=([tensor_leg_to_neighbour],[0]))
 
 def contract_neighbour_block_to_ket_ignore_one_leg(ket_tensor: np.ndarray,
-                                                     ket_node: Node,
-                                                     neighbour_id: str,
-                                                     ignoring_node_id: str,
-                                                     partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
+                                                   ket_node: Node,
+                                                   neighbour_id: str,
+                                                   ignoring_node_id: str,
+                                                   partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
     """
     Contracts the ket tensor, i.e. A in the diagrams, with one neighbouring
      block, C in the diagrams, ignoring one leg.
@@ -202,4 +204,183 @@ def contract_all_neighbour_blocks_to_ket(ket_tensor: np.ndarray,
                                                         neighbour_id,
                                                         partial_tree_cache,
                                                         tensor_leg_to_neighbour=0)
+    return result_tensor
+
+def contract_neighbour_block_to_hamiltonian(hamiltonian_tensor: np.ndarray,
+                                            hamiltonian_node: Node,
+                                            neighbour_id: str,
+                                            partial_tree_cache: PartialTreeCachDict,
+                                            tensor_leg_to_neighbour: Union[None,int]=None) -> np.ndarray:
+    """
+    Contract the Hamiltonian tensor, i.e. H in the diagrams, with one neighbouring
+     block, C in the diagrams.
+
+    Args:
+        hamiltonian_tensor (np.ndarray): The tensor of the Hamiltonian node.
+        hamiltonian_node (Node): The Hamiltonian node.
+        neighbour_id (str): The identifier of the neighbour node which is the
+            root node of the subtree that has already been contracted and is
+            saved in the dictionary.
+        tensor_leg_to_neighbour (int): The index of the leg of the Hamiltonian tensor
+            that points to the neighbour block and is thus to be contracted.
+        partial_tree_cache (PartialTreeCacheDict): The dictionary containing the
+            already contracted subtrees. The tensors in here can have an arbitrary
+            number of legs, but the first leg is the one that is contracted with
+            the Hamiltonian tensor.
+
+    Returns:
+        np.ndarray: The resulting tensor.
+                 _____       out      
+                |     |____    
+                |     |   4             
+                |     |        |2       
+                |     |     ___|__      
+                |     |    |      |     
+                |     |____|   H  |_____
+                |     |    |      |     0
+                |     |    |______|     
+                |     |        |        
+                |     |        |1    
+                |     |                 
+                |     |_____       
+                |_____|    3      
+                              in
+    """
+    cached_neighbour_tensor = partial_tree_cache.get_entry(neighbour_id,
+                                                           hamiltonian_node.identifier)
+    if tensor_leg_to_neighbour is None:
+        tensor_leg_to_neighbour = hamiltonian_node.neighbour_index(neighbour_id)
+    return np.tensordot(hamiltonian_tensor, cached_neighbour_tensor,
+                        axes=([tensor_leg_to_neighbour],[1]))
+
+def contract_neighbour_block_to_hamiltonian_ignore_one_leg(hamiltonian_tensor: np.ndarray,
+                                                           hamiltonian_node: Node,
+                                                           neighbour_id: str,
+                                                           ignoring_node_id: str,
+                                                           partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
+    """
+    Contract all neighbour blocks to the Hamiltonian tensor.
+
+    Args:
+        hamiltonian_tensor (np.ndarray): The tensor of the Hamiltonian node.
+        hamiltonian_node (Node): The Hamiltonian node.
+        neighbour_id (str): The identifier of the neighbour node which is the
+            root node of the subtree that has already been contracted and is
+            saved in the dictionary.
+        ignoring_node_id (str): The identifier of the node to which the virtual
+            leg should not point.
+        partial_tree_cache (PartialTreeCacheDict): The dictionary containing the
+            already contracted subtrees.
+
+    Returns:
+        np.ndarray: The resulting tensor.
+
+                 _____       out      
+                |     |____    
+                |     |   4             
+                |     |        |2       
+                |     |     ___|__      
+                |     |    |      |     
+                |     |____|   H  |_____
+                |     |    |      |     0
+                |     |    |______|     
+                |     |        |        
+                |     |        |1    
+                |     |                 
+                |     |_____       
+                |_____|    3      
+                              in
+    """
+    tensor_index_to_neighbour = determine_index_with_ignored_leg(hamiltonian_node,
+                                                                 neighbour_id,
+                                                                 ignoring_node_id)
+    return contract_neighbour_block_to_hamiltonian(hamiltonian_tensor,
+                                                   hamiltonian_node,
+                                                   neighbour_id,
+                                                   partial_tree_cache,
+                                                   tensor_leg_to_neighbour=tensor_index_to_neighbour)        
+
+def contract_all_but_one_neighbour_block_to_hamiltonian(hamiltonian_tensor: np.ndarray,
+                                                        hamiltonian_node: Node,
+                                                        next_node_id: str,
+                                                        partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
+    """
+    Contract all neighbour blocks to the Hamiltonian tensor.
+
+    Args:
+        hamiltonian_tensor (np.ndarray): The tensor of the Hamiltonian node.
+        hamiltonian_node (Node): The Hamiltonian node.
+        next_node_id (str): The identifier of the node to which the remaining
+            virtual leg points.
+        partial_tree_cache (PartialTreeCacheDict): The dictionary containing the
+            already contracted subtrees.
+
+    Returns:
+        np.ndarray: The resulting tensor.
+
+                 _____       out      
+                |     |____    
+                |     |   4             
+                |     |        |2       
+                |     |     ___|__      
+                |     |    |      |     
+                |     |____|   H  |_____
+                |     |    |      |     0
+                |     |    |______|     
+                |     |        |        
+                |     |        |1    
+                |     |                 
+                |     |_____       
+                |_____|    3      
+                              in
+    """
+    result_tensor = hamiltonian_tensor
+    for neighbour_id in hamiltonian_node.neighbouring_nodes():
+        if neighbour_id != next_node_id:
+            result_tensor = contract_neighbour_block_to_hamiltonian_ignore_one_leg(hamiltonian_tensor,
+                                                                                   hamiltonian_node,
+                                                                                   neighbour_id,
+                                                                                   next_node_id,
+                                                                                   partial_tree_cache)
+    return result_tensor
+
+def contract_all_neighbour_blocks_to_hamiltonian(hamiltonian_tensor: np.ndarray,
+                                                 hamiltonian_node: Node,
+                                                 partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
+    """
+    Contract all neighbour blocks to the hamiltonian tensor.
+
+    Args:
+        hamiltonian_tensor (np.ndarray): The tensor of the hamiltonian node.
+        hamiltonian_node (Node): The hamiltonian node.
+        partial_tree_cache (PartialTreeCacheDict): The dictionary containing the
+            already contracted subtrees.
+
+    Returns:
+        np.ndarray: The resulting tensor.
+                 _____                   _____
+                |     |____2      2_____|     |
+                |     |                 |     |
+                |     |        |       |     |
+                |     |     ___|__      |     |
+                |     |    |      |     |     |
+                |     |____|      |_____|     |
+                |     | 1  |   H  |   1 |     |
+                |     |    |______|     |     |
+                |     |        |        |     |
+                |     |        |        |     |
+                |     |                 |     |
+                |     |_____       _____|     |
+                |_____| 0           0   |_____|
+                              
+        """
+    result_tensor = hamiltonian_tensor
+    for neighbour_id in hamiltonian_node.neighbouring_nodes():
+        # H's neighbours are the same as the leg order, the tensor_leg_to_neighbour
+        # is always 0.
+        result_tensor = contract_neighbour_block_to_hamiltonian(result_tensor,
+                                                                hamiltonian_node,
+                                                                neighbour_id,
+                                                                partial_tree_cache,
+                                                                tensor_leg_to_neighbour=0)
     return result_tensor
