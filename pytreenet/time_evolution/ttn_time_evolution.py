@@ -21,6 +21,9 @@ class TTNTimeEvolution(TimeEvolution):
         """
         super().__init__(initial_state, time_step_size, final_time, operators)
 
+        self.initial_state: TreeTensorNetworkState
+        self.state: TreeTensorNetworkState
+
     def evaluate_operator(self, operator: TensorProduct) -> complex:
         """
         Evaluate the expectation value of a single operator.
