@@ -24,7 +24,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
                  operators: Union[TensorProduct, List[TensorProduct]],
                  truncation_parameters: Dict) -> None:
         """
-        Initilises an instance of a TDVP algorithm.
+        Initialises an instance of a two-site TDVP algorithm.
 
         Args:
             intial_state (TreeTensorNetworkState): The initial state of the
@@ -278,6 +278,21 @@ class TwoSiteTDVP(TDVPAlgorithm):
                                   max_bond_dim=self.max_bond_dim,
                                   rel_tol=self.rel_tol,
                                   total_tol=self.total_tol)
+        self.state.orthogonality_center_id = next_node_id
+        self.update_tree_cache(target_node_id, next_node_id)
+
+    def _single_site_backwards_update(self,
+                                       node_id: str,
+                                       time_step_factor: float = 1):
+        """
+        Performs the single-site backwards update on the given node.
+
+        Args:
+            node_id (str): The id of the node to update.
+            time_step_factor (float): The factor by which to multiply the
+             time step size. Default is 1.
+        """
+        self._update_site(node_id, -1 * time_step_factor)
 
     @staticmethod
     def create_two_site_id(node_id: str, next_node_id: str) -> str:
