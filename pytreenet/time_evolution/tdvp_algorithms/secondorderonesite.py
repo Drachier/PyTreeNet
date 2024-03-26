@@ -5,9 +5,9 @@ from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.ttno.ttno import TTNO
 from pytreenet.ttns import TreeTensorNetworkState
 
-from ..tdvp import TDVPAlgorithm
+from .onesitetdvp import OneSiteTDVP
 
-class SecondOrderOneSiteTDVP(TDVPAlgorithm):
+class SecondOrderOneSiteTDVP(OneSiteTDVP):
     """
     The first order one site TDVP algorithm.
      This means we have second order Trotter splitting for the time evolution:

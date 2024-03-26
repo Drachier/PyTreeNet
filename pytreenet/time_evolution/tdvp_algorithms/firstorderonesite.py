@@ -1,9 +1,7 @@
-from typing import Union
-
 from ...tensor_util import SplitMode
-from ..tdvp import TDVPAlgorithm
+from .onesitetdvp import OneSiteTDVP
 
-class FirstOrderOneSiteTDVP(TDVPAlgorithm):
+class FirstOrderOneSiteTDVP(OneSiteTDVP):
     """
     The first order one site TDVP algorithm.
      This means we have first order Trotter splitting for the time evolution:
