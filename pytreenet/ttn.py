@@ -432,7 +432,6 @@ class TreeTensorNetwork(TreeStructure):
              parent legs. The open legs are the index values that the legs would have
              after contracting the two nodes.
         """
-
         node1 = self.nodes[node1_id]
         node2 = self.nodes[node2_id]
         tot_nvirt_legs = node1.nvirt_legs() + node2.nvirt_legs() - 2
