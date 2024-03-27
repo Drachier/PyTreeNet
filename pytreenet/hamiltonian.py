@@ -261,6 +261,29 @@ def create_nearest_neighbour_hamiltonian(structure: TreeStructure,
                                         child: local_operator}))
     return Hamiltonian(terms, conversion_dictionary=conversion_dict)
 
+def create_single_site_hamiltonian(structure: TreeStructure,
+                                   local_operator: Dict[str, ndarray],
+                                   conversion_dict: Union[Dict[str,ndarray],None]) -> Hamiltonian:
+    """
+    Creates a Hamiltonian for a given tree structure and local operators.
+    The Hamiltonian will contain a term A for every site i
+    
+    Args:
+        structure (TreeStructure): The tree structure for which the
+         Hamiltonian should be created.
+        local_operator (Dict[str, ndarray]): The local operators to be used
+         to generate the single site interaction, i.e. A_i for every i.
+        conversion_dict (Union[Dict[str,ndarray],None]): A conversion
+         that can be used, if symbolic operators were used. Defaults to None.
+    
+    Returns:
+        Hamiltonian: The Hamiltonian for the given structure.
+    """
+    terms = []
+    for identifier in structure.nodes():
+        terms.append(TensorProduct({identifier: local_operator}))
+    return Hamiltonian(terms, conversion_dictionary=conversion_dict)
+
 def random_terms(
         num_of_terms: int, possible_operators: list, sites: list[str],
         min_strength: float = -1, max_strength: float = 1, min_num_sites: int = 2,
