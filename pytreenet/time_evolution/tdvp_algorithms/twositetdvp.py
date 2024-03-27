@@ -282,8 +282,8 @@ class TwoSiteTDVP(TDVPAlgorithm):
         self.update_tree_cache(target_node_id, next_node_id)
 
     def _single_site_backwards_update(self,
-                                       node_id: str,
-                                       time_step_factor: float = 1):
+                                      node_id: str,
+                                      time_step_factor: float = 1):
         """
         Performs the single-site backwards update on the given node.
 
