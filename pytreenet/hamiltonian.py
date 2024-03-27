@@ -232,6 +232,35 @@ class Hamiltonian():
         dup = [term for term in self.terms if self.terms.count(term) > 1]
         return len(dup) > 0
 
+def create_nearest_neighbour_hamiltonian(structure: TreeStructure,
+                                         local_operator: Union[ndarray, str],
+                                         conversion_dict: Union[Dict[str,ndarray],None]) -> Hamiltonian:
+    """
+    Creates a nearest neighbour Hamiltonian for a given tree structure and
+     local operator.
+    So for every nearest neighbour pair (i,j) the Hamiltonian will contain a
+     term A_i (x) A_j, where A_i is the local operator at site i.
+    
+    Args:
+        structure (TreeStructure): The tree structure for which the
+         Hamiltonian should be created.
+        local_operator (Union[ndarray, str]): The local operator to be used
+         to generate the nearest neighbour interaction, i.e. A. Which is
+         equal for all i.
+        conversion_dict (Union[Dict[str,ndarray],None]): A conversion
+            that can be used, if symbolic operators were used. Defaults to
+            None.
+    
+    Returns:
+        Hamiltonian: The Hamiltonian for the given structure.
+    """
+    terms = []
+    for identifier, node in structure.nodes.items():
+        for child in node.children:
+            terms.append(TensorProduct({identifier: local_operator,
+                                        child: local_operator}))
+    return Hamiltonian(terms, conversion_dictionary=conversion_dict)
+
 def random_terms(
         num_of_terms: int, possible_operators: list, sites: list[str],
         min_strength: float = -1, max_strength: float = 1, min_num_sites: int = 2,
@@ -300,7 +329,6 @@ def random_terms(
         rterms.append(term)
 
     return rterms
-
 
 def random_symbolic_terms(num_of_terms: int, possible_operators: list[ndarray], sites: list[str],
                           min_num_sites: int = 2,  max_num_sites: int = 2,
