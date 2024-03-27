@@ -387,7 +387,7 @@ class StateDiagram():
         
         #print("----------------->>>>>>>>>><<<<<<<<<<-----------------")
         
-        coeffs_next = [state.coeff for state in state_diagrams]
+        #coeffs_next = [state.coeff for state in state_diagrams]
         
         queue = deque()
 
@@ -438,8 +438,7 @@ class StateDiagram():
                 #print(local_vs)
 
                 fc = compound_state_diagram.combine_v(local_vs, current_node, parent)
-                if fc == 1:
-
+                if fc == 42: # Eliminating the bipartite algorithm. For run, fc == 1
                     
                     ulist = []
                     vlist = []
@@ -892,7 +891,7 @@ class StateDiagram():
             return self.combine_v(local_vs, current_node, parent)
             
         return 1
-    
+
     def combine_u(self, local_hyperedges, parent, p_vs):
         combined = set()
 

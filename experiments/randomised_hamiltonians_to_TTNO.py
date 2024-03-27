@@ -2,6 +2,18 @@ from __future__ import annotations
 from typing import Any, Dict, Tuple
 from argparse import ArgumentParser
 
+# FOR PATH PROBLEMS 
+import sys
+from pathlib import Path
+
+# Add the parent directory to sys.path
+current_dir = Path(__file__).parent
+parent_dir = current_dir.parent
+sys.path.append(str(parent_dir))
+
+# END PATH PROBLEMS
+
+
 import h5py
 import numpy as np
 from tqdm import tqdm
@@ -9,6 +21,8 @@ from tqdm import tqdm
 from numpy.random import default_rng
 
 import pytreenet as ptn
+
+
 
 def construct_tree_root_at_1() -> ptn.TreeTensorNetworkState:
     """
@@ -143,7 +157,7 @@ def obtain_bond_dimensions(ttno: ptn.TTNO) -> np.ndarray:
 
 def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
          leg_dict: Dict[str,int],
-         num_runs: int = 10000, min_num_terms: int=1,
+         num_runs: int = 20, min_num_terms: int=1,
          max_num_terms: int = 30):
     # Prepare variables
     X, Y, Z = ptn.pauli_matrices()
@@ -155,6 +169,8 @@ def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
     with h5py.File(filename, "w") as file:
         save_metadata(file, seed, max_num_terms, num_runs, conversion_dict,
                       leg_dict)
+        error_count = 0
+
         for num_terms in tqdm(range(min_num_terms, max_num_terms + 1)):
             dset_svd, dset_ham = create_bond_dim_data_sets(file,
                                                            num_terms,
@@ -162,12 +178,13 @@ def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
                                                            num_runs)
             run = 0
             while run < num_runs:
+                print("num: ", run) if run % 25 == 0 else None
                 hamiltonian = generate_random_hamiltonian(conversion_dict,
                                                           ref_tree,
                                                           rng,
                                                           num_terms)
                 if not hamiltonian.contains_duplicates():
-                    ttno_ham = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree)
+                    ttno_ham = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree, ptn.state_diagram.method.BIPARTITE)
                     total_tensor = hamiltonian.to_tensor(ref_tree).operator
                     ttno_svd = ptn.TTNO.from_tensor(ref_tree,
                                                     total_tensor,
@@ -175,8 +192,11 @@ def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
                                                     mode=ptn.Decomposition.tSVD)
                     dset_ham[run, :] = obtain_bond_dimensions(ttno_ham)
                     dset_svd[run, :] = obtain_bond_dimensions(ttno_svd)
-                    if np.all(dset_ham[run, :] > dset_svd[run, :]):
+                    if np.any(dset_ham[run, :] > dset_svd[run, :]):
                         print(hamiltonian)
+                        print("Difference is: ", dset_ham[run, :], " ---- ", dset_svd[run, :])
+                        error_count += 1
+                        print("Total difference: ", error_count)
                     run += 1
 
 if __name__ == "__main__":

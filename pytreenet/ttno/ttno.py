@@ -6,7 +6,7 @@ import numpy as np
 from ..ttn import TreeTensorNetwork
 from ..tensor_util import tensor_qr_decomposition, tensor_svd, truncated_tensor_svd
 from ..node import Node
-from .state_diagram import StateDiagram
+from .state_diagram import StateDiagram, method
 
 class Decomposition(Enum):
     SVD = "SVD"
@@ -36,7 +36,7 @@ class TTNO(TreeTensorNetwork):
 
     @classmethod
     def from_hamiltonian(cls, hamiltonian: Hamiltonian,
-                            reference_tree: TreeStructure) -> TTNO:
+                            reference_tree: TreeStructure, method: method.TREE ) -> TTNO:
         """
         Generates a TTNO from a Hamiltonian.
 
@@ -50,7 +50,7 @@ class TTNO(TreeTensorNetwork):
             TTNO: The resulting TTNO.
         """
         state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
-                                                      reference_tree)
+                                                      reference_tree, method)
         ttno = TTNO()
         root_id = reference_tree.root_id
         root_shape = state_diagram.obtain_tensor_shape(root_id,
