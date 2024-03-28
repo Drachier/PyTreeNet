@@ -20,11 +20,16 @@ class RandomTTNSMode(Enum):
     SAME = "same_dimension"
     DIFFVIRT = "different_virt_dimensions"
 
-def random_small_ttns() -> TreeTensorNetworkState:
+def random_small_ttns(mode: RandomTTNSMode = RandomTTNSMode.DIFFVIRT) -> TreeTensorNetworkState:
     """
     Generates a small TreeTensorNetworkState of three nodes:
     The root (`"root"`) and its two children (`"c1"` and `"c2"`). The associated 
     tensors are random, but their dimensions are set.
+
+    Args:
+    mode (RandomTTNSMode): The mode of random generation of the TTNS. If mode
+     is DIFFVIRT, the dimensions are as follows. Otherwise, the dimensions are
+     all 2.
 
                 |2
                 |
@@ -33,14 +38,23 @@ def random_small_ttns() -> TreeTensorNetworkState:
          3|  5/  6\\   |4
           |  /     \\  |
            c1        c2
+
     """
     random_ttns = TreeTensorNetworkState()
-    root_node, root_tensor = random_tensor_node((5,6,2),"root")
-    random_ttns.add_root(root_node, root_tensor)
-    c1_node, c1_tensor = random_tensor_node((5,3),"c1")
-    random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, "root", 0)
-    c2_node, c2_tensor = random_tensor_node((6,4),"c2")
-    random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, "root", 1)
+    if mode == RandomTTNSMode.DIFFVIRT:
+        root_node, root_tensor = random_tensor_node((5,6,2),"root")
+        random_ttns.add_root(root_node, root_tensor)
+        c1_node, c1_tensor = random_tensor_node((5,3),"c1")
+        random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, "root", 0)
+        c2_node, c2_tensor = random_tensor_node((6,4),"c2")
+        random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, "root", 1)
+    else:
+        root_node, root_tensor = random_tensor_node((2,2,2),"root")
+        random_ttns.add_root(root_node, root_tensor)
+        c1_node, c1_tensor = random_tensor_node((2,3),"c1")
+        random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, "root", 0)
+        c2_node, c2_tensor = random_tensor_node((2,4),"c2")
+        random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, "root", 1)
     return random_ttns
 
 def random_big_ttns(mode: RandomTTNSMode = RandomTTNSMode.SAME) -> TreeTensorNetworkState:
