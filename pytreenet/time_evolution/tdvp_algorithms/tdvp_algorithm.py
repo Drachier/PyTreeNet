@@ -19,7 +19,7 @@ from ...ttno.ttno import TTNO
 from ...operators.tensorproduct import TensorProduct
 from ...contractions.tree_cach_dict import PartialTreeCachDict
 from ...contractions.state_operator_contraction import contract_any
-from ..tdvp_util.update_path import TDVPUpdatePathFinder
+from ..time_evo_util.update_path import TDVPUpdatePathFinder
 
 class TDVPAlgorithm(TTNTimeEvolution):
     """
