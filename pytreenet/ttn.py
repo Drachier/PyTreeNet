@@ -253,10 +253,10 @@ class TreeTensorNetwork(TreeStructure):
             neighbour_id (Union[str,None], optional): The identifier of the
              neighbour node. If None, the parent is used. Defaults to None.
         """
+        node = self.nodes[node_id]
         if neighbour_id is None:
-            node = self.nodes[node_id]
             neighbour_id = node.parent
-        return node.shape(node.neighbour_index(neighbour_id))
+        return node.shape[node.neighbour_index(neighbour_id)]
 
     def max_bond_dim(self) -> int:
         """
@@ -269,7 +269,7 @@ class TreeTensorNetwork(TreeStructure):
             errstr = "This TTN has no virtual bond dimension!"
             raise AssertionError(errstr)
         max_bd = 0
-        for node in self.nodes:
+        for node in self.nodes.values():
             if not node.is_root():
                 parent_bd = self.bond_dim(node.identifier,node.parent)
                 if parent_bd > max_bd:
@@ -286,7 +286,7 @@ class TreeTensorNetwork(TreeStructure):
              parent and child node in that order.
         """
         bond_dims = {}
-        for node in self.nodes:
+        for node in self.nodes.values():
             if not node.is_root():
                 parent_bd = self.bond_dim(node.identifier,node.parent)
                 bond_dims[(node.parent, node.identifier)] = parent_bd

@@ -39,11 +39,11 @@ class TTNTimeEvolution(TimeEvolution):
         """
         return self.bond_dims is not None
 
-    def obtain_bond_dim(self) -> Dict[Tuple[str,str]: int]:
+    def obtain_bond_dims(self) -> Dict[Tuple[str,str]: int]:
         """
         Obtains a dictionary of all bond dimensions in the current state.
         """
-        return self.state.bond_dim()
+        return self.state.bond_dims()
 
     def record_bond_dimensions(self):
         """
@@ -52,9 +52,9 @@ class TTNTimeEvolution(TimeEvolution):
         """
         if self.records_bond_dim:
             if len(self.bond_dims) == 0:
-                self.bond_dims = {key: [value] for key, value in self.obtain_bond_dim().items()}
+                self.bond_dims = {key: [value] for key, value in self.obtain_bond_dims().items()}
             else:
-                for key, value in self.obtain_bond_dim().items():
+                for key, value in self.obtain_bond_dims().items():
                     self.bond_dims[key].append(value)
 
     def operator_result(self,
