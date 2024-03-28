@@ -91,7 +91,6 @@ class TestTDVPonMPS(unittest.TestCase):
         self.assertEqual(correct_orth_path, tdvp.orthogonalization_path)
         self.assertEqual(mps.orthogonality_center_id, "site_3")
         self.assertTrue(mps.is_in_canonical_form("site_3"))
-        ref_mps.orthogonalize("site_3", mode=ptn.SplitMode.KEEP)
         self.assertEqual(mps,ref_mps)
         ref_cache_dict = self._init_ref_cache(ref_mps, tdvp.hamiltonian)
         self._check_cache_initialization(tdvp, ref_cache_dict)
@@ -259,6 +258,7 @@ class TestTDVPonMPS(unittest.TestCase):
                                          time_step_size, final_time,
                                          operators)
         mps : ptn.TreeTensorNetworkState = tdvp.state
+        ref_mps.orthogonalize("site_3", mode=ptn.SplitMode.KEEP)
 
         # Checking for correct initialization
         self._check_init_tdvp1(tdvp, ref_mps)
