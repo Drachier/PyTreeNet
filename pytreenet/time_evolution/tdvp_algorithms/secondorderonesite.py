@@ -16,9 +16,11 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
 
     def __init__(self, initial_state: TreeTensorNetworkState,
                  hamiltonian: TTNO, time_step_size: float, final_time: float,
-                 operators: Union[TensorProduct, List[TensorProduct]]) -> None:
+                 operators: Union[TensorProduct, List[TensorProduct]],
+                 **kwargs) -> None:
         super().__init__(initial_state, hamiltonian,
-                         time_step_size, final_time, operators)
+                         time_step_size, final_time, operators,
+                         **kwargs)
         self.backwards_update_path = self._init_second_order_update_path()
         self.backwards_orth_path = self._init_second_order_orth_path()
 

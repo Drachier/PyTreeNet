@@ -16,7 +16,8 @@ class TEBD(TTNTimeEvolution):
                  trotter_splitting: TrotterSplitting, time_step_size: float,
                  final_time: float, operators: Union[List[TensorProduct], TensorProduct],
                  max_bond_dim: Union[int, float] = 100, rel_tol: float =1e-16,
-                 total_tol: float = 1e-16):
+                 total_tol: float = 1e-16,
+                 **kwargs):
         """
         A class that can be used to time evolve an initial state in the form
          a tree tensor network state via the TEBD algorithm.
@@ -43,7 +44,10 @@ class TEBD(TTNTimeEvolution):
         Raises:
             ValueError: If the trotter splitting and TTNS are not compatible.
         """
-        super().__init__(initial_state, time_step_size, final_time, operators)
+        super().__init__(initial_state,
+                         time_step_size, final_time,
+                         operators,
+                         **kwargs)
         self._trotter_splitting = trotter_splitting
 
         if max_bond_dim < 1:

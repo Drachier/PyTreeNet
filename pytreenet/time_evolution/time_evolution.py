@@ -267,7 +267,7 @@ class TimeEvolution:
                                     dtype=complex)
 
     def run(self, evaluation_time: Union[int,"inf"] = 1, filepath: str = "",
-            pgbar: bool = True):
+            pgbar: bool = True,):
         """
         Runs this time evolution algorithm for the given parameters and
          saves the computed expectation values.

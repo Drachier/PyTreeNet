@@ -14,7 +14,8 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
                  hamiltonian: TTNO,
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
-                 truncation_parameters: Dict) -> None:
+                 truncation_parameters: Dict,
+                 **kwargs) -> None:
         """
         Initialises an instance of a second ordertwo-site TDVP algorithm.
 
@@ -36,7 +37,8 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
         """
         super().__init__(initial_state, hamiltonian,
                          time_step_size, final_time, operators,
-                         truncation_parameters)
+                         truncation_parameters,
+                         **kwargs)
         self.backwards_update_path = self._init_second_order_update_path()
         self.backwards_orth_path = self._init_second_order_orth_path()
 

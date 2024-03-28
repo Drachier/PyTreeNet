@@ -22,7 +22,8 @@ class TwoSiteTDVP(TDVPAlgorithm):
                  hamiltonian: TTNO,
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
-                 truncation_parameters: Dict) -> None:
+                 truncation_parameters: Dict,
+                 **kwargs) -> None:
         """
         Initialises an instance of a two-site TDVP algorithm.
 
@@ -44,7 +45,8 @@ class TwoSiteTDVP(TDVPAlgorithm):
         """
         super().__init__(initial_state, hamiltonian,
                          time_step_size, final_time,
-                         operators)
+                         operators,
+                         **kwargs)
         self.max_bond_dim, self.rel_tol, self.total_tol = self._init_truncation_parameters(truncation_parameters)
 
     def _init_truncation_parameters(self, truncation_parameters: Dict) -> Tuple[int, float, float]:

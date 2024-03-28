@@ -30,7 +30,8 @@ class TDVPAlgorithm(TTNTimeEvolution):
     def __init__(self, initial_state: TreeTensorNetworkState,
                  hamiltonian: TTNO,
                  time_step_size: float, final_time: float,
-                 operators: Union[TensorProduct, List[TensorProduct]]) -> None:
+                 operators: Union[TensorProduct, List[TensorProduct]],
+                 **kwargs) -> None:
         """
         Initilises an instance of a TDVP algorithm.
 
@@ -46,7 +47,10 @@ class TDVPAlgorithm(TTNTimeEvolution):
         """
         assert len(initial_state.nodes) == len(hamiltonian.nodes)
         self.hamiltonian = hamiltonian
-        super().__init__(initial_state, time_step_size, final_time, operators)
+        super().__init__(initial_state,
+                         time_step_size, final_time,
+                         operators,
+                         **kwargs)
         self.update_path = self._finds_update_path()
         self.orthogonalization_path = self._find_tdvp_orthogonalization_path(self.update_path)
         self._orthogonalize_init()

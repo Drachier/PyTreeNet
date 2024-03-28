@@ -13,14 +13,14 @@ class TTNTimeEvolution(TimeEvolution):
 
     def __init__(self, initial_state: TreeTensorNetworkState,
                  time_step_size: float, final_time: float,
-                 operators: Union[List[TensorProduct], TensorProduct]) -> None:
+                 operators: Union[List[TensorProduct], TensorProduct],
+                 record_bond_dim: bool = False, **kwargs) -> None:
         """
         A time evolution for tree tensor networks starting from and initial
          state and running to a final time with a given time step size. During
          the time evolution, expectation values of operators are computed.
         """
         super().__init__(initial_state, time_step_size, final_time, operators)
-
         self.initial_state: TreeTensorNetworkState
         self.state: TreeTensorNetworkState
 
@@ -36,4 +36,3 @@ class TTNTimeEvolution(TimeEvolution):
             np.ndarray: The expectation value of the operator.
         """
         return self.state.operator_expectation_value(operator)
-        
