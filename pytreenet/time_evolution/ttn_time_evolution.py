@@ -1,5 +1,7 @@
 from __future__ import annotations
-from typing import List, Union
+from typing import List, Union, Dict, Tuple
+
+from numpy import ndarray
 
 from .time_evolution import TimeEvolution
 from ..ttns import TreeTensorNetworkState
@@ -23,6 +25,51 @@ class TTNTimeEvolution(TimeEvolution):
         super().__init__(initial_state, time_step_size, final_time, operators)
         self.initial_state: TreeTensorNetworkState
         self.state: TreeTensorNetworkState
+
+        if record_bond_dim:
+            self.bond_dims = {}
+        else:
+            self.bond_dims = None
+
+    @property
+    def records_bond_dim(self) -> bool:
+        """
+        Returns whether the bond dimensions are recorded during the time
+         evolution.
+        """
+        return self.bond_dims is not None
+
+    def obtain_bond_dim(self) -> Dict[Tuple[str,str]: int]:
+        """
+        Obtains a dictionary of all bond dimensions in the current state.
+        """
+        return self.state.bond_dim()
+
+    def record_bond_dimensions(self):
+        """
+        Records the bond dimensions of the current state, if the bond
+         dimensions are being recorded.
+        """
+        if self.records_bond_dim:
+            if len(self.bond_dims) == 0:
+                self.bond_dims = {key: [value] for key, value in self.obtain_bond_dim().items()}
+            else:
+                for key, value in self.obtain_bond_dim().items():
+                    self.bond_dims[key].append(value)
+
+    def operator_result(self,
+                        operator_id: str | int,
+                        realise: bool = False) -> ndarray:
+        if isinstance(operator_id, str) and operator_id == "bond_dim":
+            if self.records_bond_dim:
+                return self.bond_dims
+            errstr = "Bond dimensions are not being recorded."
+            raise ValueError(errstr)
+        return super().operator_result(operator_id, realise)
+
+    def evaluate_operators(self) -> ndarray:
+        super().evaluate_operators()
+        self.record_bond_dimensions()
 
     def evaluate_operator(self, operator: TensorProduct) -> complex:
         """
