@@ -154,7 +154,7 @@ class TimeEvolution:
         Returns the times at which the operators were evaluated.
         """
         return np.real(self.results[-1])
-    
+
     def operator_result(self, operator_id: Union[str, int],
                         realise: bool = False) -> np.ndarray:
         """
