@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Tuple, Callable, Union, List
+from typing import Tuple, Callable, Union, List, Dict
 from copy import copy, deepcopy
 from collections import UserDict
 
@@ -243,6 +243,21 @@ class TreeTensorNetwork(TreeStructure):
             ttn_conj.tensors[node_id] = tensor.conj()
         return ttn_conj
 
+    def bond_dim(self, node_id: str,
+                 neighbour_id: Union[str,None] = None) -> int:
+        """
+        Find the bond dimension between a node and one of its neighbours.
+
+        Args:
+            node_id (str): The identifier of the node.
+            neighbour_id (Union[str,None], optional): The identifier of the
+             neighbour node. If None, the parent is used. Defaults to None.
+        """
+        if neighbour_id is None:
+            node = self.nodes[node_id]
+            neighbour_id = node.parent
+        return node.shape(node.neighbour_index(neighbour_id))
+
     def max_bond_dim(self) -> int:
         """
         Find the maximum virtual bond dimension in this TTN.
@@ -256,10 +271,26 @@ class TreeTensorNetwork(TreeStructure):
         max_bd = 0
         for node in self.nodes:
             if not node.is_root():
-                parent_bd = node.shape(node.neighbour_index(node.parent))
+                parent_bd = self.bond_dim(node.identifier,node.parent)
                 if parent_bd > max_bd:
                     max_bd = parent_bd
         return max_bd
+
+    def bond_dims(self) -> Dict[Tuple[str, str], int]:
+        """
+        Returns the bond dimensions between neighbouring nodes.
+
+        Returns:
+            Dict[Tuple[str, str], int]: The bond dimensions between
+             neighbouring nodes. The keys are the node identifiers of the
+             parent and child node in that order.
+        """
+        bond_dims = {}
+        for node in self.nodes:
+            if not node.is_root():
+                parent_bd = self.bond_dim(node.identifier,node.parent)
+                bond_dims[(node.parent, node.identifier)] = parent_bd
+        return bond_dims
 
     def absorb_matrix(self, node_id: str, absorbed_matrix: np.ndarray,
                       this_tensors_leg_index: int,
@@ -714,65 +745,65 @@ class TreeTensorNetwork(TreeStructure):
         """
         return completely_contract_tree(self, to_copy=to_copy)
 
-    def apply_hamiltonian(
-            self, hamiltonian: Hamiltonian, conversion_dict: dict[str, np.ndarray],
-            skipped_vertices=None):
-        """
-        Applies a Hamiltonian term by term locally to a TTN. Assumes that the input TTN represents a statevector
-        such that each TensorNode has the following memory layout: [parent, child_1, child_2, ..., child_n, output].
-        """
+    # def apply_hamiltonian(
+    #         self, hamiltonian: Hamiltonian, conversion_dict: dict[str, np.ndarray],
+    #         skipped_vertices=None):
+    #     """
+    #     Applies a Hamiltonian term by term locally to a TTN. Assumes that the input TTN represents a statevector
+    #     such that each TensorNode has the following memory layout: [parent, child_1, child_2, ..., child_n, output].
+    #     """
 
-        def allocate_output_tensor(node_id, state_diagram, conversion_dict):
-            """
-            Allocates output tensor for each node
-            """
-            he = state_diagram.hyperedge_colls[node_id].contained_hyperedges[0]
-            operator_label = he.label
-            operator = conversion_dict[operator_label]
-            # Should be square operators
-            phys_dim = operator.shape[0]
+    #     def allocate_output_tensor(node_id, state_diagram, conversion_dict):
+    #         """
+    #         Allocates output tensor for each node
+    #         """
+    #         he = state_diagram.hyperedge_colls[node_id].contained_hyperedges[0]
+    #         operator_label = he.label
+    #         operator = conversion_dict[operator_label]
+    #         # Should be square operators
+    #         phys_dim = operator.shape[0]
 
-            total_tensor_shape = [0] * len(he.vertices)
-            slice_tensor_shape = [0] * len(he.vertices)
-            total_tensor_shape.extend([phys_dim])
-            slice_tensor_shape.extend([phys_dim])
-            node = self.nodes[node_id]
-            neighbours = node.neighbouring_nodes()
-            for leg_index, neighbour_id in enumerate(neighbours.keys()):
-                vertex_coll = state_diagram.get_vertex_coll_two_ids(
-                    node_id, neighbour_id)
-                for index_value, vertex in enumerate(vertex_coll.contained_vertices):
-                    vertex.index = (leg_index, index_value)
-                # The number of vertices is equal to the number of bond-dimensions required.
-                total_tensor_shape[leg_index] = len(
-                    vertex_coll.contained_vertices) * self.tensors[node_id].shape[neighbours[neighbour_id]]
-                slice_tensor_shape[leg_index] = self.tensors[node_id].shape[neighbours[neighbour_id]]
-            output_tensor = np.zeros(total_tensor_shape, dtype=np.cdouble)
-            return output_tensor, slice_tensor_shape
+    #         total_tensor_shape = [0] * len(he.vertices)
+    #         slice_tensor_shape = [0] * len(he.vertices)
+    #         total_tensor_shape.extend([phys_dim])
+    #         slice_tensor_shape.extend([phys_dim])
+    #         node = self.nodes[node_id]
+    #         neighbours = node.neighbouring_nodes()
+    #         for leg_index, neighbour_id in enumerate(neighbours.keys()):
+    #             vertex_coll = state_diagram.get_vertex_coll_two_ids(
+    #                 node_id, neighbour_id)
+    #             for index_value, vertex in enumerate(vertex_coll.contained_vertices):
+    #                 vertex.index = (leg_index, index_value)
+    #             # The number of vertices is equal to the number of bond-dimensions required.
+    #             total_tensor_shape[leg_index] = len(
+    #                 vertex_coll.contained_vertices) * self.tensors[node_id].shape[neighbours[neighbour_id]]
+    #             slice_tensor_shape[leg_index] = self.tensors[node_id].shape[neighbours[neighbour_id]]
+    #         output_tensor = np.zeros(total_tensor_shape, dtype=np.cdouble)
+    #         return output_tensor, slice_tensor_shape
 
-        from .ttno.state_diagram import StateDiagram
-        state_diagram = StateDiagram.from_hamiltonian(hamiltonian, self)
+    #     from .ttno.state_diagram import StateDiagram
+    #     state_diagram = StateDiagram.from_hamiltonian(hamiltonian, self)
 
-        # Adding the operator corresponding to each hyperedge to the tensor
-        for node_id, hyperedge_coll in state_diagram.hyperedge_colls.items():
-            output_tensor, output_slice_shape = allocate_output_tensor(
-                node_id, state_diagram, hamiltonian.conversion_dictionary)
-            local_tensor = self._nodes[node_id]
+    #     # Adding the operator corresponding to each hyperedge to the tensor
+    #     for node_id, hyperedge_coll in state_diagram.hyperedge_colls.items():
+    #         output_tensor, output_slice_shape = allocate_output_tensor(
+    #             node_id, state_diagram, hamiltonian.conversion_dictionary)
+    #         local_tensor = self._nodes[node_id]
 
-            for he in hyperedge_coll.contained_hyperedges:
-                index_value = [0] * len(he.vertices)
+    #         for he in hyperedge_coll.contained_hyperedges:
+    #             index_value = [0] * len(he.vertices)
 
-                for vertex in he.vertices:
-                    index_value[vertex.index[0]] = vertex.index[1]
+    #             for vertex in he.vertices:
+    #                 index_value[vertex.index[0]] = vertex.index[1]
 
-                slice_indexing = [slice(index * size, (index+1) * size, 1)
-                                  for (index, size) in zip(index_value, output_slice_shape)]
-                slice_indexing.extend([slice(None)])
-                slice_indexing = tuple(slice_indexing)
-                operator_label = he.label
-                operator = hamiltonian.conversion_dictionary[operator_label]
-                output_slice = np.tensordot(
-                    self.tensors[local_tensor.identifier], operator, axes=([local_tensor.nlegs()-1], [1]))
-                output_tensor[slice_indexing] += output_slice
+    #             slice_indexing = [slice(index * size, (index+1) * size, 1)
+    #                               for (index, size) in zip(index_value, output_slice_shape)]
+    #             slice_indexing.extend([slice(None)])
+    #             slice_indexing = tuple(slice_indexing)
+    #             operator_label = he.label
+    #             operator = hamiltonian.conversion_dictionary[operator_label]
+    #             output_slice = np.tensordot(
+    #                 self.tensors[local_tensor.identifier], operator, axes=([local_tensor.nlegs()-1], [1]))
+    #             output_tensor[slice_indexing] += output_slice
 
-            self.tensors[node_id] = output_tensor
+    #         self.tensors[node_id] = output_tensor
