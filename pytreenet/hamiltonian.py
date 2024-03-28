@@ -280,7 +280,7 @@ def create_single_site_hamiltonian(structure: TreeStructure,
         Hamiltonian: The Hamiltonian for the given structure.
     """
     terms = []
-    for identifier in structure.nodes():
+    for identifier in structure.nodes:
         terms.append(TensorProduct({identifier: local_operator}))
     return Hamiltonian(terms, conversion_dictionary=conversion_dict)
 
