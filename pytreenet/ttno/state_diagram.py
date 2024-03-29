@@ -769,17 +769,12 @@ class StateDiagram():
                             self._remove_hyperedge(element2)
                         else:
                             if d1:
-                                el = element2
-                                element2 = element1
-                                element1 = el
+                                
+                                element1,element2 = element2,element1
 
-                                s = son
-                                son = son2 
-                                son2 = s
+                                son, son2 = son2, son
 
-                                d = del_vertex
-                                del_vertex = other_vertex
-                                other_vertex = d
+                                del_vertex, other_vertex = other_vertex, del_vertex
                             
                             for vert in element2.vertices:
                                 if vert.corr_edge == (current_node,parent) or vert.corr_edge == (parent,current_node):
