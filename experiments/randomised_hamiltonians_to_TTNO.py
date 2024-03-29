@@ -196,16 +196,4 @@ def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
                         print(hamiltonian)
                         print("Difference is: ", dset_ham[run, :], " ---- ", dset_svd[run, :])
                         error_count += 1
-                        print("Total difference: ", error_count)
-                    run += 1
-
-if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument("filepath", type=str, nargs=1)
-    filepath = vars(parser.parse_args())["filepath"][0]
-    # For root at 1
-    filepath1 = filepath + "_root_at_1.hdf5"
-    print("Data will be saved in " + filepath)
-    leg_dict1 = {"site1": 0, "site2": 1, "site3": 2, "site4": 3, "site5": 4,
-                "site6": 5, "site7": 6, "site8": 7}
-    main(filepath1, construct_tree_root_at_1(), leg_dict1)
+                  
