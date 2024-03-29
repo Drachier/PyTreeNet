@@ -629,6 +629,8 @@ class StateDiagram():
     def combine_v(self, local_vs, current_node, parent):
         combined = set()
 
+        #print("Beginning of combine_v, local_vs: ", local_vs)
+
         for i, element1 in enumerate(local_vs):
             if i in combined:
                 continue
@@ -656,24 +658,25 @@ class StateDiagram():
                         d1 = element1.find_vertex(current_node).num_hyperedges_to_node(parent) > 1
                         d2 = element2.find_vertex(current_node).num_hyperedges_to_node(parent) > 1
 
-                        f1 = element1.find_vertex(current_node).num_hyperedges_to_node(current_node) > 1
-                        f2 = element2.find_vertex(current_node).num_hyperedges_to_node(current_node) > 1
+                        #f1 = element1.find_vertex(current_node).num_hyperedges_to_node(current_node) > 1
+                        #f2 = element2.find_vertex(current_node).num_hyperedges_to_node(current_node) > 1
 
-                        if (d1 and f1) or (d2 and f2):
-                            continue
+                        #print(d1,d2,f1,f2)
+                        #if (d1 and f1) or (d2 and f2):
+                        #    continue
 
-                        son = None
-                        son2 = None
+                        sons = []
+                        son2s = []
 
                         del_vertex = element2.find_vertex(current_node)
                         for h in del_vertex.hyperedges:
                             if h.corr_node_id == current_node:
-                                son = h
+                                sons.append(h)
 
                         other_vertex = element1.find_vertex(current_node)
                         for h in other_vertex.hyperedges:
                             if h.corr_node_id == current_node:
-                                son2 = h
+                                son2s.append(h)
                         
                         if d1 and d2:
                             result = True
@@ -714,10 +717,11 @@ class StateDiagram():
                                             self.vertex_colls[(parent,current_node)].contained_vertices.remove(vert) 
 
                                             # Add son to element 1 vertex collection
-                                            other_vertex.add_hyperedge(son)
+                                            for son in sons:
+                                                other_vertex.add_hyperedge(son)
 
-                                            # Remove del_vertex from the son hyperedge
-                                            son.vertices.remove(vert)
+                                                # Remove del_vertex from the son hyperedge
+                                                son.vertices.remove(vert)
                                             
                                         else:
                                             # Just delete hyperedge from other vertices
@@ -737,10 +741,6 @@ class StateDiagram():
                                 self.combine_v(local_vs, current_node, parent)
                                 return -1
                                 
-
-
-
-
                         combined.add(j)
                                 
                         if not (d1 or d2):
@@ -767,14 +767,14 @@ class StateDiagram():
                             # Remove Hyperedge from state diagram        
                             #self.hyperedge_colls[element2.corr_node_id].contained_hyperedges.remove(element2)
                             self._remove_hyperedge(element2)
+                            
                         else:
                             if d1:
-                                
+
                                 element1,element2 = element2,element1
-
-                                son, son2 = son2, son
-
+                                sons, son2s = son2s, sons
                                 del_vertex, other_vertex = other_vertex, del_vertex
+                            
                             
                             for vert in element2.vertices:
                                 if vert.corr_edge == (current_node,parent) or vert.corr_edge == (parent,current_node):
@@ -785,28 +785,32 @@ class StateDiagram():
                                     #son.vertices.remove(vert)
 
                                     # Create new hyperedge
-                                    new_h = HyperEdge(current_node, son.label, [])
-                                    new_h.set_hash(son.hash)
+                                    new_hs = []
+                                    for son in sons:
+                                        new_h = HyperEdge(current_node, son.label, [])
+                                        new_h.set_hash(son.hash)
+                                        new_hs.append(new_h)
 
-                                    # Add vertices to new hyperedge unrelated to current node-parent
-                                    for v in son.vertices:
-                                        if not(v.corr_edge == (current_node,parent) or v.corr_edge == (parent,current_node)):
-                                            new_h.add_vertex(v)
-                                    
+                                        # Add vertices to new hyperedge unrelated to current node-parent
+                                        for v in son.vertices:
+                                            if not(v.corr_edge == (current_node,parent) or v.corr_edge == (parent,current_node)):
+                                                new_h.add_vertex(v)
                                     # Create new vertex
-                                    new_v = Vertex((parent, current_node), [new_h])
+                                    new_v = Vertex((parent, current_node), new_hs.copy())
 
 
                                     # Add new hyperedges to the vertex
+                                    identifiers = [x.identifier for x in sons] + [element2.identifier]
                                     for h in del_vertex.hyperedges:
-                                        if h.identifier != son.identifier and h.identifier != element2.identifier :
+                                        if h.identifier not in identifiers:
                                             h.vertices.remove(del_vertex)
                                             new_v.add_hyperedge(h)
 
                                     self.vertex_colls[(parent,current_node)].contained_vertices.append(new_v)
-                                    new_h.vertices.append(new_v)
 
-                                    self.add_hyperedge(new_h)
+                                    for new_h in new_hs:
+                                        new_h.vertices.append(new_v)
+                                        self.add_hyperedge(new_h)
                                     
 
                                     # Add son to element 1 vertex collection
@@ -832,7 +836,7 @@ class StateDiagram():
             return self.combine_v(local_vs, current_node, parent)
             
         return 1
-
+    
     def combine_u(self, local_hyperedges, parent, p_vs):
         combined = set()
 

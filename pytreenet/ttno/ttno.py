@@ -382,6 +382,4 @@ class TTNO(TreeTensorNetwork):
 
             count += 1
 
-            del leg_dict[key_w_min_index]
-
-        return new_leg_dict
+            del leg_dict[key_w_mi
