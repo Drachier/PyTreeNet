@@ -233,14 +233,14 @@ def contract_neighbour_block_to_hamiltonian(hamiltonian_tensor: np.ndarray,
                  _____       out      
                 |     |____    
                 |     |   4             
-                |     |        |2       
+                |     |        |1       
                 |     |     ___|__      
                 |     |    |      |     
                 |     |____|   H  |_____
                 |     |    |      |     0
                 |     |    |______|     
                 |     |        |        
-                |     |        |1    
+                |     |        |2    
                 |     |                 
                 |     |_____       
                 |_____|    3      
@@ -278,14 +278,14 @@ def contract_neighbour_block_to_hamiltonian_ignore_one_leg(hamiltonian_tensor: n
                  _____       out      
                 |     |____    
                 |     |   4             
-                |     |        |2       
+                |     |        |1       
                 |     |     ___|__      
                 |     |    |      |     
                 |     |____|   H  |_____
                 |     |    |      |     0
                 |     |    |______|     
                 |     |        |        
-                |     |        |1    
+                |     |        |2    
                 |     |                 
                 |     |_____       
                 |_____|    3      
@@ -321,14 +321,14 @@ def contract_all_but_one_neighbour_block_to_hamiltonian(hamiltonian_tensor: np.n
                  _____       out      
                 |     |____    
                 |     |   4             
-                |     |        |2       
+                |     |        |1       
                 |     |     ___|__      
                 |     |    |      |     
                 |     |____|   H  |_____
                 |     |    |      |     0
                 |     |    |______|     
                 |     |        |        
-                |     |        |1    
+                |     |        |2    
                 |     |                 
                 |     |_____       
                 |_____|    3      
