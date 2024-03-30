@@ -248,6 +248,7 @@ def contract_neighbour_block_to_hamiltonian(hamiltonian_tensor: np.ndarray,
     """
     cached_neighbour_tensor = partial_tree_cache.get_entry(neighbour_id,
                                                            hamiltonian_node.identifier)
+    cached_neighbour_tensor = cached_neighbour_tensor.transpose((2,1,0))                         
     if tensor_leg_to_neighbour is None:
         tensor_leg_to_neighbour = hamiltonian_node.neighbour_index(neighbour_id)
     return np.tensordot(hamiltonian_tensor, cached_neighbour_tensor,
