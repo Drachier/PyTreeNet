@@ -157,7 +157,7 @@ def obtain_bond_dimensions(ttno: ptn.TTNO) -> np.ndarray:
 
 def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
          leg_dict: Dict[str,int],
-         num_runs: int = 20, min_num_terms: int=1,
+         num_runs: int = 20, min_num_terms: int=10,
          max_num_terms: int = 30):
     # Prepare variables
     X, Y, Z = ptn.pauli_matrices()
@@ -184,7 +184,7 @@ def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
                                                           rng,
                                                           num_terms)
                 if not hamiltonian.contains_duplicates():
-                    ttno_ham = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree, ptn.state_diagram.method.BIPARTITE)
+                    ttno_ham = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree, ptn.state_diagram.method.CM)
                     total_tensor = hamiltonian.to_tensor(ref_tree).operator
                     ttno_svd = ptn.TTNO.from_tensor(ref_tree,
                                                     total_tensor,
@@ -196,4 +196,16 @@ def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
                         print(hamiltonian)
                         print("Difference is: ", dset_ham[run, :], " ---- ", dset_svd[run, :])
                         error_count += 1
-                  
+                        print("Total difference: ", error_count)
+                    run += 1
+
+if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument("filepath", type=str, nargs=1)
+    filepath = vars(parser.parse_args())["filepath"][0]
+    # For root at 1
+    filepath1 = filepath + "_root_at_1.hdf5"
+    print("Data will be saved in " + filepath)
+    leg_dict1 = {"site1": 0, "site2": 1, "site3": 2, "site4": 3, "site5": 4,
+                "site6": 5, "site7": 6, "site8": 7}
+    main(filepath1, construct_tree_root_at_1(), leg_dict1)
