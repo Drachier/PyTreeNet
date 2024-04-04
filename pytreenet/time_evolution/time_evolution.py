@@ -59,7 +59,7 @@ class TimeEvolution:
         if decimal < 0.1:
             return int(integer)
         return int(integer + 1)
-    
+
     def _init_operator_index_dict(self,
                                   operators: Union[List[Any], Dict[str, Any], Any]) -> Dict[str, int]:
         """

@@ -61,15 +61,16 @@ class TTNTimeEvolution(TimeEvolution):
                         operator_id: str | int,
                         realise: bool = False) -> ndarray:
         if isinstance(operator_id, str) and operator_id == "bond_dim":
-            if self.records_bond_dim:
+            if self.records_bond_dim is not None:
                 return self.bond_dims
             errstr = "Bond dimensions are not being recorded."
             raise ValueError(errstr)
         return super().operator_result(operator_id, realise)
 
     def evaluate_operators(self) -> ndarray:
-        super().evaluate_operators()
+        current_results = super().evaluate_operators()
         self.record_bond_dimensions()
+        return current_results
 
     def evaluate_operator(self, operator: TensorProduct) -> complex:
         """
