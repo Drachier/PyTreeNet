@@ -616,10 +616,7 @@ class StateDiagram():
                     self.erase_subtree(element2, erased=[del_vertex])
 
                     # Find the hyperedges that the del_vertex is connected to in the parent site.
-                    fathers = []
-                    for h in del_vertex.hyperedges:
-                        if h.corr_node_id == parent:
-                            fathers.append(h)
+                    fathers = del_vertex.get_hyperedges_for_one_node_id(parent)
 
                     # Remove the del_vertex from the vertex collection
                     self.vertex_colls[del_vertex.corr_edge].contained_vertices.remove(del_vertex)
@@ -772,6 +769,10 @@ class StateDiagram():
     
     @classmethod
     def _is_fully_connected(cls, del_vertex, keep_vertex, current_node, parent):
+        """
+        Checks del_vertex and keep_vertex for forming a fully connected vertex in the cut site (current_node-parent).
+        Returns true if they can form a fully connected vertex, false otherwise.
+        """
         if del_vertex.num_hyperedges_to_node(parent) == keep_vertex.num_hyperedges_to_node(parent):
             first_set = del_vertex.get_hyperedges_for_one_node_id(parent)
             second_set = keep_vertex.get_hyperedges_for_one_node_id(parent)
@@ -798,6 +799,10 @@ class StateDiagram():
             return False
         
     def _connect_two_vertices(self, element, current_node, parent, del_sons, keep_vertex):
+        """
+        Connects del_sons to the keep_vertex and removes the del_vertex from the state diagram in the cut site.
+        Removes element from each of its vertices and removes element from the state diagram.
+        """
         for vert in element.vertices:
             if vert in self.vertex_colls[(parent,current_node)].contained_vertices:
                 # Delete vert from the vertex collection
