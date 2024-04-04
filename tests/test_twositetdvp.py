@@ -7,7 +7,7 @@ import pytreenet as ptn
 
 class TestTwoSiteTDVPSimple(unittest.TestCase):
     def setUp(self) -> None:
-        self.ttn = ptn.random_small_ttns(ptn.RandomTTNSMode.SAME)
+        self.ttn = ptn.random_small_ttns(ptn.RandomTTNSMode.DIFFVIRT)
         self.time_step_size = 0.1
         self.final_time = 1
         self.hamiltonian = ptn.random_hermitian_matrix((2*3*4))
@@ -202,13 +202,37 @@ class TestTwoSiteTDVPSimple(unittest.TestCase):
         h_eff = np.tensordot(h_eff,
                              self.hamiltonian.tensors[target_node_id],
                              axes=(0,0))
-        h_eff = h_eff.transpose(4,0,3,5,1,2)
+        h_eff = h_eff.transpose(3,4,0,2,5,1)
         self.tdvp.state.contract_nodes(target_node_id,next_node_id,
                                        self.tdvp.create_two_site_id(target_node_id,
                                                                     next_node_id))
         found = self.tdvp._contract_all_except_two_nodes(target_node_id,
                                                          next_node_id)
-        print(h_eff.shape, found.shape)
+        self.assertTrue(np.allclose(found,h_eff))
+
+    def test_get_effective_two_site_hamiltonian_rc1(self):
+        """
+        Tests the construction of the effective Hamiltonian if the target
+         node is the root and the other node is c1.
+        """
+        target_node_id = "root"
+        next_node_id = "c1"
+        neighbour_id = "c2"
+        # Reference contraction
+        h_eff = np.tensordot(self.hamiltonian.tensors[target_node_id],
+                             self.tdvp.partial_tree_cache.get_entry(neighbour_id,
+                                                                    target_node_id),
+                             axes=(1,1))
+        h_eff = np.tensordot(h_eff,
+                             self.hamiltonian.tensors[next_node_id],
+                             axes=(0,0))
+        h_eff = h_eff.transpose(3,0,4,2,1,5)
+        h_eff = h_eff.reshape(36,36)
+        self.tdvp.state.contract_nodes(target_node_id,next_node_id,
+                                       self.tdvp.create_two_site_id(target_node_id,
+                                                                    next_node_id))
+        found = self.tdvp._get_effective_two_site_hamiltonian(target_node_id,
+                                                              next_node_id)
         self.assertTrue(np.allclose(found,h_eff))
 
 if __name__ == '__main__':
