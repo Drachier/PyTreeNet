@@ -147,7 +147,10 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
         self._move_orth_and_update_cache_for_path(current_orth_path)
         target_node_id = current_orth_path[-1]
         next_node_id = self.backwards_update_path[update_index+1]
-        self.complete_two_site_update(target_node_id, next_node_id)
+        self._single_site_backwards_update(target_node_id,
+                                           time_step_factor=0.5)
+        self._update_two_site_nodes(target_node_id, next_node_id,
+                                    time_step_factor=0.5)
 
     def backwards_sweep(self):
         """
