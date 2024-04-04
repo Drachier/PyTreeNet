@@ -337,7 +337,7 @@ def contract_all_but_one_neighbour_block_to_hamiltonian(hamiltonian_tensor: np.n
     result_tensor = hamiltonian_tensor
     for neighbour_id in hamiltonian_node.neighbouring_nodes():
         if neighbour_id != next_node_id:
-            result_tensor = contract_neighbour_block_to_hamiltonian_ignore_one_leg(hamiltonian_tensor,
+            result_tensor = contract_neighbour_block_to_hamiltonian_ignore_one_leg(result_tensor,
                                                                                    hamiltonian_node,
                                                                                    neighbour_id,
                                                                                    next_node_id,

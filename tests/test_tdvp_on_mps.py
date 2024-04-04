@@ -63,7 +63,7 @@ class TestTDVPonMPS(unittest.TestCase):
                                                      ref_cache_dict)
         ref_cache_dict.add_entry("site_2", "site_3", cache_2)
         return ref_cache_dict
-    
+
     def _check_cache_initialization(self, tdvp: ptn.FirstOrderOneSiteTDVP,
                                     ref_cache_dict: ptn.PartialTreeCachDict):
         """
