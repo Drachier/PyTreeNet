@@ -143,7 +143,7 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
         Args:
             update_index (int): The index of the update.
         """
-        current_orth_path = self.backwards_orth_path[update_index-1]
+        current_orth_path = self.backwards_orth_path[update_index]
         self._move_orth_and_update_cache_for_path(current_orth_path)
         target_node_id = current_orth_path[-1]
         next_node_id = self.backwards_update_path[update_index+1]
@@ -153,7 +153,7 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
         """
         Performs the full backwards sweep through the state.
         """
-        for i in range(len(self.backwards_update_path)):
+        for i in range(len(self.backwards_update_path[:-1])):
             if i == 0:
                 self.first_backwards_update()
             else:

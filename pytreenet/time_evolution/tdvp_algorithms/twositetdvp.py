@@ -226,7 +226,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
         leg_permutation = self._determine_two_site_leg_permutation(target_node_id,
                                                                    next_node_id)
         return h_eff.transpose(leg_permutation)
-    
+
     def _get_effective_two_site_hamiltonian(self,
                                             target_node_id: str,
                                             next_node_id: str) -> np.ndarray:
