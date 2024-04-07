@@ -1,3 +1,47 @@
+"""
+Provides the fundamental TreeTensorNetwork class.
+
+The TreeTensorNetwork class is a subclass of the TreeStructure class and holds
+the structure of a tree tensor network (TTN) in the form of Nodes, as well as
+the tensors associated with these nodes. The TreeTensorNetwork class provides
+methods to manipulate the TTN, such as adding nodes, contracting nodes, or
+splitting nodes. It also provides methods to move the orthogonality center of
+the TTN.
+
+Example:
+    ```python
+    from pytreenet import TreeTensorNetwork, Node, crandn
+    import numpy as np
+
+    # Create a TreeTensorNetwork
+    ttn = TreeTensorNetwork()
+
+    # Create a root node
+    root_tensor = crandn((2, 3, 4))
+    root_node = Node(identifier="root)
+    ttn.add_root(root_node, root_tensor)
+
+    # Create a child node
+    child_tensor = crandn((2, 2, 3))
+    child_node = Node(identifier="child1")
+    ttn.add_child_to_parent(child_node, child_tensor, 0, ttn.root_id, 0)
+
+    # Create a second child node
+    child_tensor2 = crandn((2, 3, 5))
+    child_node2 = Node(identifier="child2")
+    ttn.add_child_to_parent(child_node2, child_tensor2, 1, ttn.root_id, 1)
+
+    # Create a grandchild node
+    grandchild_tensor = crandn((2, 4))
+    grandchild_node = Node(identifier="grandchild")
+    ttn.add_child_to_parent(grandchild_node, grandchild_tensor, 0, "child2", 1)
+
+    # Contract the grandchild node with the child node
+    ttn.contract_nodes("child2", "grandchild")
+    ```
+    
+For details and further usage refer to the example notebooks.
+"""
 from __future__ import annotations
 from typing import Tuple, Callable, Union, List, Dict
 from copy import copy, deepcopy
@@ -18,18 +62,43 @@ from .ttn_exceptions import NotCompatibleException
 
 
 class TensorDict(UserDict):
-    def __init__(self, nodes, inpt=None):
+    """
+    A custom dictionary class to store the tensors of a TreeTensorNetwork.
+    
+    The class is connected to the nodes of the TreeTensorNetwork and ensures
+    that the tensors are transposed only when they are accessed. Therefore
+    tensor legs should be called using the nodes methods.
+    """
+    def __init__(self,
+                 nodes: Dict[str,Node],
+                 inpt: Union[Dict[str,np.ndarray],None] = None) -> None:
+        """
+        Initiates a new TensorDict.
+
+        Args:
+            nodes (Dict[str,Node]): The node dictionary to be associated with
+                the TensorDict.
+            inpt (Union[Dict[str,np.ndarray],None], optional): A dictionary of
+                tensors to be added to the TensorDict. Defaults to None.
+        """
         if inpt is None:
             inpt = {}
         super().__init__(inpt)
         self.nodes = nodes
 
-    def __getitem__(self, node_id: str):
+    def __getitem__(self, node_id: str) -> np.ndarray:
         """
         Since during addition of nodes the tensors are not actually transposed,
         this has to be done when accesing them. 
         This way whenever a tensor is accessed, its leg ordering is
             (parent_leg, children_legs, open_legs)
+
+        Args:
+            node_id (str): The identifier of the tensor to be accessed.
+        
+        Returns:
+            np.ndarray: The tensor associated with the node transposed to the
+                correct leg ordering. (parent_leg, children_legs, open_legs)
         """
         permutation = self.nodes[node_id].leg_permutation
         tensor = super().__getitem__(node_id)
@@ -38,41 +107,47 @@ class TensorDict(UserDict):
         super().__setitem__(node_id, transposed_tensor)
         return transposed_tensor
 
-
 class TreeTensorNetwork(TreeStructure):
     """
-    A tree tensor network (TTN) a tree, where each node contains a tensor,
-    that is part of the network. Here a tree tensor network is a dictionary
-    _nodes of tensor nodes with their identifiers as keys.
+    A Tree Tensor Network (TTN)
 
-    General structure and parts of the codes are from treelib.tree
+    A tree tensor network is a tensor network layed out as a tree.
+    The data associated with each node is a tensor, stored using the same
+    identifier as the node. A tensor associated to a node can have more legs
+    than the node has neighbours. These legs are known as open legs.
+    The TreeTensorNetwork class provides methods to manipulate the TTN, such as
+    adding nodes, contracting nodes, or splitting nodes. It also provides
+    methods to control the orthogonality center of the TTN.
 
-    Attributes
-    -------
-    _nodes: dict[str, Node] mapping node ids (str) to Node objects
-    _tensors: dict[str, ndarray] mapping node ids (str) to numpy ndarray objects
-    _root_id: str identifier for root node of TTN
+    Attributes:
+        orthogonality_center_id (Union[str,None]): The identifier of the node
+            which is the orthogonality center of the TTN.
+        tensors (TensorDict): A dictionary mapping the tensor tree node
+            identifiers to the corresponding tensor data.
+        root_id (Union[str,None]): The identifier of the root node of the TTN.
+        nodes (Dict[str,Node]): A dictionary mapping the node identifiers to
+            the corresponding node.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
-        Initiates a new TreeTensorNetwork or a deep or shallow copy of a
-        different one.
+        Initiates a new TreeTensorNetwork which is initially empty.
         """
         super().__init__()
         self._tensors = TensorDict(self._nodes)
-        self.orthogonality_center_id = None
+        self.orthogonality_center_id: Union[str,None] = None
 
     @property
-    def tensors(self):
+    def tensors(self) -> TensorDict[str, np.ndarray]:
         """
-        A dict[str, np.ndarray] mapping the tensor tree node identifiers to
-        the corresponding tensor data.
+        Returns the tensors of the TTN.
 
         Since during addition of nodes the tensors are not actually transposed,
         this has to be done here. This way whenever tensors are accessed, their
         leg ordering is
             (parent_leg, children_legs, open_legs)
+        The tensors are collected in a diciotnary, where the keys are the node
+        identifiers.
         """
         return self._tensors
 
@@ -92,28 +167,35 @@ class TreeTensorNetwork(TreeStructure):
             raise KeyError(errstr)
         return self[self.root_id]
 
-    def _transpose_tensor(self, node_id: str):
-        """
-        Since during addition of nodes the tensors are not actually transposed,
-        this has to be done when accesing them. 
-        This way whenever a tensor is accessed, its leg ordering is
-            (parent_leg, children_legs, open_legs)
-        """
-        node = self.nodes[node_id]
-        tensor = self._tensors[node_id]
-        transposed_tensor = np.transpose(tensor, node.leg_permutation)
-        self._tensors[node_id] = transposed_tensor
-        node.reset_permutation()
-
     def __getitem__(self, key: str) -> Tuple[Node, np.ndarray]:
+        """
+        Returns the node and the tensor associated to a given identifier.
+
+        Args:
+            key (str): The identifier of the node to be accessed.
+
+        Returns:
+            Tuple[Node, np.ndarray]: The node and the tensor associated with the
+                identifier. The Node is the first element of the tuple and the
+                tensor is the second element.
+        """
         node = super().__getitem__(key)
         tensor = self._tensors[key]
         return (node, tensor)
 
     def __eq__(self, other: TreeTensorNetwork) -> bool:
         """
-        Two TTN are considered equal, if all their nodes are equal and then the tensors
-         corresponding to these nodes are equal.
+        Provides an equality check for two TreeTensorNetworks.
+
+        Two TreeTensorNetworks are considered equal if they have the same
+        orthogonality center and the same nodes with the same connectivity and
+        tensors.
+
+        Args:
+            other (TreeTensorNetwork): The TreeTensorNetwork to compare to.
+        
+        Returns:
+            bool: If the two TreeTensorNetworks are equal.
         """
         if not self.orthogonality_center_id == other.orthogonality_center_id:
             return False
@@ -134,10 +216,6 @@ class TreeTensorNetwork(TreeStructure):
 
         Returns:
             int: The number of nodes in the TTN.
-
-        Raises:
-            AssertionError: If the number of nodes and the number of tensors
-             are not the same.
         """
         errstr = "The number of nodes and the number of tensors are not the same!"
         assert len(self.nodes) == len(self.tensors), errstr
@@ -145,7 +223,7 @@ class TreeTensorNetwork(TreeStructure):
 
     def __len__(self) -> int:
         """
-        Returns the number of nodes in the TTN.
+        Returns the length of the TTN.
 
         Returns:
             int: The number of nodes in the TTN.
@@ -159,11 +237,11 @@ class TreeTensorNetwork(TreeStructure):
 
         Args:
             node_id (str): Identifier of a node in this TTN to use for
-             comparison.
-             other (TreeTensorNetwork): A different TTN to compare to.
-             other_node_id (Union[None, str]), Optional: A node identifier
-              for the node in the other tree. If it is `None`, the same
-              identifier is used for both TTN. Defaults to None.
+                comparison.
+            other (TreeTensorNetwork): A different TTN to compare to.
+            other_node_id (Union[None, str]), Optional: A node identifier
+                for the node in the other tree. If it is `None`, the same
+                identifier is used for both TTN. Defaults to None.
 
         Returns:
             bool: If the two nodes are equal and the associated tensors close
@@ -183,60 +261,110 @@ class TreeTensorNetwork(TreeStructure):
         tensors_equal = np.allclose(test_tensor, tensor)
         return tensors_equal
 
+    def ensure_shape_matching(self, new_tensor: np.ndarray, tensor_leg: int,
+                              old_node: Node, old_leg: int,
+                              new_node_id: Union[str,None] = None):
+        """
+        Ensures that the dimensions of the legs of two tensors are compatible.
+
+        Args:
+            new_tensor (np.ndarray): The tensor with the new leg.
+            tensor_leg (int): The leg of the new tensor to be compared.
+            old_node (Node): The node with the old leg.
+            old_leg (int): The leg of the old node to be compared.
+            new_node_id (Union[str,None], optional): The identifier of the new
+                node. Defaults to None.
+
+        Raises:
+            NotCompatibleException: If the dimensions of the legs of the two
+                tensors are not compatible.
+        """
+        if new_node_id is None:
+            new_node_id = "the new node"
+        new_dimension = new_tensor.shape[tensor_leg]
+        old_dimension = old_node.shape[old_leg]
+        if new_dimension != old_dimension:
+            errstr = f"Dimensionality of leg {tensor_leg} of {new_node_id}"
+            errstr += " is not compatible with"
+            errstr += f" leg {old_leg} of {old_node.identifier}"
+            raise NotCompatibleException(errstr)
+
     def add_root(self, node: Node, tensor: np.ndarray):
         """
-        Adds a root tensor node to the TreeTensorNetwork
+        Adds a root tensor node to the TTN.
+
+        Args:
+            node (Node): The root node to be added.
+            tensor (np.ndarray): The tensor associated with the root node.
         """
         node.link_tensor(tensor)
         super().add_root(node)
-
         self.tensors[node.identifier] = tensor
 
     def add_child_to_parent(self, child: Node, tensor: np.ndarray,
                             child_leg: int, parent_id: str, parent_leg: int):
         """
-        Adds a Node to the TreeTensorNetwork which is the child of the Node
-        with identifier `parent_id`. The two tensors are contracted along one
-        leg; the child via child_leg and the parent via parent_leg
+        Adds a child node to a parent node in the TTN.
+
+        Note: Legs of the nodes might change during this operation to fit the
+        convention (parent_leg,children_legs,open_legs)
+
+        Args:
+            child (Node): The child node to be added.
+            tensor (np.ndarray): The tensor associated with the child node.
+            child_leg (int): The leg of the child tensor to be connected to the
+                parent tensor.
+            parent_id (str): The identifier of the parent node.
+            parent_leg (int): The leg of the parent tensor to be connected to the
+                child tensor.
+
+        Raises:
+            NotCompatibleException: If the dimensions of the legs of the child
+                and parent are not the same.
         """
         self.ensure_existence(parent_id)
         parent_node = self._nodes[parent_id]
-        if tensor.shape[child_leg] != parent_node.shape[parent_leg]:
-            errstr = f"Dimensionality of leg {child_leg} of {child.identifier} and of leg {parent_leg} of {parent_id} are not the same!"
-            raise NotCompatibleException(errstr)
+        child_id = child.identifier
+        self.ensure_shape_matching(tensor, child_leg,
+                                   parent_node, parent_leg,
+                                   child_id)
         child.link_tensor(tensor)
         self._add_node(child)
         child.open_leg_to_parent(parent_id, child_leg)
-
-        child_id = child.identifier
         parent_node.open_leg_to_child(child_id, parent_leg)
-
         self.tensors[child_id] = tensor
 
-    def add_parent_to_root(self, root_leg: int, parent: Node, tensor: np.ndarray,
-                           parent_leg: int):
+    def add_parent_to_root(self, root_leg: int, parent: Node,
+                           tensor: np.ndarray, parent_leg: int):
         """
-        Adds the Node `parent` as parent to the TreeTensorNetwork's root node. The two
-        nodes are connected: the root via root_leg and the parent via parent_leg.
-        The root is updated to be the parent.
+        Adds a parent node to the root node of the TTN.
+
+        Note: Legs of the nodes might change during this operation to fit the
+        convention (parent_leg,children_legs,open_legs).
+
+        Args:
+            root_leg (int): The leg of the root tensor to be connected to the
+                parent tensor.
+            parent (Node): The parent node to be added.
+            tensor (np.ndarray): The tensor associated with the parent node.
+            parent_leg (int): The leg of the parent tensor to be connected to the
+                root tensor.
         """
+        self.ensure_existence(self.root_id)
+        former_root_node = self.root[0]
+        new_root_id = parent.identifier
+        self.ensure_shape_matching(tensor, parent_leg,
+                                   former_root_node, root_leg,
+                                   new_root_id)
         self._add_node(parent)
         parent.open_leg_to_child(self.root_id, parent_leg)
-        new_root_id = parent.identifier
-        former_root_node = self.nodes[self.root_id]
         former_root_node.open_leg_to_parent(new_root_id, root_leg)
         self._root_id = new_root_id
         self.tensors[new_root_id] = tensor
 
-    def conjugate(self):
+    def conjugate(self) -> TreeTensorNetwork:
         """
-        Returns a new TTN that is a conjugated version of the current TTN
-
-        Returns
-        -------
-        ttn_conj:
-            A conjugated copy of the current TTN.
-
+        Returns a conjugated version of this TTN.
         """
         ttn_conj = deepcopy(self)
         for node_id, tensor in ttn_conj.tensors.items():
@@ -251,7 +379,7 @@ class TreeTensorNetwork(TreeStructure):
         Args:
             node_id (str): The identifier of the node.
             neighbour_id (Union[str,None], optional): The identifier of the
-             neighbour node. If None, the parent is used. Defaults to None.
+                neighbour node. If None, the parent is used. Defaults to None.
         """
         node = self.nodes[node_id]
         if neighbour_id is None:
@@ -265,7 +393,7 @@ class TreeTensorNetwork(TreeStructure):
         Returns:
             int: The maximum bond dimension of this TTN.
         """
-        if len(self.nodes) <= 1:
+        if self.num_nodes()<=1:
             errstr = "This TTN has no virtual bond dimension!"
             raise AssertionError(errstr)
         max_bd = 0
@@ -278,12 +406,12 @@ class TreeTensorNetwork(TreeStructure):
 
     def bond_dims(self) -> Dict[Tuple[str, str], int]:
         """
-        Returns the bond dimensions between neighbouring nodes.
+        Returns the bond dimensions between all neighbouring nodes.
 
         Returns:
             Dict[Tuple[str, str], int]: The bond dimensions between
-             neighbouring nodes. The keys are the node identifiers of the
-             parent and child node in that order.
+                neighbouring nodes. The keys are the node identifiers of the
+                parent and child node in that order.
         """
         bond_dims = {}
         for node in self.nodes.values():
@@ -301,33 +429,33 @@ class TreeTensorNetwork(TreeStructure):
 
         Args:
         node_id (str): Identifier of the node/tensor into which the matrix
-         should be absorbed.
+            should be absorbed.
         absorbed_matrix (np.ndarray): Matrix to be absorbed. Has to be a
-         square matrix, as otherwise the tensor shape is changed. If you
-         desire to contract a non-square matrix/ a higher-degree tensor, add
-         a new child to this tensor and contract it with this tensor.
+            square matrix, as otherwise the tensor shape is changed. If you
+            desire to contract a non-square matrix/ a higher-degree tensor, add
+            a new child to this tensor and contract it with this tensor.
         this_tensors_leg_index (int): The leg of this TTN's tensor that is to
-         be contracted with the absorbed tensor.
+            be contracted with the absorbed tensor.
         absorbed_tensors_leg_index (int, Optional): Leg that is to be
-         contracted with this instance's tensor. Defaults to 1, as this is
-         usually considered to be the input leg of a matrix.
+            contracted with this instance's tensor. Defaults to 1, as this is
+            usually considered to be the input leg of a matrix.
         """
         m_shape = absorbed_matrix.shape
         if len(absorbed_matrix) != 2 or m_shape[0] != m_shape[1]:
             errstr = "Only square Matrices can be absorbed!\n"
-            errstr += "If you desire to contract a non-square matrix/ a higher-degree tensor\n"
+            errstr += "If you desire to contract a non-square matrix/a higher-degree tensor\n"
             errstr += "then add it as a new child to this TTN and contract it."
             raise AssertionError(errstr)
         node_tensor = self.tensors[node_id]
         new_tensor = np.tensordot(node_tensor, absorbed_matrix,
                                   axes=(this_tensors_leg_index, absorbed_matrix_leg_index))
-
         this_tensors_indices = tuple(range(new_tensor.ndim))
         transpose_perm = (this_tensors_indices[0:this_tensors_leg_index]
                           + (this_tensors_indices[-1], )
                           + this_tensors_indices[this_tensors_leg_index:-1])
         self.tensors[node_id] = new_tensor.transpose(transpose_perm)
 
+    # TODO: Get rid of this function and see what breaks.
     def absorb_tensor(self, node_id: str, absorbed_tensor: np.ndarray,
                       absorbed_tensors_leg_index: int,
                       this_tensors_leg_index: int):
