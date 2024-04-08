@@ -1,6 +1,6 @@
-from typing import List, Union
+from typing import List, Union, Dict
 
-from numpy.random import default_rng
+from numpy.random import default_rng, Generator
 from numpy import ndarray, eye
 
 from ..operators.tensorproduct import TensorProduct
@@ -8,74 +8,160 @@ from ..operators.hamiltonian import Hamiltonian
 from .random_matrices import random_hermitian_matrix
 from .random_ttns import random_big_ttns_two_root_children
 
-def random_terms(
-        num_of_terms: int, possible_operators: list, sites: List[str],
-        min_strength: float = -1, max_strength: float = 1, min_num_sites: int = 2,
-        max_num_sites: int = 2):
+def random_terms(num_of_terms: int,
+                 possible_operators: Union[List[str],List[ndarray]],
+                 sites: List[str],
+                 min_strength: float = -1,
+                 max_strength: float = 1,
+                 min_num_sites: int = 2,
+                 max_num_sites: int = 2,
+                 seed: Union[None,int,Generator] = None) -> List[TensorProduct]:
     """
-    Creates random interaction terms.
+    Generates random interaction terms.
 
-    Parameters
-    ----------
-    num_of_terms : int
-        The number of random terms to be generated.
-    possible_operators : list of arrays
-        A list of all possible single site operators. We assume all sites have
-        the same physical dimension.
-    sites : list of str
-        A list containing the possible identifiers of site nodes.
-    min_strength : float, optional
-        Minimum strength an interaction term can have. The strength is
-        multiplied to the first operator of the term. The default is -1.
-    max_strength : float, optional
-        Minimum strength an interaction term can have. The strength is
-        multiplied to the first operator of the term. The default is 1.
-    min_num_sites : int, optional
-        The minimum numberof sites that can partake in a single interaction
-        term. The default is 2.
-    max_num_sites : int, optional
-        The minimum numberof sites that can partake in a single interaction
-        term. The default is 2.
+    The function generates a given number of interaction terms from a list of
+    possible operators. The operators can be symbolic or numerical and a random
+    strength can be assigned to each term.
 
-    Returns
-    -------
-    rterms : list of dictionaries
-        A list containing all the random terms.
+    Args:
+        num_of_terms (int): The number of random terms to be generated.
+        possible_operators (Union[List[str],List[ndarray]]): A list of all
+            possible single site operators.
+        sites (List[str]): A list containing the possible identifiers of
+            sites/nodes.
+        min_strength (float, optional): Minimum strength an interaction term
+            can have. The strength is multiplied to the first operator of the
+            term. Defaults to -1 and is ignored for symbolic operators.
+        max_strength (float, optional): Maximum strength an interaction term
+            can have. The strength is multiplied to the first operator of the
+            term. Defaults to 1 and is ignored for symbolic operators.
+        min_num_sites (int, optional): The minimum number of sites that can
+            partake in an interaction term, i.e. have one of the possible
+            operators applied to them. Defaults to 2.
+        max_num_sites (int, optional): The maximum number of sites that can
+            partake in an interaction term, i.e. have one of the possible
+            operators applied to them. Defaults to 2.
+        seed (Union[None,int,Generator], optional): A seed for the random number
+            generator or a generator itself. Defaults to None.
+    
+    Returns:
+        List[TensorProduct]: A list containing all the random terms.
     """
+    if isinstance(possible_operators[0], str):
+        return random_symbolic_terms(num_of_terms, possible_operators, sites,
+                                     min_num_sites, max_num_sites, seed)
+    if isinstance(possible_operators[0], ndarray):
+        return random_numeric_terms(num_of_terms, possible_operators, sites,
+                                    min_strength, max_strength,
+                                    min_num_sites, max_num_sites, seed)
 
+def random_numeric_terms(num_of_terms: int,
+                         possible_operators: Union[List[str],List[ndarray]],
+                         sites: List[str],
+                         min_strength: float = -1,
+                         max_strength: float = 1,
+                         min_num_sites: int = 2,
+                         max_num_sites: int = 2,
+                         seed: Union[None,int,Generator] = None) -> List[TensorProduct]:
+    """
+    Generates random numeric interaction terms.
+
+    The function generates a given number of interaction terms from a list of
+    possible matrices. A random strength can be assigned to each term.
+
+    Args:
+        num_of_terms (int): The number of random terms to be generated.
+        possible_operators (Union[List[str],List[ndarray]]): A list of all
+            possible single site operators.
+        sites (List[str]): A list containing the possible identifiers of
+            sites/nodes.
+        min_strength (float, optional): Minimum strength an interaction term
+            can have. The strength is multiplied to the first operator of the
+            term. Defaults to -1 and is ignored for symbolic operators.
+        max_strength (float, optional): Maximum strength an interaction term
+            can have. The strength is multiplied to the first operator of the
+            term. Defaults to 1 and is ignored for symbolic operators.
+        min_num_sites (int, optional): The minimum number of sites that can
+            partake in an interaction term, i.e. have one of the possible
+            operators applied to them. Defaults to 2.
+        max_num_sites (int, optional): The maximum number of sites that can
+            partake in an interaction term, i.e. have one of the possible
+            operators applied to them. Defaults to 2.
+        seed (Union[None,int,Generator], optional): A seed for the random number
+            generator or a generator itself. Defaults to None.
+    
+    Returns:
+        List[TensorProduct]: A list containing all the random terms.
+    """
     rterms = []
-
-    rng = default_rng()
-    number_of_sites = rng.integers(low=min_num_sites, high=max_num_sites + 1,
+    rng = default_rng(seed=seed)
+    number_of_sites = rng.integers(low=min_num_sites,
+                                   high=max_num_sites + 1,
                                    size=num_of_terms)
-    strength = rng.uniform(low=min_strength, high=max_strength,
+    strength = rng.uniform(low=min_strength,
+                           high=max_strength,
                            size=num_of_terms)
-
     for index, nsites in enumerate(number_of_sites):
         term = {}
         operator_indices = rng.integers(len(possible_operators), size=nsites)
         sites_list = []
         first = True
-
         for operator_index in operator_indices:
-
             operator = possible_operators[operator_index]
-
             if first:
                 # The first operator has the interaction strength
                 operator = strength[index] * operator
                 first = False
-
             site = sites[rng.integers(len(sites))]
             # Every site should appear maximally once (Good luck)
             while site in sites_list:
                 site = sites[rng.integers(len(sites))]
 
             term[site] = operator
-
         rterms.append(term)
-
     return rterms
+
+def random_numeric_term(possible_operators: Union[List[str],List[ndarray]],
+                        sites: List[str],
+                        min_strength: float = -1,
+                        max_strength: float = 1,
+                        min_num_sites: int = 2,
+                        max_num_sites: int = 2,
+                        seed: Union[None,int,Generator] = None) -> TensorProduct:
+    """
+    Generate a single random numeric interaction term.
+
+    Args:
+        possible_operators (Union[List[str],List[ndarray]]): A list of all
+            possible single site operators.
+        sites (List[str]): A list containing the possible identifiers of
+            sites/nodes.
+        min_strength (float, optional): Minimum strength an interaction term
+            can have. The strength is multiplied to the first operator of the
+            term. Defaults to -1 and is ignored for symbolic operators.
+        max_strength (float, optional): Maximum strength an interaction term
+            can have. The strength is multiplied to the first operator of the
+            term. Defaults to 1 and is ignored for symbolic operators.
+        min_num_sites (int, optional): The minimum number of sites that can
+            partake in an interaction term, i.e. have one of the possible
+            operators applied to them. Defaults to 2.
+        max_num_sites (int, optional): The maximum number of sites that can
+            partake in an interaction term, i.e. have one of the possible
+            operators applied to them. Defaults to 2.
+        seed (Union[None,int,Generator], optional): A seed for the random number
+            generator or a generator itself. Defaults to None.
+
+    Returns:
+        TensorProduct: A random term in the form of a tensor product with
+            matrices as single site operators.
+    """
+    rng = default_rng(seed=seed)
+    number_of_sites = rng.integers(low=min_num_sites,
+                                   high=max_num_sites + 1)
+    strength = rng.uniform(low=min_strength,
+                           high=max_strength)
+    
+    
 
 def random_symbolic_terms(num_of_terms: int, possible_operators: List[ndarray], sites: List[str],
                           min_num_sites: int = 2,  max_num_sites: int = 2,
