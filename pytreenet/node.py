@@ -6,7 +6,7 @@ from numpy import ndarray
 
 from .util import crandn
 from .graph_node import GraphNode
-from .ttn_exceptions import NotCompatibleException
+from .util.ttn_exceptions import NotCompatibleException
 
 
 class Node(GraphNode):

@@ -14,7 +14,7 @@ from ...operators.tensorproduct import TensorProduct
 from ...util.tensor_util import (check_truncation_parameters,
                             tensor_matricisation_half)
 from ...contractions.contraction_util import contract_all_but_one_neighbour_block_to_hamiltonian
-from ...ttn_exceptions import NotCompatibleException
+from ...util.ttn_exceptions import NotCompatibleException
 
 class TwoSiteTDVP(TDVPAlgorithm):
 

@@ -7,7 +7,7 @@ from math import modf
 import numpy as np
 from tqdm import tqdm
 
-from ..ttn_exceptions import positiviy_check, non_negativity_check
+from ..util.ttn_exceptions import positiviy_check, non_negativity_check
 from ..util import fast_exp_action
 
 class TimeEvolution:

@@ -4,7 +4,7 @@ from enum import Enum, auto
 from numpy.random import default_rng
 from numpy import asarray, ndarray, eye
 
-from ..ttn_exceptions import NotCompatibleException
+from ..util.ttn_exceptions import NotCompatibleException
 from .operator import NumericOperator
 from .tensorproduct import TensorProduct
 from .common_operators import random_hermitian_matrix

@@ -58,7 +58,7 @@ from .leg_specification import LegSpecification
 from .canonical_form import (canonical_form,
                              split_qr_contract_r_to_neighbour)
 from .contractions.tree_contraction import completely_contract_tree
-from .ttn_exceptions import NotCompatibleException
+from .util.ttn_exceptions import NotCompatibleException
 
 
 class TensorDict(UserDict):
