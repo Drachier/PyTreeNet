@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import List
 from copy import deepcopy
-from ...tree_structure import TreeStructure
+from ...core.tree_structure import TreeStructure
 
 class TDVPUpdatePathFinder():
     """

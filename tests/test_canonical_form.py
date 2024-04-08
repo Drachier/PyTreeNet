@@ -5,7 +5,7 @@ from copy import deepcopy
 
 import pytreenet as ptn
 
-from pytreenet.canonical_form import _find_smallest_distance_neighbour
+from pytreenet.core.canonical_form import _find_smallest_distance_neighbour
 
 
 class TestCanonicalFormSimple(unittest.TestCase):

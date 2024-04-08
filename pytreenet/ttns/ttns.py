@@ -4,7 +4,7 @@ from copy import deepcopy
 
 import numpy as np
 
-from ..ttn import TreeTensorNetwork
+from ..core.ttn import TreeTensorNetwork
 from ..operators.tensorproduct import TensorProduct
 from ..contractions.state_state_contraction import contract_two_ttns
 

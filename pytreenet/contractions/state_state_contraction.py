@@ -7,7 +7,7 @@ from __future__ import annotations
 import numpy as np
 
 from .tree_cach_dict import PartialTreeCachDict
-from ..node import Node
+from ..core.node import Node
 
 from .contraction_util import (contract_all_but_one_neighbour_block_to_ket,
                                contract_all_neighbour_blocks_to_ket) 

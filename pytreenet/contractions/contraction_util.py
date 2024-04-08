@@ -10,7 +10,7 @@ from typing import List, Union, Tuple
 
 import numpy as np
 
-from ..node import Node
+from ..core.node import Node
 from .tree_cach_dict import PartialTreeCachDict
 
 def determine_index_with_ignored_leg(node: Node,

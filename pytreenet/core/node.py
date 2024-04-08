@@ -4,9 +4,9 @@ from functools import reduce
 
 from numpy import ndarray
 
-from .util import crandn
+from ..util import crandn
 from .graph_node import GraphNode
-from .util.ttn_exceptions import NotCompatibleException
+from ..util.ttn_exceptions import NotCompatibleException
 
 
 class Node(GraphNode):

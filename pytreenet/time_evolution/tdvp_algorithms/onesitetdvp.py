@@ -10,7 +10,7 @@ import numpy as np
 from .tdvp_algorithm import TDVPAlgorithm
 from ..time_evolution import time_evolve
 from ...util.tensor_util import tensor_matricisation_half, SplitMode
-from ...leg_specification import LegSpecification
+from ...core.leg_specification import LegSpecification
 from ...util.ttn_exceptions import NoConnectionException
 from ...contractions.state_operator_contraction import contract_any
 

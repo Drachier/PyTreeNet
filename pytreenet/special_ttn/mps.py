@@ -4,9 +4,9 @@ from copy import deepcopy
 
 import numpy as np
 
-from ..ttn import TreeTensorNetwork
+from ..core.ttn import TreeTensorNetwork
 from ..ttns import TreeTensorNetworkState
-from ..node import Node
+from ..core.node import Node
 from ..ttno.ttno import TTNO
 
 class MatrixProductTree(TreeTensorNetwork):
