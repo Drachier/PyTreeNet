@@ -4,12 +4,12 @@ from enum import Enum, auto
 from numpy.random import default_rng
 from numpy import asarray, ndarray, eye
 
-from .ttn_exceptions import NotCompatibleException
-from .operators.operator import NumericOperator
-from .operators.tensorproduct import TensorProduct
-from .operators.common_operators import random_hermitian_matrix
-from .ttns import random_big_ttns_two_root_children
-from .util import compare_lists_by_value
+from ..ttn_exceptions import NotCompatibleException
+from .operator import NumericOperator
+from .tensorproduct import TensorProduct
+from .common_operators import random_hermitian_matrix
+from ..ttns import random_big_ttns_two_root_children
+from ..util import compare_lists_by_value
 
 class PadMode(Enum):
     risky = auto()
