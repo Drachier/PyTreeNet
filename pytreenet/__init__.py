@@ -8,3 +8,4 @@ from .ttno import *
 from .ttns import *
 from .util import *
 from .operators import *
+from .random import *
