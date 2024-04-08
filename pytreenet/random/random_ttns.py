@@ -10,7 +10,7 @@ This module is part of a larger package for working with Tree Tensor Networks.
 from __future__ import annotations
 from enum import Enum
 
-from .ttns import TreeTensorNetworkState
+from ..ttns.ttns import TreeTensorNetworkState
 from ..core.node import random_tensor_node
 
 class RandomTTNSMode(Enum):
