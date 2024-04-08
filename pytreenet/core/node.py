@@ -326,10 +326,3 @@ class Node(GraphNode):
             errstr = f"Node {self.identifier} is root, thus does not have a parent!"
             raise NotCompatibleException(errstr)
         return self._shape[self._leg_permutation[0]]
-
-def random_tensor_node(shape, identifier: str = ""):
-    """
-    Creates a tensor node with an a random associated tensor with shape=shape.
-    """
-    rand_tensor = crandn(shape)
-    return (Node(tensor=rand_tensor, identifier=identifier), rand_tensor)

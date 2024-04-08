@@ -11,7 +11,7 @@ from __future__ import annotations
 from enum import Enum
 
 from ..ttns.ttns import TreeTensorNetworkState
-from ..core.node import random_tensor_node
+from .random_node import random_tensor_node
 
 class RandomTTNSMode(Enum):
     """
