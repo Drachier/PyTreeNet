@@ -7,9 +7,9 @@ from numpy import asarray, ndarray, eye
 from ..util.ttn_exceptions import NotCompatibleException
 from .operator import NumericOperator
 from .tensorproduct import TensorProduct
-from .common_operators import random_hermitian_matrix
-from ..ttns import random_big_ttns_two_root_children
-from ..util import compare_lists_by_value
+from ..random.random_matrices import random_hermitian_matrix
+from ..random.random_ttns import random_big_ttns_two_root_children
+from ..util.util import compare_lists_by_value
 
 class PadMode(Enum):
     risky = auto()
