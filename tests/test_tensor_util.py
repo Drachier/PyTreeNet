@@ -4,7 +4,7 @@ from copy import deepcopy
 import numpy as np
 
 import pytreenet as ptn
-from pytreenet.tensor_util import _determine_tensor_shape
+from pytreenet.util.tensor_util import _determine_tensor_shape
 
 
 class TestTensorUtilSimple(unittest.TestCase):

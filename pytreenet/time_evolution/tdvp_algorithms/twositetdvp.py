@@ -11,7 +11,7 @@ from ..time_evolution import time_evolve
 from ...ttns.ttns import TreeTensorNetworkState
 from ...ttno.ttno import TTNO
 from ...operators.tensorproduct import TensorProduct
-from ...tensor_util import (check_truncation_parameters,
+from ...util.tensor_util import (check_truncation_parameters,
                             tensor_matricisation_half)
 from ...contractions.contraction_util import contract_all_but_one_neighbour_block_to_hamiltonian
 from ...ttn_exceptions import NotCompatibleException

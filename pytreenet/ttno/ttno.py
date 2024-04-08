@@ -4,7 +4,7 @@ from enum import Enum
 import numpy as np
 
 from ..ttn import TreeTensorNetwork
-from ..tensor_util import tensor_qr_decomposition, tensor_svd, truncated_tensor_svd
+from ..util.tensor_util import tensor_qr_decomposition, tensor_svd, truncated_tensor_svd
 from ..node import Node
 from .state_diagram import StateDiagram
 

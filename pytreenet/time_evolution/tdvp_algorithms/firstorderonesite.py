@@ -1,4 +1,4 @@
-from ...tensor_util import SplitMode
+from ...util.tensor_util import SplitMode
 from .onesitetdvp import OneSiteTDVP
 
 class FirstOrderOneSiteTDVP(OneSiteTDVP):

@@ -51,7 +51,7 @@ import numpy as np
 
 from .tree_structure import TreeStructure
 from .node import Node
-from .tensor_util import (tensor_qr_decomposition,
+from .util.tensor_util import (tensor_qr_decomposition,
                           contr_truncated_svd_splitting,
                           SplitMode)
 from .leg_specification import LegSpecification
