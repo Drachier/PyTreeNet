@@ -1,3 +1,36 @@
+"""
+Provides the GraphNode class, which is the fundamental building block of trees.
+
+A GraphNode is a node in a tree structure and contains the information about
+neighbouring nodes, i.e. parent and children nodes.
+
+Example:
+    ```python
+    # Create a graph node
+    node = GraphNode("node")
+
+    # Add a parent
+    node.add_parent("parent")
+
+    # Add children
+    node.add_child("child1")
+    node.add_children(["child2", "child3"])
+
+    # We can do some checks
+    node.is_root()  # False
+    node.is_leaf()  # False
+    node.is_child_of("parent")  # True
+    node.is_parent_of("child1")  # True
+
+    # An check the numbers for conneciivity
+    node.nparents()  # 1
+    node.nchildren()  # 3
+    node.nneighbours()  # 4
+    node.neighbour_index("child2") # 2
+    node.child_index("child2")  # 1
+    node.neighbouring_nodes()  # ["parent", "child1", "child2", "child3"]
+    ````
+"""
 from __future__ import annotations
 from typing import List
 import uuid
