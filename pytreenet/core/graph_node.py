@@ -32,15 +32,26 @@ Example:
     ````
 """
 from __future__ import annotations
-from typing import List
+from typing import List, Union
 import uuid
-from copy import deepcopy
+from copy import copy
+
+from ..util.ttn_exceptions import NoConnectionException
 
 class GraphNode:
     """
     A graph node is the fundamental building block of a tree.
-    It contains the connectivity information of the graph node in the 
-    tree tensor network structure.
+
+    It contains the connectivity information of the graph node in the tree
+    structure, i.e. parent and children nodes.
+
+    Attributes:
+        identifier (str): A unique identifier assigned to this node.
+        parent (Union[str,None]): The identifier of the parent node. There can
+            only a single parent node. If there is no parent, this attribute is
+            None.
+        children (List[str]): A list of identifiers of the children nodes. We
+            consider the order of this list to be the order of the children.
     """
 
     def __init__(self, identifier=""):
@@ -61,8 +72,8 @@ class GraphNode:
             self._identifier = str(identifier)
 
         # Information about connectivity
-        self.parent = None
-        self.children = []
+        self.parent: Union[str,None] = None
+        self.children: List[str] = []
 
     def copy_with_new_id(self, new_id: str) -> GraphNode:
         """
@@ -72,14 +83,15 @@ class GraphNode:
             new_id (str): The new identifier.
 
         Returns:
-            GraphNode: A deepcopy of this GraphNode with a new identifier.
+            GraphNode: A copy of this GraphNode with a new identifier.
         """
-        new_node = deepcopy(self)
-        new_node.identifier = new_id
+        new_node = GraphNode(new_id)
+        new_node.parent = self.parent
+        new_node.children = copy(self.children)
         return new_node
 
     @property
-    def identifier(self):
+    def identifier(self) -> str:
         """
         A string that is unique to this node.
         """
@@ -87,29 +99,37 @@ class GraphNode:
 
     def __eq__(self, other: GraphNode) -> bool:
         """
-        Two GraphNodes are the same, if they have the same identifier,
-         children in the right order and the same parent.
+        Checks if two GraphNodes are the same.
+
+        Two GraphNodes are the same, if they have the same identifier, children
+        in the right order and the same parent.
         """
-        identifier_eq = self.identifier == other.identifier
-        children_eq = self.children == other.children
+        if not self.identifier == other.identifier:
+            return False
+        if not self.children == other.children:
+            return False
         # Needed to avoid string to None comparison
         if self.is_root() and other.is_root():
-            parent_eq = True
-        elif self.is_root() or other.is_root():
-            parent_eq = False
-        else:
-            parent_eq = self.parent == other.parent
-        return identifier_eq and children_eq and parent_eq
+            return True
+        if self.is_root() or other.is_root():
+            return False
+        return self.parent == other.parent
 
     def add_parent(self, parent_id: str):
         """
-        Adds `parent_id` as the new parent.
+        Add a parent to this node.
 
-        If a parent already exists, remove it and then add the new one.
+        Args:
+            parent_id (str): The identifier of the parent node. Will be added
+                as the parent of this node.
+        
+        Raises:
+            AssertionError: If the node already has a parent. Instead remove
+                the parent first and then add the new parent.
         """
         if self.parent is not None:
-            errstr = f"Node {self.identifier} has a parent already"
-            raise ValueError(errstr)
+            errstr = f"Node {self.identifier} already has a parent!"
+            raise AssertionError(errstr)
         self.parent = parent_id
 
     def remove_parent(self):
@@ -120,66 +140,100 @@ class GraphNode:
 
     def add_child(self, child_id: str):
         """
-        Adds `child_id` as a new child.
+        Add a new child to this node.
+
+        Args:
+            child_id (str): The identifier of the child node. Will be added
+                as a child to this node.
         """
         self.children.append(child_id)
 
     def add_children(self, children_ids: List[str]):
         """
-        Adds all children with identifiers in `children_ids` as children to this node.
+        Adds mutliple children to this node.
+
+        Args:
+            children_ids (List[str]): A list of identifiers of the children
+                nodes. All will be added as children to this node.
         """
         self.children.extend(children_ids)
 
+    def _check_child_existence(self, child_id: str):
+        """
+        Checks, if a given identifier is that of a child of this node.
+
+        Args:
+            child_id (str): The identifier to check.
+
+        Raises:
+            ValueError: If the child_id is not a child of this node.
+        """
+        if child_id not in self.children:
+            errstr = f"{child_id} is not a child of this node ({self.identifier})!"
+            raise ValueError(errstr)
+
     def remove_child(self, child_id: str):
         """
-        Removes a children identifier from this node's children.
+        Removes a child from this node's children.
+
+        Args:
+            child_id (str): The identifier of the child to be removed.
         """
-        try:
-            self.children.remove(child_id)
-        except ValueError as exc:
-            errstr = f"{child_id} is not a child of this node ({self.identifier})!"
-            raise ValueError(errstr) from exc
+        self._check_child_existence(child_id)
+        self.children.remove(child_id)
 
     def child_index(self, child_id: str) -> int:
         """
-        Returns the index of identifier child_id in this Node's children list.
+        Returns the index of a child of the node.
+
+        The order is (usually) defined by the order in which the children
+        were added.
+
+        Args:
+            child_id (str): The identifier of the child to look for.
         """
-        try:
-            return self.children.index(child_id)
-        except ValueError as exc:
-            errstr = f"{child_id} is not a child of this node ({self.identifier})!"
-            raise ValueError(errstr) from exc
+        self._check_child_existence(child_id)
+        return self.children.index(child_id)
 
     def neighbour_index(self, node_id: str) -> int:
         """
-        Returns the index of the neighbour including the parent as 0 if it
-         exists. 
+        Returns the index of the neighbour of this node.
+
+        This includes the parent with index 0 and the children.
 
         Args:
             node_id (str): The identifier of the node to look for.
 
         Returns:
-            int: The position of the identifier, if it exists.
+            int: The index of the node.
         """
         if node_id == self.parent:
             return 0
-        try:
+        if node_id in self.children:
             return self.children.index(node_id) + self.nparents()
-        except ValueError as exc:
-            errstr = f"{node_id} is not a neighbour of this node!"
-            raise ValueError(errstr) from exc
+        errstr = f"{node_id} is not a neighbour of {self.identifier}!"
+        raise NoConnectionException(errstr)
 
     def replace_child(self, child_id: str, new_child_id: str):
         """
         Replaces one child with another.
+
+        This is done in place.
+
+        Args:
+            child_id (str): The identifier of the child to be replaced.
+            new_child_id (str): The identifier of the new child.
         """
+        self._check_child_existence(child_id)
         if child_id == new_child_id:
             return
         self.children[self.child_index(child_id)] = new_child_id
 
     def replace_neighbour(self, old_neighbour_id: str, new_neighbour_id: str):
         """
-        Replaces a neighbour identifier with a new one.
+        Replaces a neighbour with a new one.
+
+        This is done in place.
 
         Args:
             old_neighbour_id (str): The node identifier to be replaced.
@@ -187,8 +241,11 @@ class GraphNode:
         """
         if not self.is_root() and self.parent == old_neighbour_id:
             self.parent = new_neighbour_id
-        else:
+        elif old_neighbour_id in self.children:
             self.replace_child(old_neighbour_id,new_neighbour_id)
+        else:
+            errstr = f"{old_neighbour_id} is not a neighbour of {self.identifier}!"
+            raise NoConnectionException(errstr)
 
     def is_root(self) -> bool:
         """
