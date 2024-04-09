@@ -365,6 +365,8 @@ class TreeTensorNetwork(TreeStructure):
     def conjugate(self) -> TreeTensorNetwork:
         """
         Returns a conjugated version of this TTN.
+
+        This means for every tensor in the TTN, the complex conjugate is taken.
         """
         ttn_conj = deepcopy(self)
         for node_id, tensor in ttn_conj.tensors.items():
@@ -454,16 +456,6 @@ class TreeTensorNetwork(TreeStructure):
                           + (this_tensors_indices[-1], )
                           + this_tensors_indices[this_tensors_leg_index:-1])
         self.tensors[node_id] = new_tensor.transpose(transpose_perm)
-
-    # TODO: Get rid of this function and see what breaks.
-    def absorb_tensor(self, node_id: str, absorbed_tensor: np.ndarray,
-                      absorbed_tensors_leg_index: int,
-                      this_tensors_leg_index: int):
-        """
-        DEPRECIATED. Use `absorb_matrix` instead.
-        """
-        return self.absorb_matrix(node_id, absorbed_tensor, absorbed_tensors_leg_index,
-                                  this_tensors_leg_index)
 
     def absorb_tensor_into_neighbour_leg(self, node_id: str, neighbour_id: str,
                                          tensor: np.ndarray, tensor_leg: int):
