@@ -422,6 +422,13 @@ class TreeTensorNetwork(TreeStructure):
                 bond_dims[(node.parent, node.identifier)] = parent_bd
         return bond_dims
 
+    @staticmethod
+    def _absorption_warning() -> str:
+        errstr = "Only square Matrices can be absorbed!\n"
+        errstr += "If you desire to contract a non-square matrix/a higher-degree tensor\n"
+        errstr += "then add it as a new child to this TTN and contract it."
+        return errstr
+
     def absorb_matrix(self, node_id: str, absorbed_matrix: np.ndarray,
                       this_tensors_leg_index: int,
                       absorbed_matrix_leg_index: int = 1):
@@ -444,9 +451,7 @@ class TreeTensorNetwork(TreeStructure):
         """
         m_shape = absorbed_matrix.shape
         if len(absorbed_matrix) != 2 or m_shape[0] != m_shape[1]:
-            errstr = "Only square Matrices can be absorbed!\n"
-            errstr += "If you desire to contract a non-square matrix/a higher-degree tensor\n"
-            errstr += "then add it as a new child to this TTN and contract it."
+            errstr = self._absorption_warning()
             raise AssertionError(errstr)
         node_tensor = self.tensors[node_id]
         new_tensor = np.tensordot(node_tensor, absorbed_matrix,
@@ -457,87 +462,141 @@ class TreeTensorNetwork(TreeStructure):
                           + this_tensors_indices[this_tensors_leg_index:-1])
         self.tensors[node_id] = new_tensor.transpose(transpose_perm)
 
-    def absorb_tensor_into_neighbour_leg(self, node_id: str, neighbour_id: str,
-                                         tensor: np.ndarray, tensor_leg: int):
+    def absorb_matrix_into_neighbour_leg(self, node_id: str, neighbour_id: str,
+                                         tensor: np.ndarray, tensor_leg: int = 1):
         """
-        Absorb a tensor into a node, by contracting one of the tensor's legs with one of the
-        neighbour_legs of the node.
+        Absorb a matrix into a node.
+        
+        One of the legs of the matrix will be contracted into a neighbour leg
+        of the node.
 
         Args:
-            node_id (str): The identifier of the node into which the tensor is absorbed
-            neighbour_id (str): The identifier of the neighbour to which the leg points, which
-                                 is to be contracted with the tensor
+            node_id (str): The identifier of the node into which the tensor is
+                absorbed
+            neighbour_id (str): The identifier of the neighbour to which the leg
+                points, which is to be contracted with the tensor
             tensor (np.ndarray): The tensor to be contracted
-            tensor_leg (int): The leg of the external tensor which is to be contracted
+            tensor_leg (int, optional): The leg of the external tensor which is
+                to be contracted. Defaults to 1, as this is usually the input
+                leg of a matrix.
         """
-        assert tensor.ndim == 2
         node = self.nodes[node_id]
-        neighbour_leg = node.get_neighbour_leg(neighbour_id)
+        neighbour_leg = node.neighbour_index(neighbour_id)
         self.absorb_matrix(node_id, tensor, tensor_leg, neighbour_leg)
 
     def absorb_into_open_legs(self, node_id: str, tensor: np.ndarray):
         """
         Absorb a tensor into the open legs of the tensor of a node.
+
         This tensor will be absorbed into all open legs and it is assumed, the
          leg order of the tensor to be absorbed is the same as the order of
          the open legs of the node.
-        The tensor to be absorbed has to have twice as many open legs as the node tensor.
-         The first half of the legs is contracted with the tensor node's open legs and
-         the second half become the new open legs of the tensor node.
+        Since the tensor to be absorbed is considered to represent an operator
+        acting on the node, it will have to have exactly twice as many legs as
+        the node has open legs. The input legs, i.e. the ones contracted, are
+        assumed to be the first half of the legs of the tensor.
 
         Args:
-            node_id (str): The identifier of the node which is to be contracted with the tensor
+            node_id (str): The identifier of the node which is to be contracted
+                with the tensor
             tensor (np.ndarray): The tensor to be contracted.
         """
         node, node_tensor = self[node_id]
-        assert tensor.ndim == 2 * node.nopen_legs()
-
-        tensor_legs = list(range(node.nopen_legs()))
-        new_tensor = np.tensordot(node_tensor, tensor, axes=(node.open_legs, tensor_legs))
+        nopen_legs = node.nopen_legs()
+        assert tensor.ndim == 2 * nopen_legs
+        if tensor.shape[:nopen_legs] != tensor.shape[nopen_legs:]:
+            errstr = self._absorption_warning()
+            raise AssertionError(errstr)
+        tensor_legs = list(range(nopen_legs))
+        new_tensor = np.tensordot(node_tensor, tensor,
+                                  axes=(node.open_legs, tensor_legs))
         # The leg ordering was not changed here
         self.tensors[node_id] = new_tensor
 
     def contract_nodes(self, node_id1: str, node_id2: str, new_identifier: str = ""):
         """
-        Contracts two node and inserts a new node with the contracted tensor
-        into the ttn.
-        Note that one of the nodes will be the parent of the other.
+        Contracts two nodes.
+        
+        This means a new node with the contracted tensor is inserted into the
+        ttn with the result of the tensor contraction of the other nodes as the
+        associated tensor.
+        Note that one of the nodes has to be the parent of the other.
         The resulting leg order is the following:
             `(parent_parent_leg, node1_children_legs, node2_children_legs,
             node1_open_legs, node2_open_legs)`
-        The resulting node will have the identifier `parent_id + "contr" + child_id`.
+        The resulting node will have the identifier
+                    `parent_id + "contr" + child_id`
+        unless an alternative is provided.
 
-        Deletes the original nodes and tensors from the TTN.
+        Note that this removes the original nodes and tensors from the TTN.
 
         Args:
             node_id1 (str): Identifier of first tensor
             node_id2 (str): Identifier of second tensor
-            new_identifier (str): A potential new identifier. Otherwise defaults to
-                `node_id1 + "contr" + node_id2`
+            new_identifier (str, optional): A potential new identifier.
+            Otherwise defaults to `node_id1 + "contr" + node_id2`.
         """
         if new_identifier == "":
             new_identifier = node_id1 + "contr" + node_id2
         parent_id, child_id = self.determine_parentage(node_id1, node_id2)
-        child_node = self.nodes[child_id]
-        parent_node = self.nodes[parent_id]
+        new_tensor = self._data_contraction(parent_id, child_id, new_identifier)
+        new_node = self._create_contracted_node(new_tensor, new_identifier,
+                                                parent_id, child_id, node_id1)
+        # Change connectivity. This deletes the old nodes.
+        self.replace_node_in_neighbours(new_identifier, parent_id)
+        self.replace_node_in_neighbours(new_identifier, child_id)
+        self._nodes[new_identifier] = new_node
 
-        # Contracting tensors
+    def _data_contraction(self, parent_id: str, child_id: str,
+                          new_id: str) -> np.ndarray:
+        """
+        Performs the actual contraction of the tensors.
+
+        The parent tensor is the first argument, to have a consisten leg
+        convention. Note that after running this method, the original tensors
+        are deleted and the new tensor is available.
+
+        Args:
+            parent_id (str): Identifier of the parent tensor
+            child_id (str): Identifier of the child tensor
+            new_id (str): Identifier of the new tensor
+        
+        Returns:
+            np.ndarray: The tensor resulting from the contraction.
+        """
+        parent_node = self.nodes[parent_id]
+        ## Contracting tensors
         parent_tensor = self.tensors[parent_id]
         child_tensor = self.tensors[child_id]
-        new_tensor = np.tensordot(parent_tensor, child_tensor,
-                                  axes=(parent_node.get_child_leg(child_id), 0))
+        axes = (parent_node.neighbour_index(child_id), 0)
+        new_tensor = np.tensordot(parent_tensor, child_tensor, # This order for leg convention
+                                  axes=axes)
+        ## Remove old tensors
+        self.tensors.pop(parent_id)
+        self.tensors.pop(child_id)
+        ## Add new tensor
+        self.tensors[new_id] = new_tensor
+        return new_tensor
 
-        # remove old tensors
-        self.tensors.pop(node_id1)
-        self.tensors.pop(node_id2)
+    def _create_contracted_node(self, new_tensor: np.ndarray,
+                                new_identifier: str,
+                                parent_id: str, child_id: str,
+                                node_id1: str) -> Node:
+        """
+        Creates the new node after the contraction.
 
-        # add new tensor
-        self.tensors[new_identifier] = new_tensor
-        new_node = Node(tensor=new_tensor, identifier=new_identifier)
+        This means all neighbours and the permutation are set correctly.
+        """
+        parent_node = self.nodes[parent_id]
+        child_node = self.nodes[child_id]
+        # Create new node
+        new_node = Node(tensor=new_tensor,
+                        identifier=new_identifier)
 
-        # Actual tensor leg now have the form
+        # Actual tensor leg of new_tensor now have the form
         # (parent_of_parent, remaining_children_of_parent, open_of_parent,
         # children_of_child, open_of_child)
+        # However, the newly created node is basically a node with only open legs.
         if not parent_node.is_root():
             new_node.open_leg_to_parent(parent_node.parent, 0)
         parent_children = copy(parent_node.children)
@@ -557,11 +616,7 @@ class TreeTensorNetwork(TreeStructure):
             range_parent = range(new_nvirt, new_nvirt + parent_node.nopen_legs())
             range_child = range(new_nvirt + parent_node.nopen_legs(), new_node.nlegs())
             new_node.exchange_open_leg_ranges(range_parent, range_child)
-
-        # Change connectivity
-        self.replace_node_in_neighbours(new_identifier, parent_id)
-        self.replace_node_in_neighbours(new_identifier, child_id)
-        self._nodes[new_identifier] = new_node
+        return new_node
 
     def legs_before_combination(self, node1_id: str, node2_id: str) -> Tuple[LegSpecification, LegSpecification]:
         """
