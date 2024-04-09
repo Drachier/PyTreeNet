@@ -618,25 +618,29 @@ class TreeTensorNetwork(TreeStructure):
             new_node.exchange_open_leg_ranges(range_parent, range_child)
         return new_node
 
-    def legs_before_combination(self, node1_id: str, node2_id: str) -> Tuple[LegSpecification, LegSpecification]:
+    def legs_before_combination(self, node1_id: str,
+                                node2_id: str) -> Tuple[LegSpecification, LegSpecification]:
         """
+        Records which leg corresponds to which node.
+
         When combining two nodes, the information about their legs is lost.
-         However, sometimes one wants to split the two nodes again, as they were
-         before. This function provides the required leg specification for the
-         splitting.
+        However, sometimes one wants to split the two nodes again, as they were
+        before. This function provides the required leg specification for the
+        splitting.
 
         Args:
             node1_id (str): Identifier of the first node to be combined
             node2_id (str): Identifier of the second node to be combined
 
         Returns:
-            Tuple[LegSpecification, LegSpecification]: The leg specifications containing the
-             information to split the two nodes again, to have the same legs as before
-             (assuming the open legs are not transposed). Since it is not needed the 
-             LegSpecification of the parent node has the identifier of the child node
-             not included. Same for the LegSpecification of the child node and the
-             parent legs. The open legs are the index values that the legs would have
-             after contracting the two nodes.
+            Tuple[LegSpecification, LegSpecification]: The leg specifications
+                containing the information to split the two nodes again, to
+                have the same legs as before (assuming the open legs are not
+                transposed). Since it is not needed the  LegSpecification of
+                the parent node has the identifier of the child node not
+                included. Same for the LegSpecification of the child node and
+                the parent legs. The open legs are the index values that the
+                legs would have after contracting the two nodes.
         """
         node1 = self.nodes[node1_id]
         node2 = self.nodes[node2_id]
@@ -674,9 +678,9 @@ class TreeTensorNetwork(TreeStructure):
         Args:
             node_id (str): The identifier of the node to be split.
             out_legs (LegSpecification): The legs associated to the output of the
-             matricised node tensor. (The Q legs for QR and U legs for SVD)
+                matricised node tensor. (The Q legs for QR and U legs for SVD)
             in_legs (LegSpecification): The legs associated to the input of the
-             matricised node tensor: (The R legs for QR and the SVh legs for SVD)
+                matricised node tensor: (The R legs for QR and the SVh legs for SVD)
             splitting_function (Callable): The function to be used for the splitting
             out_identifier (str, optional): An identifier for the tensor with the
             output legs. Defaults to "".
@@ -698,7 +702,9 @@ class TreeTensorNetwork(TreeStructure):
         # Getting the numerical value of the legs
         out_legs_int = out_legs.find_leg_values()
         in_legs_int = in_legs.find_leg_values()
-        out_tensor, in_tensor = splitting_function(tensor, out_legs_int, in_legs_int,
+        out_tensor, in_tensor = splitting_function(tensor,
+                                                   out_legs_int,
+                                                   in_legs_int,
                                                    **kwargs)
         self._tensors[out_identifier] = out_tensor
         self._tensors[in_identifier] = in_tensor
