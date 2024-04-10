@@ -30,6 +30,9 @@ Example:
     node.child_index("child2")  # 1
     node.neighbouring_nodes()  # ["parent", "child1", "child2", "child3"]
     ````
+
+Note that GraphNodes are usually not used directly, but rather via the Node
+child class in tree tensor networks.
 """
 from __future__ import annotations
 from typing import List, Union
