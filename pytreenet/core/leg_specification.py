@@ -166,7 +166,7 @@ class LegSpecification():
             leg_vals = [0]
         else:
             leg_vals = []
-        leg_vals.extend([self.node.get_neighbour_leg(child_leg)
+        leg_vals.extend([self.node.neighbour_index(child_leg)
                          for child_leg in self.child_legs])
         leg_vals.extend(self.open_legs)
         return leg_vals

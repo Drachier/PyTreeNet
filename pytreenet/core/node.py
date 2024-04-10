@@ -271,29 +271,6 @@ class Node(GraphNode):
         new_position = open_1.start + len(open_2) + difference
         self._leg_permutation[new_position:new_position] = values1
 
-    def get_child_leg(self, child_id: str) -> int:
-        """
-        Obtains the leg value of a given child of this node.
-
-        This is the leg of the tensor corresponding to this child after
-        transposing the tensor accordingly.
-        """
-        return self.nparents() + self.child_index(child_id)
-
-    def get_neighbour_leg(self, node_id: str) -> int:
-        """
-        Returns the leg value of a given neighbour.
-
-        This is the leg of the tensor corresponding to this neighbour after
-        transposing the tensor accordingly.
-        """
-        if self.is_child_of(node_id):
-            return 0
-        if self.is_parent_of(node_id):
-            return self.get_child_leg(node_id)
-        errstr = f"Node {self.identifier} is not connected to {node_id}!"
-        raise ValueError(errstr)
-
     def swap_two_child_legs(self, child_id1: str, child_id2: str):
         """
         Swaps the index position of two children.
