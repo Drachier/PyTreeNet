@@ -1,0 +1,3 @@
+Modules that were fully refactored and updated to new Docstyle:
+
+* core.graph_node
