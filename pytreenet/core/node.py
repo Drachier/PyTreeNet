@@ -275,9 +275,10 @@ class Node(GraphNode):
         """
         Swaps the index position of two children.
         """
+        self._check_child_existence(child_id1)
+        self._check_child_existence(child_id2)
         if child_id1 == child_id2:
             return
-
         child1_index = self.child_index(child_id1)
         child2_index = self.child_index(child_id2)
         # Swap children identifiers
