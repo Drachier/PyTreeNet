@@ -4,31 +4,36 @@ from functools import reduce
 
 from numpy import ndarray
 
-from ..util import crandn
 from .graph_node import GraphNode
 from ..util.ttn_exceptions import NotCompatibleException
 
 
 class Node(GraphNode):
     """ 
-    The Node contains a permutation that is responsible for everything
-    that has to do with legs. 
-    The superclass AbstractNode contains all that has to do with tree connectivity.
+    The node class is responsible for the control of the legs.
 
-    The attribute `leg_permutation` is a list of integers with the same length
-    as the associated tensor has dimensions. The associated permutation is such
-    that the associated tensor transposed with it has the leg ordering:
+    This means, it keeps track of the leg order or more precisely the
+    permutation of the legs compared to the data tensor in order to keep the
+    leg convention
         `(parent, child0, ..., childN-1, open_leg0, ..., open_legM-1)`
-    In general legs values will be returned according to this ordering and not according
-    to the actual tensor legs.
-    Is compatible with `np.transpose`.
-    So in the permutation we have the format
-        `[leg of tensor corr. to parent, leg of tensor corr. to child0, ...]`
-    The children legs are in the same order as the children node identifiers in 
-    the superclass.
+    A Node can be created independently from a tensor. It can then be linked to
+    this tensor afterwards.
+    
+    Attributes:
+        identifier (str): The identifier of the node.
+        leg_permutation (List[int]): The permutation of the legs compared to
+            the data tensor. The values are the indices of the tensor legs at
+            the positions they need to be permuted to. In general leg indices
+            are returned according to the positions in this list and not according
+            to the actual tensor legs.
+        shape (Tuple): The shape of the tensor associated with this node. This
+            is the shape of the tensor after the permutation of the legs and
+            allows for more convenient checks and sanity checks.
     """
 
-    def __init__(self, tensor=None, identifier=None):
+    def __init__(self,
+                 tensor: Union[ndarray,None] = None,
+                 identifier: str = ""):
         super().__init__(identifier)
         if tensor is not None:
             self._leg_permutation = list(range(tensor.ndim))
@@ -39,15 +44,18 @@ class Node(GraphNode):
 
     def __eq__(self, other: Node) -> bool:
         """
-        Two nodes are equal, if they have the same identifier, children in the
-         right order and the same parent and have the same external shape, i.e.
-         the internal `_shape` can be different.
-        Note that the permutation is not checked and the associated tensor is not
-         checked, as it is stored independently.
+        Provides the equality check for two nodes.
+
+        Checks equality of two nodes. Two nodes are considered equal if they 
+        have the same identifier, children in the correct order, the same 
+        parent, and the same external shape. The internal `_shape` can differ.
+
+        Note: The permutation and the associated tensor are not checked, as 
+        the tensor is stored separately.
         """
-        graphnode_eq = super().__eq__(other)
-        shape_eq = self.shape == other.shape
-        return graphnode_eq and shape_eq
+        if self.shape != other.shape:
+            return False
+        return super().__eq__(other)
 
     @property
     def leg_permutation(self):
@@ -60,7 +68,9 @@ class Node(GraphNode):
     def shape(self) -> Union[Tuple, None]:
         """
         Returns the shape as it would be for the tranposed tensor.
-         E.g. the dimension of the parent leg is always output[0].
+
+        E.g. the dimension of the parent leg is always output[0].
+        If no tensor is linked to this node, None is returned.
         """
         if self._shape is None:
             return None
@@ -69,8 +79,14 @@ class Node(GraphNode):
     @property
     def parent_leg(self) -> int:
         """
-        Returns parent_leg.
+        Returns the parent_leg as index.
+
+        Returns:
+            int: The parent_leg where the value is the position in the permutation
+                list. If there is no parent, None is returned.
         """
+        if self.is_root():
+            return None
         return 0
 
     @property
@@ -79,7 +95,7 @@ class Node(GraphNode):
         Returns the children_legs as index list.
 
         Returns:
-            List[int]: The children_legs where the values are the indices in
+            List[int]: The children_legs where the values are the positions in
              the permutation list.
         """
         return list(range(self.nparents(), self.nparents() + self.nchildren()))
@@ -104,13 +120,37 @@ class Node(GraphNode):
     def _reset_permutation(self):
         """
         Resets the permutation to the standard.
+
         Always call this, when the associated tensor is transposed
             according to the permutation. This ensures, the legs still match.
         """
         self._shape = self.shape
         self._leg_permutation = list(range(len(self._leg_permutation)))
 
-    def open_leg_to_parent(self, parent_id: Union[str, None], open_leg: Union[int,None]):
+    def _open_leg_checks(self, open_leg: int,
+                         other_id: Union[str, None] = None):
+        """
+        Checks if the given leg is an open leg.
+
+        Args:
+            open_leg (int): The index of the leg to be checked.
+            other_id (Union[str, None]): The identifier of a different node to
+                appear in the error message.
+        """
+        if self.nopen_legs() == 0:
+            errstr = f"Node with identifier {self.identifier} has no open legs!"
+            raise ValueError(errstr)
+        if open_leg < self.nneighbours():
+            errstr = f"The leg with index {open_leg} of {self.identifier} is not open"
+            if other_id is None:
+                errstr = errstr + " to be connected!"
+            else:
+                errstr = errstr + f" to connect to {other_id}"
+            raise NotCompatibleException(errstr)
+
+    def open_leg_to_parent(self,
+                           parent_id: str,
+                           open_leg: Union[int, None]):
         """
         Changes an open leg into the leg towards a parent.
 
@@ -119,20 +159,14 @@ class Node(GraphNode):
             open_leg (int): The index of the tensor leg
         """
         if not self.is_root():
-            errstr = f"Node with identifier {self.identifier} already has a parent!"
+            errstr = f"Node {self.identifier} already has a parent!"
             raise NotCompatibleException(errstr)
         if open_leg is None:
             return
         if parent_id is None:
             errstr = "None is not a legitimate parent identifier!"
             raise ValueError(errstr)
-        if self.nopen_legs() == 0:
-            errstr = f"Node with identifier {self.identifier} has no open legs!"
-            raise ValueError(errstr)
-        if open_leg < self.nneighbours():
-            errstr = f"The leg with index {open_leg} of {self.identifier} is not open to connect to {parent_id}!"
-            raise NotCompatibleException(errstr)
-
+        self._open_leg_checks(open_leg, parent_id)
         # Move value open_leg to front of list
         actual_value = self._leg_permutation.pop(open_leg)
         self._leg_permutation.insert(0, actual_value)
@@ -141,23 +175,18 @@ class Node(GraphNode):
     def open_leg_to_child(self, child_id: str, open_leg: int):
         """
         Changes an open leg into the leg towards a child.
-        Children legs will be sorted in the same way as their ids are in the superclass.
+
+        Children legs will be sorted in the same way as their ids are in the
+        superclass.
 
         Args:
             child_id (str): The identifier of the to be child node
             open_leg (int): The index of the tensor leg
         """
-        if self.nopen_legs() == 0:
-            errstr = f"Node with identifier {self.identifier} has no open legs!"
-            raise ValueError(errstr)
-        if open_leg < self.nneighbours():
-            errstr = f"The leg with index {open_leg} of {self.identifier} is not open to connect to {child_id}!"
-            raise NotCompatibleException(errstr)
-
+        self._open_leg_checks(open_leg, child_id)
         actual_value = self._leg_permutation.pop(open_leg)
         new_position = self.nparents() + self.nchildren()
         self._leg_permutation.insert(new_position, actual_value)
-
         self.add_child(child_id)
 
     def open_legs_to_children(self, child_dict: Dict[str, int]):
@@ -185,7 +214,7 @@ class Node(GraphNode):
         """
         Changes the parent leg to be an open leg, if it exists.
 
-        Moves it to the back.
+        The newly opened leg will be the last leg of the node.
         """
         if not self.is_root():
             leg_index = self._leg_permutation.pop(0)
@@ -194,12 +223,15 @@ class Node(GraphNode):
 
     def child_leg_to_open_leg(self, child_id: str):
         """
-        Changes a leg towards a child Node into an open_leg
+        Changes a leg towards a child node into an open leg.
+
+        The newly opened leg will be the last leg of the node.
 
         Args:
             child_id (str): The identifier of the child_nodem to be disconnected.
         """
-        index = self.nparents() + self.child_index(child_id)
+        self._check_child_existence(child_id)
+        index = self.neighbour_index(child_id)
         leg_index = self._leg_permutation.pop(index)
         self._leg_permutation.append(leg_index)
         self.remove_child(child_id)
@@ -208,9 +240,12 @@ class Node(GraphNode):
         """
         Changes multiple child legs into open legs.
 
+        The new legs will be the last legs of the node but in the same order
+        as provided in the list.
+
         Args:
             children_id_list (List[str]): A list of the identifiers of the child
-                Nodes which are to be turned into open legs. 
+                nodes which are to be turned into open legs. 
         """
         for child_id in children_id_list:
             self.child_leg_to_open_leg(child_id)
@@ -227,7 +262,6 @@ class Node(GraphNode):
         if open_2.start < open_1.start:
             open_1, open_2 = open_2, open_1
         assert open_1.stop <= open_2.start
-
         values2 = [self._leg_permutation.pop(open_2.start)
                    for _ in open_2]
         values1 = [self._leg_permutation.pop(open_1.start)
