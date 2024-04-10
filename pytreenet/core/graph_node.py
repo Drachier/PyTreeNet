@@ -291,6 +291,8 @@ class GraphNode:
     def nneighbours(self) -> int:
         """
         Returns the number of neighbours of this node.
+
+        This includes the children and the parent.
         """
         return self.nchildren() + (not self.is_root())
 
@@ -302,8 +304,9 @@ class GraphNode:
 
     def neighbouring_nodes(self) -> List[str]:
         """
-        Provides the identifiers of all neighbours, i.e. the parent and all
-            children.
+        Provides the identifiers of all neighbours.
+
+        This means of all children and the parent, if it exists.
 
         Returns:
             List[str]: Contains the neighbour identifiers, if this node is not
