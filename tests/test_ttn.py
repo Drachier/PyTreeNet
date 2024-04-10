@@ -110,6 +110,7 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
     def test_legs_before_combination_root_c1(self):
         found = self.tensortree.legs_before_combination("root", "c1")
         correct_root = ptn.LegSpecification(None,["c2"], [1], None)
+        correct_root.is_root = True
         correct_c1 = ptn.LegSpecification(None, [], [2], None)
         self.assertEqual(found[0], correct_root)
         self.assertEqual(found[1], correct_c1)
@@ -117,6 +118,7 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
     def test_legs_before_combination_c2_root(self):
         found = self.tensortree.legs_before_combination("c2", "root")
         correct_root = ptn.LegSpecification(None,["c1"], [2], None)
+        correct_root.is_root = True
         correct_c2 = ptn.LegSpecification(None, [], [1], None)
         self.assertEqual(found[1], correct_root)
         self.assertEqual(found[0], correct_c2)
@@ -566,6 +568,7 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         found_legs1, found_legs2 = self.ttn.legs_before_combination("id1", "id2")
         ref_legs1 = ptn.LegSpecification(None, ["id8"], [3,4], None)
         ref_legs2 = ptn.LegSpecification(None, ["id3", "id5"], [5], None)
+        ref_legs1.is_root = True
         self.assertEqual(ref_legs1, found_legs1)
         self.assertEqual(ref_legs2, found_legs2)
 
@@ -573,6 +576,7 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         rev_legs2, rev_legs1 = self.ttn.legs_before_combination("id2", "id1")
         ref_legs1 = ptn.LegSpecification(None, ["id8"], [4,5], None)
         ref_legs2 = ptn.LegSpecification(None, ["id3", "id5"], [3], None)
+        ref_legs1.is_root = True
         self.assertEqual(ref_legs1, rev_legs1)
         self.assertEqual(ref_legs2, rev_legs2)
 
