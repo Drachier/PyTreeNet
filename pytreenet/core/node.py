@@ -107,6 +107,17 @@ class Node(GraphNode):
         """
         return list(range(self.nvirt_legs(), self.nlegs()))
 
+    def __str__(self) -> str:
+        """
+        Returns a string representation of the node.
+        """
+        string = f"Node {self.identifier}\n"
+        string += f"Parent: {self.parent}\n"
+        string += f"Children: {self.children}\n"
+        string += f"Open legs: {self.open_legs}\n"
+        string += f"Shape: {self.shape}\n"
+        return string
+
     def link_tensor(self, tensor: ndarray):
         """
         Links this node to a tensor, by saving its shape and dimension.
