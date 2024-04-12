@@ -717,77 +717,164 @@ class TreeTensorNetwork(TreeStructure):
 
         # Currently the tensors out and in have the leg ordering
         # (new_leg(for in), parent_leg, children_legs, open_legs, new_leg(for out))
-        in_setoff = 1
-        in_children = {}
-        out_setoff = 0
-        out_children = {}
-        if in_legs.is_root:
-            # In this case we have for the leg ordering for in
-            # (new_leg, children_legs, open_legs)
-            in_parent_leg_value = None
-            in_parent_id = None
-            in_children[out_identifier] = 0
-            # In this case we have for the leg ordering for out
-            # (children_legs, open_legs, new_leg=parent_leg)
-            out_parent_leg_value = out_node.nlegs() - 1
-            out_parent_id = in_identifier
-            out_setoff = 1
-            # Setting new root
-            self._root_id = in_identifier
-        elif in_legs.parent_leg is not None:
-            # In this case we have for the leg ordering for in
-            # (new_leg, parent_leg, children_legs, open_legs)
-            in_setoff = 2
-            in_parent_leg_value = 1
-            in_parent_id = in_legs.parent_leg
-            in_children[out_identifier] = 1
-            # In this case we have for the leg ordering for out
-            # (children_legs, open_legs, new_leg=parent_leg)
-            out_setoff = 1
-            out_parent_leg_value = out_node.nlegs() - 1
-            out_parent_id = in_identifier
-        elif out_legs.is_root or out_legs.parent_leg is None:
-            # In this case we have for the leg ordering for in
-            # (new_leg=parent_leg, children_legs, open_legs)
-            in_parent_leg_value = 0
-            in_parent_id = out_identifier
-            # In this case we have for the leg ordering for out
-            # (children_legs, open_legs, new_leg)
-            out_parent_leg_value = None
-            out_parent_id = None
-            out_children[in_identifier] = out_node.nlegs() - 1
-            # Setting new root
-            self._root_id = out_identifier
-        else:
-            # In this case we have for the leg ordering for in
-            # (new_leg=parent_leg, children_legs, open_legs)
-            in_parent_leg_value = 0
-            in_parent_id = out_identifier
-            # In this case we have for the leg ordering for out
-            # (parent_legs, children_legs, open_legs, new_leg)
-            out_setoff = 1
-            out_parent_leg_value = 0
-            out_parent_id = out_legs.parent_leg
-            out_children[in_identifier] = out_node.nlegs() - 1
-
-        in_children.update({child_id: leg_value + in_setoff
-                            for leg_value, child_id in enumerate(in_legs.child_legs)})
-        out_children.update({child_id: leg_value + out_setoff
-                            for leg_value, child_id in enumerate(out_legs.child_legs)})
-        if in_parent_leg_value is not None and in_parent_id is not None:
-            in_node.open_leg_to_parent(in_parent_id, in_parent_leg_value)
-        in_node.open_legs_to_children(in_children)
-        if out_parent_leg_value is not None and out_parent_id is not None:
-            out_node.open_leg_to_parent(out_parent_id, out_parent_leg_value)
-        out_node.open_legs_to_children(out_children)
+        self._set_in_parent_leg_after_split(in_node,
+                                            in_legs,
+                                            out_identifier)
+        self._set_in_children_legs_after_split(in_legs,
+                                               out_legs,
+                                               in_identifier,
+                                               out_identifier)
+        self._set_out_parent_leg_after_split(out_node,
+                                             out_legs,
+                                             in_identifier)
+        self._set_out_children_legs_after_split(out_legs,
+                                                in_legs,
+                                                out_identifier,
+                                                in_identifier)
         self.replace_node_in_some_neighbours(out_identifier, node_id,
                                              out_legs.find_all_neighbour_ids())
         self.replace_node_in_some_neighbours(in_identifier, node_id,
                                              in_legs.find_all_neighbour_ids())
-
+        self._set_root_from_leg_specs(in_legs, out_legs,
+                                      in_identifier, out_identifier)
         if node_id not in [out_identifier, in_identifier]:
             self._tensors.pop(node_id)
             self._nodes.pop(node_id)
+
+    def _set_in_parent_leg_after_split(self,
+                                       in_node: Node,
+                                       in_legs: LegSpecification,
+                                       out_identifier: str):
+        """
+        Sets the parent leg of the in node.
+        """
+        if in_legs.parent_leg is not None:
+            # In this case we have for the leg ordering for in
+            # (new_leg, parent_leg, children_legs, open_legs)
+            in_node.open_leg_to_parent(in_legs.parent_leg,1)
+        elif not in_legs.is_root:
+            # In this case we have for the leg ordering for in
+            # (new_leg=parent_leg, children_legs, open_legs)
+            in_node.open_leg_to_parent(out_identifier,0)
+        # Otherwise the in_node is the root and doesn't have a parent.
+
+    def _set_out_parent_leg_after_split(self,
+                                        out_node: Node,
+                                        out_legs: LegSpecification,
+                                        in_identifier: str):
+        """
+        Sets the parent leg of the out node.
+        """
+        if out_legs.parent_leg is not None:
+            # In this case we have for the leg ordering for out
+            # (parent_leg, children_legs, open_legs, new_leg=child_leg)
+            out_node.open_leg_to_parent(out_legs.parent_leg,0)
+        elif not out_legs.is_root:
+            # In this case we have for the leg ordering for out
+            # (children_legs, open_legs, new_leg=parent_leg)
+            parent_leg = out_node.nlegs() - 1
+            out_node.open_leg_to_parent(in_identifier,parent_leg)
+        # Otherwise the out_node is the root and doesn't have a parent.
+
+    def _set_in_children_legs_after_split(self,
+                                         in_legs: LegSpecification,
+                                         out_legs: LegSpecification,
+                                         in_identifier: str,
+                                         out_identifier: str):
+        """
+        Sets the children legs of the out node after a split
+        """
+        in_node = self.nodes[in_identifier]
+        in_children = self._find_in_children(in_legs,
+                                             out_legs,
+                                             out_identifier)
+        in_node.open_legs_to_children(in_children)
+
+    def _set_out_children_legs_after_split(self,
+                                           out_legs: LegSpecification,
+                                           in_legs: LegSpecification,
+                                           out_identifier: str,
+                                           in_identifier: str):
+        """
+        Sets the children legs of the out node after a split
+        """
+        out_node = self.nodes[out_identifier]
+        out_children = self._find_out_children(out_legs,
+                                               in_legs,
+                                               out_identifier,
+                                               in_identifier)
+        out_node.open_legs_to_children(out_children)
+
+    def _set_root_from_leg_specs(self,
+                                 in_legs: LegSpecification,
+                                 out_legs: LegSpecification,
+                                 in_identifier: str,
+                                 out_identifier: str):
+        """
+        Sets a new root, if required after contraction.
+        """
+        if in_legs.is_root:
+            assert not out_legs.is_root
+            self._root_id = in_identifier
+        elif out_legs.is_root:
+            self._root_id = out_identifier
+
+    def _find_in_children(self,
+                          in_legs: LegSpecification,
+                          out_legs: LegSpecification,
+                          out_identifier: str) -> Dict[str, int]:
+        """
+        Finds the indices that correspond to the children of the in tensor.
+        """
+        in_setoff = 1
+        in_children = {}
+        if in_legs.is_root:
+            # In this case we have for the leg ordering for in
+            # (new_leg=child_leg, children_legs, open_legs)
+            assert out_legs.parent_leg is None
+            in_children[out_identifier] = 0
+        elif in_legs.parent_leg is not None:
+            # In this case we have for the leg ordering for in
+            # (new_leg=child_leg, parent_leg, children_legs, open_legs)
+            in_setoff = 2
+            # The parent will be set first, moving all other legs by +one index
+            in_children[out_identifier] = 1
+        # All other cases have for the in leg ordering
+        # (new_leg=parent_leg, children_legs, open_legs)
+        in_children.update({child_id: leg_value + in_setoff
+                            for leg_value, child_id in enumerate(in_legs.child_legs)})
+        return in_children
+
+    def _find_out_children(self,
+                           out_legs: LegSpecification,
+                           in_legs: LegSpecification,
+                           out_identifier: str,
+                           in_identifier: str) -> Dict[str, int]:
+        """
+        Finds the indices that correspond to the children of the out tensor.
+        """
+        out_node = self.nodes[out_identifier]
+        out_children = {}
+        if in_legs.is_root or in_legs.parent_leg is not None:
+            # In this case we have for the leg ordering for out
+            # (children_legs, open_legs, new_leg=parent_leg)
+            assert out_legs.parent_leg is None
+            # The parent will be set first, moving all other legs by +one index
+            out_setoff = 1
+        elif out_legs.is_root:
+            # In this case we have for the leg ordering for out
+            # (children_legs, open_legs, new_leg=child_leg)
+            out_setoff = 0
+            out_children[in_identifier] = out_node.nlegs() - 1
+        else:
+            # In this case we have for the leg ordering for out
+            # (parent_leg, children_legs, open_legs, new_leg=child_leg)
+            assert out_legs.parent_leg is not None
+            out_setoff = 1
+            out_children[in_identifier] = out_node.nlegs() - 1
+        out_children.update({child_id: leg_value + out_setoff
+                            for leg_value, child_id in enumerate(out_legs.child_legs)})
+        return out_children
 
     def split_node_qr(self, node_id: str,
                       q_legs: LegSpecification, r_legs: LegSpecification,
