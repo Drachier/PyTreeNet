@@ -413,6 +413,7 @@ class StateDiagram():
                 local_vs = copy(compound_state_diagram.hyperedge_colls[parent].contained_hyperedges)
                 compound_state_diagram.combine_v(local_vs, current_node, parent)
                 
+
                 # Add all children of the current node to the queue (BFS traversal)
                 for child in ref_tree.nodes[current_node].children:
                     queue.append((current_node,child))
@@ -454,6 +455,7 @@ class StateDiagram():
         If there are, we call the function recursively to check the hyperedges again.
         """
         combined = set()
+        generated = False
 
         for i, element1 in enumerate(local_vs):
             if i in combined:
@@ -513,6 +515,7 @@ class StateDiagram():
                     else:
                         # Case 4
                         # Switch element1 and element2
+                        generated = True
                         if d1:
 
                             element1,element2 = element2,element1
@@ -572,8 +575,7 @@ class StateDiagram():
                                 
                         self._remove_hyperedge_from_diagram(element2)
 
-        if combined:
-            
+        if generated:
             local_vs = copy(self.hyperedge_colls[parent].contained_hyperedges)
             self.combine_v(local_vs, current_node, parent)
             return
@@ -746,7 +748,6 @@ class StateDiagram():
                 vert.hyperedges.pop(i)
                 break
 
-
     @classmethod
     def _is_same_v(cls, element1, element2, current_node, parent):
         """ 
@@ -805,7 +806,7 @@ class StateDiagram():
         """
         for vert in element.vertices:
             if vert in self.vertex_colls[(parent,current_node)].contained_vertices:
-                # Delete vert from the vertex collection
+                # Remove vert from the compound state diagram
                 self.vertex_colls[(parent,current_node)].contained_vertices.remove(vert)
 
                 # Connect del_sons to keep_vertex
