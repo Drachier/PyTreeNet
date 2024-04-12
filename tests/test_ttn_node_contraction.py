@@ -374,7 +374,7 @@ class TestTensorContration(unittest.TestCase):
 
         # Contraction order ((6,7),5)
         self.setUp()
-        self.assertRaises(ValueError, self.ttn.contract_nodes, "site6", "site7")
+        self.assertRaises(ptn.NoConnectionException, self.ttn.contract_nodes, "site6", "site7")
 
     def test_contract_node_with_three_leaf_children(self):
         """
@@ -489,7 +489,7 @@ class TestTensorContration(unittest.TestCase):
 
         # Contraction order ((4,5),1)
         self.setUp()
-        self.assertRaises(ValueError, self.ttn.contract_nodes, "site4", "site5")
+        self.assertRaises(ptn.NoConnectionException, self.ttn.contract_nodes, "site4", "site5")
 
     def test_contract_root_with_children(self):
         """
@@ -995,7 +995,7 @@ class TestTensorContractionOpenLegs(unittest.TestCase):
 
         # Contraction order ((6,7),5)
         self.setUp()
-        self.assertRaises(ValueError, self.ttn.contract_nodes, "site6", "site7")
+        self.assertRaises(ptn.NoConnectionException, self.ttn.contract_nodes, "site6", "site7")
 
     def test_contract_node_with_three_leaf_children(self):
         """
@@ -1118,7 +1118,7 @@ class TestTensorContractionOpenLegs(unittest.TestCase):
 
         # Contraction order ((4,5),1)
         self.setUp()
-        self.assertRaises(ValueError, self.ttn.contract_nodes, "site4", "site5")
+        self.assertRaises(ptn.NoConnectionException, self.ttn.contract_nodes, "site4", "site5")
 
     def test_contract_root_with_children(self):
         """

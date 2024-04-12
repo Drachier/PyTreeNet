@@ -120,7 +120,8 @@ class OneSiteTDVP(TDVPAlgorithm):
             q_children.remove(next_node_id)
             q_legs = LegSpecification(node.parent,
                                       q_children,
-                                      node.open_legs)
+                                      node.open_legs,
+                                      is_root=node.is_root())
             r_legs = LegSpecification(None, [next_node_id], [])
         elif node.is_child_of(next_node_id):
             q_legs = LegSpecification(None,

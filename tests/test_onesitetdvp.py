@@ -174,7 +174,7 @@ class TestContractionMethods(unittest.TestCase):
 
     def test_update_cache_after_split_root_to_c1(self):
         node_id = "root"
-        q_legs = ptn.LegSpecification(None, ["c2"], [2])
+        q_legs = ptn.LegSpecification(None, ["c2"], [2], is_root=True)
         r_legs = ptn.LegSpecification(None, ["c1"], [])
         self.tdvp.state.split_node_qr(node_id, q_legs, r_legs,
                                       q_identifier=node_id,
@@ -199,7 +199,7 @@ class TestContractionMethods(unittest.TestCase):
 
     def test_update_cache_after_split_root_to_c2(self):
         node_id = "root"
-        q_legs = ptn.LegSpecification(None, ["c1"], [2])
+        q_legs = ptn.LegSpecification(None, ["c1"], [2], is_root=True)
         r_legs = ptn.LegSpecification(None, ["c2"], [])
         self.tdvp.state.split_node_qr(node_id, q_legs, r_legs,
                                       q_identifier=node_id,
@@ -267,7 +267,7 @@ class TestContractionMethods(unittest.TestCase):
     def test_split_updated_site_root_to_c1(self):
         node_id = "c1"
         root_id = "root"
-        q_legs = ptn.LegSpecification(None, ["c2"], [2])
+        q_legs = ptn.LegSpecification(None, ["c2"], [2], is_root=True)
         r_legs = ptn.LegSpecification(None, [node_id], [])
         ref_state = deepcopy(self.tdvp.state)
         ref_state.split_node_qr(root_id, q_legs, r_legs,
@@ -285,7 +285,7 @@ class TestContractionMethods(unittest.TestCase):
     def test_split_updated_site_root_to_c2(self):
         node_id = "c2"
         root_id = "root"
-        q_legs = ptn.LegSpecification(None, ["c1"], [2])
+        q_legs = ptn.LegSpecification(None, ["c1"], [2], is_root=True)
         r_legs = ptn.LegSpecification(None, [node_id], [])
         ref_state = deepcopy(self.tdvp.state)
         ref_state.split_node_qr(root_id, q_legs, r_legs,

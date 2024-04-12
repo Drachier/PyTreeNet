@@ -78,7 +78,8 @@ class LegSpecification():
     """
 
     def __init__(self, parent_leg: Union[str, None], child_legs: List[str],
-                 open_legs: List[int], node: Union[Node, None]=None):
+                 open_legs: List[int], node: Union[Node, None]=None,
+                 is_root: bool = False):
         """
         Initiates a new LegSpecification.
 
@@ -108,7 +109,7 @@ class LegSpecification():
         else:
             self.open_legs = open_legs
         self.node = node
-        self.is_root = False
+        self.is_root = is_root
 
     def __eq__(self, other: LegSpecification) -> bool:
         """

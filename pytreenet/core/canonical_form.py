@@ -132,4 +132,6 @@ def _build_qr_leg_specs(node: Node,
         q_legs.parent_leg = node.parent
         q_legs.child_legs.remove(min_neighbour_id)
         r_legs = LegSpecification(None, [min_neighbour_id], [])
+    if node.is_root():
+        q_legs.is_root = True
     return q_legs, r_legs

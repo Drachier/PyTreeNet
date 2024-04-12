@@ -686,6 +686,7 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
 
     def test_tensor_splitqr_root_q1child1open_vs_r1child1open(self):
         q_legs = ptn.LegSpecification(None, ["id2"], [2], None)
+        q_legs.is_root = True
         r_legs = ptn.LegSpecification(None, ["id8"], [3], None)
         self.ttn.split_node_qr("id1", q_legs, r_legs,
                                q_identifier="q1", r_identifier="r1")
