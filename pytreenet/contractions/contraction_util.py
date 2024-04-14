@@ -1,8 +1,8 @@
 """
-Modul that contains utility functions for contractions, i.e. those needed
- in multiple kinds of contraction to avoid code duplication.
-"""
+Modul that contains utility functions for contractions.
 
+The functions here are used in mutliple different kinds of contractions.
+"""
 # TODO: Refactorise to avoid code duplication for ket and hamiltonian contractions.
 
 from __future__ import annotations
@@ -17,11 +17,18 @@ def determine_index_with_ignored_leg(node: Node,
                                      neighbour_id: str,
                                      ignoring_node_id: str) -> int:
     """
+    Determine the index of neighbour legs, while ignoring one leg.
+
     Sometimes when contracting all the neighbouring cached environments, we
-     want to ignore the leg to a specific neighbour node. This means we do
-     not want to contract that leg. This function determines the leg index
-     of the current tensor, that should actually be contracted. This means
-     earlier contractions are already taken into account.
+    want to ignore the leg to a specific neighbour node. This means we do not
+    want to contract that leg. This function determines the leg index of the
+    current tensor, that should actually be contracted. This means earlier
+    contractions are already taken into account.
+    
+    Args:
+        node (Node): The node for which find the leg indices.
+        neighbour_id (str): The identifier of the neighbour node.
+        ignoring_node_id (str): The identifier of the neighbour leg to ignore.
     """
     neighbour_index = node.neighbour_index(neighbour_id)
     ignoring_index = node.neighbour_index(ignoring_node_id)
@@ -43,9 +50,9 @@ def get_equivalent_legs(node1: Node,
         ignore_legs (Union[None,List[str],str]): The legs to ignore.
     
     Returns:
-        Tuple[List[int],List[int]]: The equivalent legs of the two nodes.
-         This means the indeces of legs to the same neighbour are at the same
-         position in each list.
+        Tuple[List[int],List[int]]: The equivalent legs of the two nodes. This
+            means the indeces of legs to the same neighbour are at the same
+            position in each list.
     """
     if ignore_legs is None:
         ignore_legs = []
@@ -66,8 +73,9 @@ def contract_neighbour_block_to_ket(ket_tensor: np.ndarray,
                                     partial_tree_cache: PartialTreeCachDict,
                                     tensor_leg_to_neighbour: Union[None,int]=None) -> np.ndarray:
     """
-    Contracts the ket tensor, i.e. A in the diagrams, with one neighbouring
-     block, C in the diagrams.
+    Contracts the ket tensor with one neighbouring block.
+
+    This means A in the diagram is contracted with C in the diagram.
 
     Args:
         ket_tensor (np.ndarray): The tensor of the ket node.
@@ -77,10 +85,10 @@ def contract_neighbour_block_to_ket(ket_tensor: np.ndarray,
             saved in the dictionary.
         tensor_leg_to_neighbour (int): The index of the leg of the ket tensor
             that points to the neighbour block and is thus to be contracted.
-        partial_tree_cache (PartialTreeCacheDict): The dictionary containing the
-            already contracted subtrees. The tensors in here can have an arbitrary
-            number of legs, but the first leg is the one that is contracted with
-            the ket tensor.
+        partial_tree_cache (PartialTreeCacheDict): The dictionary containing
+            the already contracted subtrees. The tensors in here can have an
+            arbitrary number of legs, but the first leg is the one that is
+            contracted with the ket tensor.
     
     Returns:
         np.ndarray: The resulting tensor.
@@ -108,8 +116,10 @@ def contract_neighbour_block_to_ket_ignore_one_leg(ket_tensor: np.ndarray,
                                                    ignoring_node_id: str,
                                                    partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
     """
-    Contracts the ket tensor, i.e. A in the diagrams, with one neighbouring
-     block, C in the diagrams, ignoring one leg.
+    Contracts the ket tensor with one neighbouring block, ignoring one leg.
+
+    This means the ket tensor, i.e. A in the diagrams, is contracted with one
+    neighbouring block, C in the diagrams, ignoring one leg.
 
     Args:
         ket_tensor (np.ndarray): The tensor of the ket node.
@@ -119,10 +129,10 @@ def contract_neighbour_block_to_ket_ignore_one_leg(ket_tensor: np.ndarray,
             saved in the dictionary.
         ignoring_node_id (str): The identifier of the node to which the virtual
             leg should not point.
-        partial_tree_cache (PartialTreeCacheDict): The dictionary containing the
-            already contracted subtrees. The tensors in here can have an arbitrary
-            number of legs, but the first leg is the one that is contracted with
-            the ket tensor.
+        partial_tree_cache (PartialTreeCacheDict): The dictionary containing
+            the already contracted subtrees. The tensors in here can have an
+            arbitrary number of legs, but the first leg is the one that is
+            contracted with the ket tensor.
 
     Returns:
         np.ndarray: The resulting tensor.
