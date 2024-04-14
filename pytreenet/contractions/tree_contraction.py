@@ -1,27 +1,36 @@
+"""
+This module provides a function to completely contract a tree tensor network.
+
+This function is mainly used for debugging purposes, as it can get very costly
+in memory very quickly. The function contracts the complete tree into one high
+degree tensor and also provides the order in which the nodes were contracted.
+The order is then the order of the open legs in the final tensor.
+"""
 from __future__ import annotations
 from typing import List, Tuple
-
 from copy import copy
+
+from numpy import ndarray
 
 from ..util import copy_object
 
 __all__ = ['completely_contract_tree']
 
 def completely_contract_tree(ttn: TreeTensorNetwork,
-                             to_copy: bool=False) -> Tuple[np.ndarray, List[str]]:
+                             to_copy: bool=False) -> Tuple[ndarray, List[str]]:
     """
-    Completely contracts the given tree_tensor_network by combining all nodes.
+    Completely contracts the given tree tensor network by contracting
     (WARNING: Can get very costly very fast. Only use for debugging.)
 
     Args:
         ttn (TreeTensorNetwork): The TTN to be contracted.
-        to_copy (bool): Wether or not the contraction should be perfomed on a deep copy.
-            Default is False.
+        to_copy (bool): Wether or not the contraction should be perfomed on a
+            deep copy. Default is False.
 
     Returns:
         Tuple[np.ndarray, List[str]]: The contracted TTN and the list of the
-            identifiers of the contracted nodes in the order they were contracted.
-            The latter is very useful for debugging.
+            identifiers of the contracted nodes in the order they were
+            contracted. The latter is very useful for debugging.
     """
     work_ttn = copy_object(ttn, deep=to_copy)
     contraction_oder = []
@@ -37,7 +46,8 @@ def _completely_contract_tree_rec(work_ttn: TreeTensorNetwork,
 
     Args:
         work_ttn (TreeTensorNetwork): The TTN to be contracted
-        current_node_id (str): The node into which we want to contract the subtree.
+        current_node_id (str): The node into which we want to contract the
+            subtree.
     """
     current_node = work_ttn.nodes[current_node_id]
     children = copy(current_node.children)
