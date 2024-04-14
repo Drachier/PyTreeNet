@@ -885,17 +885,21 @@ class TreeTensorNetwork(TreeStructure):
 
         Args:
             node_id (str): Identifier of the node to be split
-            q_legs (LegSpecification): The legs which should be part of the Q-tensor
-            r_legs (LegSpecification): The legs which should be part of the R-tensor
+            q_legs (LegSpecification): The legs which should be part of the
+                Q-tensor
+            r_legs (LegSpecification): The legs which should be part of the
+                R-tensor
             q_identifier (str, optional): An identifier for the Q-tensor.
-             Defaults to "".
+                Defaults to "".
             r_identifier (str, optional): An identifier for the R-tensor.
-             Defaults to "".
-            mode: The mode to be used for the QR decomposition. For details refer to
-            `tensor_util.tensor_qr_decomposition`.
+                Defaults to "".
+            mode: The mode to be used for the QR decomposition. For details
+                refer to `tensor_util.tensor_qr_decomposition`.
         """
-        self._split_nodes(node_id, q_legs, r_legs, tensor_qr_decomposition,
-                          out_identifier=q_identifier, in_identifier=r_identifier,
+        self._split_nodes(node_id, q_legs, r_legs,
+                          tensor_qr_decomposition,
+                          out_identifier=q_identifier,
+                          in_identifier=r_identifier,
                           mode=mode)
 
     def split_node_svd(self, node_id: str,
