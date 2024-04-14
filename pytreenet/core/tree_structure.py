@@ -212,6 +212,7 @@ class TreeStructure():
                 Once a leaf is reached, the closest unvisited node will be
                 next.
         """
+        self.ensure_existence(center_node_id)
         neighbours = self._nodes[center_node_id].neighbouring_nodes()
         distance_dict = {center_node_id: 0}
         for node_id in neighbours:
