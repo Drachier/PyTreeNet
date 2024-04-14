@@ -4,3 +4,9 @@ Modules that were fully refactored and updated to new Docstyle:
 * core.leg_specification
 * core.node
 * core.tree_structure
+
+
+Features to add:
+
+* TTNO-TTNS contraction
+* TTNO-TTNS expectation value
