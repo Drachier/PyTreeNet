@@ -371,7 +371,7 @@ def contract_all_neighbour_blocks_to_hamiltonian(hamiltonian_tensor: np.ndarray,
                  _____                   _____
                 |     |____2      2_____|     |
                 |     |                 |     |
-                |     |        |       |     |
+                |     |        |        |     |
                 |     |     ___|__      |     |
                 |     |    |      |     |     |
                 |     |____|      |_____|     |

@@ -1,6 +1,7 @@
 Modules that were fully refactored and updated to new Docstyle:
 
 * contraction.contraction_util
+* contraction.state_operator_contraction
 * core.canoncial_form
 * core.graph_node
 * core.leg_specification
@@ -11,4 +12,3 @@ Modules that were fully refactored and updated to new Docstyle:
 Features to add:
 
 * TTNO-TTNS contraction
-* TTNO-TTNS expectation value

@@ -1,6 +1,5 @@
 """
-This module provides functions to contract a TreeTensorNetworkOperator with
- a TreeTensorNetworkState.
+This module provides functions to contract a TTNS with a TTNO
 """
 
 from __future__ import annotations
@@ -9,26 +8,127 @@ import numpy as np
 
 from ..core.node import Node
 from .tree_cach_dict import PartialTreeCachDict
-
 from .contraction_util import (contract_all_but_one_neighbour_block_to_ket,
-                                get_equivalent_legs)
+                               contract_all_neighbour_blocks_to_ket,
+                               get_equivalent_legs)
+
+__all__ = ['expectation_value']
+
+def expectation_value(state: TreeTensorNetworkState,
+                      operator: TTNO) -> complex:
+    """
+    Computes the Expecation value of a state with respect to an operator.
+
+    The operator is given as a TTNO and the state as a TTNS. The expectation
+    is obtained by "sandwiching" the operator between the state and its complex
+    conjugate: <psi|H|psi>.
+
+    Args:
+        state (TreeTensorNetworkState): The TTNS representing the state.
+        operator (TTNO): The TTNO representing the Operator.
+
+    Returns:
+        complex: The expectation value.
+    """
+    dictionary = PartialTreeCachDict()
+    # Getting a linear list of all identifiers
+    computation_order = state.linearise()
+    errstr = "The last element of the linearisation should be the root node."
+    assert computation_order[-1] == state.root_id, errstr
+    assert computation_order[-1] == operator.root_id, errstr
+    for node_id in computation_order[:-1]: # The last one is the root node
+        node = state.nodes[node_id]
+        parent_id = node.parent
+        # Due to the linearisation the children should already be contracted.
+        block = contract_any(node_id, parent_id,
+                             state, operator,
+                             dictionary)
+        dictionary.add_entry(node_id,parent_id,block)
+        # The children contraction results are not needed anymore.
+        children = node.children
+        for child_id in children:
+            dictionary.delete_entry(child_id,node_id)
+    # Now everything remaining is contracted into the root tensor.
+    return complex(contract_node_with_environment(state.root_id,
+                                                  state, operator,
+                                                  dictionary))
+
+def contract_node_with_environment(node_id: str,
+                                   state: TreeTensorNetworkState,
+                                   operator: TTNO,
+                                   dictionary: PartialTreeCachDict) -> np.ndarray:
+    """
+    Contracts a node with its environment.
+
+    Assumes that all subtrees starting from this node are already contracted
+    and the results stored in the dictionary.
+
+    Args:
+        node_id (str): The identifier of the node.
+        state (TreeTensorNetworkState): The TTNS representing the state.
+        operator (TTNO): The TTNO representing the Hamiltonian.
+        dictionary (PartialTreeCacheDict): The dictionary containing the
+         already contracted subtrees.
+    
+    Returns:
+        np.ndarray: The resulting tensor. A and B are the tensors in state1 and
+            state2, respectively, corresponding to the node with the identifier
+            node_id. C aer the tensors in the dictionary corresponding to the
+            subtrees going away from the node.
+
+                            ______
+                 _____     |      |      _____
+                |     |____|  A*  |_____|     |
+                |     |    |______|     |     |
+                |     |        |        |     |
+                |     |     ___|__      |     |
+                |     |    |      |     |     |
+                |     |____|      |_____|     |
+                |  C1 |    |   H  |     |  C2 |
+                |     |    |______|     |     |
+                |     |        |        |     |
+                |     |     ___|__      |     |
+                |     |    |      |     |     |
+                |     |____|  A   |_____|     |
+                |_____|    |______|     |_____|
+    """
+    ket_node, ket_tensor = state[node_id]
+    ket_neigh_block = contract_all_neighbour_blocks_to_ket(ket_tensor,
+                                                           ket_node,
+                                                           dictionary)
+    op_node, op_tensor = operator[node_id]
+    state_legs, ham_legs = get_equivalent_legs(ket_node, op_node)
+    ham_legs.append(_node_operator_input_leg(op_node))
+    block_legs = list(range(1,2*ket_node.nneighbours(),2))
+    block_legs.append(0)
+    kethamblock = np.tensordot(ket_neigh_block, op_tensor,
+                               axes=(block_legs, ham_legs))
+    bra_tensor = ket_tensor.conj()
+    state_legs.append(len(state_legs))
+    return np.tensordot(bra_tensor, kethamblock,
+                        axes=(state_legs,state_legs))
 
 def contract_any(node_id: str, next_node_id: str,
                  state: TreeTensorNetworkState,
                  operator: TTNO,
                  dictionary: PartialTreeCachDict) -> np.ndarray:
     """
-    Contracts any node, either as a leaf or using the dictionary with
-     already contracted subtrees.
+    Contracts any node. 
+    
+    Rather the entire subtree starting from the node is contracted. The
+    subtrees below the node already have to be contracted, except for the
+    specified neighbour.
+    This function combines the two options of contracting a leaf node or
+    a general node using the dictionary in one function.
     
     Args:
         node_id (str): Identifier of the node.
         next_node_id (str): Identifier of the node towards which the open
-         legs will point.
+            legs will point.
         state (TreeTensorNetworkState): The TTNS representing the state.
         operator (TTNO): The TTNO representing the Hamiltonian.
         dictionary (PartialTreeCachDict): The dictionary containing the
-         already contracted subtrees.
+            already contracted subtrees.
         
     Returns:
         np.ndarray: The contracted tensor.
@@ -46,9 +146,11 @@ def contract_leaf(node_id: str,
                   state: TreeTensorNetworkState,
                   operator: TTNO) -> np.ndarray:
     """
-    If the current subtree ends and starts at a leaf, only the three
-        tensors corresponding to that site must be contracted. Furthermore,
-        the retained legs must point towards the leaf's parent.
+    Contracts for a leaf node the state, operator and conjugate state tensors.
+
+    If the current subtree starts at a leaf, only the three tensors
+    corresponding to that site must be contracted. Furthermore, the retained
+    legs must point towards the leaf's parent.
 
     Args:
         node_id (str): Identifier of the leaf node
@@ -90,18 +192,20 @@ def contract_subtrees_using_dictionary(node_id: str, ignored_node_id: str,
                                        operator: TTNO,
                                        dictionary: PartialTreeCachDict) -> np.ndarray:
     """
-    Contract all subtree blocks, i.e. already contracted subtrees, starting
-     from neighbouring nodes, except for one. The one that is not contracted
-     is the one that the remaining legs point towards.
+    Contracts a node with all its subtrees except for one.
+
+    All subtrees except for one are already contracted and stored in the
+    dictionary. The one that is not contracted is the one that the remaining
+    legs point towards.
 
     Args:
         node_id (str): Identifier of the node.
         ignored_node_id (str): Identifier of the node to which the remaining
-         legs should point.
+            legs should point.
         state (TreeTensorNetworkState): The TTNS representing the state.
         operator (TTNO): The TTNO representing the operator.
         dictionary (PartialTreeCachDict): The dictionary containing the
-         already contracted subtrees.
+            already contracted subtrees.
 
     Returns:
         np.ndarray: The contracted tensor:
@@ -145,9 +249,12 @@ def contract_operator_tensor_ignoring_one_leg(current_tensor: np.ndarray,
                                               op_node: Node,
                                               ignoring_node_id: str) -> np.ndarray:
     """
-    Contracts the operator tensor with the current tensor, which is a ket
-     tensor to which the neighbour blocks were already contracted. One of
-     the legs to a neighbour node is not contracted.
+    Contracts the operator tensor with the current tensor.
+
+    The current tensor is the ket tensor of this node to which all but
+    one neighbour blocks are already contracted. The blocks are the already
+    contracted subtrees starting from this node. The subtree that is not
+    contracted is the one that the remaining legs point towards.
     
     Args:
         current_tensor (np.ndarray): The current tensor.
@@ -155,7 +262,7 @@ def contract_operator_tensor_ignoring_one_leg(current_tensor: np.ndarray,
         op_tensor (np.ndarray): The operator tensor.
         op_node (Node): The operator node.
         ignoring_node_id (str): The identifier of the node to which the
-         virtual leg should not point.
+            virtual leg should not point.
 
     Returns:
         np.ndarray: The contracted tensor.
@@ -191,16 +298,20 @@ def contract_bra_tensor_ignore_one_leg(bra_tensor: np.ndarray,
                                        state_node: Node,
                                        ignoring_node_id: str) -> np.ndarray:
     """
-    Contracts the bra tensor with the contracted tensor. The already
-      contracted tensor has all the other neighbouring blocks of contracted
-      subtrees contracted to it already.
+    Contracts the bra tensor with the contracted tensor.
+
+    The current tensor has the ket tensor and the operator tensor of this
+    node already contracted with each other and with all but one neighbour
+    block. The remaining neighbour block is the one that the remaining legs
+    point towards. The neighbour blocks are the results of already contracted
+    subtrees starting from this node.
 
     Args:
         bra_tensor (np.ndarray): The bra tensor.
-        ketopblock_tensor (np.ndarray): The contracted tensor.
-         (ACH in the diagram)
+        ketopblock_tensor (np.ndarray): The contracted tensor. (ACH in the
+            diagram)
         state_node (Node): The node of the state. We assume the bra state
-         is the adjoint of the ket state.
+            is the adjoint of the ket state.
         ignoring_node_id (str): The identifier of the node to which the
             virtual leg should not point.
 
@@ -254,8 +365,7 @@ def _node_operator_input_leg(node: Node) -> int:
 
 def _node_operator_output_leg(node: Node) -> int:
     """
-    Finds the leg of a node of the hamiltonian corresponding to the
-        output.
+    Finds the leg of a node of the hamiltonian corresponding to the output.
     
     Returns:
         int: The index of the leg corresponding to output.
