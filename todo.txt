@@ -2,6 +2,7 @@ Modules that were fully refactored and updated to new Docstyle:
 
 * contraction.contraction_util
 * contraction.state_operator_contraction
+* contractions.state_state_contraction
 * core.canoncial_form
 * core.graph_node
 * core.leg_specification
