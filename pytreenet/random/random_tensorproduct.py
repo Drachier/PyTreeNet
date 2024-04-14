@@ -6,7 +6,7 @@ from numpy.random import default_rng, Generator
 from ..core.ttn import TreeTensorNetwork
 from ..operators.tensorproduct import TensorProduct
 from ..util.util import crandn
-from ..util.ttn_exceptions import non_negativity_check, positiviy_check
+from ..util.ttn_exceptions import non_negativity_check, positivity_check
 
 def random_tensor_product(ref_tree: TreeTensorNetwork,
                           num_operators: int = 1,
@@ -72,7 +72,7 @@ def random_symbolic_tensor_product(identifiers: List[str],
         TensorProduct: The generated random tensor product.
     """
     errstr = "There has to be at least one non-trivial operator to choose from!"
-    positiviy_check(len(possible_operators), errstr=errstr)
+    positivity_check(len(possible_operators), errstr=errstr)
     if num_operators > len(identifiers):
         errstr = "There cannot be more non-trivial operators than identifiers!"
         raise ValueError(errstr)
@@ -148,7 +148,7 @@ def random_numeric_tensor_product_from_list(identifiers: List[str],
         TensorProduct: The generated random tensor product.
     """
     errstr = "There has to be at least one non-trivial operator to choose from!"
-    positiviy_check(len(possible_operators), errstr=errstr)
+    positivity_check(len(possible_operators), errstr=errstr)
     if num_operators > len(identifiers):
         errstr = "There cannot be more non-trivial operators than identifiers!"
         raise ValueError(errstr)

@@ -7,7 +7,7 @@ from math import modf
 import numpy as np
 from tqdm import tqdm
 
-from ..util.ttn_exceptions import positiviy_check, non_negativity_check
+from ..util.ttn_exceptions import positivity_check, non_negativity_check
 from ..util import fast_exp_action
 
 class TimeEvolution:
@@ -33,9 +33,9 @@ class TimeEvolution:
         """
         self._intital_state = initial_state
         self.state = deepcopy(initial_state)
-        positiviy_check(time_step_size, "size of one time step")
+        positivity_check(time_step_size, "size of one time step")
         self._time_step_size = time_step_size
-        positiviy_check(final_time, "final time")
+        positivity_check(final_time, "final time")
         self._final_time = final_time
         self._num_time_steps = self._compute_num_time_steps()
         self._operator_index_dict = self._init_operator_index_dict(operators)

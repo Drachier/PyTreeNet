@@ -17,7 +17,7 @@ class NotCompatibleException(Exception):
     """
     pass
 
-def positiviy_check(value: Union[int,float], name: Union[str,None] = None,
+def positivity_check(value: Union[int,float], name: Union[str,None] = None,
                     errstr: Union[None,str] = None):
     """
     Check if a given value is positive.

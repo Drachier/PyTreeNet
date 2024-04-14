@@ -1,12 +1,15 @@
 """
 This module provides commonly used operators as numpy arrays.
+
+The operators provided are
+* Pauli matrices X, Y, and Z
+* Bosonic creation, annihilation, and number operator
+* SWAP gates of arbitrary dimension
 """
 from __future__ import annotations
 from typing import Tuple
 
 import numpy as np
-
-from ..util import crandn
 
 def pauli_matrices() -> Tuple[np.ndarray,np.ndarray,np.ndarray]:
     """
@@ -27,9 +30,12 @@ def bosonic_operators(dimension: int = 2) -> Tuple[np.ndarray,np.ndarray,np.ndar
     """
     Supplies the common bosonic operators.
 
+    The common operators are the creation, annihilation, and number operator.
+
     Args:
-        dimension (int, optional): The dimension of the bosonics space to be considers.
-        This determines the size of all the operators. Defaults to 2.
+        dimension (int, optional): The dimension of the bosonic space to be
+            considered. This determines the size of all the operators. Defaults
+            to 2.
 
     Returns:
         Tuple[np.ndarray,np.ndarray,np.ndarray]:
@@ -56,7 +62,7 @@ def swap_gate(dimension: int = 2) -> np.ndarray:
 
     Args:
         dimension (int, optional): Physical dimension of the two sites,
-         which has to be the same for both. Defaults to 2.
+            which has to be the same for both. Defaults to 2.
 
     Returns:
         np.ndarray: A SWAP-gate for two `dimension`-dimensional systems.
