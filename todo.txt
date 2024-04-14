@@ -1,5 +1,6 @@
 Modules that were fully refactored and updated to new Docstyle:
 
+* core.canoncial_form
 * core.graph_node
 * core.leg_specification
 * core.node
