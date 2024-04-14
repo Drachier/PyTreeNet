@@ -10,7 +10,7 @@ Modules that were fully refactored and updated to new Docstyle:
 * core.leg_specification
 * core.node
 * core.tree_structure
-
+* operators.common_operators
 
 Features to add:
 

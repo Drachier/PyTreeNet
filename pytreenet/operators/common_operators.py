@@ -11,6 +11,8 @@ from typing import Tuple
 
 import numpy as np
 
+from ..util.ttn_exceptions import positivity_check
+
 def pauli_matrices() -> Tuple[np.ndarray,np.ndarray,np.ndarray]:
     """
     Returns the three Pauli matrices X, Y, and Z in Z-basis as ndarray.
@@ -44,9 +46,7 @@ def bosonic_operators(dimension: int = 2) -> Tuple[np.ndarray,np.ndarray,np.ndar
             * number_op: The bosonic number operator, i.e. a diagonal matrix with increasing
               integers on the diagonal from 0 to dimension-1.
     """
-    if dimension < 1:
-        errstr = "The dimension must be positive!"
-        raise ValueError(errstr)
+    positivity_check(dimension, "dimension")
     sqrt_number_vec = np.asarray([np.sqrt(i)
                                   for i in range(1, dimension)])
 
@@ -67,20 +67,15 @@ def swap_gate(dimension: int = 2) -> np.ndarray:
     Returns:
         np.ndarray: A SWAP-gate for two `dimension`-dimensional systems.
     """
-    if dimension < 1:
-        errstr = "The dimension must be positive!"
-        raise ValueError(errstr)
+    positivity_check(dimension, "dimension")
     swap = np.zeros((dimension**2, dimension**2), dtype=complex)
     for i in range(dimension**2):
         for j in range(dimension**2):
             # Basically find the indices in base dimension
             output_sys1 = int(i / dimension)
             output_sys2 = int(i % dimension)
-
             input_sys1 = int(j / dimension)
             input_sys2 = int(j % dimension)
-
             if (output_sys1 == input_sys2) and (input_sys1 == output_sys2):
                 swap[i,j] = 1
-
     return swap
