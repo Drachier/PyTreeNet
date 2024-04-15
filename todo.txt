@@ -15,6 +15,7 @@ Modules that were fully refactored and updated to new Docstyle:
 
 * util.tensor_util
 * util.tensor_splitting
+* util.ttn_exceptions
 
 Features to add:
 
