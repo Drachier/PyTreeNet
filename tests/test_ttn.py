@@ -83,6 +83,9 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
 
     def setUp(self):
         self.tensortree = ptn.random_small_ttns()
+        self.svd_params = ptn.SVDParameters(max_bond_dim=float("inf"),
+                                            rel_tol=float("-inf"),
+                                            total_tol=float("-inf"))
 
     def test_equality_ttn_should_be_equal_to_itself(self):
         ref_tree = deepcopy(self.tensortree)
@@ -175,9 +178,9 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         root_legs = ptn.LegSpecification(None, ["c2"], [1], None)
         root_legs.is_root = True
         c1_legs = ptn.LegSpecification(None, [], [2], None)
-        self.tensortree.split_node_svd("contr", root_legs, c1_legs, "root", "c1"
-                                       , max_bond_dim=float("inf"),
-                                       rel_tol=float("-inf"), total_tol=float("-inf"))
+        self.tensortree.split_node_svd("contr", root_legs, c1_legs,
+                                       "root", "c1",
+                                       self.svd_params)
 
         # The old node and tensor should be removed
         self.assertFalse("contr" in self.tensortree.nodes)
@@ -225,9 +228,9 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         root_legs = ptn.LegSpecification(None, ["c1"], [2], None)
         root_legs.is_root = True
         c2_legs = ptn.LegSpecification(None, [], [1], None)
-        self.tensortree.split_node_svd("contr", c2_legs, root_legs, "c2", "root"
-                                       , max_bond_dim=float("inf"),
-                                       rel_tol=float("-inf"), total_tol=float("-inf"))
+        self.tensortree.split_node_svd("contr", c2_legs, root_legs,
+                                       "c2", "root",
+                                       self.svd_params)
 
         # The old node and tensor should be removed
         self.assertFalse("contr" in self.tensortree.nodes)

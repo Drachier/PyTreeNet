@@ -1,11 +1,12 @@
 from __future__ import annotations
-from typing import Dict, List, Union
+from typing import List, Union
 
 from ..ttns import TreeTensorNetworkState
 from .ttn_time_evolution import TTNTimeEvolution
 from .trotter import TrotterSplitting
 from ..operators.operator import NumericOperator
 from ..operators.tensorproduct import TensorProduct
+from ..util.tensor_splitting import SVDParameters
 
 class TEBD(TTNTimeEvolution):
     """
@@ -15,8 +16,7 @@ class TEBD(TTNTimeEvolution):
     def __init__(self, initial_state: TreeTensorNetworkState,
                  trotter_splitting: TrotterSplitting, time_step_size: float,
                  final_time: float, operators: Union[List[TensorProduct], TensorProduct],
-                 max_bond_dim: Union[int, float] = 100, rel_tol: float =1e-16,
-                 total_tol: float = 1e-16,
+                 svd_parameters: SVDParameters = SVDParameters(),
                  **kwargs):
         """
         A class that can be used to time evolve an initial state in the form
@@ -49,23 +49,7 @@ class TEBD(TTNTimeEvolution):
                          operators,
                          **kwargs)
         self._trotter_splitting = trotter_splitting
-
-        if max_bond_dim < 1:
-            errstr = "The maximum bond dimension must be positive!"
-            raise ValueError(errstr)
-        if isinstance(max_bond_dim, float) and max_bond_dim != float("inf"):
-            errstr = "Maximum bond dimension must be int or inf!"
-            raise TypeError(errstr)
-        self.max_bond_dim = max_bond_dim
-        if rel_tol < 0 and rel_tol != float("-inf"):
-            errstr = "The relative tolerance must be non-negativ of -inf!"
-            raise ValueError(errstr)
-        self.rel_tol = rel_tol
-        if total_tol < 0 and rel_tol != float("-inf"):
-            errstr = "The total tolerance must be non-negativ of -inf!"
-            raise ValueError(errstr)
-        self.total_tol = total_tol
-
+        self.svd_parameters = svd_parameters
         self._exponents = self._trotter_splitting.exponentiate_splitting(self._time_step_size,
                                                                          self.state)
 
@@ -118,9 +102,7 @@ class TEBD(TTNTimeEvolution):
         self.state.split_node_svd("contr", u_legs, v_legs,
                                   u_identifier=identifiers[0],
                                   v_identifier=identifiers[1],
-                                  max_bond_dim=self.max_bond_dim,
-                                  rel_tol=self.rel_tol,
-                                  total_tol=self.total_tol)
+                                  svd_params=self.svd_parameters)
 
     def _apply_one_trotter_step(self, unitary: NumericOperator):
         """

@@ -17,15 +17,15 @@ class TestTwoSiteTDVPSimple(unittest.TestCase):
         self.hamiltonian = ptn.TTNO.from_tensor(self.ttn,
                                                 self.hamiltonian,
                                                 leg_dict)
-        self.trunc_param = {"max_bond_dim": 4,
-                            "rel_tol": 1e-6,
-                            "total_tol": 1e-6}
+        self.svd_param = ptn.SVDParameters(max_bond_dim=4,
+                                           rel_tol=1e-6,
+                                           total_tol=1e-6)
         self.tdvp = ptn.TwoSiteTDVP(self.ttn,
                                     self.hamiltonian,
                                     self.time_step_size,
                                     self.final_time,
                                     self.operators,
-                                    self.trunc_param)
+                                    self.svd_param)
         new_cache = ptn.contract_any("c1", "root",
                                      self.tdvp.state, self.tdvp.hamiltonian,
                                      self.tdvp.partial_tree_cache)
@@ -34,14 +34,6 @@ class TestTwoSiteTDVPSimple(unittest.TestCase):
                                      self.tdvp.state, self.tdvp.hamiltonian,
                                      self.tdvp.partial_tree_cache)
         self.tdvp.partial_tree_cache.add_entry("root", "c2", new_cache)
-
-    def test_initialization(self):
-        """
-        Checks if the truncation parameters are initialised correctly.
-        """
-        self.assertEqual(self.trunc_param["max_bond_dim"],self.tdvp.max_bond_dim)
-        self.assertEqual(self.trunc_param["rel_tol"],self.tdvp.rel_tol)
-        self.assertEqual(self.trunc_param["total_tol"],self.tdvp.total_tol)
 
     def test_find_block_leg_target_node_rc1(self):
         """

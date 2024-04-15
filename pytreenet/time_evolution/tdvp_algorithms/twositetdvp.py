@@ -3,7 +3,7 @@ Implements the mother class for all two-site TDVP algorithms.
  This class mostly contains functions to contract the effective Hamiltonian
  and to update the sites.
 """
-from typing import List, Union, Dict, Tuple
+from typing import List, Union, Tuple
 import numpy as np
 
 from .tdvp_algorithm import TDVPAlgorithm
@@ -11,7 +11,7 @@ from ..time_evolution import time_evolve
 from ...ttns.ttns import TreeTensorNetworkState
 from ...ttno.ttno import TTNO
 from ...operators.tensorproduct import TensorProduct
-from ...util.tensor_splitting import check_truncation_parameters
+from ...util.tensor_splitting import SVDParameters
 from ...util.tensor_util import tensor_matricisation_half
 from ...contractions.contraction_util import contract_all_but_one_neighbour_block_to_hamiltonian
 from ...util.ttn_exceptions import NotCompatibleException
@@ -22,7 +22,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
                  hamiltonian: TTNO,
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
-                 truncation_parameters: Dict,
+                 svd_parameters: SVDParameters = SVDParameters(),
                  **kwargs) -> None:
         """
         Initialises an instance of a two-site TDVP algorithm.
@@ -47,35 +47,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
                          time_step_size, final_time,
                          operators,
                          **kwargs)
-        self.max_bond_dim, self.rel_tol, self.total_tol = self._init_truncation_parameters(truncation_parameters)
-
-    def _init_truncation_parameters(self, truncation_parameters: Dict) -> Tuple[int, float, float]:
-        """
-        Initialises the truncation parameters for the TDVP algorithm by
-         unpacking the dictionary.
-
-        Args:
-            truncation_parameters (Dict): A dictionary containing the
-             parameters used for truncation. The dictionary can define a
-             maximum bond dimension ('maximum_bond_dim'), a relative
-             tolerance ('rel_tol') and a total tolerance ('total_tol') to be
-             used during the truncation. For details see the documentation of
-             tensor_util.truncate_singular_values.
-        """
-        if "max_bond_dim" in truncation_parameters:
-            max_bond_dim = truncation_parameters["max_bond_dim"]
-        else:
-            max_bond_dim = 200
-        if "rel_tol" in truncation_parameters:
-            rel_tol = truncation_parameters["rel_tol"]
-        else:
-            rel_tol = 1e-10
-        if "total_tol" in truncation_parameters:
-            total_tol = truncation_parameters["total_tol"]
-        else:
-            total_tol = 1e-10
-        check_truncation_parameters(max_bond_dim, rel_tol, total_tol)
-        return max_bond_dim, rel_tol, total_tol
+        self.svd_parameters = svd_parameters
 
     def _find_block_leg_target_node(self,
                                     target_node_id: str,
@@ -277,9 +249,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
         self.state.split_node_svd(new_id, u_legs, v_legs,
                                   u_identifier=target_node_id,
                                   v_identifier=next_node_id,
-                                  max_bond_dim=self.max_bond_dim,
-                                  rel_tol=self.rel_tol,
-                                  total_tol=self.total_tol)
+                                  svd_params=self.svd_parameters)
         self.state.orthogonality_center_id = next_node_id
         self.update_tree_cache(target_node_id, next_node_id)
 

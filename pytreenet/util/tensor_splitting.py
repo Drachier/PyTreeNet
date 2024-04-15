@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Tuple
 from enum import Enum
 from warnings import warn
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -151,26 +152,54 @@ def _determine_tensor_shape(old_shape: Tuple[int,...],
 
     return tuple(new_shape)
 
-def check_truncation_parameters(max_bond_dim: int,
-                                rel_tol: float,
-                                total_tol: float):
+@dataclass
+class SVDParameters:
     """
-    Checks if the truncation parameters are valid.
+    Holds all the parameters required for a truncated singular value
+    decomposition.
+    
+    Attributes:
+        max_bond_dim (int, optional): The maximum bond dimension allowed
+            between nodes. Defaults to 100.
+        rel_tol (float, optional): singular values s for which
+            (s / largest singular value) < rel_tol are truncated. Defaults to
+            0.01.
+        total_tol (float, optional): singular values s for which s < total_tol
+            are truncated. Defaults to 1e-15.
+        renorm (bool, optional): If True, the truncated singular value vector
+            is scaled to have the same norm as the original vector. Defaults to
+            True.
+    """
+    max_bond_dim: int = 100
+    rel_tol: float = 0.01
+    total_tol: float = 1e-15
+    renorm: bool = True
 
-    Parameters:
-        max_bond_dim (int): The maximum bond dimension allowed between nodes.
-        rel_tol (float): singular values s for which ( s / largest singular value)
-         < rel_tol are truncated.
-        total_tol (float): singular values s for which s < total_tol are truncated.
-    """
-    if (not isinstance(max_bond_dim,int)) and (max_bond_dim != float("inf")):
-        raise TypeError(f"'max_bond_dim' has to be int not {type(max_bond_dim)}!")
-    if max_bond_dim <= 0:
-        raise ValueError("'max_bond_dim' has to be positive.")
-    if (rel_tol < 0) and (rel_tol != float("-inf")):
-        raise ValueError("'rel_tol' has to be positive or -inf.")
-    if (total_tol < 0) and (total_tol != float("-inf")):
-        raise ValueError("'total_tol' has to be positive or -inf.")
+    def __post_init__(self):
+        """
+        Check the validity of the parameters.
+        """
+        self.check_truncation_parameters()
+
+    def check_truncation_parameters(self):
+        """
+        Checks if the truncation parameters are valid.
+
+        The maximum bond dimension has to be a positive integer or infinity.
+        The relative tolerance has to be positive or -infinity.
+        The total tolerance has to be positive or -infinity.
+        """
+        max_bond_dim = self.max_bond_dim
+        if (not isinstance(max_bond_dim,int)) and (max_bond_dim != float("inf")):
+            raise TypeError(f"'max_bond_dim' has to be int not {type(max_bond_dim)}!")
+        if max_bond_dim <= 0:
+            raise ValueError("'max_bond_dim' has to be positive.")
+        rel_tol = self.rel_tol
+        if (rel_tol < 0) and (rel_tol != float("-inf")):
+            raise ValueError("'rel_tol' has to be positive or -inf.")
+        total_tol = self.total_tol
+        if (total_tol < 0) and (total_tol != float("-inf")):
+            raise ValueError("'total_tol' has to be positive or -inf.")
 
 def renormalise_singular_values(s: np.ndarray,
                                 new_s: np.ndarray) -> np.ndarray:
@@ -191,33 +220,25 @@ def renormalise_singular_values(s: np.ndarray,
     return new_s
 
 def truncate_singular_values(s: np.ndarray,
-                             max_bond_dim: int,
-                             rel_tol: float,
-                             total_tol: float,
-                             renorm: bool = True) -> Tuple[np.ndarray,np.ndarray]:
+                             svd_params: SVDParameters) -> Tuple[np.ndarray,np.ndarray]:
     """
     Truncates the singular values of a tensor given as a vector s.
 
     Args:
         s (np.ndarray): Vector of singular values sorted in descending order.
-        max_bond_dim (int, optional): The maximum bond dimension allowed
-         between nodes. Defaults to 100.
-        rel_tol (float, optional): singular values s for which
-         (s / largest singular value) < rel_tol are truncated. Defaults to 0.01.
-        total_tol (float, optional): singular values s for which s < total_tol
-         are truncated. Defaults to 1e-15.
-        renorm (bool, optional): If True, the truncated singular value vector
-         is scaled to have the same
+        svd_params (SVDParameters): Parameters for the truncation of the singular
+            values.
 
     Returns:
         Tuple[np.ndarray,np.ndarray]: (new_s, s_trunc), where is is the
          shortened vector of singular values and s_trunc is a vector of the
          truncated singular values.
     """
-    check_truncation_parameters(max_bond_dim, rel_tol, total_tol)
     max_singular_value = s[0]
-    min_singular_value_cutoff = max(rel_tol * max_singular_value, total_tol)
+    min_singular_value_cutoff = max(svd_params.rel_tol * max_singular_value,
+                                    svd_params.total_tol)
     s_temp = s[s > min_singular_value_cutoff]
+    max_bond_dim = svd_params.max_bond_dim
     if len(s_temp) > max_bond_dim:
         new_s = s_temp[:max_bond_dim]
         s_trunc = s[max_bond_dim:]
@@ -228,16 +249,14 @@ def truncate_singular_values(s: np.ndarray,
     else:
         new_s = s_temp
         s_trunc = s[len(s_temp):]
-    if renorm:
+    if svd_params.renorm:
         new_s = renormalise_singular_values(s, new_s)
     return new_s, s_trunc
 
 def truncated_tensor_svd(tensor: np.ndarray,
                          u_legs: Tuple[int,...],
                          v_legs: Tuple[int,...],
-                         max_bond_dim: int = 100,
-                         rel_tol: float = 0.01,
-                         total_tol: float = 1e-15):
+                         svd_params: SVDParameters) -> Tuple[np.ndarray,np.ndarray,np.ndarray]:
     """
     Performs a singular value decomposition of a tensor including truncation,
      i.e. discarding some singular values.
@@ -248,12 +267,8 @@ def truncated_tensor_svd(tensor: np.ndarray,
          after the SVD.
         v_legs (Tuple[int]): Legs of tensor that are to be associated to V
          after the SVD.
-        max_bond_dim (int, optional): The maximum bond dimension allowed
-         between nodes. Defaults to 100.
-        rel_tol (float, optional): singular values s for which
-         (s / largest singular value) < rel_tol are truncated. Defaults to 0.01.
-        total_tol (float, optional): singular values s for which s < total_tol
-         are truncated. Defaults to 1e-15.
+        svd_params (SVDParameters): Parameters for the truncation of the
+            singular values.
     
     Returns:
         Tuple[np.ndarray,np.ndarray,np.ndarray]: (U, S, V), where U and V are
@@ -267,8 +282,7 @@ def truncated_tensor_svd(tensor: np.ndarray,
        0  |____|  1                   0  |____| 2   0       1  0 |____|
     """
     u, s, vh = tensor_svd(tensor, u_legs, v_legs)
-    s, _ = truncate_singular_values(s, max_bond_dim,
-                                          rel_tol, total_tol)
+    s, _ = truncate_singular_values(s, svd_params)
     new_bond_dim = len(s)
     u = u[..., :new_bond_dim]
     vh = vh[:new_bond_dim, ...]
@@ -283,7 +297,7 @@ def contr_truncated_svd_splitting(tensor: np.ndarray,
                                   u_legs: Tuple[int,...],
                                   v_legs: Tuple[int,...],
                                   contr_mode: ContractionMode = ContractionMode.VCONTR,
-                                  **truncation_param):
+                                  svd_params: SVDParameters = SVDParameters()) -> Tuple[np.ndarray,np.ndarray]:
     """
     Performs a truncated singular value decomposition, but the singular values
      are contracted with the V tensor.
@@ -299,10 +313,9 @@ def contr_truncated_svd_splitting(tensor: np.ndarray,
          VCONTR contracts them with the V-tensor, UCONTR with the U-tensor
          and EQUAL contracts the squareroot of the singular values with each
          tensor. Defaults to ContractionMode.VCONTR
-        **truncation_param: Parameters for the truncation of the singular
-         values. (See truncated_tensor_svd)
+        svd_params (SVDParameters): Parameters for the truncation of the
     """
-    u, s, vh = truncated_tensor_svd(tensor, u_legs, v_legs, **truncation_param)
+    u, s, vh = truncated_tensor_svd(tensor, u_legs, v_legs, svd_params)
     if contr_mode == ContractionMode.VCONTR:
         us = u
         svh = np.tensordot(np.diag(s), vh, axes=(1, 0))

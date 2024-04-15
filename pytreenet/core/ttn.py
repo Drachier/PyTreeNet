@@ -53,7 +53,8 @@ from .tree_structure import TreeStructure
 from .node import Node
 from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      contr_truncated_svd_splitting,
-                                     SplitMode)
+                                     SplitMode,
+                                     SVDParameters)
 from .leg_specification import LegSpecification
 from .canonical_form import (canonical_form,
                              split_qr_contract_r_to_neighbour)
@@ -905,7 +906,7 @@ class TreeTensorNetwork(TreeStructure):
     def split_node_svd(self, node_id: str,
                        u_legs: LegSpecification, v_legs: LegSpecification,
                        u_identifier: str = "", v_identifier: str = "",
-                       **truncation_param):
+                       svd_params: SVDParameters = SVDParameters()):
         """
         Splits a node in two using singular value decomposition. In the process the tensors
          are truncated as specified by truncation parameters. The singular values
@@ -922,7 +923,7 @@ class TreeTensorNetwork(TreeStructure):
         """
         self._split_nodes(node_id, u_legs, v_legs, contr_truncated_svd_splitting,
                           out_identifier=u_identifier, in_identifier=v_identifier,
-                          **truncation_param)
+                          svd_params=svd_params)
 
     def move_orthogonalization_center(self, new_center_id: str,
                                       mode: SplitMode = SplitMode.REDUCED):

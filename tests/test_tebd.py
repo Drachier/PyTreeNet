@@ -18,14 +18,12 @@ class TestTEBDinit(unittest.TestCase):
         self.time_step_size = 0.1
         self.final_time = 1.0
         self.operators = [ptn.random_tensor_product(self.initial_state, 1)]
-        self.max_bond_dim = 100
-        self.rel_tol = 1e-10
-        self.total_tol = 1e-15
+        self.svd_parameters = ptn.SVDParameters(100, 1e-10, 1e-15)
 
     def test_valid_init(self):
         tebd = ptn.TEBD(self.initial_state, self.trotter_splitting,
                         self.time_step_size, self.final_time, self.operators,
-                        self.max_bond_dim, self.rel_tol, self.total_tol)
+                        self.svd_parameters)
 
         # Test correct instatiation
         self.assertEqual(tebd.initial_state, self.initial_state)
@@ -33,27 +31,7 @@ class TestTEBDinit(unittest.TestCase):
         self.assertEqual(tebd.time_step_size, self.time_step_size)
         self.assertEqual(tebd.final_time, self.final_time)
         self.assertEqual(tebd.operators, self.operators)
-        self.assertEqual(tebd.max_bond_dim, self.max_bond_dim)
-        self.assertEqual(tebd.rel_tol, self.rel_tol)
-        self.assertEqual(tebd.total_tol, self.total_tol)
-
-    def test_invalid_arguments(self):
-        self.assertRaises(ValueError, ptn.TEBD, self.initial_state, 
-                          self.trotter_splitting, self.time_step_size,
-                          self.final_time, self.operators, -1,
-                          self.rel_tol, self.total_tol)
-        self.assertRaises(ValueError, ptn.TEBD, self.initial_state, 
-                          self.trotter_splitting, self.time_step_size,
-                          self.final_time, self.operators, 0.4,
-                          self.rel_tol, self.total_tol)
-        self.assertRaises(ValueError, ptn.TEBD, self.initial_state, 
-                          self.trotter_splitting, self.time_step_size,
-                          self.final_time, self.operators, self.max_bond_dim,
-                          -1, self.total_tol)
-        self.assertRaises(ValueError, ptn.TEBD, self.initial_state, 
-                          self.trotter_splitting, self.time_step_size,
-                          self.final_time, self.operators, self.max_bond_dim,
-                          self.rel_tol, -1)
+        self.assertEqual(tebd.svd_parameters,self.svd_parameters)
 
 class TestTEBDsmall(unittest.TestCase):
     def setUp(self):
@@ -78,19 +56,17 @@ class TestTEBDsmall(unittest.TestCase):
         self.meas_operators = [ptn.random_tensor_product(self.ttns, 2) for i in range(num_ops)]
 
         # Deactivate Truncation
-        self.max_bond_dim = float("inf")
-        self.rel_tol = float("-inf")
-        self.total_tol = float("-inf")
+        self.svd_params = ptn.SVDParameters(float("inf"), float("-inf"), float("-inf"))
 
         # Initialise TEBD
         self.tebd = ptn.TEBD(self.ttns, self.trotter, self.time_step_size,
                              self.final_time, self.meas_operators,
-                             self.max_bond_dim, self.rel_tol, self.total_tol)
+                             svd_parameters=self.svd_params)
 
         # Initialise TEBD No truncation
         self.tebd_no_trunc = ptn.TEBD(self.ttns, self.trotter, self.time_step_size,
                              self.final_time, self.meas_operators,
-                             float("inf"), float("-inf"), float("-inf"))
+                             svd_parameters=self.svd_params)
 
     def test_apply_one_trotter_step_single_site(self):
         reference_state = deepcopy(self.ttns)
