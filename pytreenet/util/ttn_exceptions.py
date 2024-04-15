@@ -8,7 +8,6 @@ concerns the connectivity of nodes in a tree tensor network (TTN) with the
 
 Checks are commonly done for parameters of tensor network algorithms.
 """
-from __future__ import annotations
 from typing import Union
 
 class NoConnectionException(Exception):
