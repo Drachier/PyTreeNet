@@ -1,5 +1,6 @@
 Modules that were fully refactored and updated to new Docstyle:
 
+** contractions
 * contraction.contraction_util
 * contraction.state_operator_contraction
 * contractions.state_state_contraction
