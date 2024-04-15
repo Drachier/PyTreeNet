@@ -13,9 +13,11 @@ Modules that were fully refactored and updated to new Docstyle:
 * operators.common_operators
 * operators.hamiltonian
 
+** util
 * util.tensor_util
 * util.tensor_splitting
 * util.ttn_exceptions
+* util.util
 
 Features to add:
 
