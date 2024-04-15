@@ -13,7 +13,8 @@ Modules that were fully refactored and updated to new Docstyle:
 * operators.common_operators
 * operators.hamiltonian
 
-* util.tensor util
+* util.tensor_util
+* util.tensor_splitting
 
 Features to add:
 

@@ -1,4 +1,12 @@
-from __future__ import annotations
+"""
+Functions that decompose a tensor.
+
+The functions in this module are used to decompose a tensor into two or more
+tensors. The QR decomposition and the singular value decomposition are
+the most common decompositions used in tensor networks and implemented.
+While the QR-Decomposition is faster, the SVD allows for a truncation of the
+bond dimension, by discarding sufficiently small singular values.
+"""
 from typing import Tuple
 from enum import Enum
 from warnings import warn
@@ -7,8 +15,24 @@ from dataclasses import dataclass
 import numpy as np
 
 from .tensor_util import tensor_matricization
+from .ttn_exceptions import positivity_check
 
 class SplitMode(Enum):
+    """
+    Different modes on how to deal with the dimensions of a decomposed tensor.
+
+    Decompositions are not unique, but differ in how to deal with the dimension
+    of the new created bond. In principle one can increase the dimension as
+    much as is desired, by adding zero vectors to the resulting tensors.
+
+    FULL: The resulting tensor has the keeps the inout dimension of the
+        original tensor.
+    REDUCED: The resulting tensor has the minimum dimension between the
+        input and output tensor. This means there are no zero vectors added.
+        This is the default mode of numpy.
+    KEEP: One of the resulting tensors has the same shape as the input tensor,
+        if only one leg is split of from the rest.
+    """
     FULL = "full"
     REDUCED = "reduced"
     KEEP = "keep"
@@ -23,10 +47,12 @@ class SplitMode(Enum):
 
     def numpy_svd_mode(self) -> True:
         """
-        Returns, if a numpy SVD decomposition computes the full or reduced
-         matrices.
+        Returns the numpy SVD mode required.
+
+        A numpy SVD has to be told, if it should return the full or reduced
+        matrices by using a boolean.
         """
-        return not self is SplitMode.REDUCED
+        return self is not SplitMode.REDUCED
 
 def tensor_qr_decomposition(tensor: np.ndarray,
                             q_legs: Tuple[int,...],
@@ -38,14 +64,14 @@ def tensor_qr_decomposition(tensor: np.ndarray,
     Args:
         tensor (np.ndarray): Tensor on which the QR-decomp is to applied.
         q_legs (Tuple[int]): Legs of tensor that should be associated to the
-         Q tensor after QR-decomposition.
+            Q tensor after QR-decomposition.
         r_legs (Tuple[int]): Legs of tensor that should be associated to the
-         R tensor after QR-decomposition.
+            R tensor after QR-decomposition.
         mode (SplitMode, optional): Reduced returns a QR deocomposition with
-         minimum dimension between Q and R. Full returns the decomposition
-         with dimension between Q and R as the output dimension of Q. Keep
-         causes Q to have the same shape as the input tensor. Defaults to
-         SplitMode.Reduced.
+            minimum dimension between Q and R. Full returns the decomposition
+            with dimension between Q and R as the output dimension of Q. Keep
+            causes Q to have the same shape as the input tensor. Defaults to
+            SplitMode.REDUCED.
 
     Returns:
         Tuple[np.ndarray,np.ndarray]: (Q, R)
@@ -89,16 +115,17 @@ def tensor_svd(tensor: np.ndarray,
     Args:
         tensor (np.ndarray): Tensor on which the svd is to be performed.
         u_legs (Tuple[int]): Legs of tensor that are to be associated to U
-         after the SVD.
+            after the SVD.
         v_legs (Tuple[int]): Legs of tensor that are to be associated to V
-         after the SVD.
+            after the SVD.
         mode (SplitMode, optional): Determines if the full or reduced matrices
-         u and vh obtained by the SVD are returned. The default is
-         SplitMode.REDUCED.
+            u and vh obtained by the SVD are returned. The default is
+            SplitMode.REDUCED.
     
     Returns:
         Tuple[np.ndarray,np.ndarray,np.ndarray]: (U, S, V), where S is the
-         vector of singular values and U and V are tensors.
+            vector of singular values and U and V are tensors equivalent to an
+            isometry.
 
     Example:
              |2                             |1
@@ -124,18 +151,20 @@ def _determine_tensor_shape(old_shape: Tuple[int,...],
                             legs: Tuple[int,...],
                             output: bool = True) -> Tuple[int,...]:
     """
+    Determines the shape of a tensor after a decomposition.
+    
     Determines the new shape a matrix is to be reshaped to after a decomposition
-     of a tensor with spape old_shape, to again obtain a tensor.
+    of a tensor with some original shape, to again obtain a tensor.
     Works only if all legs to be reshaped are combined in the input or output
-     leg of the matrix.
+    leg of the matrix.
     
     Args:
         old_shape (Tuple[int]): Shape of the original tensor.
         matrix (np.ndarray): Matrix to be reshaped.
         legs (Tuple[int]): Which legs of the original tensor are associated to
-         the matrix.
+            the matrix.
         output (bool, optional): If the legs of the original tensor are
-         associated to the input or output of matrix. Defaults to True.
+            associated to the input or output of matrix. Defaults to True.
     
     Returns:
         Tuple[int]: New shape to which matrix is to be reshaped.
@@ -192,8 +221,7 @@ class SVDParameters:
         max_bond_dim = self.max_bond_dim
         if (not isinstance(max_bond_dim,int)) and (max_bond_dim != float("inf")):
             raise TypeError(f"'max_bond_dim' has to be int not {type(max_bond_dim)}!")
-        if max_bond_dim <= 0:
-            raise ValueError("'max_bond_dim' has to be positive.")
+        positivity_check(max_bond_dim, "max_bond_dim")
         rel_tol = self.rel_tol
         if (rel_tol < 0) and (rel_tol != float("-inf")):
             raise ValueError("'rel_tol' has to be positive or -inf.")
@@ -204,8 +232,9 @@ class SVDParameters:
 def renormalise_singular_values(s: np.ndarray,
                                 new_s: np.ndarray) -> np.ndarray:
     """
-    Renormalises the truncated singular value vector new_s to have the same
-     sum as the original singular value vector s.
+    Renormalises a truncated singular value vector.
+
+    The vector is scaled to have the same norm as the original vector.
 
     Args:
         s (np.ndarray): The original vector of singular values.
@@ -222,7 +251,7 @@ def renormalise_singular_values(s: np.ndarray,
 def truncate_singular_values(s: np.ndarray,
                              svd_params: SVDParameters) -> Tuple[np.ndarray,np.ndarray]:
     """
-    Truncates the singular values of a tensor given as a vector s.
+    Truncates the singular values of a tensor given as a vector.
 
     Args:
         s (np.ndarray): Vector of singular values sorted in descending order.
@@ -231,8 +260,8 @@ def truncate_singular_values(s: np.ndarray,
 
     Returns:
         Tuple[np.ndarray,np.ndarray]: (new_s, s_trunc), where is is the
-         shortened vector of singular values and s_trunc is a vector of the
-         truncated singular values.
+            shortened vector of singular values and s_trunc is a vector of the
+            truncated singular values.
     """
     max_singular_value = s[0]
     min_singular_value_cutoff = max(svd_params.rel_tol * max_singular_value,
@@ -258,15 +287,17 @@ def truncated_tensor_svd(tensor: np.ndarray,
                          v_legs: Tuple[int,...],
                          svd_params: SVDParameters) -> Tuple[np.ndarray,np.ndarray,np.ndarray]:
     """
-    Performs a singular value decomposition of a tensor including truncation,
-     i.e. discarding some singular values.
+    Performs a singular value decomposition of a tensor including truncation.
+
+    This means some of the singular values are discarded and the resulting
+    tensors are truncated to the new bond dimension.
     
     Args:
         tensor (np.ndarray): Tensor on which the svd is to be performed.
         u_legs (Tuple[int]): Legs of tensor that are to be associated to U
-         after the SVD.
+            after the SVD.
         v_legs (Tuple[int]): Legs of tensor that are to be associated to V
-         after the SVD.
+            after the SVD.
         svd_params (SVDParameters): Parameters for the truncation of the
             singular values.
     
@@ -289,6 +320,13 @@ def truncated_tensor_svd(tensor: np.ndarray,
     return u, np.asarray(s), vh
 
 class ContractionMode(Enum):
+    """
+    Which tensor the singular values are contracted into.
+
+    VCONTR: Contracts the singular values with the V tensor.
+    UCONTR: Contracts the singular values with the U tensor.
+    EQUAL: Contracts the squareroot of the singular values with each tensor.
+    """
     UCONTR = "ucontr"
     VCONTR = "vcontr"
     EQUAL = "equal"
@@ -305,14 +343,11 @@ def contr_truncated_svd_splitting(tensor: np.ndarray,
     Args:
         tensor (np.ndarray): Tensor on which the svd is to be performed.
         u_legs (Tuple[int]): Legs of tensor that are to be associated to U
-         after the SVD.
+            after the SVD.
         v_legs (Tuple[int]): Legs of tensor that are to be associated to V
-         after the SVD.
+            after the SVD.
         contr_mode (ContractionMode): Determines how the singular values are
-         contracted into the other tensors.
-         VCONTR contracts them with the V-tensor, UCONTR with the U-tensor
-         and EQUAL contracts the squareroot of the singular values with each
-         tensor. Defaults to ContractionMode.VCONTR
+            contracted into the other tensors.
         svd_params (SVDParameters): Parameters for the truncation of the
     """
     u, s, vh = truncated_tensor_svd(tensor, u_legs, v_legs, svd_params)
