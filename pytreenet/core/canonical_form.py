@@ -14,7 +14,7 @@ from copy import copy
 
 from .leg_specification import LegSpecification
 from .node import Node
-from ..util.tensor_util import SplitMode
+from ..util.tensor_splitting import SplitMode
 
 def canonical_form(ttn: TreeTensorNetwork,
                    orthogonality_center_id: str,

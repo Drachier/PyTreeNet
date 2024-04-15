@@ -51,9 +51,9 @@ import numpy as np
 
 from .tree_structure import TreeStructure
 from .node import Node
-from ..util.tensor_util import (tensor_qr_decomposition,
-                          contr_truncated_svd_splitting,
-                          SplitMode)
+from ..util.tensor_splitting import (tensor_qr_decomposition,
+                                     contr_truncated_svd_splitting,
+                                     SplitMode)
 from .leg_specification import LegSpecification
 from .canonical_form import (canonical_form,
                              split_qr_contract_r_to_neighbour)

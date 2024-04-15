@@ -13,7 +13,8 @@ import numpy as np
 
 from ..time_evolution import time_evolve
 from ..ttn_time_evolution import TTNTimeEvolution
-from ...util.tensor_util import tensor_matricisation_half, SplitMode
+from ...util.tensor_util import tensor_matricisation_half
+from ...util.tensor_splitting import SplitMode
 from ...ttns import TreeTensorNetworkState
 from ...ttno.ttno import TTNO
 from ...operators.tensorproduct import TensorProduct
