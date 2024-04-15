@@ -13,6 +13,8 @@ Modules that were fully refactored and updated to new Docstyle:
 * operators.common_operators
 * operators.hamiltonian
 
+* util.tensor util
+
 Features to add:
 
 * TTNO-TTNS contraction
