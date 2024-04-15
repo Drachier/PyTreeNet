@@ -16,7 +16,8 @@ release = '1.0.0'
 
 extensions = ['sphinxcontrib.napoleon',
               'sphinx.ext.autosummary',
-              'sphinx.ext.autodoc']
+              'sphinx.ext.autodoc',
+              'sphinx.ext.mathjax',]
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']

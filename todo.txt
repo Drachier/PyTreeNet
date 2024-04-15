@@ -11,6 +11,7 @@ Modules that were fully refactored and updated to new Docstyle:
 * core.node
 * core.tree_structure
 * operators.common_operators
+* operators.hamiltonian
 
 Features to add:
 
