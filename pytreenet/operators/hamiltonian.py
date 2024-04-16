@@ -41,6 +41,14 @@ class Hamiltonian():
     and be a dictionary. The key is an identifier which could be matched to a
     TensorNode in the TTN and the value is an operator that is to be applied to
     that node/site.
+
+    Attributes:
+        terms (List[TensorProduct]): A list of tensor products, each
+            representing one term of the Hamiltonian. Summin over the list
+            would theoretically yield the total Hamiltonian.
+        conversion_dictionary (Dict[str,ndarray]): A dictionary that can be
+            used to convert symbolically given terms of the Hamiltonian into
+            actual numeric arrays.
     """
 
     def __init__(self, terms: Union[List[TensorProduct],TensorProduct,None] = None,
