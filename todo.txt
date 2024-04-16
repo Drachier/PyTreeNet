@@ -11,9 +11,11 @@ Modules that were fully refactored and updated to new Docstyle:
 * core.leg_specification
 * core.node
 * core.tree_structure
+** operators
 * operators.common_operators
 * operators.hamiltonian
 * operators.operator
+* operators.tensor_product
 
 ** util
 * util.tensor_util
