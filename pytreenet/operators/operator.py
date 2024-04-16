@@ -1,27 +1,10 @@
 from __future__ import annotations
-from typing import List, Union, Dict
+from typing import List, Union
 from copy import copy
 
 import numpy as np
 
-class Operator:
-    """
-    An operator hold the information what quantum mechanical operater to apply to which
-     node in a TTN.
-
-    It is usually better to use one of the more specialised classes
-     `NumericOperator` or `SymbolicOperator`.
-    """
-
-    def __init__(self, operator: Union[str, np.ndarray],
-                 node_identifiers: Union[List[str], str]):
-        self.operator = operator
-        if isinstance(node_identifiers, str):
-            self.node_identifiers = [node_identifiers]
-        else:
-            self.node_identifiers = node_identifiers
-
-class NumericOperator(Operator):
+class NumericOperator():
     """
     An operator that holds the operator associated with it directly as an array.
      If the associated array is not a matrix, we assume the following leg order:
@@ -30,7 +13,11 @@ class NumericOperator(Operator):
 
     def __init__(self, operator: np.ndarray, node_identifiers: List[str]):
         assert operator.ndim % 2 == 0
-        super().__init__(operator, node_identifiers)
+        self.operator = operator
+        if isinstance(node_identifiers, str):
+            self.node_identifiers = [node_identifiers]
+        else:
+            self.node_identifiers = node_identifiers
 
     def to_matrix(self) -> NumericOperator:
         """
@@ -86,26 +73,3 @@ class NumericOperator(Operator):
             return np.allclose(identity, self.operator @ self.operator.conj().T)
         else:
             return self.to_matrix().is_unitary()
-
-class SymbolicOperator(Operator):
-    """
-    An operator that holds the operator associated with it only as a symbolic value.
-    That operator has to be converted before actual use.
-    """
-
-    def __init__(self, operator: str, node_identifiers: List[str]):
-        super().__init__(operator, node_identifiers)
-
-    def to_numeric(self, conversion_dict: Dict[str, np.ndarray]) -> NumericOperator:
-        """
-        Converts a symbolic operator into an equivalent numeric operator.
-
-        Args:
-            conversion_dict (Dict[str, np.ndarray]): The numeric values in the form of
-             an array for the symbol.
-
-        Returns:
-            NumericOperator: The converted operator.
-        """
-        return NumericOperator(conversion_dict[self.operator],
-                               self.node_identifiers)

@@ -7,7 +7,7 @@ from copy import deepcopy
 import numpy as np
 from scipy.linalg import expm
 
-from .operator import Operator, NumericOperator
+from .operator import NumericOperator
 
 class TensorProduct(UserDict):
     """
@@ -24,7 +24,7 @@ class TensorProduct(UserDict):
         super().__init__(matrix_dict)
 
     @classmethod
-    def from_operators(cls, operators: List[Operator]) -> TensorProduct:
+    def from_operators(cls, operators: List[NumericOperator]) -> TensorProduct:
         """
         Obtain a tensor_product from a list of single site operators.
         """
