@@ -1,20 +1,14 @@
 """
-This module provides the function to contract two TreeTensorNetworkStates.
-
-The main function is contract_two_ttns(ttn1, ttn2), which contracts two
-TreeTensorNetworkStates with the same underlying tree structure.
-Therefore the contraction is basically the scalar product of the first state
-with the complex conjugate of the second state. <TTN2*|TTN1>
-
-Using explicit imports from this module provides utility functions to contract
-subtrees and leaf nodes of two states.
+This module provides functions to contract two TreeTensorNetworkStates.
 """
+
 from __future__ import annotations
 
 import numpy as np
 
 from .tree_cach_dict import PartialTreeCachDict
 from ..core.node import Node
+
 from .contraction_util import (contract_all_but_one_neighbour_block_to_ket,
                                contract_all_neighbour_blocks_to_ket) 
 
@@ -59,17 +53,15 @@ def contract_node_with_environment(node_id: str,
                                    state2: TreeTensorNetworkState,
                                    dictionary: PartialTreeCachDict) -> np.ndarray:
     """
-    Contracts a node with its environment.
-     
-    It is assumed that all subtrees starting from this node are already
-    contracted.
+    Contracts a node with its environment, assuming all subtrees going aeays
+     from the node are already contracted.
 
     Args:
         node_id (str): The identifier of the node.
         state1 (TreeTensorNetworkState): The first TTN state.
         state2 (TreeTensorNetworkState): The second TTN state.
         dictionary (PartialTreeCacheDict): The dictionary containing the
-            already contracted subtrees.
+         already contracted subtrees.
     
     Returns:
         np.ndarray: The resulting tensor. A and B are the tensors in state1 and
@@ -99,23 +91,6 @@ def contract_any(node_id: str, next_node_id: str,
                  state1: TreeTensorNetworkState,
                  state2: TreeTensorNetworkState,
                  dictionary: PartialTreeCachDict) -> np.ndarray:
-    """
-    Contracts any node.
-
-    More specifically, it contracts the tensors of each state corresponding to
-    the specified node with all but one of the subtrees attached to the node.
-    The remaining open legs of the resulting tensor point to the uncontracted
-    next node.
-
-    Args:
-        node_id (str): The identifier of the node.
-        next_node_id (str): The identifier of the node to which the remaining
-            virtual legs point.
-        state1 (TreeTensorNetworkState): The first TTN state.
-        state2 (TreeTensorNetworkState): The second TTN state.
-        dictionary (PartialTreeCacheDict): The dictionary containing the
-            already contracted subtrees.
-    """
     node = state1.nodes[node_id]
     if node.is_leaf():
         return contract_leafs(node_id, state1, state2)
@@ -125,14 +100,10 @@ def contract_any(node_id: str, next_node_id: str,
                                               state2,
                                               dictionary)
 
-def contract_leafs(node_id: str,
-                   state1: TreeTensorNetworkState,
+def contract_leafs(node_id: str, state1: TreeTensorNetworkState,
                    state2: TreeTensorNetworkState) -> np.ndarray:
     """
-    Contracts the leaf nodes of two states.
-
-    If the current subtree starts at a leaf node, only the tensors correspoding
-    to this leaf in the two states must be contracted with each other.
+    Creates a SubTreeSandwichContraction for a leaf node.
 
     Args:
         node_id (str): The identifier of the leaf node.
@@ -168,21 +139,18 @@ def contract_subtrees_using_dictionary(node_id: str, next_node_id: str,
                                        state2: TreeTensorNetworkState,
                                        dictionary: PartialTreeCachDict) -> np.ndarray:
     """
-    Contracts a node with all but one of the subtrees attached to it.
-
-    The tensors of the two states corresponding to the node are contracted with
-    each other and all but one subtrees starting from this node. The other
-    subtrees are assumed to already be contracted and stored in the provided
-    dictionary.
+    The tensor with only two open legs, pointing to the same neighbour, after
+     contracting a hole subtree. The subtrees attached to the other virtual
+     legs are already contracted and stored in the dictionary.
 
     Args:
         node_id (str): The identifier of the node.
         next_node_id (str): The identifier of the node to which the remaining
-            virtual legs point.
+         virtual legs point.
         state1 (TreeTensorNetworkState): The first TTN state.
         state2 (TreeTensorNetworkState): The second TTN state.
         dictionary (PartialTreeCacheDict): The dictionary containing the
-            already contracted subtrees.
+         already contracted subtrees.
         
         Returns:
             np.ndarray: The resulting tensor. For example, if the nodes have
@@ -216,10 +184,8 @@ def contract_bra_to_ket_and_blocks(bra_tensor: np.ndarray,
                                    bra_node: Node,
                                    ket_node: Node) -> np.ndarray:
     """
-    Contracts the bra tensor with the ket and all neighbouring blocks.
-
-    The bra tensor is contracted with the ket tensor and all neighbouring
-    subtrees, which are already contracted into the blocks.
+    Contracts the bra tensor, i.e. B in the diagrams, with the ketblock tensor,
+        i.e. A and C in the diagrams.
 
     Args:
         bra_tensor (np.ndarray): The tensor of the bra node.
@@ -258,7 +224,8 @@ def contract_bra_to_ket_and_blocks_ignore_one_leg(bra_tensor: np.ndarray,
                                                   ket_node: Node,
                                                   next_node_id: str) -> np.ndarray:
     """
-    Contracts the bra tensor with the ket and all but one neighbouring block.
+    Contracts the bra tensor, i.e. B in the diagrams, with the ketblock tensor,
+     i.e. A and C in the diagrams.
 
     Args:
         bra_tensor (np.ndarray): The tensor of the bra node.
