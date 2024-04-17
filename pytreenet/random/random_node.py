@@ -1,3 +1,7 @@
+"""
+Module to generate a random node.
+"""
+
 from ..core.node import Node
 from ..core.graph_node import GraphNode
 from ..util.util import crandn

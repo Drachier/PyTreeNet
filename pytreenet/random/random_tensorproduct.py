@@ -1,3 +1,10 @@
+"""
+This module allows to generate random tensor products.
+
+The randomly generated tensor products can be either symbolic or numeric.
+They can also be generated from a reference tree or by providing a list of
+possible operators.
+"""
 from typing import Union, List
 
 import numpy as np
