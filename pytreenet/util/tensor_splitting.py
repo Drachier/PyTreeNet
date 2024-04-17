@@ -45,7 +45,7 @@ class SplitMode(Enum):
             return "complete"
         return "reduced"
 
-    def numpy_svd_mode(self) -> True:
+    def numpy_svd_mode(self) -> bool:
         """
         Returns the numpy SVD mode required.
 
