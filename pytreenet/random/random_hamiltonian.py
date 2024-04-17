@@ -1,12 +1,63 @@
-from typing import List, Union, Dict
+"""
+This module supplies all functions to generate random Hamiltonians.
+
+The Hamiltonians can be both symbolic and numeric.
+"""
+from typing import List, Union, Tuple, Dict
 
 from numpy.random import default_rng, Generator
 from numpy import ndarray, eye
 
+from ..core.ttn import TreeStructure
 from ..operators.tensorproduct import TensorProduct
 from ..operators.hamiltonian import Hamiltonian
 from .random_matrices import random_hermitian_matrix
 from .random_ttns import random_big_ttns_two_root_children
+
+def random_hamiltonian(num_of_terms: int,
+                       possible_operators: Union[List[str],List[ndarray]],
+                       tree: TreeStructure,
+                       strength: Tuple[float,float] = (-1,1),
+                       num_sites: Tuple[int,int] = (2,2),
+                       conversion_dict: Union[None,Dict[str,ndarray]] = None,
+                       seed: Union[None,int,Generator] = None) -> Hamiltonian:
+    """
+    Generates a random Hamiltonian.
+
+    The function generates a Hamiltonian with a given number of terms. The
+    operators acting in each term are randomly chosen.
+
+    Args:
+        num_of_terms (int): The number of terms in the Hamiltonian.
+        possible_operators (Union[List[str],List[ndarray]]): A list of all
+            possible single site operators. The operators can be symbolic or
+            numerical.
+        tree (TreeStructure): The tree structure that the Hamiltonian should be
+            compatible with.
+        strength (Tuple[float,float], optional): The range of strengths that
+            the interaction terms can have. Defaults to (-1,1).
+        num_sites (Tuple[int,int], optional): The range of the number of sites
+            that can partake in an interaction term. This means the number of
+            sites that have one of the possible operators applied to them.
+            Defaults to (2,2).
+        conversion_dict (Union[None,Dict[str,ndarray]], optional): A dictionary
+            that maps the symbolic operators to numerical matrices. Defaults to
+            None.
+    
+    Returns:
+        Hamiltonian: A random Hamiltonian.
+    """
+    identifiers = list(tree.nodes.keys())
+    rand_terms = random_terms(num_of_terms,
+                              possible_operators,
+                              identifiers,
+                              min_strength=strength[0],
+                              max_strength=strength[1],
+                              min_num_sites=num_sites[0],
+                              max_num_sites=num_sites[1],
+                              seed=seed)
+    return Hamiltonian(rand_terms,
+                       conversion_dictionary=conversion_dict)
 
 def random_terms(num_of_terms: int,
                  possible_operators: Union[List[str],List[ndarray]],
@@ -41,8 +92,8 @@ def random_terms(num_of_terms: int,
         max_num_sites (int, optional): The maximum number of sites that can
             partake in an interaction term, i.e. have one of the possible
             operators applied to them. Defaults to 2.
-        seed (Union[None,int,Generator], optional): A seed for the random number
-            generator or a generator itself. Defaults to None.
+        seed (Union[None,int,Generator], optional): A seed for the random
+            number generator or a generator itself. Defaults to None.
     
     Returns:
         List[TensorProduct]: A list containing all the random terms.
@@ -87,8 +138,8 @@ def random_numeric_terms(num_of_terms: int,
         max_num_sites (int, optional): The maximum number of sites that can
             partake in an interaction term, i.e. have one of the possible
             operators applied to them. Defaults to 2.
-        seed (Union[None,int,Generator], optional): A seed for the random number
-            generator or a generator itself. Defaults to None.
+        seed (Union[None,int,Generator], optional): A seed for the random
+            number generator or a generator itself. Defaults to None.
     
     Returns:
         List[TensorProduct]: A list containing all the random terms.
@@ -130,8 +181,8 @@ def random_numeric_term(possible_operators: List[ndarray],
         max_num_sites (int, optional): The maximum number of sites that can
             partake in an interaction term, i.e. have one of the possible
             operators applied to them. Defaults to 2.
-        seed (Union[None,int,Generator], optional): A seed for the random number
-            generator or a generator itself. Defaults to None.
+        seed (Union[None,int,Generator], optional): A seed for the random
+            number generator or a generator itself. Defaults to None.
 
     Returns:
         TensorProduct: A random term in the form of a tensor product with
@@ -166,8 +217,8 @@ def random_symbolic_terms(num_of_terms: int,
         max_num_sites (int, optional): The maximum number of sites that can
             partake in an interaction term, i.e. have one of the possible
             operators applied to them. Defaults to 2.
-        seed (Union[None,int,Generator], optional): A seed for the random number
-            generator or a generator itself. Defaults to None.
+        seed (Union[None,int,Generator], optional): A seed for the random
+            number generator or a generator itself. Defaults to None.
 
     Returns:
         List[TensorProduct]: A list containing all the random terms.
@@ -196,9 +247,12 @@ def random_symbolic_term(possible_operators: List[str],
 
     Args:
         possible_operators (list[ndarray]): Symbolic operators to choose from.
-        sites (list[str]): Identifiers of the nodes to which they may be applied.
-        num_sites (int, optional): Number of non-trivial sites in a term. Defaults to 2.
-        seed (Union[int, None], optional): A seed for the random number generator. Defaults to None.
+        sites (list[str]): Identifiers of the nodes to which they may be
+            applied.
+        num_sites (int, optional): Number of non-trivial sites in a term.
+            Defaults to 2.
+        seed (Union[int, None], optional): A seed for the random number
+            generator. Defaults to None.
 
     Returns:
         TensorProduct: A random term in the form of a tensor product
@@ -212,8 +266,8 @@ def random_symbolic_term(possible_operators: List[str],
 def random_hamiltonian_compatible() -> Hamiltonian:
     """
     Generates a Hamiltonian that is compatible with the TTNS produced by
-     `ptn.ttns.random_big_ttns_two_root_children`. It is already padded with
-     identities.
+    `ptn.ttns.random_big_ttns_two_root_children`. It is already padded with
+    identities.
 
     Returns:
         Hamiltonian: A Hamiltonian to use for testing.
