@@ -1,19 +1,13 @@
 """
-Exceptinos specific to tensor networks and common checks.
-
-This module contains exceptions that are specific to tensor networks. This
-concerns the connectivity of nodes in a tree tensor network (TTN) with the
-`NoConnectionException` and the compatibility of two TTNs with the
-`NotCompatibleException`.
-
-Checks are commonly done for parameters of tensor network algorithms.
+Contains exceptions specific for TTNs.
 """
+from __future__ import annotations
 from typing import Union
 
 class NoConnectionException(Exception):
     """
-    Raised when tensors of two nodes in a tree supposed to interact directly
-    but the nodes are not actually connected.
+    Raised when tensors of two nodes in a tree are to be contracted, but the
+    nodes are not actually connected.
     """
     pass
 
@@ -23,7 +17,7 @@ class NotCompatibleException(Exception):
     """
     pass
 
-def positivity_check(value: Union[int,float], name: Union[str,None] = None,
+def positiviy_check(value: Union[int,float], name: Union[str,None] = None,
                     errstr: Union[None,str] = None):
     """
     Check if a given value is positive.
@@ -31,9 +25,9 @@ def positivity_check(value: Union[int,float], name: Union[str,None] = None,
     Args:
         value (Union[int,float]): The value to check.
         name (Union[str,None], optional): A name of the value that is checked,
-            will be inserted into a default error string. Defaults to None.
+         will be inserted into a default error string. Defaults to None.
         errstr (Union[None,str], optional): An individual error string that
-            overrides the default error string. Defaults to None.
+         overrides the default error string. Defaults to None.
     """
     if value <= 0:
         if errstr is None:
@@ -50,9 +44,9 @@ def non_negativity_check(value: Union[int,float], name: Union[str,None] = None,
     Args:
         value (Union[int,float]): The value to check.
         name (Union[str,None], optional): A name of the value that is checked,
-            will be inserted into a default error string. Defaults to None.
+         will be inserted into a default error string. Defaults to None.
         errstr (Union[None,str], optional): An individual error string that
-            overrides the default error string. Defaults to None.
+         overrides the default error string. Defaults to None.
     """
     if value < 0:
         if errstr is None:
