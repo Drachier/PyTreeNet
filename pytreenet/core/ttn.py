@@ -51,12 +51,12 @@ import numpy as np
 
 from .tree_structure import TreeStructure
 from .node import Node
-from ..util.tensor_splitting import (tensor_qr_decomposition,
-                                     contr_truncated_svd_splitting,
-                                     SplitMode,
-                                     SVDParameters)
+from ..util.tensor_util import (tensor_qr_decomposition,
+                          contr_truncated_svd_splitting,
+                          SplitMode)
 from .leg_specification import LegSpecification
 from .canonical_form import (canonical_form,
+                             complete_canonical_form,
                              split_qr_contract_r_to_neighbour)
 from ..contractions.tree_contraction import completely_contract_tree
 from ..util.ttn_exceptions import NotCompatibleException
@@ -886,27 +886,23 @@ class TreeTensorNetwork(TreeStructure):
 
         Args:
             node_id (str): Identifier of the node to be split
-            q_legs (LegSpecification): The legs which should be part of the
-                Q-tensor
-            r_legs (LegSpecification): The legs which should be part of the
-                R-tensor
+            q_legs (LegSpecification): The legs which should be part of the Q-tensor
+            r_legs (LegSpecification): The legs which should be part of the R-tensor
             q_identifier (str, optional): An identifier for the Q-tensor.
-                Defaults to "".
+             Defaults to "".
             r_identifier (str, optional): An identifier for the R-tensor.
-                Defaults to "".
-            mode: The mode to be used for the QR decomposition. For details
-                refer to `tensor_util.tensor_qr_decomposition`.
+             Defaults to "".
+            mode: The mode to be used for the QR decomposition. For details refer to
+            `tensor_util.tensor_qr_decomposition`.
         """
-        self._split_nodes(node_id, q_legs, r_legs,
-                          tensor_qr_decomposition,
-                          out_identifier=q_identifier,
-                          in_identifier=r_identifier,
+        self._split_nodes(node_id, q_legs, r_legs, tensor_qr_decomposition,
+                          out_identifier=q_identifier, in_identifier=r_identifier,
                           mode=mode)
 
     def split_node_svd(self, node_id: str,
                        u_legs: LegSpecification, v_legs: LegSpecification,
                        u_identifier: str = "", v_identifier: str = "",
-                       svd_params: SVDParameters = SVDParameters()):
+                       **truncation_param):
         """
         Splits a node in two using singular value decomposition. In the process the tensors
          are truncated as specified by truncation parameters. The singular values
@@ -923,10 +919,10 @@ class TreeTensorNetwork(TreeStructure):
         """
         self._split_nodes(node_id, u_legs, v_legs, contr_truncated_svd_splitting,
                           out_identifier=u_identifier, in_identifier=v_identifier,
-                          svd_params=svd_params)
+                          **truncation_param)
 
     def move_orthogonalization_center(self, new_center_id: str,
-                                      mode: SplitMode = SplitMode.REDUCED):
+                                      **truncation_param):
         """
         Moves the orthogonalization center from the current node to a
          different node.
@@ -946,10 +942,10 @@ class TreeTensorNetwork(TreeStructure):
         orth_path = self.path_from_to(self.orthogonality_center_id,
                                       new_center_id)
         for node_id in orth_path[1:]:
-            self._move_orth_center_to_neighbour(node_id, mode=mode)
+            self._move_orth_center_to_neighbour(node_id, **truncation_param)
 
     def _move_orth_center_to_neighbour(self, new_center_id: str,
-                                       mode: SplitMode = SplitMode.REDUCED):
+                                       **truncation_param):
         """
         Moves the orthogonality center to a neighbour of the current
          orthogonality center.
@@ -964,7 +960,7 @@ class TreeTensorNetwork(TreeStructure):
         split_qr_contract_r_to_neighbour(self,
                                          self.orthogonality_center_id,
                                          new_center_id,
-                                         mode=mode)
+                                         **truncation_param)
         self.orthogonality_center_id = new_center_id
 
     # Functions below this are just wrappers of external functions that are
@@ -974,7 +970,7 @@ class TreeTensorNetwork(TreeStructure):
     # general case.
 
     def canonical_form(self, orthogonality_center_id: str,
-                       mode: SplitMode = SplitMode.REDUCED):
+                       **truncation_param):
         """
         Brings the TTN in canonical form with respect to a given orthogonality
          center.
@@ -985,10 +981,18 @@ class TreeTensorNetwork(TreeStructure):
             mode: The mode to be used for the QR decomposition. For details refer to
             `tensor_util.tensor_qr_decomposition`.
         """
-        canonical_form(self, orthogonality_center_id, mode=mode)
+        canonical_form(self, orthogonality_center_id, **truncation_param)
+            
+
+    def complete_canonical_form(self ,**truncation_param):
+        """
+        Brings the TTN in canonical form with respect to the root node.
+        """
+        norm = complete_canonical_form(self, **truncation_param)
+        return self , norm
 
     def orthogonalize(self, orthogonality_center_id: str,
-                      mode: SplitMode = SplitMode.REDUCED):
+                      **truncation_param):
         """
         Wrapper of canonical form.
 
@@ -998,7 +1002,7 @@ class TreeTensorNetwork(TreeStructure):
             mode: The mode to be used for the QR decomposition. For details refer to
             `tensor_util.tensor_qr_decomposition`.
         """
-        self.canonical_form(orthogonality_center_id, mode=mode)
+        self.canonical_form(orthogonality_center_id, **truncation_param)
 
     def completely_contract_tree(self,
                                  to_copy: bool=False) -> Tuple[np.ndarray, List[str]]:
