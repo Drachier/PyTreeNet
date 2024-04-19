@@ -22,6 +22,8 @@ Modules that were fully refactored and updated to new Docstyle:
 * random.random_node
 * random.random_tensorproduct
 * random.random_ttns
+* special_ttn.fttn
+
 
 ** util
 * util.tensor_util
