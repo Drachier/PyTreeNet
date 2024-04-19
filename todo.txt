@@ -16,10 +16,12 @@ Modules that were fully refactored and updated to new Docstyle:
 * operators.hamiltonian
 * operators.operator
 * operators.tensor_product
+** random
 * random.random_hamiltonian
 * random.random_matrices
 * random.random_node
 * random.random_tensorproduct
+* random.random_ttns
 
 ** util
 * util.tensor_util
