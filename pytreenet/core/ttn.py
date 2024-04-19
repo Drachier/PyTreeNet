@@ -57,9 +57,11 @@ from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      SVDParameters)
 from .leg_specification import LegSpecification
 from .canonical_form import (canonical_form,
-                             split_qr_contract_r_to_neighbour)
+                             split_qr_contract_r_to_neighbour
+                             ,split_svd_contract_s_to_neighbour)
 from ..contractions.tree_contraction import completely_contract_tree
 from ..util.ttn_exceptions import NotCompatibleException
+from ..util.tensor_splitting import SVDParameters
 
 
 class TensorDict(UserDict):
@@ -905,8 +907,8 @@ class TreeTensorNetwork(TreeStructure):
 
     def split_node_svd(self, node_id: str,
                        u_legs: LegSpecification, v_legs: LegSpecification,
-                       u_identifier: str = "", v_identifier: str = "",
-                       svd_params: SVDParameters = SVDParameters()):
+                       svd_params: SVDParameters,
+                       u_identifier: str = "", v_identifier: str = ""):
         """
         Splits a node in two using singular value decomposition. In the process the tensors
          are truncated as specified by truncation parameters. The singular values
@@ -946,9 +948,10 @@ class TreeTensorNetwork(TreeStructure):
         orth_path = self.path_from_to(self.orthogonality_center_id,
                                       new_center_id)
         for node_id in orth_path[1:]:
-            self._move_orth_center_to_neighbour(node_id, mode=mode)
+            self._move_orth_center_to_neighbour_QR(node_id, mode=mode)
 
-    def _move_orth_center_to_neighbour(self, new_center_id: str,
+
+    def _move_orth_center_to_neighbour_QR(self, new_center_id: str,
                                        mode: SplitMode = SplitMode.REDUCED):
         """
         Moves the orthogonality center to a neighbour of the current
@@ -965,6 +968,50 @@ class TreeTensorNetwork(TreeStructure):
                                          self.orthogonality_center_id,
                                          new_center_id,
                                          mode=mode)
+        self.orthogonality_center_id = new_center_id
+
+
+    def move_orthogonalization_center_svd(self, new_center_id: str,
+                                          SVDParameters):
+        """
+        Moves the orthogonalization center from the current node to a
+         different node.
+
+        Args:
+            new_center (str): The identifier of the new
+             orthogonalisation center.
+            mode: The mode to be used for the QR decomposition. For details refer to
+            `tensor_util.tensor_qr_decomposition`.
+        """
+        if self.orthogonality_center_id is None:
+            errstr = "The TTN is not in canonical form, so the orth. center cannot be moved!"
+            raise AssertionError(errstr)
+        if self.orthogonality_center_id == new_center_id:
+            # In this case we are done already.
+            return
+        orth_path = self.path_from_to(self.orthogonality_center_id,
+                                      new_center_id)
+        for node_id in orth_path[1:]:
+            self._move_orth_center_to_neighbour_svd(node_id, SVDParameters)
+
+
+    def _move_orth_center_to_neighbour_svd(self, new_center_id: str,
+                                           SVDParameters):
+        """
+        Moves the orthogonality center to a neighbour of the current
+         orthogonality center.
+
+        Args:
+            new_center_id (str): The identifier of a neighbour of the current
+             orthogonality center.
+            mode: The mode to be used for the QR decomposition. For details refer to
+            `tensor_util.tensor_qr_decomposition`.
+        """
+        assert self.orthogonality_center_id is not None
+        split_svd_contract_s_to_neighbour(self,
+                                         self.orthogonality_center_id,
+                                         new_center_id,
+                                         SVDParameters)
         self.orthogonality_center_id = new_center_id
 
     # Functions below this are just wrappers of external functions that are
@@ -986,6 +1033,7 @@ class TreeTensorNetwork(TreeStructure):
             `tensor_util.tensor_qr_decomposition`.
         """
         canonical_form(self, orthogonality_center_id, mode=mode)
+       
 
     def orthogonalize(self, orthogonality_center_id: str,
                       mode: SplitMode = SplitMode.REDUCED):
