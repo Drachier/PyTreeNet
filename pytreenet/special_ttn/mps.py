@@ -1,3 +1,11 @@
+"""
+Provides the matrix product topology TTN.
+
+A matrix product topology is just a chain of nodes. Nodes can be added
+automatically on either side. This is the most commonly used topology with MPS
+and MPO. These are also supplied combining the matrix product topology with the
+properties of a TTNS or TTNO.
+"""
 from __future__ import annotations
 from typing import List, Union, Any
 from copy import deepcopy
@@ -8,56 +16,63 @@ from ..core.ttn import TreeTensorNetwork
 from ..ttns import TreeTensorNetworkState
 from ..core.node import Node
 from ..ttno.ttno import TTNO
+from ..util.ttn_exceptions import non_negativity_check, positivity_check
 
 class MatrixProductTree(TreeTensorNetwork):
     """
     A tree tensor network in the form of a chain.
-     In principle every node can have an arbitrary number
-     of legs. Important special cases are the MPS and MPO.
 
-     Mostly used for testing.
+    In principle every node can have an arbitrary number of legs. Important
+    special cases are the MPS and MPO. Mostly used for testing.
+
+    Attributes:
+        left_nodes (Dict[str, Node]): A dictionary of nodes that are attached
+            to the leftmost node. The keys are the identifiers of the nodes.
+        right_nodes (Dict[str, Node]): A dictionary of nodes that are attached
+            to the rightmost node. The keys are the identifiers of the nodes.
     """
 
     def __init__(self):
-        """Intialises a constant matrix product tree/chain
+        """
+        Intialises a constant matrix product tree/chain.
 
         Args:
-            node_prefix (str, optional): Nodes will have an identifier of the
-             form `"node_prefix "+ number`. Defaults to `"site"`.
-            first_site (int, optional): The number that should be associated to
-             the leftmost site. Defaults to `0`.
+            left_nodes (List[Node], optional): A list of nodes that are
+                attached to the left of the root node. The order in the
+                list is the same order as in the chain. Defaults to [].
+            right_nodes (List[Node], optional): A list of nodes that are
+                attached to the right of the root node. The order in the
+                list is the same order as in the chain. Defaults to [].
         """
         super().__init__()
-
-        self.left_nodes = {}
-        self.right_nodes = {}
+        self.left_nodes: List[Node] = []
+        self.right_nodes: List[Node] = []
 
     @classmethod
     def from_tensor_list(cls, tensor_list: List[np.ndarray],
                          node_prefix: str = "site",
                          root_site: int = 0) -> Any:
         """
-        Generates a MatrixProductTree from a list of tensors. The nodes in the
-         MPT will be considered as from left to right, in the same way as they
-         are in the list.
+        Generates a MatrixProductTree from a list of tensors.
+        
+        The nodes in the MPT will be considered as from left to right, in the
+        same way as they are in the list.
 
         Args:
             tensor_list (List[np.ndarray]): A list with site tensors. Their
-             legs should be of the form
-              `[left_leg,right_leg,open_legs]`
+                legs should be of the form
+                    `[left_leg,right_leg,open_legs]`
             node_prefix (str, optional): A prefix that should be part of the
-             node identifiers before the site index. Defaults to "site".
+                node identifiers before the site index. Defaults to "site".
             root_site (int, optional): Which tensor should be associated to
-             the root node. Defaults to 0.
+                the root node. Defaults to 0.
 
         Returns:
             MatrixProductTree: A matrix product tree representing an MP
-             structure A_1 * A_2  ... A_N, where the A are the tensors in the
-             provided list.
+                structure A_1 * A_2  ... A_N, where the A are the tensors in
+                the provided list.
         """
-        if root_site < 0:
-            errstr = "Root site must be non-negative!"
-            raise ValueError(errstr)
+        non_negativity_check(root_site, "root site")
         if root_site >= len(tensor_list):
             errstr = "Root site must be an available site!"
             raise ValueError(errstr)
@@ -85,21 +100,22 @@ class MatrixProductTree(TreeTensorNetwork):
                                                node_prefix: str = "site") -> Any:
         """
         Generates a MatrixProductTree from a list of tensors, where the
-         leftmost tensor, i.e. index 0, corresponds to the root ndoe. The
-         nodes in the MPT will be considered as from left to right, in the
-         same way as they are in the list.
+        leftmost tensor, i.e. index 0, corresponds to the root node.
+        
+        The nodes in the MPT will be considered as from left to right, in the
+        same way as they are in the list.
 
         Args:
             tensor_list (List[np.ndarray]): A list with site tensors. Their
-             legs should be of the form
-              `[left_leg,right_leg,open_legs]`
+                legs should be of the form
+                    `[left_leg,right_leg,open_legs]`
             node_prefix (str, optional): A prefix that should be part of the
-             node identifiers before the site index. Defaults to "site".
+                node identifiers before the site index. Defaults to "site".
 
         Returns:
             MatrixProductTree: A matrix product tree representing an MP
-             structure A_1 * A_2  ... A_N, where the A are the tensors in the
-             provided list.
+                structure A_1 * A_2  ... A_N, where the A are the tensors in
+                the provided list.
         """
         mpt = cls()
         mpt.add_root(Node(identifier=node_prefix+str(0)),
@@ -109,7 +125,7 @@ class MatrixProductTree(TreeTensorNetwork):
             mpt.add_child_to_parent(node1,
                                     tensor_list[1],0,node_prefix+str(0),
                                     0)
-            mpt.right_nodes[node_prefix+str(1)] = node1
+            mpt.right_nodes.append(node1)
         if len(tensor_list)>2:
             remaining_tensors = tensor_list[2:]
             for i, tensor in enumerate(remaining_tensors):
@@ -128,15 +144,15 @@ class MatrixProductTree(TreeTensorNetwork):
              Legs should be of the form
               `[parent_leg, other_virtual_leg, open_legs]`
         """
-        if not self.right_nodes:
+        if len(self.right_nodes) == 0:
             parent_node = self.root[0]
             parent_leg = 1
         else:
-            parent_node = list(self.right_nodes.values())[-1]
+            parent_node = self.right_nodes[-1]
             parent_leg = 1
         self.add_child_to_parent(node, tensor, 0,
                                  parent_node.identifier, parent_leg)
-        self.right_nodes[node.identifier] = node
+        self.right_nodes.append(node)
 
     def attach_node_left_end(self, node: Node, tensor: np.ndarray,
                              final: bool = False):
@@ -146,20 +162,26 @@ class MatrixProductTree(TreeTensorNetwork):
         Args:
             node (Node): The node to be added.
             tensor (np.ndarray): The tensor to be associated with the node.
-             Legs should be of the form
-              `[other_virtual_leg, parent_leg, open_legs]`
+                Legs should be of the form
+                    `[other_virtual_leg, parent_leg, open_legs]`
         """
-        if not self.left_nodes:
+        if len(self.left_nodes) == 0:
             parent_node = self.root[0]
             parent_leg = len(parent_node.children)
         else:
-            parent_node = list(self.left_nodes.values())[-1]
+            parent_node = self.left_nodes[0]
             parent_leg = 1
-        self.add_child_to_parent(node, tensor, not final,
+        self.add_child_to_parent(node, tensor, int(not final),
                                  parent_node.identifier, parent_leg)
-        self.left_nodes[node.identifier] = node
+        self.left_nodes.insert(0, node)
 
 class MatrixProductState(MatrixProductTree, TreeTensorNetworkState):
+    """
+    A state with the matrix product topology.
+
+    A matrix product state (MPS) is one of the most common forms of tensor
+    networks. It is a chain of tensors, each with one physical leg.
+    """
 
     @classmethod
     def constant_product_state(cls, state_value: int,
@@ -169,42 +191,32 @@ class MatrixProductState(MatrixProductTree, TreeTensorNetworkState):
                                root_site: int = 0,
                                bond_dimensions: Union[List[int],None] = None) -> Any:
         """
-        Generates an MPS that corresponds to a product state with the same value
-            at every site.
+        Generates an MPS that corresponds to a product state with the same
+        value at every site.
 
         Args:
             state_value (int): The state's value at every site.
             dimension (int): The local dimension of the MPS.
             num_sites (int): The number of sites in the MPS.
             node_prefix (str, optional): A prefix that should be part of the
-             node identifiers before the site index. Defaults to "site".
+                node identifiers before the site index. Defaults to "site".
             root_site (int, optional): Which tensor should be associated to
-             the root node. Defaults to 0.
+                the root node. Defaults to 0.
             bond_dimensions (Union[List[int],None]): Give custom bond
-             dimensions. The zeroth entry will be the dimension between nodes
-             0 and 1 and so forth. Defaults to None, in which case the bond
-             dimensions are all one.
-
-        Raises:
-            ValueError: If state_value is negative or dimension non-positive.
-                Also raised if state value is larger than dimension.
+                dimensions. The zeroth entry will be the dimension between
+                nodes 0 and 1 and so forth. Defaults to None, in which case
+                the bond dimensions are all one.
 
         Returns:
             MatrixProductState: MPS representing a product state of the form
                 |psi> = |value> otimes |value> otimes ... |value>
         """
-        if dimension < 1:
-            errstr = f"Dimension of a state must be positive not {dimension}!"
-            raise ValueError(errstr)
+        positivity_check(dimension, "dimension")
         if state_value >= dimension:
             errstr = "State value cannot be larger than the state's dimension!"
             raise ValueError(errstr)
-        if state_value < 0:
-            errstr = f"State value must be non-negative not {state_value}!"
-            raise ValueError(errstr)
-        if num_sites < 1:
-            errstr = f"Number of sites must be positive not {num_sites}!"
-            raise ValueError(errstr)
+        non_negativity_check(state_value, "state value")
+        non_negativity_check(num_sites, "number of sites")
         single_site_tensor = np.zeros(dimension)
         single_site_tensor[state_value] = 1
         single_site_tensor = np.reshape(single_site_tensor, (1,1,dimension))
@@ -233,19 +245,20 @@ class MatrixProductState(MatrixProductTree, TreeTensorNetworkState):
 
     def __str__(self) -> str:
         """
-        Returns a string representation of the MPS. The leftmost node is at
-         the top and the rightmost node at the bottom. If the MPS is empty,
-         returns "Empty MPS".
+        Returns a string representation of the MPS.
+        
+        The leftmost node is at the top and the rightmost node at the bottom.
+        If the MPS is empty, returns "Empty MPS".
         """
         string = ""
-        for node_id, node in reversed(list(self.left_nodes.items())):
-            string += f"{node_id} : {node.shape}\n"
+        for node in self.left_nodes:
+            string += f"{node.identifier} : {node.shape}\n"
         if self.root_id is not None:
             string += f"{self.root_id} : {self.root[1].shape}\n"
         else:
-            return "Empy MPS"
-        for node_id, node in self.right_nodes.items():
-            string += f"{node_id} : {node.shape}\n"
+            return "Empty MPS"
+        for node in self.right_nodes:
+            string += f"{node.identifier} : {node.shape}\n"
         return string
 
 class MatrixProductOperator(MatrixProductTree, TTNO):

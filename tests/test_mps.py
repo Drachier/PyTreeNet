@@ -18,8 +18,8 @@ class TestMPT_Attaching(unittest.TestCase):
         self.mpt.attach_node_left_end(self.nodes[1], self.tensors[1])
         self.mpt.attach_node_right_end(self.nodes[2], self.tensors[2])
 
-        self.assertEqual({"site1": self.nodes[1]}, self.mpt.left_nodes)
-        self.assertEqual({"site3": self.nodes[2]}, self.mpt.right_nodes)
+        self.assertEqual([self.nodes[1]], self.mpt.left_nodes)
+        self.assertEqual([self.nodes[2]], self.mpt.right_nodes)
 
         self.assertTrue("site1" in self.mpt)
         self.assertTrue("site3" in self.mpt)
@@ -38,8 +38,8 @@ class TestMPT_Attaching(unittest.TestCase):
         self.mpt.attach_node_right_end(self.nodes[2], self.tensors[2])
         self.mpt.attach_node_left_end(self.nodes[1], self.tensors[1])
 
-        self.assertEqual({"site1": self.nodes[1]}, self.mpt.left_nodes)
-        self.assertEqual({"site3": self.nodes[2]}, self.mpt.right_nodes)
+        self.assertEqual([self.nodes[1]], self.mpt.left_nodes)
+        self.assertEqual([self.nodes[2]], self.mpt.right_nodes)
 
         self.assertTrue("site1" in self.mpt)
         self.assertTrue("site3" in self.mpt)
@@ -61,8 +61,9 @@ class TestMPT_Attaching(unittest.TestCase):
         self.mpt.attach_node_left_end(
             self.nodes[0], self.tensors[0], final=True)
 
-        self.assertTrue("site0" in self.mpt.left_nodes)
-        self.assertTrue("site1" in self.mpt.left_nodes)
+        identifiers = [node.identifier for node in self.mpt.left_nodes]
+        self.assertTrue("site0" in identifiers)
+        self.assertTrue("site1" in identifiers)
 
         self.assertTrue("site0" in self.mpt)
         self.assertTrue("site1" in self.mpt)
@@ -81,8 +82,9 @@ class TestMPT_Attaching(unittest.TestCase):
         self.mpt.attach_node_right_end(self.nodes[2], self.tensors[2])
         self.mpt.attach_node_right_end(self.nodes[3], self.tensors[3])
 
-        self.assertTrue("site3" in self.mpt.right_nodes)
-        self.assertTrue("site4" in self.mpt.right_nodes)
+        identifiers = [node.identifier for node in self.mpt.right_nodes]
+        self.assertTrue("site3" in identifiers)
+        self.assertTrue("site4" in identifiers)
 
         self.assertTrue("site3" in self.mpt)
         self.assertTrue("site4" in self.mpt)
@@ -104,10 +106,12 @@ class TestMPT_Attaching(unittest.TestCase):
         self.mpt.attach_node_right_end(self.nodes[2], self.tensors[2])
         self.mpt.attach_node_right_end(self.nodes[3], self.tensors[3])
 
-        self.assertTrue("site0" in self.mpt.left_nodes)
-        self.assertTrue("site1" in self.mpt.left_nodes)
-        self.assertTrue("site3" in self.mpt.right_nodes)
-        self.assertTrue("site4" in self.mpt.right_nodes)
+        left_identifiers = [node.identifier for node in self.mpt.left_nodes]
+        self.assertTrue("site0" in left_identifiers)
+        self.assertTrue("site1" in left_identifiers)
+        right_identifiers = [node.identifier for node in self.mpt.right_nodes]
+        self.assertTrue("site3" in right_identifiers)
+        self.assertTrue("site4" in right_identifiers)
         self.assertTrue("site0" in self.mpt)
         self.assertTrue("site1" in self.mpt)
         self.assertTrue("site3" in self.mpt)
