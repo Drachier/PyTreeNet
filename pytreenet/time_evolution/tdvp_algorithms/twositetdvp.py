@@ -7,6 +7,7 @@ from typing import List, Union, Tuple
 import numpy as np
 
 from .tdvp_algorithm import TDVPAlgorithm
+from ..ttn_time_evolution import TTNTimeEvolutionConfig
 from ..time_evolution import time_evolve
 from ...ttns.ttns import TreeTensorNetworkState
 from ...ttno.ttno import TTNO
@@ -23,7 +24,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
                  svd_parameters: SVDParameters = SVDParameters(),
-                 **kwargs) -> None:
+                 config: Union[TTNTimeEvolutionConfig,None] = None) -> None:
         """
         Initialises an instance of a two-site TDVP algorithm.
 
@@ -46,7 +47,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
         super().__init__(initial_state, hamiltonian,
                          time_step_size, final_time,
                          operators,
-                         **kwargs)
+                         config)
         self.svd_parameters = svd_parameters
 
     def _find_block_leg_target_node(self,

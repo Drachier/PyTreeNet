@@ -1,9 +1,10 @@
 from __future__ import annotations
 from typing import List, Union
 
-from pytreenet.operators.tensorproduct import TensorProduct
-from pytreenet.ttno.ttno import TTNO
-from pytreenet.ttns import TreeTensorNetworkState
+from ...operators.tensorproduct import TensorProduct
+from ...ttno.ttno import TTNO
+from ...ttns import TreeTensorNetworkState
+from ..ttn_time_evolution import TTNTimeEvolutionConfig
 
 from .onesitetdvp import OneSiteTDVP
 
@@ -17,10 +18,10 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
     def __init__(self, initial_state: TreeTensorNetworkState,
                  hamiltonian: TTNO, time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
-                 **kwargs) -> None:
+                 config: Union[TTNTimeEvolutionConfig,None] = None) -> None:
         super().__init__(initial_state, hamiltonian,
                          time_step_size, final_time, operators,
-                         **kwargs)
+                         config)
         self.backwards_update_path = self._init_second_order_update_path()
         self.backwards_orth_path = self._init_second_order_orth_path()
 

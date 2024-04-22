@@ -1,11 +1,24 @@
 from __future__ import annotations
 from typing import List, Union, Dict, Tuple
+from dataclasses import dataclass
 
 from numpy import ndarray
 
 from .time_evolution import TimeEvolution
 from ..ttns import TreeTensorNetworkState
 from ..operators.tensorproduct import TensorProduct
+
+@dataclass
+class TTNTimeEvolutionConfig:
+    """
+    Configuration for the TTN time evolution.
+
+    In this configuration class additional parameters for the time evolution
+    of a tree tensor network can be specified and entered. This allows for the
+    same extendability as `**kwargs` but with the added benefit of type hints
+    and better documentation.
+    """
+    record_bond_dim: bool = False
 
 class TTNTimeEvolution(TimeEvolution):
     """
@@ -16,7 +29,7 @@ class TTNTimeEvolution(TimeEvolution):
     def __init__(self, initial_state: TreeTensorNetworkState,
                  time_step_size: float, final_time: float,
                  operators: Union[List[TensorProduct], TensorProduct],
-                 record_bond_dim: bool = False, **kwargs) -> None:
+                 config: Union[TTNTimeEvolutionConfig,None] = None) -> None:
         """
         A time evolution for tree tensor networks starting from and initial
          state and running to a final time with a given time step size. During
@@ -26,7 +39,7 @@ class TTNTimeEvolution(TimeEvolution):
         self.initial_state: TreeTensorNetworkState
         self.state: TreeTensorNetworkState
 
-        if record_bond_dim:
+        if config is not None and config.record_bond_dim:
             self.bond_dims = {}
         else:
             self.bond_dims = None

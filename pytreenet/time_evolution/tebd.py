@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import List, Union
 
 from ..ttns import TreeTensorNetworkState
-from .ttn_time_evolution import TTNTimeEvolution
+from .ttn_time_evolution import TTNTimeEvolution, TTNTimeEvolutionConfig
 from .trotter import TrotterSplitting
 from ..operators.operator import NumericOperator
 from ..operators.tensorproduct import TensorProduct
@@ -17,7 +17,7 @@ class TEBD(TTNTimeEvolution):
                  trotter_splitting: TrotterSplitting, time_step_size: float,
                  final_time: float, operators: Union[List[TensorProduct], TensorProduct],
                  svd_parameters: SVDParameters = SVDParameters(),
-                 **kwargs):
+                 config: Union[TTNTimeEvolutionConfig,None] = None):
         """
         A class that can be used to time evolve an initial state in the form
          a tree tensor network state via the TEBD algorithm.
@@ -47,7 +47,7 @@ class TEBD(TTNTimeEvolution):
         super().__init__(initial_state,
                          time_step_size, final_time,
                          operators,
-                         **kwargs)
+                         None)
         self._trotter_splitting = trotter_splitting
         self.svd_parameters = svd_parameters
         self._exponents = self._trotter_splitting.exponentiate_splitting(self._time_step_size,

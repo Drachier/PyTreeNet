@@ -12,7 +12,7 @@ from typing import Union, List, Tuple, Dict
 import numpy as np
 
 from ..time_evolution import time_evolve
-from ..ttn_time_evolution import TTNTimeEvolution
+from ..ttn_time_evolution import TTNTimeEvolution, TTNTimeEvolutionConfig
 from ...util.tensor_util import tensor_matricisation_half
 from ...util.tensor_splitting import SplitMode
 from ...ttns import TreeTensorNetworkState
@@ -32,7 +32,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
                  hamiltonian: TTNO,
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
-                 **kwargs) -> None:
+                 config: Union[TTNTimeEvolutionConfig,None] = None) -> None:
         """
         Initilises an instance of a TDVP algorithm.
 
@@ -51,7 +51,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
         super().__init__(initial_state,
                          time_step_size, final_time,
                          operators,
-                         **kwargs)
+                         config)
         self.update_path = self._finds_update_path()
         self.orthogonalization_path = self._find_tdvp_orthogonalization_path(self.update_path)
         self._orthogonalize_init()
