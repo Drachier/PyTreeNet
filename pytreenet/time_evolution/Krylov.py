@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import List, Union, Any, Dict
 
+
 from copy import deepcopy
 from math import modf
 
@@ -14,6 +15,9 @@ from ..contractions.state_operator_contraction import contract_any
 from .time_evo_util.update_path import TDVPUpdatePathFinder
 from ..util.tensor_splitting import SVDParameters
 from ..time_evolution import TDVPAlgorithm
+from ..util.ttn_exceptions import NoConnectionException
+from ..core.leg_specification import LegSpecification
+from .tdvp_algorithms import OneSiteTDVP
 
 
 
@@ -21,6 +25,13 @@ class Krylov(TDVPAlgorithm):
 
     def __init__(self, initial_state, hamiltonian, time_step_size, final_time, operators):
         super().__init__(initial_state, hamiltonian, time_step_size, final_time, operators)
+    def _get_effective_site_hamiltonian(self, node_id: str) -> np.ndarray:
+        return super()._get_effective_site_hamiltonian(node_id)
+    def _get_effective_link_hamiltonian(self, node_id: str, next_node_id: str) -> np.ndarray:
+        return OneSiteTDVP._get_effective_link_hamiltonian(self,node_id, next_node_id)
+    def _update_cache_after_split(self,node_id, next_node_id):
+        return OneSiteTDVP._update_cache_after_split(self,node_id, next_node_id)
+    
 
     def _move_orth_and_update_cache_for_path_svd(self, path: List[str], SVDParameters):
         """
@@ -40,18 +51,78 @@ class Krylov(TDVPAlgorithm):
             previous_node_id = path[i] # +0, because path starts at 1.
             self.update_tree_cache(previous_node_id, node_id)
 
-    def _apply_ham(self, node_id: str):
-        """
-        Updates a single site using the effective Hamiltonian for that site.
+    def _apply_ham_site(self, node_id: str):
 
-        Args:
-            node_id (str): The identifier of the site to update.
-            time_step_factor (float, optional): A factor that should be
-             multiplied with the internal time step size. Defaults to 1.
-        """
         hamiltonian_eff_site = self._get_effective_site_hamiltonian(node_id)
         psi = self.state.tensors[node_id]
-        self.state.tensors[node_id] = apply_hamiltonian(psi,hamiltonian_eff_site)        
+        self.state.tensors[node_id] = apply_hamiltonian(psi,hamiltonian_eff_site)
+
+
+    def _split_updated_site_svd(self,
+                            node_id: str,
+                            next_node_id: str,
+                            SVDParameters: SVDParameters):
+        """
+        Splits the tensor at site node_id and obtains the tensor linking
+         this node and the node of next_node_id from a QR decomposition.
+
+        Args:
+            node_id (str): Node to update
+            next_node_id (str): Next node to which the link is found
+        """
+        node = self.state.nodes[node_id]
+        if node.is_parent_of(next_node_id):
+            q_children = deepcopy(node.children)
+            q_children.remove(next_node_id)
+            q_legs = LegSpecification(node.parent,
+                                      q_children,
+                                      node.open_legs,
+                                      is_root=node.is_root())
+            r_legs = LegSpecification(None, [next_node_id], [])
+        elif node.is_child_of(next_node_id):
+            q_legs = LegSpecification(None,
+                                      deepcopy(node.children),
+                                      node.open_legs)
+            r_legs = LegSpecification(node.parent, [], [])
+        else:
+            errstr = f"Nodes {node_id} and {next_node_id} are not connected!"
+            raise NoConnectionException(errstr)
+        link_id = self.create_link_id(node_id, next_node_id)
+        self.state.split_node_svd(node_id, u_legs= q_legs,v_legs= r_legs,
+                                  svd_params = SVDParameters,
+                                  u_identifier =node.identifier,
+                                  v_identifier =link_id)
+        self._update_cache_after_split(node_id, next_node_id)
+
+    def _apply_ham_link(self, node_id: str ,next_node_id: str, SVDparameters: SVDParameters):
+
+        assert self.state.orthogonality_center_id == node_id
+        self._split_updated_site_svd(node_id, next_node_id ,SVDParameters)
+        self._update_link_tensor(node_id,next_node_id)
+        link_id = self.create_link_id(node_id, next_node_id)
+        self.state.contract_nodes(link_id, next_node_id,
+                                  new_identifier=next_node_id)
+        self.state.orthogonality_center_id = next_node_id
+
+
+    def _update_link_tensor(self, node_id: str,
+                                next_node_id: str):
+        
+        link_id = self.create_link_id(node_id, next_node_id)
+        link_tensor = self.state.tensors[link_id]
+        hamiltonian_eff_link = self._get_effective_link_hamiltonian(node_id,
+                                                                      next_node_id)
+        
+
+        self.state.tensors[link_id] = self.state.tensors[link_id] - apply_hamiltonian(link_tensor,hamiltonian_eff_link)
+
+    @staticmethod
+    def create_link_id(node_id: str, next_node_id: str) -> str:
+        """
+        Creates the identifier of a link node after a split happened.
+        """
+        return "link_" + node_id + "_with_" + next_node_id
+    
 
     def run(self, num_steps: int, SVDParameters = SVDParameters()):
         """
@@ -66,25 +137,30 @@ class Krylov(TDVPAlgorithm):
                 # orthogonalize self.results[i+1] against self.results[i+1]
         results = results[:-1] 
         return results
-                
+    
     def _assert_orth_center(self, node_id: str):
         errstr = f"Node {node_id} is not the orthogonality center! It should be!"
         assert self.state.orthogonality_center_id == node_id, errstr
 
-    def _update_site_and_move_orth(self, node_id: str, update_index: int, SVDParameters: SVDParameters):
+    def _assert_leaf_node(self, node_id: str):
+        errstr = f"Node {node_id} is not a leaf! It should be!"
+        assert self.state.nodes[node_id].is_leaf(), errstr
+
+    def _update_site_and_link_svd(self, node_id: str, update_index: int, SVDParameters : SVDParameters):
         assert update_index < len(self.orthogonalization_path)
-        self._apply_ham(node_id)
+        self._apply_ham_site(node_id)
         next_node_id = self.orthogonalization_path[update_index][0]
-        self._move_orth_and_update_cache_for_path_svd([node_id, next_node_id], SVDParameters)
+        self._apply_ham_link(node_id, next_node_id, SVDParameters)
 
-    def _first_update(self, node_id: str, SVDParameters):
+    def _first_update(self, node_id: str , SVDParameters : SVDParameters):
         self._assert_orth_center(node_id)
-        self._update_site_and_move_orth(node_id, 0, SVDParameters)
+        self._assert_leaf_node(node_id)
+        self._update_site_and_link_svd(node_id, 0, SVDParameters)
 
-    def _normal_update(self, node_id: str, update_index: int , SVDParameters: SVDParameters):
+    def _normal_update(self, node_id: str, update_index: int , SVDParameters : SVDParameters):
         current_orth_path = self.orthogonalization_path[update_index-1]
         self._move_orth_and_update_cache_for_path_svd(current_orth_path, SVDParameters)
-        self._update_site_and_move_orth(node_id, update_index, SVDParameters)
+        self._update_site_and_link_svd(node_id, update_index, SVDParameters)
 
     def _reset_for_next_time_step(self):
         # Orthogonalise for next time step
@@ -106,14 +182,22 @@ class Krylov(TDVPAlgorithm):
             elif i == 0:
                 self._first_update(node_id,SVDParameters)
             else:
-                self._normal_update(node_id,i,SVDParameters)     
+                self._normal_update(node_id,i,SVDParameters)  
         self.state = deepcopy(self.state)
-                                        
-       
+           
+
 def apply_hamiltonian(psi: np.ndarray, hamiltonian: np.ndarray) -> np.ndarray:
     shape = psi.shape
     HC = hamiltonian @ psi.flatten()
-    return np.reshape(HC, shape)
+    return np.reshape(HC, shape)  
+
+
+
+
+
+
+
+
 
 
 
@@ -157,7 +241,4 @@ class Krylov_second_method:
             tensor = np.transpose(tensor, transpose)
             state.tensors[node_id] = np.reshape(tensor, shape)
             state.nodes[node_id].link_tensor(ttn.tensors[node_id])
-        return state
-
-
-
+        return state              
