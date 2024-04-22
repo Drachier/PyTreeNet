@@ -1,7 +1,8 @@
 """
-Implements themother class for all one-site TDVP algorithms.
- This class mostly contains functions to calculate the effective Hamiltonian
- and to update the link tensors.
+Implements the mother class for all one-site TDVP algorithms.
+
+This class mostly contains functions to calculate the effective Hamiltonian
+and to update the link tensors.
 """
 from copy import deepcopy
 
@@ -15,21 +16,29 @@ from ...core.leg_specification import LegSpecification
 from ...util.ttn_exceptions import NoConnectionException
 from ...contractions.state_operator_contraction import contract_any
 
-
 class OneSiteTDVP(TDVPAlgorithm):
+    """
+    The mother class for all One-Site TDVP algorithms.
+
+    This class contains the functions to calculate the effective Hamiltonian
+    and to update the link tensors.
+
+    Has the same attributes as the TDVP-Algorithm class, but must still be
+    extended with a time step running method, defining the order of the
+    Trotter decomposition.
+    """
 
     def _get_effective_link_hamiltonian(self, node_id: str,
                                         next_node_id: str) -> np.ndarray:
         """
-        Obtains the effective link Hamiltonian as defined in Ref. [1]
-         Eq. (16b) as a matrix.
+        Obtains the effective link Hamiltonian.
 
         Args:
             node_id (str): The last node that was centered in the effective
-             Hamiltonian.
+                Hamiltonian.
             next_node_id (str): The next node to go to. The link for which
-             this effective Hamiltonian is constructed is between the two
-             nodes.
+                this effective Hamiltonian is constructed is between the two
+                nodes.
 
         Returns:
             np.ndarray: The effective link Hamiltonian
@@ -72,13 +81,16 @@ class OneSiteTDVP(TDVPAlgorithm):
                                 next_node_id: str,
                                 time_step_factor: float = 1):
         """
-        Time evolves a link tensor
+        Time evolves a link tensor.
+
+        The link tensor will appear as the R-tensor in the QR-decomposition
+        after splitting a site. It is evolved backwards in time.
 
         Args:
             node_id (str): The node from which the link tensor originated.
             next_node_id (str): The other tensor the link connects to.
             time_step_factor (float, optional): A factor that should be
-             multiplied with the internal time step size. Defaults to 1.
+                multiplied with the internal time step size. Defaults to 1.
         """
         link_id = self.create_link_id(node_id, next_node_id)
         link_tensor = self.state.tensors[link_id]
@@ -91,8 +103,7 @@ class OneSiteTDVP(TDVPAlgorithm):
 
     def _update_cache_after_split(self, node_id: str, next_node_id: str):
         """
-        Updates the cached tensor after splitting a tensor at node_id
-         towards next_node_id.
+        Updates the cached tensor after splitting a tensor.
 
         Args:
             node_id (str): Node to update
@@ -108,8 +119,7 @@ class OneSiteTDVP(TDVPAlgorithm):
                             node_id: str,
                             next_node_id: str):
         """
-        Splits the tensor at site node_id and obtains the tensor linking
-         this node and the node of next_node_id from a QR decomposition.
+        Splits a node using QR-decomposition and updates the cache.
 
         Args:
             node_id (str): Node to update
@@ -144,15 +154,17 @@ class OneSiteTDVP(TDVPAlgorithm):
                      time_step_factor: float = 1):
         """
         Updates a link tensor between two nodes using the effective link
-         Hamiltonian. To achieve this the site updated latest is split via
-         QR-decomposition and the R-tensor is updated. The R-tensor is then
-         contracted with next node to be updated.
+        Hamiltonian.
+         
+        To achieve this the site updated latest is split via
+        QR-decomposition and the R-tensor is updated. The R-tensor is then
+        contracted with next node to be updated.
 
         Args:
             node_id (str): The node from which the link tensor originated.
             next_node_id (str): The other tensor the link connects to.
             time_step_factor (float, optional): A factor that should be
-             multiplied with the internal time step size. Defaults to 1.
+                multiplied with the internal time step size. Defaults to 1.
         """
         assert self.state.orthogonality_center_id == node_id
         self._split_updated_site(node_id, next_node_id)

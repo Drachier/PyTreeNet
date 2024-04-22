@@ -24,8 +24,22 @@ from ..time_evo_util.update_path import TDVPUpdatePathFinder
 
 class TDVPAlgorithm(TTNTimeEvolution):
     """
-    The general abstract class of a TDVP algorithm. Subclasses the general
-     time evolution for tree tensor networks.
+    The general abstract class of a TDVP algorithm.
+    
+    Subclasses the general time evolution for tree tensor networks.
+
+    Attributes:
+        initial_state (TreeTensorNetworkState): The initial state of the system.
+        hamiltonian (TTNO): The Hamiltonian under which to time-evolve the system.
+        time_step_size (float): The size of one time-step.
+        final_time (float): The final time until which to run the evolution.
+        operators (Union[TensorProduct, List[TensorProduct]]): Operators to be
+            measured during the time-evolution.
+        update_path (List[str]): The order in which the nodes are updated.
+        orthogonalisation_path (List[List[str]]): The path along which the
+            TTNS has to be orthogonalised between each node update.
+        partial_tree_cache (PartialTreeCacheDict): A dictionary to hold
+            already contracted subtrees of the TTNS.
     """
 
     def __init__(self, initial_state: TreeTensorNetworkState,
@@ -38,13 +52,14 @@ class TDVPAlgorithm(TTNTimeEvolution):
 
         Args:
             intial_state (TreeTensorNetworkState): The initial state of the
-             system.
+                system.
             hamiltonian (TTNO): The Hamiltonian in TTNO form under which to
-             time-evolve the system.
+                time-evolve the system.
             time_step_size (float): The size of one time-step.
-            final_time (float): The final time until which to run the evolution.
+            final_time (float): The final time until which to run the
+                evolution.
             operators (Union[TensorProduct, List[TensorProduct]]): Operators
-             to be measured during the time-evolution.
+                to be measured during the time-evolution.
         """
         assert len(initial_state.nodes) == len(hamiltonian.nodes)
         self.hamiltonian = hamiltonian
@@ -62,18 +77,19 @@ class TDVPAlgorithm(TTNTimeEvolution):
 
     def _orthogonalize_init(self, force_new: bool=False):
         """
-        Orthogonalises the state to the start of the tdvp update path.
-         If the state is already orthogonalised, the orthogonalisation center
-         is moved to the start of the update path.
+        Orthogonalises the state to the start of the TDVP update path.
+        
+        If the state is already orthogonalised, the orthogonalisation center
+        is moved to the start of the update path.
 
         Args:
             force_new (bool, optional): If True a complete orthogonalisation
-             is always enforced, instead of moving the orthogonality center.
-             Defaults to False.
+                is always enforced, instead of moving the orthogonality center.
+                Defaults to False.
         """
         if self.state.orthogonality_center_id is None or force_new:
             self.state.canonical_form(self.update_path[0],
-                                     mode=SplitMode.KEEP)
+                                      mode=SplitMode.KEEP)
         else:
             self.state.move_orthogonalization_center(self.update_path[0],
                                                      mode=SplitMode.KEEP)
@@ -81,13 +97,14 @@ class TDVPAlgorithm(TTNTimeEvolution):
     def _find_tdvp_orthogonalization_path(self,
                                           update_path: List[str]) -> List[List[str]]:
         """
-        The path along which to orthogonalise during the tdvp algorithm.
+        Find the TDVP orthogonalisation path.
 
         Args:
             update_path (List[str]): The path along which tdvp updates sites.
 
         Returns:
-            List[str]: _description_
+            List[List[str]]: a list of paths, along which the TTNS should be
+            orthogonalised between every node update.
         """
         orthogonalization_path = []
         for i in range(len(update_path)-1):
@@ -98,11 +115,12 @@ class TDVPAlgorithm(TTNTimeEvolution):
     def _finds_update_path(self) -> List[str]:
         """
         Finds the update path for this TDVP Algorithm.
-         Overwrite to create custom update paths.
+
+        Overwrite to create custom update paths for specific tree topologies.
 
         Returns:
             List[str]: The order in which the nodes in the TTN should be time
-             evolved.
+                evolved.
         """
         return TDVPUpdatePathFinder(self.initial_state).find_path()
 
@@ -113,8 +131,8 @@ class TDVPAlgorithm(TTNTimeEvolution):
         Returns:
             List[str]: The path along which to update.
             Dict[str,str]: A dictionary with node_ids. If we compute at the
-             key identifier, the legs of the cached tensor should point
-             towards the value identifier node.
+                key identifier, the legs of the cached tensor should point
+                towards the value identifier node.
         """
         initial_path = self.state.find_path_to_root(self.update_path[0])
         initial_path.reverse()
@@ -132,14 +150,14 @@ class TDVPAlgorithm(TTNTimeEvolution):
                                initial_path: List[str]):
         """
         Runs through the subranch starting at node_id and adds the the branch
-         to the path starting with the leafs.
+        to the path starting with the leafs.
 
         Args:
             node_id (str): The identifier of the current node.
             caching_path (List[str]): The list in which the path is saved.
             Dict[str,str]: A dictionary with node_ids. If we compute at the
-             key identifier, the legs of the cached tensor should point
-             towards the value identifier node.
+                key identifier, the legs of the cached tensor should point
+                towards the value identifier node.
         """
         node = self.state.nodes[node_id]
         new_children = [node_id for node_id in node.children
@@ -156,8 +174,10 @@ class TDVPAlgorithm(TTNTimeEvolution):
     def _init_partial_tree_cache(self):
         """
         Initialises the caching for the partial trees. 
-         This means all the partial trees that are not the starting node of
-         the tdvp path are cached.
+        
+        This means all the partial trees that are not the starting node of
+        the tdvp path have the bra, ket, and hamiltonian tensor corresponding
+        to this node contracted and saved into the cache dictionary.
         """
         rev_update_path, next_node_id_dict = self._find_caching_path()
         for node_id in rev_update_path[:-1]:
@@ -166,15 +186,17 @@ class TDVPAlgorithm(TTNTimeEvolution):
 
     def update_tree_cache(self, node_id: str, next_node_id: str):
         """
-        Updates the tree cache tensor that ends in the node with
-         identifier `node_id` and has open legs pointing towards
-         the neighbour node with identifier `next_node_id`.
+        Updates a tree tensor for given node identifiers.
+        
+        Updates the tree cache tensor that ends in the node with identifier
+        `node_id` and has open legs pointing towards the neighbour node with
+        identifier `next_node_id`.
 
         Args:
             node_id (str): The identifier of the node to which this cache
-             corresponds.
+                corresponds.
             next_node_id (str): The identifier of the node to which the open
-             legs of the tensor point.
+                legs of the tensor point.
         """
         new_tensor = contract_any(node_id, next_node_id,
                                   self.state, self.hamiltonian,
@@ -183,10 +205,13 @@ class TDVPAlgorithm(TTNTimeEvolution):
 
     def _find_tensor_leg_permutation(self, node_id: str) -> Tuple[int,...]:
         """
+        Find the correct permutation to permute the effective hamiltonian
+        tensor to fit with the state tensor legs.
+        
         After contracting all the cached tensors to the site Hamiltonian, the
-         legs of the resulting tensor are in the order of the Hamiltonian TTNO.
-         However, they need to be permuted to match the legs of the site's
-         state tensor. Such that the two can be easily contracted.
+        legs of the resulting tensor are in the order of the Hamiltonian TTNO.
+        However, they need to be permuted to match the legs of the site's
+        state tensor. Such that the two can be easily contracted.
         """
         state_node = self.state.nodes[node_id]
         hamiltonian_node = self.hamiltonian.nodes[node_id]
@@ -207,14 +232,17 @@ class TDVPAlgorithm(TTNTimeEvolution):
     def _contract_all_except_node(self,
                                   target_node_id: str) -> np.ndarray:
         """
+        Contract bra, ket and hamiltonian for all but one node into that
+        node's Hamiltonian tensor.
+
         Uses the cached trees to contract the bra, ket, and hamiltonian
-         tensors for all nodes in the trees apart from the given target node.
-         All the resulting tensors are contracted to the hamiltonian tensor
-         corresponding to the target node.
+        tensors for all nodes in the trees apart from the given target node.
+        All the resulting tensors are contracted to the hamiltonian tensor
+        corresponding to the target node.
 
         Args:
             target_node_id (str): The node which is not to be part of the
-             contraction.
+                contraction.
         
         Returns:
             np.ndarray: The tensor resulting from the contraction:
@@ -252,8 +280,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
     def _get_effective_site_hamiltonian(self,
                                         node_id: str) -> np.ndarray:
         """
-        Obtains the effective site Hamiltonian as defined in Ref. [1]
-         Eq. (16a) as a matrix.
+        Obtains the effective site Hamiltonian as a matrix.
 
         Args:
             node_id (str): The node idea centered in the effective Hamiltonian
@@ -272,7 +299,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
         Args:
             node_id (str): The identifier of the site to update.
             time_step_factor (float, optional): A factor that should be
-             multiplied with the internal time step size. Defaults to 1.
+                multiplied with the internal time step size. Defaults to 1.
         """
         hamiltonian_eff_site = self._get_effective_site_hamiltonian(node_id)
         psi = self.state.tensors[node_id]
@@ -284,12 +311,12 @@ class TDVPAlgorithm(TTNTimeEvolution):
     def _move_orth_and_update_cache_for_path(self, path: List[str]):
         """
         Moves the orthogonalisation center and updates all required caches
-         along a given path.
+        along a given path.
 
         Args:
             path (List[str]): The path to move from. Should start with the
-             orth center and end at with the final node. If the path is empty
-             or only the orth center nothing happens.
+                orth center and end at with the final node. If the path is empty
+                or only the orth center nothing happens.
         """
         if len(path) == 0:
             return

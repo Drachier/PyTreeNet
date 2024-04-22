@@ -1,7 +1,8 @@
 """
 Implements the mother class for all two-site TDVP algorithms.
- This class mostly contains functions to contract the effective Hamiltonian
- and to update the sites.
+
+This class mostly contains functions to contract the effective Hamiltonian
+and to update the sites in the two site scheme.
 """
 from typing import List, Union, Tuple
 import numpy as np
@@ -18,37 +19,47 @@ from ...contractions.contraction_util import contract_all_but_one_neighbour_bloc
 from ...util.ttn_exceptions import NotCompatibleException
 
 class TwoSiteTDVP(TDVPAlgorithm):
+    """
+    The two site TDVP algorithm.
+
+    It contracts two sites and updates them at the same time before splitting
+    them using an SVD with truncation.
+
+    Attributes:
+        svd_parameters: Contains values for the SVD truncation.
+    """
 
     def __init__(self, initial_state: TreeTensorNetworkState,
                  hamiltonian: TTNO,
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
-                 svd_parameters: SVDParameters = SVDParameters(),
+                 svd_parameters: Union[SVDParameters,None] = None,
                  config: Union[TTNTimeEvolutionConfig,None] = None) -> None:
         """
         Initialises an instance of a two-site TDVP algorithm.
 
         Args:
             intial_state (TreeTensorNetworkState): The initial state of the
-             system.
+                system.
             hamiltonian (TTNO): The Hamiltonian in TTNO form under which to
-             time-evolve the system.
+                time-evolve the system.
             time_step_size (float): The size of one time-step.
             final_time (float): The final time until which to run the evolution.
             operators (Union[TensorProduct, List[TensorProduct]]): Operators
-             to be measured during the time-evolution.
-            truncation_parameters (Dict): A dictionary containing the
-             parameters used for truncation. The dictionary can define a
-             maximum bond dimension ('maximum_bond_dim'), a relative
-             tolerance ('rel_tol') and a total tolerance ('total_tol') to be
-             used during the truncation. For details see the documentation of
-             tensor_util.truncate_singular_values.
+                to be measured during the time-evolution.
+            truncation_parameters (Union[SVDParameters,None]): The truncation
+                parameters to use during the time-evolution. Can be used to set
+                the maximum bond dimension, the absolute tolerance, and the
+                relative tolerance.
         """
         super().__init__(initial_state, hamiltonian,
                          time_step_size, final_time,
                          operators,
                          config)
-        self.svd_parameters = svd_parameters
+        if svd_parameters is None:
+            self.svd_parameters = SVDParameters()
+        else:
+            self.svd_parameters = svd_parameters
 
     def _find_block_leg_target_node(self,
                                     target_node_id: str,
@@ -56,8 +67,8 @@ class TwoSiteTDVP(TDVPAlgorithm):
                                     neighbour_id: str) -> int:
         """
         Determines the leg index of the input leg of the contracted subtree
-         block on the effective hamiltonian tensor corresponding to a given
-         neighbour of the target node.
+        block on the effective hamiltonian tensor corresponding to a given
+        neighbour of the target node.
 
         Args:
             target_node_id (str): The id of the target node.
@@ -66,7 +77,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
         
         Returns:
             int: The leg index of the input leg of the contracted subtree
-             block on the effective hamiltonian tensor.
+                block on the effective hamiltonian tensor.
         """
         target_node = self.hamiltonian.nodes[target_node_id]
         index_next_node = target_node.neighbour_index(next_node_id)
@@ -80,8 +91,8 @@ class TwoSiteTDVP(TDVPAlgorithm):
                                   neighbour_id: str) -> int:
         """
         Determines the leg index of the input leg of the contracted subtree
-         block on the effective hamiltonian tensor corresponding to a given
-         neighbour of the next node.
+        bnlock on the effective hamiltonian tensor corresponding to a given
+        eighbour of the next node.
 
         Args:
             target_node_id (str): The id of the target node.
@@ -90,7 +101,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
         
         Returns:
             int: The leg index of the input leg of the contracted subtree
-             block on the effective hamiltonian tensor.
+                block on the effective hamiltonian tensor.
         """
         # Luckily the situation is pretty much the same so we can reuse most
         # of the code.
@@ -105,18 +116,20 @@ class TwoSiteTDVP(TDVPAlgorithm):
                                             target_node_id: str,
                                             next_node_id: str) -> Tuple[int]:
         """
-        Determine the leg permutation required on the two-site effective
-         Hamiltonian tensor to fit with the underlying TTNS, assuming
-         the two site have already been contracted.
+        Determine the permutation of the effective Hamiltonian tensor.
+        
+        This is the leg permutation required on the two-site effective
+        Hamiltonian tensor to fit with the underlying TTNS, assuming
+        the two sites have already been contracted in the TTNS.
 
         Args:
             target_node_id (str): Id of the main node on which the update is
-             performed.
+                performed.
             next_node_id (str): The id of the second node.
         
         Returns:
             Tuple[int]: The permutation of the legs of the two-site effective
-             Hamiltonian tensor.
+                Hamiltonian tensor.
         """
         neighbours_target = self.hamiltonian.nodes[target_node_id].neighbouring_nodes()
         neighbours_next = self.hamiltonian.nodes[next_node_id].neighbouring_nodes()
@@ -148,17 +161,19 @@ class TwoSiteTDVP(TDVPAlgorithm):
                                        target_node_id: str,
                                        next_node_id: str) -> np.ndarray:
         """
+        Contracts the nodes for all but two sites.
+
         Uses all cached tensors to contract bra, ket, and hamiltonian tensors
-         of all nodes except for the two given nodes. Of these nodes only the
-         Hamiltonian nodes are contracted.
+        of all nodes except for the two given nodes. Of these nodes only the
+        Hamiltonian nodes are contracted.
         IMPORTANT: This function assumes that the given nodes are already
-         contracted in the TTNS.
+        contracted in the TTNS.
 
         Args:
             target_node_id (str): The id of the node that should not be
-             contracted.
+                contracted.
             next_node_id (str): The id of the second node that should not
-             be contracted.
+                be contracted.
 
         Returns:
             np.ndarray: The resulting effective two-site Hamiltonian tensor.
@@ -223,14 +238,16 @@ class TwoSiteTDVP(TDVPAlgorithm):
                                next_node_id: str,
                                time_step_factor: float = 1):
         """
-        Perform the two-site update on the two given sites, with the target
-         node being the original orthogonalisation center.
+        Perform the two-site update on the two given sites.
+        
+        The target node is the original orthogonalisation center. The center
+        will be moved to the next node in this update.
 
         Args:
             target_node_id (str): The id of the target node.
             next_node_id (str): The id of the next node.
             time_step_factor (float): The factor by which to multiply the
-             time step size. Default is 1.
+                time step size. Default is 1.
         """
         u_legs, v_legs = self.state.legs_before_combination(target_node_id,
                                                             next_node_id)
@@ -263,7 +280,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
         Args:
             node_id (str): The id of the node to update.
             time_step_factor (float): The factor by which to multiply the
-             time step size. Default is 1.
+                time step size. Default is 1.
         """
         self._update_site(node_id, -1 * time_step_factor)
 
@@ -271,6 +288,6 @@ class TwoSiteTDVP(TDVPAlgorithm):
     def create_two_site_id(node_id: str, next_node_id: str) -> str:
         """
         Create the identifier of a two site node obtained from contracting
-         the two note with the input identifiers.
+        the two note with the input identifiers.
         """
         return "TwoSite_" + node_id + "_contr_" + next_node_id

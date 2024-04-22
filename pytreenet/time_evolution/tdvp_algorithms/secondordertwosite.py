@@ -22,20 +22,21 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
         Initialises an instance of a second ordertwo-site TDVP algorithm.
 
         Args:
-            intial_state (TreeTensorNetworkState): The initial state of the
-             system.
+            initial_state (TreeTensorNetworkState): The initial state of the
+                system.
             hamiltonian (TTNO): The Hamiltonian in TTNO form under which to
-             time-evolve the system.
+                time-evolve the system.
             time_step_size (float): The size of one time-step.
-            final_time (float): The final time until which to run the evolution.
+            final_time (float): The final time until which to run the
+                evolution.
             operators (Union[TensorProduct, List[TensorProduct]]): Operators
-             to be measured during the time-evolution.
+                to be measured during the time-evolution.
             truncation_parameters (Dict): A dictionary containing the
-             parameters used for truncation. The dictionary can define a
-             maximum bond dimension ('maximum_bond_dim'), a relative
-             tolerance ('rel_tol') and a total tolerance ('total_tol') to be
-             used during the truncation. For details see the documentation of
-             tensor_util.truncate_singular_values.
+                parameters used for truncation. The dictionary can define a
+                maximum bond dimension ('maximum_bond_dim'), a relative
+                tolerance ('rel_tol') and a total tolerance ('total_tol') to be
+                used during the truncation. For details see the documentation
+                of `tensor_util.truncate_singular_values`.
         """
         super().__init__(initial_state, hamiltonian,
                          time_step_size, final_time, operators,
@@ -63,7 +64,7 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
                                  next_node_id: str):
         """
         Performs the forward evolution of both sites and the backwards
-         evolution of the next node.
+        evolution of the next node.
 
         Args:
             target_node_id (str): The identifier of the first site.
@@ -79,7 +80,8 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
                                          update_index: int):
         """
         Performs the forward evolution of both sites and the backwards
-         evolution of the next node.
+        evolution of the next node, while automatically determining the next
+        node.
 
         Args:
             target_node_id (str): The identifier of the first site.
@@ -112,6 +114,9 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
     def final_forward_update(self):
         """
         Perform the final forward update.
+
+        The final forward update is a special case, as it both last sites are
+        updated at the same time.
         """
         self._update_two_site_nodes(self.update_path[-2],
                                     self.update_path[-1],
@@ -119,7 +124,7 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
 
     def forward_sweep(self):
         """
-        Perform the forward sweep through the state.
+        Perform the full forward sweep through the state.
         """
         for i, node_id in enumerate(self.update_path[:-2]):
             if i == 0:
@@ -131,6 +136,9 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
     def first_backwards_update(self):
         """
         Perform the first backwards update.
+
+        Here the first two sites are updated, but no backwards time evolution
+        of the second node is performed.
         """
         self._update_two_site_nodes(self.backwards_update_path[0],
                                     self.backwards_update_path[1],
@@ -140,6 +148,10 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
                                 update_index: int):
         """
         Perform a normal backwards update.
+
+        This means, moving the orthogonality center to the correct site,
+        evolving it backwards in time, and then updating both tensors forward
+        in time.
 
         Args:
             update_index (int): The index of the update.
@@ -164,5 +176,10 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
                 self.normal_backwards_update(i)
 
     def run_one_time_step(self, **kwargs):
+        """
+        Run one time step of the secondo order two-site TDVP algorithm.
+
+        This means running a full forward sweep and a full backwards sweep.
+        """
         self.forward_sweep()
         self.backwards_sweep()

@@ -25,7 +25,7 @@ Modules that were fully refactored and updated to new Docstyle:
 ** special_ttn
 * special_ttn.fttn
 * special_ttn.mps
-
+* time_evolution.tdvp_algorithms
 ** util
 * util.tensor_util
 * util.tensor_splitting
