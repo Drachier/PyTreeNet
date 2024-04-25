@@ -13,19 +13,24 @@ from ..operators.common_operators import swap_gate
 from ..core.ttn import TreeTensorNetwork
 
 class SWAPlist(list):
+    """
+    A list of symbolic SWAP gates.
+
+    As the name suggests a SWAP gates swaps the state of two neighbouring
+    nodes. This class represents a list of such SWAP gates. It is used to
+    represent a consecutive application of SWAPs of neighbouring nodes.
+    """
 
     def __init__(self, swap_list = None):
         """
-        Represent a consecutive application of SWAPs of neighbouring nodes.
+        Initialise a SWAPlist.
 
-        Parameters
-        ----------
-        tuples : list of tuples
-            Each tuple contains exactly two identifiers of neighbouring nodes.
-            The order of the list is the order in which SWAP gates would be
-            applied. Note: neighbouring sites have to have the same physical
-            dimension to be swapped.
-
+        Args:
+            swap_list (List[Tuple[str, str]], optional): A list of pairs of
+                node names that should be swapped. Only neigbouring nodes with
+                the same open leg dimension can be swapped. The order of the
+                identifiers in the pair is the order in which the legs of the
+                resulting SWAP tensor are ordered.
         """
         for pair in swap_list:
             if not len(pair) == 2:
@@ -34,52 +39,46 @@ class SWAPlist(list):
             swap_list = []
         list.__init__(self, swap_list)
 
-    def is_compatible_with_ttn(self, ttn):
+    def is_compatible_with_ttn(self, ttn: TreeTensorNetwork) -> bool:
         """
-        Checks, if SWAPlist is compatible with a given TreeTensorNetwork. This
-        means it checks if all nodes in the SWAP-list are actually neighbours
-        with the same open leg dimension.
+        Returns, if a SWAPlist is compatible with a given TreeTensorNetwork.
 
-        Parameters
-        ----------
-        ttn : TreeTensorNetwork
-            A TTN for which to check compatability.
+        This means it checks if all nodes in the SWAP-list are actually
+        neighbours with the same open leg dimension.
 
-        Returns
-        -------
-        compatible: bool
-        True if the SWAPlist is compatible with the TTN and False,
-        if not.
+        Args:
+            ttn (TreeTensorNetwork): A TTN for which to check compatability.
 
+        Returns:
+            bool: True if the SWAPlist is compatible with the TTN and False,
+                if not.
         """
         for swap_pair in self:
             # Check if the first swap node is in the TTN
             if swap_pair[0] not in ttn.nodes:
                 return False
-
             # If it is check, if the other is actually connected and thus also
             #  in the TTN
             node1 = ttn.nodes[swap_pair[0]]
-            if not swap_pair[1] not in node1.neighbouring_nodes(with_legs=False):
+            if not swap_pair[1] not in node1.neighbouring_nodes():
                 return False
-
             # Finally check if both have the same total physical dimension.
             node2 = ttn.nodes[swap_pair[1]]
             if node1.open_dimension() != node2.open_dimension():
                 return False
-
         return True
 
-    def into_operators(self, ttn: Union[TreeTensorNetwork, None] = None,
+    def into_operators(self,
+                       ttn: Union[TreeTensorNetwork, None] = None,
                        dim: Union[int, None] = None) -> List[NumericOperator]:
         """
         Turns the list of abstract swaps into a list of numeric operators.
 
         Args:
-            ttn (TreeTensorNetwork): A tree tensor network from which the dimensions can
-             be determined. Default to None.
-            dim (Union[int, None], optional): Can be given, if all nodes that have
-             to be swapped have the same dimension. Defaults to None.
+            ttn (TreeTensorNetwork): A tree tensor network from which the
+                dimensions can be determined. Default to None.
+            dim (Union[int, None], optional): Can be given, if all nodes that
+                have to be swapped have the same dimension. Defaults to None.
 
         Returns:
             List[NumericOperator]: A list of numeric operators corresponding to the
