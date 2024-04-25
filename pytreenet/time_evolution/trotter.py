@@ -1,13 +1,20 @@
+"""
+This module provides all classes required to define arbitrary trotterisations.
+
+A trotterisation is a splitting of an operator/matrix exponential into factors
+even though the exponents are non-commuting. This does cause an error.
+"""
 from __future__ import annotations
 from typing import List, Union, Tuple
 
 from ..operators.operator import NumericOperator
 from ..operators.tensorproduct import TensorProduct
 from ..operators.common_operators import swap_gate
+from ..core.ttn import TreeTensorNetwork
 
 class SWAPlist(list):
 
-    def __init__(self, swap_list):
+    def __init__(self, swap_list = None):
         """
         Represent a consecutive application of SWAPs of neighbouring nodes.
 
@@ -23,7 +30,8 @@ class SWAPlist(list):
         for pair in swap_list:
             if not len(pair) == 2:
                 raise ValueError("SWAPs can only happen between exactly two nodes!")
-
+        if swap_list is None:
+            swap_list = []
         list.__init__(self, swap_list)
 
     def is_compatible_with_ttn(self, ttn):
@@ -94,6 +102,96 @@ class SWAPlist(list):
             swap_operator = swap_operator.to_tensor(dim=dim, ttn=ttn)
             operator_list.append(swap_operator)
         return operator_list
+
+class TrotterStep:
+    """
+    A single trotter step of a trotterisation.
+
+    A trotterisation splits a multi term exponent into multiple smaller
+    operator exponents inccurring an error. A single trotter step is one
+    such smaller operator, including swap gates before and after the
+    exponented operator.
+    
+    Attributes:
+        operator (TensorProduct): The operator that should become the exponent.
+        factor (float): A factor to be included in the exponent.
+        swaps_before (Swaplist): The swaps that should occur, before the
+            exponentiated operator is applied.
+        swaps_after (Swaplist): The swaps that should occur, after the
+            exponentiated operator is applied.
+    """
+
+    def __init__(self,
+                 operator: TensorProduct,
+                 factor: float,
+                 swaps_before: Union[SWAPlist,None] = None,
+                 swaps_after: Union[SWAPlist,None] = None):
+        """
+        Initialise a single trotter step.
+
+        Args:
+            operator (TensorProduct): The operator that should become the
+                exponent of this trotter step. The operators should be numeric
+                arrays and not symbolic strings.
+            factor (float): A factor to be included in the exponent.
+            swaps_before (Union[Swaplist,None]): The swaps that should occur,
+                before the exponentiated operator is applied. Defaults to None,
+                meaning no swap gates will be applied.
+            swaps_after (Union[Swaplist,None]): The swaps that should occur,
+                after the exponentiated operator is applied. Defaults to None,
+                meaning no swap gates will be applied. 
+        """
+        self.operator = operator
+        self.factor = factor
+        if swaps_before is None:
+            self.swaps_before = SWAPlist()
+        else:
+            self.swaps_before = swaps_before
+        if swaps_after is None:
+            self.swaps_after = SWAPlist()
+        else:
+            self.swaps_after = swaps_after
+
+    def exponentiate_operator(self,
+                              delta_time: float,
+                              ttn: Union[TreeTensorNetwork,None] = None,
+                              dim: Union[int,None] = None) -> NumericOperator:
+        """
+        Exponentiates the operator part of this trotter step.
+
+        Args:
+            delta_time (float): The time factor that should be multiplied
+                to the exponent operator.
+            dim (Union[int, None], optional): If all nodes have the same open
+                dimension it can be given here. Defaults to None.
+            ttn (Union[TreeTensorNetwork, None], optional): If not all nodes
+                have the same open dimension a TTN is needed as a reference.
+                Defaults to None.
+        """
+        factor = -1j * self.factor * delta_time
+        exponentiated_operator = self.operator.exp(factor)
+        exponentiated_operator = exponentiated_operator.to_tensor(dim=dim, ttn=ttn)
+        return exponentiated_operator
+
+    def realise_swaps(self,
+                      ttn: Union[TreeTensorNetwork,None] = None,
+                      dim: Union[int,None] = None) -> Tuple[List[NumericOperator],List[NumericOperator]]:
+        """
+        Turns the SWAP gates into numeric operators.
+
+        The gates are only saved with a simplified representation. This
+        method turns them into actual gates.
+
+        Args:
+            dim (Union[int, None], optional): If all nodes have the same open
+                dimension it can be given here. Defaults to None.
+            ttn (Union[TreeTensorNetwork, None], optional): If not all nodes
+                have the same open dimension a TTN is needed as a reference.
+                Defaults to None.
+        """
+        swap_tensors_before = self.swaps_before.into_operators(ttn,dim)
+        swap_tensors_after = self.swaps_after.into_operators(ttn,dim)
+        return swap_tensors_before, swap_tensors_after
 
 class TrotterSplitting:
     """
