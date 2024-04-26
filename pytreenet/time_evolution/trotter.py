@@ -272,7 +272,7 @@ class TrotterSplitting(List):
 
     def exponentiate_splitting(self,
                                delta_time: float,
-                               ttn: Unin[TreeTensorNetwork,None] = None,
+                               ttn: Union[TreeTensorNetwork,None] = None,
                                dim: Union[int, None] = None) -> List[NumericOperator]:
         """
         Turns the list into a series of unitary operators
