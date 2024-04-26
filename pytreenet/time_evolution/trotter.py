@@ -192,106 +192,119 @@ class TrotterStep:
         swap_tensors_after = self.swaps_after.into_operators(ttn,dim)
         return swap_tensors_before, swap_tensors_after
 
-class TrotterSplitting:
+class TrotterSplitting(List):
     """
     A trotter splitting allows the approximate breaking of exponentials of operators.
-     Different kinds of splitting lead to different error sizes.
+    
+    Different kinds of splitting lead to different error sizes.
     """
 
-    def __init__(self, tensor_products: List[TensorProduct],
-                 splitting: Union[List[Tuple[int, int], int], None] = None,
-                 swaps_before: Union[List[SWAPlist], None] = None,
-                 swaps_after: Union[List[SWAPlist], None] = None):
-        """Initialises a TrotterSplitting instance.
+    def __init__(self,
+                 trotter_steps: Union[List[TrotterStep],None] = None):
+        """
+        Initialise a TrotterSplitting.
 
         Args:
-            tensor_products (List[TensorProduct]): The tensor_products to be considered.
-            splitting (Union[List[Tuple[int, int], int], None], optional): Gives the order
-             of the splitting. The first tuple entry is a the index of an operator in
-             operators and the second entry is a factor, which will be multiplied to the
-             operator once exponentiated. If only an integer is given, it is assumed to be
-             the index in the operator list and the factor is set to 1. In case of no given
-             splitting the splitting is assumed to be in the order as given in the operator
-             list and all factors are set to 1. Defaults to None.
-            swaps_before (Union[List[SWAPlist], None], optional): The swaps to be applied
-             before an exponentiated operator is applied. The indices are the same as in the
-             splitting. So the SWAP gates given with index `i` will be applied before the
-             operator specified with the `i`th element of splitting happens. Defaults to None.
-            swaps_after (Union[List[SWAPlist], None], optional): The swaps to be applied
-             after an exponentiated operator is applied. The indices are the same as in the
-             splitting. So the SWAP gates given with index `i` will be applied after the
-             operator specified with the `i`th element of splitting happens. Defaults to None.
-
-        Raises:
-            TypeError: Raised if the splitting contains unallowed types.
+            trotter_steps (Union[List[TrotterStep],None], optional): A list of
+                TrotterSteps that define the splitting. Defaults to None,
+                causing an empty Splitting.
         """
-        self.tensor_products = tensor_products
+        if trotter_steps is None:
+            trotter_steps = []
+        super().__init__(trotter_steps)
 
+    @classmethod
+    def from_lists(cls,
+                  tensor_products: List[TensorProduct],
+                  splitting: Union[List[Tuple[int, int], int], None] = None,
+                  swaps_before: Union[List[SWAPlist], None] = None,
+                  swaps_after: Union[List[SWAPlist], None] = None) -> TrotterSplitting:
+        """
+        Creates a TrotterSplitting instance from lists.
+
+        The lists contain the required parameters to build trotter steps that
+        form the trotter splitting.
+
+        Args:
+            tensor_products (List[TensorProduct]): The tensor_products to be
+                considered.
+            splitting (Union[List[Tuple[int, int], int], None], optional):
+                Gives the order of the splitting. The first tuple entry is the
+                index of an operator in the list of tensor products and the
+                second entry is a factor, which will be multiplied to the
+                operator once exponentiated. If only an integer is given, it is
+                assumed to be the index in the list of tensor products and the
+                factor is set to 1. In case of no given splitting the splitting
+                is assumed to be in the order as given in the list of operators
+                and all factors are set to 1. Defaults to None.
+            swaps_before (Union[List[SWAPlist], None], optional): The swaps to
+                be applied before an exponentiated operator is applied. The
+                indices are the same as in the splitting. So the SWAP gates
+                given with index `i` will be applied before the operator
+                specified with the `i`th element of splitting happens. Defaults
+                to None.
+            swaps_after (Union[List[SWAPlist], None], optional): The swaps to
+                be applied after an exponentiated operator is applied. The
+                indices are the same as in the splitting. So the SWAP gates
+                given with index `i` will be applied after the operator
+                specified with the `i`th element of splitting happens.
+                Defaults to None.
+        """
         if splitting is None:
-            # Default splitting
-            self.splitting = [(index, 1) for index in range(len(tensor_products))]
-        else:
-            self.splitting = []
-            for item in splitting:
-                if isinstance(item, int):
-                    self.splitting.append((item, 1))
-                elif isinstance(item, tuple):
-                    self.splitting.append(item)
-                else:
-                    errstr = "Items in the `splitting` list may only be int or tuple with length 2!"
-                    raise TypeError(errstr)
+            splitting = tuple([(i,1) for i in range(len(tensor_products))])
+        trotter_steps = []
+        for split in splitting:
+            if isinstance(split,int):
+                index = split
+                factor = 1
+            else:
+                index = split[0]
+                factor = split[1]
+            tp = tensor_products[index]
+            swaps_b = swaps_before[index]
+            swaps_a = swaps_after[index]
+            trotter_step = TrotterStep(tp,
+                                       factor,
+                                       swaps_before=swaps_b,
+                                       swaps_after=swaps_a)
+            trotter_steps.append(trotter_step)
+        return TrotterSplitting(trotter_steps)
 
-        if swaps_before is None:
-            self.swaps_before = [SWAPlist([])] * len(self.splitting)
-        else:
-            self.swaps_before = swaps_before
-        if swaps_after is None:
-            self.swaps_after = [SWAPlist([])] * len(self.splitting)
-        else:
-            self.swaps_after = swaps_after
-
-    def exponentiate_splitting(self, delta_time: float, ttn: TreeTensorNetwork = None,
+    def exponentiate_splitting(self,
+                               delta_time: float,
+                               ttn: Unin[TreeTensorNetwork,None] = None,
                                dim: Union[int, None] = None) -> List[NumericOperator]:
         """
+        Turns the list into a series of unitary operators
+
         Computes all operators, which are to actually be applied in a time-
         evolution algorithm. This includes SWAP gates and exponentiated
-        operators.
+        unitary operators.
 
-        Parameters
-        ----------
-        delta_time : float
-            The time step size for the trotter-splitting.
-        ttn : TreeTensorNetwork
-            A TTN which is compatible with this splitting.
-            Provides the required dimensionality for the SWAPs.
-        dim : int, optional
-            If all nodes have the same physical dimension, it can be provided
-            here. Speeds up the computation especially for big TTN.
-            The default is None.
+        Args:
+            delta_time (float): The time step size for the trotter-splitting.
+            ttn (Union[TreeTensorNetwork,None],optional): A TTN which is
+                compatible with this splitting. Can provide the physical
+                dimensions of the SWAPgates. Defaults to None.
+            dim (Union[int,None],optional): If all nodes have the same open
+                dimension, this dimension can be given here, to speed up
+                computation.
 
-        Returns
-        -------
-        unitary_operators : list of Operator
-            All operators that make up one time-step of the Trotter splitting.
-             They are to be applied according to their index order in the list.
-             Each operator is either a SWAP-gate or an exponentiated operator
-             of an evaluated tensor product.
+        Returns:
+            List[NumericOperators]: All unitary operators that make up one
+                time-step of the Trotter splitting. They are to be applied
+                according to the order in the list.
             """
 
         unitary_operators = [] # Includes the neccessary SWAPs
-        for i, split in enumerate(self.splitting):
-            tensor_product = self.tensor_products[split[0]]
-            factor = -1j * split[1] * delta_time
-            exponentiated_operator = tensor_product.exp(factor)
-            exponentiated_operator = exponentiated_operator.to_tensor(dim=dim, ttn=ttn)
-
-            # Build required swaps for befor trotter tensor_product
-            swaps_before = self.swaps_before[i].into_operators(ttn=ttn, dim=dim)
-            # Build required swaps for after trotter tensor_product
-            swaps_after = self.swaps_after[i].into_operators(ttn=ttn, dim=dim)
-
+        for trotter_step in self:
+            exp_operator = trotter_step.exponentiate_operator(delta_time,
+                                                              dim=dim,
+                                                              ttn=ttn)
+            swaps_before, swaps_after = trotter_step.realise_swaps(dim=dim,
+                                                                   ttn=ttn)
             # Add all operators associated with this tensor_product to the list of unitaries
             unitary_operators.extend(swaps_before)
-            unitary_operators.append(exponentiated_operator)
+            unitary_operators.append(exp_operator)
             unitary_operators.extend(swaps_after)
         return unitary_operators

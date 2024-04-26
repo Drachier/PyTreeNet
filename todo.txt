@@ -30,6 +30,7 @@ Modules that were fully refactored and updated to new Docstyle:
 * time_evolution.exact_time_evolution
 * time_evolution.tebd
 * time_evolution.time_evolution
+* time_evolution.trotter
 ** util
 * util.tensor_util
 * util.tensor_splitting
