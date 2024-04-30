@@ -123,8 +123,8 @@ class TrotterStep:
     def __init__(self,
                  operator: TensorProduct,
                  factor: float,
-                 swaps_before: Union[SWAPlist,None] = None,
-                 swaps_after: Union[SWAPlist,None] = None):
+                 swaps_before: Union[SWAPlist,List[Tuple[str,str]],None] = None,
+                 swaps_after: Union[SWAPlist,List[Tuple[str,str]],None] = None):
         """
         Initialise a single trotter step.
 
@@ -133,12 +133,13 @@ class TrotterStep:
                 exponent of this trotter step. The operators should be numeric
                 arrays and not symbolic strings.
             factor (float): A factor to be included in the exponent.
-            swaps_before (Union[Swaplist,None]): The swaps that should occur,
-                before the exponentiated operator is applied. Defaults to None,
-                meaning no swap gates will be applied.
-            swaps_after (Union[Swaplist,None]): The swaps that should occur,
-                after the exponentiated operator is applied. Defaults to None,
-                meaning no swap gates will be applied. 
+            swaps_before (Union[Swaplist,List[Tuple[str,str]],None]): The swaps
+                that should occur, before the exponentiated operator is
+                applied. Defaults to None, meaning no swap gates will be
+                applied.
+            swaps_after (Union[Swaplist,List[Tuple[str,str]],None]): The swaps
+                that should occur, after the exponentiated operator is applied.
+                Defaults to None, meaning no swap gates will be applied. 
         """
         self.operator = operator
         self.factor = factor
