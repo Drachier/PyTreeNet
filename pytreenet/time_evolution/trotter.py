@@ -60,7 +60,7 @@ class SWAPlist(list):
             # If it is check, if the other is actually connected and thus also
             #  in the TTN
             node1 = ttn.nodes[swap_pair[0]]
-            if not swap_pair[1] not in node1.neighbouring_nodes():
+            if swap_pair[1] not in node1.neighbouring_nodes():
                 return False
             # Finally check if both have the same total physical dimension.
             node2 = ttn.nodes[swap_pair[1]]
