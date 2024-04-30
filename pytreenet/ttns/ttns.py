@@ -5,8 +5,10 @@ from copy import deepcopy
 import numpy as np
 
 from ..core.ttn import TreeTensorNetwork
+from ..ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
 from ..contractions.state_state_contraction import contract_two_ttns
+from ..contractions.state_operator_contraction import expectation_value
 
 class TreeTensorNetworkState(TreeTensorNetwork):
     """
@@ -55,23 +57,28 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         tensor_product = TensorProduct({node_id: operator})
         return self.operator_expectation_value(tensor_product)
 
-    def operator_expectation_value(self, operator: TensorProduct) -> complex:
+    def operator_expectation_value(self, operator: Union[TensorProduct,TTNO]) -> complex:
         """
         Finds the expectation value of the operator specified, given this TTNS.
 
         Args:
-            operator (TensorProduct): A TensorProduct representing the operator
-             as many single site operators.
+            operator (Union[TensorProduct,TTNO]): A TensorProduct representing
+            the operator as many single site operators. Otherwise a a TTNO
+            with the same structure as the TTNS.
 
         Returns:
             complex: The resulting expectation value < TTNS | operator | TTNS>
         """
-        # Very inefficient, fix later without copy
-        ttn = deepcopy(self)
-        conj_ttn = ttn.conjugate()
-        for node_id, single_site_operator in operator.items():
-            ttn.absorb_into_open_legs(node_id, single_site_operator)
-        return contract_two_ttns(ttn, conj_ttn)
+        if isinstance(operator, TensorProduct):
+            # Very inefficient, fix later without copy
+            ttn = deepcopy(self)
+            conj_ttn = ttn.conjugate()
+            for node_id, single_site_operator in operator.items():
+                ttn.absorb_into_open_legs(node_id, single_site_operator)
+            return contract_two_ttns(ttn, conj_ttn)
+        # Operator is a TTNO
+        return expectation_value(self, operator)
+
 
     def is_in_canonical_form(self, node_id: Union[None,str] = None) -> bool:
         """
