@@ -24,7 +24,7 @@ class NumericOperator():
         matrix valued, the convention of the leg order is
         `(output_leg, input_leg)`. If it is instead a higher dimensional tensor
         the leg order is defined as
-        `(input_leg1, input_leg2, ..., input_legn, output_leg1, ..., output_legn)`
+        `(output_leg1, ..., output_legn, input_leg1, input_leg2, ..., input_legn)`
     identifiers (List[str]): The identifiers of the nodes this operator is
         applied to. Should be in the same order as the legs of the operator.
     """
@@ -38,7 +38,7 @@ class NumericOperator():
                 is matrix valued, the convention of the leg order is
                 `(output_leg, input_leg)`. If it is instead a higher
                 dimensional tensor the leg order is defined as
-                `(input_leg1, input_leg2, ..., input_legn, output_leg1, ..., output_legn)`
+                `(output_leg1, ..., output_legn, input_leg1, input_leg2, ..., input_legn)`
             node_identifiers (Union[List[str],str]): The identifiers of the
                 nodes this operator is applied to. Should be in the same order
                 as the legs of the operator. Can also be a single identifier.
