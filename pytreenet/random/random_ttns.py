@@ -20,9 +20,11 @@ class RandomTTNSMode(Enum):
     SAME: All bond dimensions are chosen equal
     DIFFVIRT: Virtual dimensions are chosen different. The exact size depends
         on the topology used.
+    SAMEPHYS: Forces the same physical dimensions for the TTNS.
     """
     SAME = "same_dimension"
     DIFFVIRT = "different_virt_dimensions"
+    SAMEPHYS = "same_phys_dim"
 
 def random_small_ttns(mode: RandomTTNSMode = RandomTTNSMode.DIFFVIRT) -> TreeTensorNetworkState:
     """
@@ -42,7 +44,8 @@ def random_small_ttns(mode: RandomTTNSMode = RandomTTNSMode.DIFFVIRT) -> TreeTen
           |  /     \\  |
            c1        c2
 
-        Otherwise all virtual bond dimensions default to 2.
+        Otherwise all virtual bond dimensions default to 2. If the mode is
+        SAMEPHYS all phyiscal dimensions will default to 2.
 
     Returns:
         TreeTensorNetwork: A tree tensor network with the above topology and
@@ -55,6 +58,13 @@ def random_small_ttns(mode: RandomTTNSMode = RandomTTNSMode.DIFFVIRT) -> TreeTen
         c1_node, c1_tensor = random_tensor_node((5,3),"c1")
         random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, "root", 0)
         c2_node, c2_tensor = random_tensor_node((6,4),"c2")
+        random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, "root", 1)
+    elif mode == RandomTTNSMode.SAMEPHYS:
+        root_node, root_tensor = random_tensor_node((5,6,2),"root")
+        random_ttns.add_root(root_node, root_tensor)
+        c1_node, c1_tensor = random_tensor_node((5,2),"c1")
+        random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, "root", 0)
+        c2_node, c2_tensor = random_tensor_node((6,2),"c2")
         random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, "root", 1)
     else:
         root_node, root_tensor = random_tensor_node((2,2,2),"root")
