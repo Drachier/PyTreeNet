@@ -39,7 +39,10 @@ Modules that were fully refactored and updated to new Docstyle:
 
 Features to add:
 
-* TTNO-TTNS contraction
+
+Tests:
+* trotter
+* expectation values (ttns and contraction)
 
 Other:
 
