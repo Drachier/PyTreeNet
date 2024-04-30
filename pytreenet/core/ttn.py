@@ -668,7 +668,7 @@ class TreeTensorNetwork(TreeStructure):
             spec2.is_root = True
         return (spec1, spec2)
 
-    def _split_nodes(self, node_id: str,
+    def split_nodes(self, node_id: str,
                      out_legs: LegSpecification, in_legs: LegSpecification,
                      splitting_function: Callable,
                      out_identifier: str = "", in_identifier: str = "",
@@ -897,11 +897,11 @@ class TreeTensorNetwork(TreeStructure):
             mode: The mode to be used for the QR decomposition. For details
                 refer to `tensor_util.tensor_qr_decomposition`.
         """
-        self._split_nodes(node_id, q_legs, r_legs,
-                          tensor_qr_decomposition,
-                          out_identifier=q_identifier,
-                          in_identifier=r_identifier,
-                          mode=mode)
+        self.split_nodes(node_id, q_legs, r_legs,
+                         tensor_qr_decomposition,
+                         out_identifier=q_identifier,
+                         in_identifier=r_identifier,
+                         mode=mode)
 
     def split_node_svd(self, node_id: str,
                        u_legs: LegSpecification, v_legs: LegSpecification,
@@ -921,9 +921,9 @@ class TreeTensorNetwork(TreeStructure):
             v_identifier (str, optional): An identifier for the V-tensor.
              Defaults to "".
         """
-        self._split_nodes(node_id, u_legs, v_legs, contr_truncated_svd_splitting,
-                          out_identifier=u_identifier, in_identifier=v_identifier,
-                          svd_params=svd_params)
+        self.split_nodes(node_id, u_legs, v_legs, contr_truncated_svd_splitting,
+                         out_identifier=u_identifier, in_identifier=v_identifier,
+                         svd_params=svd_params)
 
     def move_orthogonalization_center(self, new_center_id: str,
                                       mode: SplitMode = SplitMode.REDUCED):
