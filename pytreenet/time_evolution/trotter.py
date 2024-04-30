@@ -12,7 +12,7 @@ from ..operators.tensorproduct import TensorProduct
 from ..operators.common_operators import swap_gate
 from ..core.ttn import TreeTensorNetwork
 
-class SWAPlist(list):
+class SWAPlist(List):
     """
     A list of symbolic SWAP gates.
 
@@ -21,7 +21,7 @@ class SWAPlist(list):
     represent a consecutive application of SWAPs of neighbouring nodes.
     """
 
-    def __init__(self, swap_list = None):
+    def __init__(self, swap_list: Union[List[Tuple[str, str]],None] = None):
         """
         Initialise a SWAPlist.
 
@@ -32,12 +32,12 @@ class SWAPlist(list):
                 identifiers in the pair is the order in which the legs of the
                 resulting SWAP tensor are ordered.
         """
+        if swap_list is None:
+            swap_list = []
         for pair in swap_list:
             if not len(pair) == 2:
                 raise ValueError("SWAPs can only happen between exactly two nodes!")
-        if swap_list is None:
-            swap_list = []
-        list.__init__(self, swap_list)
+        super().__init__(swap_list)
 
     def is_compatible_with_ttn(self, ttn: TreeTensorNetwork) -> bool:
         """
