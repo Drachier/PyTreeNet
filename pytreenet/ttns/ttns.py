@@ -5,8 +5,10 @@ from copy import deepcopy
 import numpy as np
 
 from ..core.ttn import TreeTensorNetwork
+from ..ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
 from ..contractions.state_state_contraction import contract_two_ttns
+from ..contractions.state_operator_contraction import expectation_value
 
 class TreeTensorNetworkState(TreeTensorNetwork):
     """
@@ -55,46 +57,24 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         tensor_product = TensorProduct({node_id: operator})
         return self.operator_expectation_value(tensor_product)
 
-    def operator_expectation_value(self, operator: TensorProduct) -> complex:
+    def operator_expectation_value(self, operator: Union[TensorProduct,TTNO]) -> complex:
         """
         Finds the expectation value of the operator specified, given this TTNS.
 
         Args:
-            operator (TensorProduct): A TensorProduct representing the operator
-             as many single site operators.
+            operator (Union[TensorProduct,TTNO]): A TensorProduct representing
+            the operator as many single site operators. Otherwise a a TTNO
+            with the same structure as the TTNS.
 
         Returns:
             complex: The resulting expectation value < TTNS | operator | TTNS>
         """
-        # Very inefficient, fix later without copy
-        ttn = deepcopy(self)
-        conj_ttn = ttn.conjugate()
-        for node_id, single_site_operator in operator.items():
-            ttn.absorb_into_open_legs(node_id, single_site_operator)
-        return contract_two_ttns(ttn, conj_ttn)
-
-    def is_in_canonical_form(self, node_id: Union[None,str] = None) -> bool:
-        """
-        Returns whether the TTNS is in canonical form. If a node_id is specified,
-         it will check as if that node is the orthogonalisation center. If no
-         node_id is given, the current orthogonalisation center will be used.
-
-        Args:
-            node_id (Union[None,str], optional): The node to check. If None, the
-             current orthogonalisation center will be used. Defaults to None.
-        
-        Returns:
-            bool: Whether the TTNS is in canonical form.
-        """
-        if node_id is None:
-            node_id = self.orthogonality_center_id
-        if node_id is None:
-            return False
-        total_contraction = self.scalar_product()
-        local_tensor = self.tensors[node_id]
-        legs = range(local_tensor.ndim)
-        local_contraction = complex(np.tensordot(local_tensor, local_tensor.conj(),
-                                                 axes=(legs,legs)))
-        # If the TTNS is in canonical form, the contraction of the
-        # orthogonality center should be equal to the norm of the state.
-        return np.allclose(total_contraction, local_contraction)
+        if isinstance(operator, TensorProduct):
+            # Very inefficient, fix later without copy
+            ttn = deepcopy(self)
+            conj_ttn = ttn.conjugate()
+            for node_id, single_site_operator in operator.items():
+                ttn.absorb_into_open_legs(node_id, single_site_operator)
+            return contract_two_ttns(ttn, conj_ttn)
+        # Operator is a TTNO
+        return expectation_value(self, operator)
