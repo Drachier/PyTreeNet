@@ -70,6 +70,12 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             complex: The resulting expectation value < TTNS | operator | TTNS>
         """
         if isinstance(operator, TensorProduct):
+            if len(operator) == 0:
+                return self.scalar_product()
+            if len(operator) == 1:
+                node_id = operator[0]
+                op = operator[node_id]
+                return self.single_site_operator_expectation_value(node_id, op)
             # Very inefficient, fix later without copy
             ttn = deepcopy(self)
             conj_ttn = ttn.conjugate()
