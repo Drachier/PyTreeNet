@@ -74,6 +74,25 @@ class TensorProduct(UserDict):
             tensor_product[operator.node_identifiers[0]] = operator.operator
         return tensor_product
 
+    def allclose(self, other: TensorProduct) -> bool:
+        """
+        Returns, whether the two tensor products are close to each other.
+
+        This means that the operators corresponding to each identifier are
+        close.
+        """
+        if len(self) != len(other):
+            # To avoid subdicts
+            return False
+        for identifier, operator in self.keys():
+            if identifier not in other:
+                # Avoids KeyError
+                return False
+            other_op = other[identifier]
+            if not np.allclose(operator, other_op):
+                return False
+        return True
+
     def pad_with_identities(self,
                             ttn: TreeTensorNetwork,
                             symbolic: bool = False) -> TensorProduct:
