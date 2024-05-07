@@ -8,7 +8,7 @@ from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      tensor_svd,
                                      truncated_tensor_svd)
 from ..core.node import Node
-from .state_diagram import StateDiagram
+from .state_diagram import StateDiagram, TTNOFinder
 
 class Decomposition(Enum):
     SVD = "SVD"
@@ -38,7 +38,7 @@ class TTNO(TreeTensorNetwork):
 
     @classmethod
     def from_hamiltonian(cls, hamiltonian: Hamiltonian,
-                            reference_tree: TreeStructure, method: method.TREE ) -> TTNO:
+                            reference_tree: TreeStructure, method: TTNOFinder = TTNOFinder.TREE ) -> TTNO:
         """
         Generates a TTNO from a Hamiltonian.
 

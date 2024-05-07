@@ -10,7 +10,7 @@ from .collections import VertexColl, HyperEdgeColl
 from .single_term_diagram import SingleTermDiagram
 
 
-class method(Enum):
+class TTNOFinder(Enum):
     TREE = "Tree"
     CM = "Combine and Match"
 
@@ -114,7 +114,7 @@ class StateDiagram():
                 f"No node with identifier {node_id} in reference tree.")
 
     @classmethod
-    def from_hamiltonian(cls, hamiltonian, ref_tree, method: method = method.TREE) -> StateDiagram:
+    def from_hamiltonian(cls, hamiltonian, ref_tree, method: TTNOFinder = TTNOFinder.TREE) -> StateDiagram:
         """Creates a state diagram equivalent to a given Hamiltonian
 
         Args:
