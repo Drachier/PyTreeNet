@@ -3,10 +3,12 @@ from typing import Dict
 from enum import Enum
 import numpy as np
 
-from ..ttn import TreeTensorNetwork
-from ..tensor_util import tensor_qr_decomposition, tensor_svd, truncated_tensor_svd
-from ..node import Node
-from .state_diagram import StateDiagram, method
+from ..core.ttn import TreeTensorNetwork
+from ..util.tensor_splitting import (tensor_qr_decomposition,
+                                     tensor_svd,
+                                     truncated_tensor_svd)
+from ..core.node import Node
+from .state_diagram import StateDiagram
 
 class Decomposition(Enum):
     SVD = "SVD"

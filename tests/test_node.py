@@ -392,33 +392,12 @@ class TestNodeMethods(unittest.TestCase):
         for ids, node in self.nodes.items():
             self.assertEqual(correct_numbers[ids], node.nopen_legs())
 
-    def test_get_child_leg_1st_child(self):
-        # Have a child
-        id_list = ["node1p1c0", "node1p1c2", "node1p2c0", "node1p2c2",
-                   "root1c0", "root1c2", "root2c0", "root2c2"]
-        leg_value = [1, 1, 1, 1, 0, 0, 0, 0]
-        leg_value = dict(zip(id_list, leg_value))
-
-        for ids in id_list:
-            node = self.nodes[ids]
-            self.assertEqual(leg_value[ids], node.get_child_leg("child_id"))
-
-    def test_get_child_leg_2nd_child(self):
-        # Have two children
-        id_list = ["node1p2c0", "node1p2c2", "root2c0", "root2c2"]
-        leg_value = [2, 2, 1, 1]
-        leg_value = dict(zip(id_list, leg_value))
-
-        for ids in id_list:
-            node = self.nodes[ids]
-            self.assertEqual(leg_value[ids], node.get_child_leg("child2"))
-
     def test_swap_two_child_legs(self):
         # Have two children
         id_list = ["node1p2c0", "node1p2c2", "root2c0", "root2c2"]
-        leg_value1 = [self.nodes[ids].get_child_leg("child_id")
+        leg_value1 = [self.nodes[ids].neighbour_index("child_id")
                       for ids in id_list]
-        leg_value2 = [self.nodes[ids].get_child_leg("child2")
+        leg_value2 = [self.nodes[ids].neighbour_index("child2")
                       for ids in id_list]
         leg_values = zip(leg_value1, leg_value2)
         leg_values = dict(zip(id_list, leg_values))

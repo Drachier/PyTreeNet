@@ -3,38 +3,7 @@ import numpy as np
 import copy
 
 import pytreenet as ptn
-from pytreenet.operators import Operator, NumericOperator, SymbolicOperator
-
-class TestOperator(unittest.TestCase):
-    def setUp(self):
-        self.identifiers = ["apple", "pear"]
-        self.string = "a^dagger"
-        self.tensor = ptn.crandn((2,2))
-        self.non_op_tensor = ptn.crandn((2,3))
-
-    def test_init_symbolic_singleid(self):
-        operator = Operator(self.string,
-                                    self.identifiers[0])
-        self.assertEqual(self.string, operator.operator)
-        self.assertEqual([self.identifiers[0]], operator.node_identifiers)
-
-    def test_init_symbolic_twoid(self):
-        operator = Operator(self.string,
-                                        self.identifiers)
-        self.assertEqual(self.string, operator.operator)
-        self.assertEqual(self.identifiers, operator.node_identifiers)
-
-    def test_init_numeric_singleid(self):
-        operator = Operator(self.tensor,
-                                    self.identifiers[0])
-        self.assertTrue(np.allclose(self.tensor, operator.operator))
-        self.assertEqual([self.identifiers[0]], operator.node_identifiers)
-
-    def test_init_numeric_twoid(self):
-        operator = Operator(self.tensor,
-                                    self.identifiers)
-        self.assertTrue(np.allclose(self.tensor, operator.operator))
-        self.assertEqual(self.identifiers, operator.node_identifiers)
+from pytreenet.operators import NumericOperator
 
 class TestNumericOperator(unittest.TestCase):
     def setUp(self):
@@ -124,16 +93,6 @@ class TestNumericOperator(unittest.TestCase):
         matrix = np.ones((3,3,3,3))
         operator = NumericOperator(matrix, self.identifiers)
         self.assertFalse(operator.is_unitary())
-
-class TestSymbolicOperator(unittest.TestCase):
-
-    def test_to_numeric(self):
-        identifier = "banana"
-        symb_operator = SymbolicOperator("a", identifier)
-        conv_dict = {"a": np.array([[0,1],[1,0]])}
-        num_operator = symb_operator.to_numeric(conv_dict)
-        self.assertTrue(np.allclose(conv_dict["a"], num_operator.operator))
-        self.assertEqual([identifier], num_operator.node_identifiers)
 
 if __name__ == "__main__":
     unittest.main()

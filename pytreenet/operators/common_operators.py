@@ -1,12 +1,17 @@
 """
 This module provides commonly used operators as numpy arrays.
+
+The operators provided are
+* Pauli matrices X, Y, and Z
+* Bosonic creation, annihilation, and number operator
+* SWAP gates of arbitrary dimension
 """
 from __future__ import annotations
 from typing import Tuple
 
 import numpy as np
 
-from ..util import crandn
+from ..util.ttn_exceptions import positivity_check
 
 def pauli_matrices() -> Tuple[np.ndarray,np.ndarray,np.ndarray]:
     """
@@ -27,9 +32,12 @@ def bosonic_operators(dimension: int = 2) -> Tuple[np.ndarray,np.ndarray,np.ndar
     """
     Supplies the common bosonic operators.
 
+    The common operators are the creation, annihilation, and number operator.
+
     Args:
-        dimension (int, optional): The dimension of the bosonics space to be considers.
-        This determines the size of all the operators. Defaults to 2.
+        dimension (int, optional): The dimension of the bosonic space to be
+            considered. This determines the size of all the operators. Defaults
+            to 2.
 
     Returns:
         Tuple[np.ndarray,np.ndarray,np.ndarray]:
@@ -38,9 +46,7 @@ def bosonic_operators(dimension: int = 2) -> Tuple[np.ndarray,np.ndarray,np.ndar
             * number_op: The bosonic number operator, i.e. a diagonal matrix with increasing
               integers on the diagonal from 0 to dimension-1.
     """
-    if dimension < 1:
-        errstr = "The dimension must be positive!"
-        raise ValueError(errstr)
+    positivity_check(dimension, "dimension")
     sqrt_number_vec = np.asarray([np.sqrt(i)
                                   for i in range(1, dimension)])
 
@@ -56,41 +62,20 @@ def swap_gate(dimension: int = 2) -> np.ndarray:
 
     Args:
         dimension (int, optional): Physical dimension of the two sites,
-         which has to be the same for both. Defaults to 2.
+            which has to be the same for both. Defaults to 2.
 
     Returns:
         np.ndarray: A SWAP-gate for two `dimension`-dimensional systems.
     """
-    if dimension < 1:
-        errstr = "The dimension must be positive!"
-        raise ValueError(errstr)
+    positivity_check(dimension, "dimension")
     swap = np.zeros((dimension**2, dimension**2), dtype=complex)
     for i in range(dimension**2):
         for j in range(dimension**2):
             # Basically find the indices in base dimension
             output_sys1 = int(i / dimension)
             output_sys2 = int(i % dimension)
-
             input_sys1 = int(j / dimension)
             input_sys2 = int(j % dimension)
-
             if (output_sys1 == input_sys2) and (input_sys1 == output_sys2):
                 swap[i,j] = 1
-
     return swap
-
-def random_hermitian_matrix(size: int = 2) -> np.ndarray:
-    """
-    Creates a random hermitian matrix H^\\dagger = H
-
-    Args:
-        size (int, optional): Size of the matrix. Defaults to 2.
-
-    Returns:
-        np.ndarray: The hermitian matrix.
-    """
-    if size < 1:
-        errstr = "The dimension must be positive!"
-        raise ValueError(errstr)
-    matrix = crandn((size,size))
-    return 0.5 * (matrix + matrix.T.conj())

@@ -1,30 +1,40 @@
 """
-This module contains functions for generating random Tree Tensor Network States
-(TTNS).
+This module contains functions generating random Tree Tensor Network States.
 
-Each node in the TTNS is a tensor, and the connections between nodes are 
-represented by the indices of these tensors.
-
-This module is part of a larger package for working with Tree Tensor Networks.
+There are a variety of given tree topologies, which can be filled with random
+tensors.
 """
 from __future__ import annotations
 from enum import Enum
 
-from .ttns import TreeTensorNetworkState
-from ..node import random_tensor_node
+from ..ttns.ttns import TreeTensorNetworkState
+from .random_node import random_tensor_node
 
 class RandomTTNSMode(Enum):
     """
     An enumeration for the different modes of random generation of TTNS.
+
+    The modes are usually concerned with the different ways to choose the
+    virtual bond dimensions.
+
+    SAME: All bond dimensions are chosen equal
+    DIFFVIRT: Virtual dimensions are chosen different. The exact size depends
+        on the topology used.
+    SAMEPHYS: Forces the same physical dimensions for the TTNS.
     """
     SAME = "same_dimension"
     DIFFVIRT = "different_virt_dimensions"
+    SAMEPHYS = "same_phys_dim"
 
-def random_small_ttns() -> TreeTensorNetworkState:
+def random_small_ttns(mode: RandomTTNSMode = RandomTTNSMode.DIFFVIRT) -> TreeTensorNetworkState:
     """
     Generates a small TreeTensorNetworkState of three nodes:
     The root (`"root"`) and its two children (`"c1"` and `"c2"`). The associated 
     tensors are random, but their dimensions are set.
+
+    Args:
+    mode (RandomTTNSMode): The mode of random generation of the TTNS. If mode
+        is DIFFVIRT, the virtual bond dimensions are as follows.
 
                 |2
                 |
@@ -33,26 +43,62 @@ def random_small_ttns() -> TreeTensorNetworkState:
          3|  5/  6\\   |4
           |  /     \\  |
            c1        c2
+
+        Otherwise all virtual bond dimensions default to 2. If the mode is
+        SAMEPHYS all phyiscal dimensions will default to 2.
+
+    Returns:
+        TreeTensorNetwork: A tree tensor network with the above topology and
+            randomly filled tensors.
     """
     random_ttns = TreeTensorNetworkState()
-    root_node, root_tensor = random_tensor_node((5,6,2),"root")
-    random_ttns.add_root(root_node, root_tensor)
-    c1_node, c1_tensor = random_tensor_node((5,3),"c1")
-    random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, "root", 0)
-    c2_node, c2_tensor = random_tensor_node((6,4),"c2")
-    random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, "root", 1)
+    if mode == RandomTTNSMode.DIFFVIRT:
+        root_node, root_tensor = random_tensor_node((5,6,2),"root")
+        random_ttns.add_root(root_node, root_tensor)
+        c1_node, c1_tensor = random_tensor_node((5,3),"c1")
+        random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, "root", 0)
+        c2_node, c2_tensor = random_tensor_node((6,4),"c2")
+        random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, "root", 1)
+    elif mode == RandomTTNSMode.SAMEPHYS:
+        root_node, root_tensor = random_tensor_node((5,6,2),"root")
+        random_ttns.add_root(root_node, root_tensor)
+        c1_node, c1_tensor = random_tensor_node((5,2),"c1")
+        random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, "root", 0)
+        c2_node, c2_tensor = random_tensor_node((6,2),"c2")
+        random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, "root", 1)
+    else:
+        root_node, root_tensor = random_tensor_node((2,2,2),"root")
+        random_ttns.add_root(root_node, root_tensor)
+        c1_node, c1_tensor = random_tensor_node((2,3),"c1")
+        random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, "root", 0)
+        c2_node, c2_tensor = random_tensor_node((2,4),"c2")
+        random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, "root", 1)
     return random_ttns
 
 def random_big_ttns(mode: RandomTTNSMode = RandomTTNSMode.SAME) -> TreeTensorNetworkState:
     """
-    Generates a big TTNS with identifiers of the form `"site" + int`.
-     The identifiers and dimensions are set, but the associated tensors
-     are random.
+    Generates a big TTNS
+    
+    The node identifiers of the form `"site" + int`. The identifiers and
+    dimensions are set, but the associated tensors are random.
 
     Args:
         mode (RandomTTNSMode): The mode of random generation of the TTNS.
-    """
+            Currently the only mode supported is SAME.
 
+    Returns:
+        TreeTensorNetwork: A random TTNS with the following topology
+
+                1------6-----7
+               / \\     \\
+              /   \\     \\
+             /     \\     8 
+            2       4
+            |       |
+            |       |
+            3       5
+        
+    """
     if mode == RandomTTNSMode.SAME:
         # All dimensions virtual and physical are initially the same
         # We need a ttn to work on.
@@ -74,11 +120,25 @@ def random_big_ttns(mode: RandomTTNSMode = RandomTTNSMode.SAME) -> TreeTensorNet
         random_ttns.add_child_to_parent(node6, tensor6, 0, "site1", 2)
         random_ttns.add_child_to_parent(node7, tensor7, 0, "site6", 1)
         random_ttns.add_child_to_parent(node8, tensor8, 0, "site6", 2)
-    return random_ttns
+        return random_ttns
+    errstr = "The only supported mode is RandomTTNSMode.SAME"
+    raise NotImplementedError(errstr)
 
 def random_big_ttns_two_root_children(mode: RandomTTNSMode = RandomTTNSMode.SAME) -> TreeTensorNetworkState:
     """
-    Provides a ttns of the form
+    Returns a random big TTNS where the root has only two children.
+
+    For testing it is important to know that the children of 1 will be in a
+    different order, if the TTNS is orthogonalised.
+
+    Args:
+        mode (RandomTTNSMode): The mode of random generation of the TTNS. If it
+            is SAME all legs will be chosen as 2. For DIFFVIRT the virtual
+            bond dimensons are all different.
+    
+    Returns:
+        TreeTensorNetworkState: A random TTNS with the topology
+
                 0
                / \\
               /   \\
@@ -90,8 +150,6 @@ def random_big_ttns_two_root_children(mode: RandomTTNSMode = RandomTTNSMode.SAME
               /   \\
              4     5
     
-    Args:
-        mode (RandomTTNSMode): The mode of random generation of the TTNS.
     """
     if mode == RandomTTNSMode.SAME:
         shapes = [(2,2,2),(2,2,2,2),(2,2),(2,2,2,2),

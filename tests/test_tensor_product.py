@@ -42,22 +42,23 @@ class TestTensorProduct(unittest.TestCase):
 
     def test_from_operator(self):
         rand = ptn.crandn((2,2))
-        operators = [ptn.Operator("a", ["site1"]),
-                     ptn.Operator(rand, ["site2"])]
+        operators = [ptn.NumericOperator(rand, ["site1"]),
+                     ptn.NumericOperator(rand, ["site2"])]
         tensor_prod = ptn.TensorProduct.from_operators(operators)
         self.assertEqual(2, len(tensor_prod))
-        self.assertEqual("a", tensor_prod["site1"])
+        self.assertTrue(np.allclose(rand, tensor_prod["site1"]))
         self.assertTrue(np.allclose(rand, tensor_prod["site2"]))
 
         # With non-single site operator
-        operators.append(ptn.Operator("fail", ["site3", "site4"]))
+        rand2 = ptn.crandn((2,2,2,2))
+        operators.append(ptn.NumericOperator(rand2, ["site3", "site4"]))
         self.assertRaises(AssertionError, ptn.TensorProduct.from_operators,
                           operators)
 
     def test_into_operator_numeric(self):
         random_arrays = [ptn.crandn((2,2)),
                          ptn.crandn((3,3))]
-        operators = [ptn.Operator(random_arrays[i], "site" + str(i))
+        operators = [ptn.NumericOperator(random_arrays[i], "site" + str(i))
                      for i in range(len(random_arrays))]
         tensor_prod = ptn.TensorProduct.from_operators(operators)
         new_operator = tensor_prod.into_operator()
@@ -68,9 +69,7 @@ class TestTensorProduct(unittest.TestCase):
     def test_into_operator_symbolic(self):
         conversion_dict = {"op0": ptn.crandn((2,2)),
                            "op1": ptn.crandn((3,3))}
-        operators = [ptn.Operator("op" + str(i), "site" + str(i))
-                     for i in range(len(conversion_dict))]
-        tensor_prod = ptn.TensorProduct.from_operators(operators)
+        tensor_prod = ptn.TensorProduct({"site0": "op0", "site1": "op1"})
         new_operator = tensor_prod.into_operator(conversion_dict)
         correct_array = np.kron(conversion_dict["op0"],
                                 conversion_dict["op1"])

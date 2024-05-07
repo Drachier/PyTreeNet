@@ -1,6 +1,7 @@
 """
-Some useful tools
+Some useful tools that do not fit into any other category.
 """
+from typing import Tuple, Any, Dict, List
 from copy import deepcopy, copy
 from collections import Counter
 
@@ -10,32 +11,65 @@ from scipy.sparse.linalg import expm_multiply, eigsh
 from scipy.sparse.linalg import expm as expm_sparse
 from scipy.sparse import csr_matrix
 
-def crandn(size):
+def crandn(size: Tuple[int,...]) -> np.ndarray:
     """
-    Draw random samples from the standard complex normal (Gaussian) distribution.
+    Draw random samples from the standard complex normal (Gaussian)
+      distribution.
+
+    Args:
+        size (Tuple[int,...]): The size/shape of the output array.
+
+    Returns:
+        np.ndarray: The array of random complex numbers.
     """
     # 1/sqrt(2) is a normalization factor
     return (np.random.standard_normal(size)
        + 1j*np.random.standard_normal(size)) / np.sqrt(2)
 
-def copy_object(obj, deep=True):
+def copy_object(obj: Any, deep=True) -> Any:
     """
-    Returns a normal copy of obj, if deep=False and a deepcopy if deep=True.
+    Copy an object.
+
+    Shortens the commonly used if-else statement for copying objects to
+    distinguish between deep and shallow copies.
+
+    Args:
+        obj (Any): The object to copy.
+        deep (bool, optional): Whether to perform a deep copy. Defaults to
+          True.
+    
+    Returns:
+        Any: The copied object.
     """
     if deep:
         new_obj = deepcopy(obj)
     else:
         new_obj = copy(obj)
-
     return new_obj
 
-def sort_dictionary(dictionary):
+def sort_dictionary(dictionary: Dict) -> Dict:
     """
-    Adapted from https://www.geeksforgeeks.org/python-sort-a-dictionary/ .
-    """
-    return {key: val for key, val in sorted(dictionary.items(), key = lambda ele: ele[1], reverse = False)}
+    Sort a dictionary by its values.
 
-def compare_lists_by_value(list1, list2):
+    Args:
+        dictionary (Dict): The dictionary to sort.
+
+    Returns:
+        Dict: The sorted dictionary.
+    """
+    return dict(sorted(dictionary.items(),key = lambda ele: ele[1], reverse = False))
+
+def compare_lists_by_value(list1: List, list2: List) -> bool:
+    """
+    Compare, if two lists have the same elements.
+
+    Args:
+        list1 (List): The first list.
+        list2 (List): The second list.
+    
+    Returns:
+        bool: Whether the two lists have the same elements.
+    """
     if len(list1) != len(list2):
         return False
     if Counter(list1) == Counter(list2):
@@ -46,7 +80,17 @@ def fast_exp_action(exponent: np.ndarray,
                     vector: np.ndarray,
                     mode: str = "fastest") -> np.ndarray:
     """
-    Result = exp( exponent) @ vector
+    Perform the action of the exponentiation of a matrix on a vector.
+
+    Different modes can be choosen to perform the action. The fastest mode
+    is the default mode. The modes are:
+
+    - "expm": Use the scipy expm function.
+    - "eigsh": Use the scipy eigsh function. Only valid for hermitian matrices.
+    - "chebyshev": Use the scipy expm_multiply function.
+    - "sparse": Use the scipy sparse expm function. Only valid for sparse
+        matrices.
+    - "none": Do not perform any action.
 
     Args:
         exponent (np.ndarray): The exponent in matrix form.
@@ -58,6 +102,7 @@ def fast_exp_action(exponent: np.ndarray,
 
     Returns:
         np.ndarray: The result of the exponentiation and multiplication.
+          exp(exponent) @ vector.
     """
     if mode == "fastest":
         mode = "chebyshev"

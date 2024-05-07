@@ -1,13 +1,25 @@
+"""
+Module to find the update path of a TDVP algorithm.
+"""
 from __future__ import annotations
 from typing import List
 from copy import deepcopy
-from ...tree_structure import TreeStructure
+from ...core.tree_structure import TreeStructure
 
 class TDVPUpdatePathFinder():
     """
-    Constructs the update path for a tdvp algorithm that minimises the number
-     of orthogonalisations (i.e. QR-decomps) required during the time
-     evolution.
+    Constructs the update path of a TDVP algorithm.
+
+    The update path should minimise the number of orthogonalisations, i.e.
+    QR-decompositions, during the time-evolution. To this end the start and end
+    node are chosen to be the two leafs which are furthest away from each
+    other.
+
+    Attributes:
+        state (TreeStructure): The tree topology to find the update path on.
+        start (GraphNode): The node to start the update path at.
+        main_path (List[str]): The main path, i.e. the longest path in the
+            tree along which to run. For an MPS this would be the only path.
     """
 
     def __init__(self, state: TreeStructure) -> None:
@@ -18,9 +30,10 @@ class TDVPUpdatePathFinder():
     def find_start_node_id(self) -> str:
         """
         Finds the node id at which to start the TDVP update.
+
         This would be the initial orthogonalisation center of the state that
-         is to be time-evolved. Currently, we assume this site is the leaf
-         furthest away from the root.
+        is to be time-evolved. Currently, we assume this site is the leaf
+        furthest away from the root.
         # TODO: Allow option to find the leaves furthest away from one another.
 
         Returns:
@@ -33,15 +46,15 @@ class TDVPUpdatePathFinder():
     def path_for_branch(self, branch_origin: str) -> List[str]:
         """
         Finds the node_ids that need to be visited after the last main path
-         node and before branch_origin.
+        node and before branch_origin.
 
         Args:
             branch_origin (str): The identifier of the node in the main path
-             which has the branch as a subtree.
+                which has the branch as a subtree.
 
         Returns:
             List[str]: The desired path. The children appear before their
-             parent.
+                parent.
         """
         node = self.state.nodes[branch_origin]
         children_ids = [child_id for child_id in node.children
@@ -65,10 +78,14 @@ class TDVPUpdatePathFinder():
     def find_furthest_non_visited_leaf(self, path: List[str]) -> str:
         """
         Finds the leaf that is furthest from the origin once and was not yet
-         visited.
+        visited.
 
         Args:
             path (List[sr]): A list of all node_ids already visited.
+
+        Returns:
+            str: The identifier of the leaf which is furthest away from the
+                main path and has not been visited yet.
         """
         all_leaves = self.state.get_leaves()
         non_visited_leaves = [leaf for leaf in all_leaves
@@ -83,25 +100,27 @@ class TDVPUpdatePathFinder():
     def find_main_path_down_from_root(self, path: List[str]) -> List[str]:
         """
         Finds the main path which to traverse from the root to the last
-         leaf.
+        leaf.
 
         Args:
             path (List[str]): The path already traversed.
 
         Returns:
             List[str]: Main path from the root to the last leaf.
-             `[root, node, node, ... , leaf]`
+                `[root, node, node, ... , leaf]`
         """
         final_node_id = self.find_furthest_non_visited_leaf(path)
         main_path_down = self.state.find_path_to_root(final_node_id)
         main_path_down.reverse()
         return main_path_down
 
-    def _branch_downwards_origin_is_root(self, main_path_down: List[str]) -> List[str]:
+    def _branch_downwards_origin_is_root(self,
+                                         main_path_down: List[str]) -> List[str]:
         """
         Finds the path going through the branches starting at the origin.
-         This specifically excludes the branch already traversed and the
-         branch used to go back down the tree.
+        
+        This specifically excludes the branch already traversed and the
+        branch used to go back down the tree.
 
         Args:
             main_path_down (List[str]): The main path down the tree.
@@ -129,7 +148,7 @@ class TDVPUpdatePathFinder():
 
         Returns:
             List[str]: The path through the branch ending with the
-             branch_origin.
+                branch_origin.
         """
         children_ids = [child_id
                         for child_id in self.state.nodes[branch_origin].children
@@ -149,7 +168,7 @@ class TDVPUpdatePathFinder():
 
         Returns:
             List[str]: The complete path from the root to the last leaf.
-             `[root, node, node, ... , leaf]`
+                `[root, node, node, ... , leaf]`
         """
         root_id = self.state.root_id
         assert root_id is not None
@@ -168,8 +187,9 @@ class TDVPUpdatePathFinder():
     def find_path(self) -> List[str]:
         """
         Finds the complete update path for a TDVP along a main path.
-         All nodes in branches are added before the branch origin in the main
-         path.
+        
+        All nodes in branches are added before the branch origin in the main
+        path.
         """
         path = []
         for branch_origin in self.main_path:
