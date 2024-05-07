@@ -2,18 +2,6 @@ from __future__ import annotations
 from typing import Any, Dict, Tuple
 from argparse import ArgumentParser
 
-# FOR PATH PROBLEMS 
-import sys
-from pathlib import Path
-
-# Add the parent directory to sys.path
-current_dir = Path(__file__).parent
-parent_dir = current_dir.parent
-sys.path.append(str(parent_dir))
-
-# END PATH PROBLEMS
-
-
 import h5py
 import numpy as np
 from tqdm import tqdm
@@ -157,7 +145,7 @@ def obtain_bond_dimensions(ttno: ptn.TTNO) -> np.ndarray:
 
 def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
          leg_dict: Dict[str,int],
-         num_runs: int = 20, min_num_terms: int=10,
+         num_runs: int = 10000, min_num_terms: int=1,
          max_num_terms: int = 30):
     # Prepare variables
     X, Y, Z = ptn.pauli_matrices()
@@ -184,7 +172,7 @@ def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
                                                           rng,
                                                           num_terms)
                 if not hamiltonian.contains_duplicates():
-                    ttno_ham = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree, ptn.state_diagram.method.CM)
+                    ttno_ham = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree)
                     total_tensor = hamiltonian.to_tensor(ref_tree).operator
                     ttno_svd = ptn.TTNO.from_tensor(ref_tree,
                                                     total_tensor,
