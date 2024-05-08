@@ -10,6 +10,8 @@ from numpy.random import default_rng
 
 import pytreenet as ptn
 
+
+
 def construct_tree_root_at_1() -> ptn.TreeTensorNetworkState:
     """
     Generates the desired tree tensor network used as a reference to construct
@@ -155,6 +157,8 @@ def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
     with h5py.File(filename, "w") as file:
         save_metadata(file, seed, max_num_terms, num_runs, conversion_dict,
                       leg_dict)
+        error_count = 0
+
         for num_terms in tqdm(range(min_num_terms, max_num_terms + 1)):
             dset_svd, dset_ham = create_bond_dim_data_sets(file,
                                                            num_terms,
@@ -162,6 +166,7 @@ def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
                                                            num_runs)
             run = 0
             while run < num_runs:
+                print("num: ", run) if run % 25 == 0 else None
                 hamiltonian = generate_random_hamiltonian(conversion_dict,
                                                           ref_tree,
                                                           rng,
@@ -175,8 +180,11 @@ def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
                                                     mode=ptn.Decomposition.tSVD)
                     dset_ham[run, :] = obtain_bond_dimensions(ttno_ham)
                     dset_svd[run, :] = obtain_bond_dimensions(ttno_svd)
-                    if np.all(dset_ham[run, :] > dset_svd[run, :]):
+                    if np.any(dset_ham[run, :] > dset_svd[run, :]):
                         print(hamiltonian)
+                        print("Difference is: ", dset_ham[run, :], " ---- ", dset_svd[run, :])
+                        error_count += 1
+                        print("Total difference: ", error_count)
                     run += 1
 
 if __name__ == "__main__":
