@@ -195,7 +195,8 @@ class TrotterStep:
 
 class TrotterSplitting(List):
     """
-    A trotter splitting allows the approximate breaking of exponentials of operators.
+    A trotter splitting allows the approximate breaking of exponentials of
+    operators.
     
     Different kinds of splitting lead to different error sizes.
     """
@@ -216,10 +217,10 @@ class TrotterSplitting(List):
 
     @classmethod
     def from_lists(cls,
-                  tensor_products: List[TensorProduct],
-                  splitting: Union[List[Tuple[int, int], int], None] = None,
-                  swaps_before: Union[List[SWAPlist], None] = None,
-                  swaps_after: Union[List[SWAPlist], None] = None) -> TrotterSplitting:
+                   tensor_products: List[TensorProduct],
+                   splitting: Union[List[Tuple[int, int], int], None] = None,
+                   swaps_before: Union[List[SWAPlist], None] = None,
+                   swaps_after: Union[List[SWAPlist], None] = None) -> TrotterSplitting:
         """
         Creates a TrotterSplitting instance from lists.
 
