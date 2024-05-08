@@ -41,7 +41,8 @@ class OneSiteTDVP(TDVPAlgorithm):
                 nodes.
 
         Returns:
-            np.ndarray: The effective link Hamiltonian
+            np.ndarray: The effective link Hamiltonian::
+
                  _____       out         _____
                 |     |____1      0_____|     |
                 |     |                 |     |
@@ -57,6 +58,7 @@ class OneSiteTDVP(TDVPAlgorithm):
                 |     |_____       _____|     |
                 |_____|  2         3    |_____|
                               in
+            
         """
         link_id = self.create_link_id(node_id, next_node_id)
         target_node = self.state.nodes[link_id]

@@ -74,15 +74,13 @@ def tensor_qr_decomposition(tensor: np.ndarray,
             SplitMode.REDUCED.
 
     Returns:
-        Tuple[np.ndarray,np.ndarray]: (Q, R)
+        Tuple[np.ndarray,np.ndarray]: (Q, R)::
 
-    Example:
-             |2                             |1
-           __|_      r_legs = (1, )       __|_        ____
-          |    |     q_legs = (0,2)      |    |      | R  |
-       ___|    |___  -------------->  ___| Q  |______|____|____
-       0  |____|  1                   0  |____| 2   0        1
-
+                  |2                             |1
+                __|_      r_legs = (1, )       __|_        ____
+               |    |     q_legs = (0,2)      |    |      | R  |
+            ___|    |___  -------------->  ___| Q  |______|____|____
+            0  |____|  1                   0  |____| 2   0        1
 
     """
     correctly_order = q_legs + r_legs == list(range(len(q_legs) + len(r_legs)))
@@ -125,14 +123,15 @@ def tensor_svd(tensor: np.ndarray,
     Returns:
         Tuple[np.ndarray,np.ndarray,np.ndarray]: (U, S, V), where S is the
             vector of singular values and U and V are tensors equivalent to an
-            isometry.
+            isometry::
 
-    Example:
-             |2                             |1
-           __|_      v_legs = (1, )       __|_        ____        ____
-          |    |     q_legs = (0,2)      |    |      |  S |      |    |
-       ___|    |___  -------------->  ___|  U |______|____|______| Vh |____1 
-       0  |____|  1                   0  |____| 2   0       1  0 |____|
+                      |2                             |1
+                    __|_      v_legs = (1, )       __|_        ____        ____
+                   |    |     q_legs = (0,2)      |    |      |  S |      |    |
+                ___|    |___  -------------->  ___|  U |______|____|______| Vh |____1 
+                0  |____|  1                   0  |____| 2   0       1  0 |____|
+
+    
     """
     correctly_ordered = u_legs + v_legs == list(range(len(u_legs) + len(v_legs)))
     full_matrices = mode.numpy_svd_mode()
@@ -303,14 +302,14 @@ def truncated_tensor_svd(tensor: np.ndarray,
     
     Returns:
         Tuple[np.ndarray,np.ndarray,np.ndarray]: (U, S, V), where U and V are
-         the truncated tensors and S are the singular values.
+         the truncated tensors and S are the singular values::
 
-    Example:
-             |2                             |1
-           __|_      v_legs = (1, )       __|_        ____        ____
-          |    |     q_legs = (0,2)      |    |      |  S |      |    |
-       ___|    |___  -------------->  ___|  U |______|____|______| Vh |____1 
-       0  |____|  1                   0  |____| 2   0       1  0 |____|
+                  |2                             |1
+                __|_      v_legs = (1, )       __|_        ____        ____
+               |    |     q_legs = (0,2)      |    |      |  S |      |    |
+            ___|    |___  -------------->  ___|  U |______|____|______| Vh |____1 
+            0  |____|  1                   0  |____| 2   0       1  0 |____|
+
     """
     u, s, vh = tensor_svd(tensor, u_legs, v_legs)
     s, _ = truncate_singular_values(s, svd_params)

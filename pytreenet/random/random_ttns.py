@@ -34,7 +34,7 @@ def random_small_ttns(mode: RandomTTNSMode = RandomTTNSMode.DIFFVIRT) -> TreeTen
 
     Args:
     mode (RandomTTNSMode): The mode of random generation of the TTNS. If mode
-        is DIFFVIRT, the virtual bond dimensions are as follows.
+        is DIFFVIRT, the virtual bond dimensions are as follows::
 
                 |2
                 |
@@ -87,7 +87,7 @@ def random_big_ttns(mode: RandomTTNSMode = RandomTTNSMode.SAME) -> TreeTensorNet
             Currently the only mode supported is SAME.
 
     Returns:
-        TreeTensorNetwork: A random TTNS with the following topology
+        TreeTensorNetwork: A random TTNS with the following topology::
 
                 1------6-----7
                / \\     \\
@@ -137,7 +137,7 @@ def random_big_ttns_two_root_children(mode: RandomTTNSMode = RandomTTNSMode.SAME
             bond dimensons are all different.
     
     Returns:
-        TreeTensorNetworkState: A random TTNS with the topology
+        TreeTensorNetworkState: A random TTNS with the topology::
 
                 0
                / \\

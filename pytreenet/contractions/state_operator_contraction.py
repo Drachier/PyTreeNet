@@ -74,7 +74,7 @@ def contract_node_with_environment(node_id: str,
         np.ndarray: The resulting tensor. A and B are the tensors in state1 and
             state2, respectively, corresponding to the node with the identifier
             node_id. C aer the tensors in the dictionary corresponding to the
-            subtrees going away from the node.
+            subtrees going away from the node::
 
                             ______
                  _____     |      |      _____
@@ -91,6 +91,7 @@ def contract_node_with_environment(node_id: str,
                 |     |    |      |     |     |
                 |     |____|  A   |_____|     |
                 |_____|    |______|     |_____|
+    
     """
     ket_node, ket_tensor = state[node_id]
     ket_neigh_block = contract_all_neighbour_blocks_to_ket(ket_tensor,
@@ -158,7 +159,8 @@ def contract_leaf(node_id: str,
         operator (TTNO): The TTNO representing the Hamiltonian.
 
     Returns:
-        np.ndarray: The contracted partial tree.
+        np.ndarray: The contracted partial tree::
+    
                      _____
            2    ____|     |
                     |  A* |
@@ -175,6 +177,7 @@ def contract_leaf(node_id: str,
            0    ____|     |
                     |  A  |
                     |_____|
+        
     """
     ket_node, ket_tensor = state[node_id]
     bra_tensor = ket_tensor.conj()
@@ -208,7 +211,8 @@ def contract_subtrees_using_dictionary(node_id: str, ignored_node_id: str,
             already contracted subtrees.
 
     Returns:
-        np.ndarray: The contracted tensor:
+        np.ndarray: The contracted tensor::
+
                      _____      ______
               2 ____|     |____|      |
                     |  A* |    |      |
@@ -225,6 +229,7 @@ def contract_subtrees_using_dictionary(node_id: str, ignored_node_id: str,
               0 ____|     |____|      |
                     |  A  |    |      |
                     |_____|    |______|
+    
     """
     ket_node, ket_tensor = state[node_id]
     tensor = contract_all_but_one_neighbour_block_to_ket(ket_tensor,
@@ -265,7 +270,8 @@ def contract_operator_tensor_ignoring_one_leg(current_tensor: np.ndarray,
             virtual leg should not point.
 
     Returns:
-        np.ndarray: The contracted tensor.
+        np.ndarray: The contracted tensor::
+    
                                     ______
                                    |      |
                             _______|      |
@@ -282,6 +288,7 @@ def contract_operator_tensor_ignoring_one_leg(current_tensor: np.ndarray,
                     ____|     |____|      |
                         |  A  |    |      |
                         |_____|    |______|
+    
     """
     _, op_legs = get_equivalent_legs(ket_node, op_node, [ignoring_node_id])
     # Due to the legs to the bra tensor, the legs of the current tensor are a
@@ -316,7 +323,7 @@ def contract_bra_tensor_ignore_one_leg(bra_tensor: np.ndarray,
             virtual leg should not point.
 
     Returns:
-        np.ndarray: The contracted tensor.
+        np.ndarray: The contracted tensor::
                                     
                      _____      ______
                 ____|     |____|      |
@@ -334,6 +341,7 @@ def contract_bra_tensor_ignore_one_leg(bra_tensor: np.ndarray,
                 ____|     |____|      |
                     |  A  |    |      |
                     |_____|    |______|
+    
     """
     num_neighbours = state_node.nneighbours()
     ignored_node_index = state_node.neighbour_index(ignoring_node_id)

@@ -176,7 +176,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
                 be contracted.
 
         Returns:
-            np.ndarray: The resulting effective two-site Hamiltonian tensor.
+            np.ndarray: The resulting effective two-site Hamiltonian tensor::
 
                  _____                out              _____
                 |     |____n-1                  0_____|     |
@@ -193,6 +193,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
                 |     |_____                     _____|     |
                 |_____|  2n                       n+1 |_____|
                                       in
+        
         """
         # Contract all but one neighbouring block of each node
         h_target = self.hamiltonian.tensors[target_node_id]
