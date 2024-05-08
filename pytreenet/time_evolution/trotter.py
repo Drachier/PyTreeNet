@@ -263,14 +263,24 @@ class TrotterSplitting(List):
                 index = split[0]
                 factor = split[1]
             tp = tensor_products[index]
-            swaps_b = swaps_before[index]
-            swaps_a = swaps_after[index]
+            swaps_b = cls._prepare_swap_list(index,swaps_before)    
+            swaps_a = cls._prepare_swap_list(index,swaps_after)
             trotter_step = TrotterStep(tp,
                                        factor,
                                        swaps_before=swaps_b,
                                        swaps_after=swaps_a)
             trotter_steps.append(trotter_step)
         return TrotterSplitting(trotter_steps)
+    
+    @staticmethod
+    def _prepare_swap_list(index: int, swaps: Union[SWAPlist,None]) -> SWAPlist:
+        """
+        Prepares a given swaplist for a trottersteps according to the list of
+        swaps lists.
+        """
+        if swaps is None:
+            return SWAPlist()
+        return swaps[index]
 
     def exponentiate_splitting(self,
                                delta_time: float,
