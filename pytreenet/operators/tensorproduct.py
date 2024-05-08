@@ -84,7 +84,7 @@ class TensorProduct(UserDict):
         if len(self) != len(other):
             # To avoid subdicts
             return False
-        for identifier, operator in self.keys():
+        for identifier, operator in self.items():
             if identifier not in other:
                 # Avoids KeyError
                 return False
