@@ -271,7 +271,7 @@ class TrotterSplitting(List):
                                        swaps_after=swaps_a)
             trotter_steps.append(trotter_step)
         return TrotterSplitting(trotter_steps)
-    
+
     @staticmethod
     def _prepare_swap_list(index: int, swaps: Union[SWAPlist,None]) -> SWAPlist:
         """
