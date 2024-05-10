@@ -39,7 +39,8 @@ class TTNO(TreeTensorNetwork):
 
     @classmethod
     def from_hamiltonian(cls, hamiltonian: Hamiltonian,
-                            reference_tree: TreeStructure, method: TTNOFinder = TTNOFinder.TREE ) -> TTNO:
+                            reference_tree: TreeStructure,
+                            method: TTNOFinder = TTNOFinder.TREE ) -> TTNO:
         """
         Generates a TTNO from a Hamiltonian.
 

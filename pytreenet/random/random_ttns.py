@@ -17,10 +17,11 @@ class RandomTTNSMode(Enum):
     The modes are usually concerned with the different ways to choose the
     virtual bond dimensions.
 
-    SAME: All bond dimensions are chosen equal
-    DIFFVIRT: Virtual dimensions are chosen different. The exact size depends
+    #. SAME: All bond dimensions are chosen equal
+    #. DIFFVIRT: Virtual dimensions are chosen different. The exact size depends
         on the topology used.
-    SAMEPHYS: Forces the same physical dimensions for the TTNS.
+    #. SAMEPHYS: Forces the same physical dimensions for the TTNS.
+
     """
     SAME = "same_dimension"
     DIFFVIRT = "different_virt_dimensions"
@@ -33,19 +34,19 @@ def random_small_ttns(mode: RandomTTNSMode = RandomTTNSMode.DIFFVIRT) -> TreeTen
     tensors are random, but their dimensions are set.
 
     Args:
-    mode (RandomTTNSMode): The mode of random generation of the TTNS. If mode
-        is DIFFVIRT, the virtual bond dimensions are as follows::
+        mode (RandomTTNSMode): The mode of random generation of the TTNS. If mode
+            is DIFFVIRT, the virtual bond dimensions are as follows::
 
-                |2
-                |
-                r
-               / \\
-         3|  5/  6\\   |4
-          |  /     \\  |
-           c1        c2
+                        |2
+                        |
+                        r
+                       / \\
+                 3|  5/  6\\   |4
+                  |  /     \\  |
+                   c1        c2
 
-        Otherwise all virtual bond dimensions default to 2. If the mode is
-        SAMEPHYS all phyiscal dimensions will default to 2.
+            Otherwise all virtual bond dimensions default to 2. If the mode is
+            SAMEPHYS all phyiscal dimensions will default to 2.
 
     Returns:
         TreeTensorNetwork: A tree tensor network with the above topology and
