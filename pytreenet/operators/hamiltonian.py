@@ -167,8 +167,8 @@ class Hamiltonian():
                 raise NotCompatibleException(errstr)
 
     def pad_with_identities(self, reference_ttn: TreeTensorNetwork,
-                          mode: PadMode = PadMode.safe, 
-                          symbolic: bool = True) -> Hamiltonian:
+                           mode: PadMode = PadMode.safe, 
+                           symbolic: bool = True) -> Hamiltonian:
         """
         Pads a Hamiltonian with identities.
 

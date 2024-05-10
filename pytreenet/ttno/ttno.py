@@ -53,6 +53,7 @@ class TTNO(TreeTensorNetwork):
         Returns:
             TTNO: The resulting TTNO.
         """
+        hamiltonian = hamiltonian.pad_with_identities(reference_tree)
         state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
                                                       reference_tree, method)
         ttno = TTNO()
