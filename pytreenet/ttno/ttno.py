@@ -390,3 +390,5 @@ class TTNO(TreeTensorNetwork):
             del leg_dict[key_w_min_index]
 
         return new_leg_dict
+
+TreeTensorNetworkOperator = TTNO

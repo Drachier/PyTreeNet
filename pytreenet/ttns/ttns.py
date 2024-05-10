@@ -85,3 +85,5 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             return contract_two_ttns(ttn, conj_ttn)
         # Operator is a TTNO
         return expectation_value(self, operator)
+
+TTNS = TreeTensorNetworkState
