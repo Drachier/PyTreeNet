@@ -245,7 +245,8 @@ class TDVPAlgorithm(TTNTimeEvolution):
                 contraction.
         
         Returns:
-            np.ndarray: The tensor resulting from the contraction:
+            np.ndarray: The tensor resulting from the contraction::
+            
                  _____       out         _____
                 |     |____n-1    0_____|     |
                 |     |                 |     |

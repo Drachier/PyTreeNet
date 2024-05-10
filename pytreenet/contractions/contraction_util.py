@@ -91,7 +91,8 @@ def contract_neighbour_block_to_ket(ket_tensor: np.ndarray,
             contracted with the ket tensor.
     
     Returns:
-        np.ndarray: The resulting tensor.
+        np.ndarray: The resulting tensor::
+
                                     ______
                                ____|      |
                                . n |      |
@@ -102,6 +103,7 @@ def contract_neighbour_block_to_ket(ket_tensor: np.ndarray,
                     ____|     |____|      |
                         |  A  |  0 |      |
                         |_____|    |______|
+
     """
     cached_neighbour_tensor = partial_tree_cache.get_entry(neighbour_id,
                                                            ket_node.identifier)
@@ -135,7 +137,8 @@ def contract_neighbour_block_to_ket_ignore_one_leg(ket_tensor: np.ndarray,
             contracted with the ket tensor.
 
     Returns:
-        np.ndarray: The resulting tensor.
+        np.ndarray: The resulting tensor::
+
                                     ______
                                ____|      |
                                . n |      |
@@ -146,6 +149,7 @@ def contract_neighbour_block_to_ket_ignore_one_leg(ket_tensor: np.ndarray,
                     ____|     |____|      |
                         |  A  |  0 |      |
                         |_____|    |______|
+
     """
     tensor_index_to_neighbour = determine_index_with_ignored_leg(ket_node,
                                                                  neighbour_id,
@@ -193,7 +197,8 @@ def contract_all_neighbour_blocks_to_ket(ket_tensor: np.ndarray,
             already contracted subtrees.
 
     Returns:
-        np.ndarray: The resulting tensor.
+        np.ndarray: The resulting tensor::
+
              ______                 ______
             |      |____       ____|      |
             |      |n             n|      |
@@ -204,6 +209,7 @@ def contract_all_neighbour_blocks_to_ket(ket_tensor: np.ndarray,
             |      |____|     |____|      |
             |      |0   |  A  |   0|      |
             |______|    |_____|    |______|
+
         """
     result_tensor = ket_tensor
     for neighbour_id in ket_node.neighbouring_nodes():
@@ -239,7 +245,8 @@ def contract_neighbour_block_to_hamiltonian(hamiltonian_tensor: np.ndarray,
             the Hamiltonian tensor.
 
     Returns:
-        np.ndarray: The resulting tensor.
+        np.ndarray: The resulting tensor::
+
                  _____       out      
                 |     |____    
                 |     |   4             
@@ -255,6 +262,7 @@ def contract_neighbour_block_to_hamiltonian(hamiltonian_tensor: np.ndarray,
                 |     |_____       
                 |_____|    3      
                               in
+
     """
     cached_neighbour_tensor = partial_tree_cache.get_entry(neighbour_id,
                                                            hamiltonian_node.identifier)             
@@ -283,7 +291,7 @@ def contract_neighbour_block_to_hamiltonian_ignore_one_leg(hamiltonian_tensor: n
             already contracted subtrees.
 
     Returns:
-        np.ndarray: The resulting tensor.
+        np.ndarray: The resulting tensor::
 
                  _____       out      
                 |     |____    
@@ -300,6 +308,7 @@ def contract_neighbour_block_to_hamiltonian_ignore_one_leg(hamiltonian_tensor: n
                 |     |_____       
                 |_____|    3      
                               in
+
     """
     tensor_index_to_neighbour = determine_index_with_ignored_leg(hamiltonian_node,
                                                                  neighbour_id,
@@ -326,7 +335,7 @@ def contract_all_but_one_neighbour_block_to_hamiltonian(hamiltonian_tensor: np.n
             already contracted subtrees.
 
     Returns:
-        np.ndarray: The resulting tensor.
+        np.ndarray: The resulting tensor::
 
                  _____       out      
                 |     |____    
@@ -343,6 +352,7 @@ def contract_all_but_one_neighbour_block_to_hamiltonian(hamiltonian_tensor: np.n
                 |     |_____       
                 |_____|    3      
                               in
+
     """
     result_tensor = hamiltonian_tensor
     for neighbour_id in hamiltonian_node.neighbouring_nodes():
@@ -367,7 +377,8 @@ def contract_all_neighbour_blocks_to_hamiltonian(hamiltonian_tensor: np.ndarray,
             already contracted subtrees.
 
     Returns:
-        np.ndarray: The resulting tensor.
+        np.ndarray: The resulting tensor::
+
                  _____                   _____
                 |     |____2      2_____|     |
                 |     |                 |     |
@@ -382,6 +393,7 @@ def contract_all_neighbour_blocks_to_hamiltonian(hamiltonian_tensor: np.ndarray,
                 |     |                 |     |
                 |     |_____       _____|     |
                 |_____| 0           0   |_____|
+                
                               
         """
     result_tensor = hamiltonian_tensor

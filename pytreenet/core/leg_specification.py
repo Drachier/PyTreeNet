@@ -8,7 +8,7 @@ splitting of a tensor. It allows the use of node identifiers rather than leg
 indices, avoiding potential complications.
 
 Example:
-    Assume we want to perform the following split
+    Assume we want to perform the following split::
 
                 |open1  |open 0                             |open1          |open0
              ___|_______|___                             ___|___         ___|___
@@ -19,7 +19,9 @@ Example:
           child2|       |child3                       child2|         child3|
     
     the corresponding code would be:
-    ```python
+
+    .. code-block:: python
+
         # Creating the mother node
         ctensor = crandn((2,2,2,2,2,2))
         C = Node(identifier="C",tensor=ctensor)
@@ -38,11 +40,11 @@ Example:
         open_legsB = [4]
 
         # The LegSpecification
-        legsA = LegSpecification(parent_legA, children_legsA, open_legsA
+        legsA = LegSpecification(parent_legA, children_legsA, open_legsA,
                                  node=C)
-        legsB = LegSpecification(parent_legB, children_legsB, open_legsB
+        legsB = LegSpecification(parent_legB, children_legsB, open_legsB,
                                  node=C)
-    ```
+
 """
 from __future__ import annotations
 from typing import Union, List

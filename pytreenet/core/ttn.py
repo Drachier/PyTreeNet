@@ -9,7 +9,9 @@ splitting nodes. It also provides methods to move the orthogonality center of
 the TTN.
 
 Example:
-    ```python
+
+.. code-block:: python
+
     from pytreenet import TreeTensorNetwork, Node, crandn
     import numpy as np
 
@@ -38,7 +40,6 @@ Example:
 
     # Contract the grandchild node with the child node
     ttn.contract_nodes("child2", "grandchild")
-    ```
     
 For details and further usage refer to the example notebooks.
 """
@@ -146,7 +147,9 @@ class TreeTensorNetwork(TreeStructure):
         Since during addition of nodes the tensors are not actually transposed,
         this has to be done here. This way whenever tensors are accessed, their
         leg ordering is
-            (parent_leg, children_legs, open_legs)
+        
+        ``(parent_leg, children_legs, open_legs)``
+        
         The tensors are collected in a diciotnary, where the keys are the node
         identifiers.
         """
@@ -435,20 +438,21 @@ class TreeTensorNetwork(TreeStructure):
                       absorbed_matrix_leg_index: int = 1):
         """
         Absorbs a matrix into one of this TTN's tensors at a given tensor
-         leg.
+        leg.
 
         Args:
-        node_id (str): Identifier of the node/tensor into which the matrix
-            should be absorbed.
-        absorbed_matrix (np.ndarray): Matrix to be absorbed. Has to be a
-            square matrix, as otherwise the tensor shape is changed. If you
-            desire to contract a non-square matrix/ a higher-degree tensor, add
-            a new child to this tensor and contract it with this tensor.
-        this_tensors_leg_index (int): The leg of this TTN's tensor that is to
-            be contracted with the absorbed tensor.
-        absorbed_tensors_leg_index (int, Optional): Leg that is to be
-            contracted with this instance's tensor. Defaults to 1, as this is
-            usually considered to be the input leg of a matrix.
+            node_id (str): Identifier of the node/tensor into which the matrix
+                should be absorbed.
+            absorbed_matrix (np.ndarray): Matrix to be absorbed. Has to be a
+                square matrix, as otherwise the tensor shape is changed. If you
+                desire to contract a non-square matrix/ a higher-degree tensor, add
+                a new child to this tensor and contract it with this tensor.
+            this_tensors_leg_index (int): The leg of this TTN's tensor that is to
+                be contracted with the absorbed tensor.
+            absorbed_tensors_leg_index (int, Optional): Leg that is to be
+                contracted with this instance's tensor. Defaults to 1, as this is
+                usually considered to be the input leg of a matrix.
+
         """
         m_shape = absorbed_matrix.shape
         if len(absorbed_matrix) != 2 or m_shape[0] != m_shape[1]:
@@ -480,6 +484,7 @@ class TreeTensorNetwork(TreeStructure):
             tensor_leg (int, optional): The leg of the external tensor which is
                 to be contracted. Defaults to 1, as this is usually the input
                 leg of a matrix.
+
         """
         node = self.nodes[node_id]
         neighbour_leg = node.neighbour_index(neighbour_id)
@@ -490,8 +495,9 @@ class TreeTensorNetwork(TreeStructure):
         Absorb a tensor into the open legs of the tensor of a node.
 
         This tensor will be absorbed into all open legs and it is assumed, the
-         leg order of the tensor to be absorbed is the same as the order of
-         the open legs of the node.
+        leg order of the tensor to be absorbed is the same as the order of
+        the open legs of the node.
+
         Since the tensor to be absorbed is considered to represent an operator
         acting on the node, it will have to have exactly twice as many legs as
         the node has open legs. The input legs, i.e. the ones contracted, are
@@ -523,10 +529,14 @@ class TreeTensorNetwork(TreeStructure):
         associated tensor.
         Note that one of the nodes has to be the parent of the other.
         The resulting leg order is the following:
-            `(parent_parent_leg, node1_children_legs, node2_children_legs,
-            node1_open_legs, node2_open_legs)`
+
+        ``(parent_parent_leg, node1_children_legs, node2_children_legs,
+        node1_open_legs, node2_open_legs)``
+    
         The resulting node will have the identifier
-                    `parent_id + "contr" + child_id`
+
+        ``parent_id + "contr" + child_id``
+
         unless an alternative is provided.
 
         Note that this removes the original nodes and tensors from the TTN.
@@ -536,6 +546,7 @@ class TreeTensorNetwork(TreeStructure):
             node_id2 (str): Identifier of second tensor
             new_identifier (str, optional): A potential new identifier.
             Otherwise defaults to `node_id1 + "contr" + node_id2`.
+        
         """
         if new_identifier == "":
             new_identifier = node_id1 + "contr" + node_id2

@@ -27,9 +27,8 @@ def transpose_tensor_by_leg_list(tensor: np.ndarray,
             of the new tensor.
     
     Returns:
-        np.ndarray: New tensor that is the transposed input tensor.
+        np.ndarray: New tensor that is the transposed input tensor::
 
-    Example:
             _____       (0,2)       _____
         ___|     |___   (1,3)   ___|     |___
         0  |     |  1   ---->   0  |     |  2 
@@ -115,12 +114,13 @@ def compute_transfer_tensor(tensor: np.ndarray,
             tensor to be contracted.
 
     Returns:
-        np.ndarray: The transfer tensor, i.e.
+        np.ndarray: The transfer tensor, i.e.::
+
                  ____          ____
                 |    |__oi1___|    |
              ___| A  |__oi2___| A* |____
                 |____|        |____|
-
+    
     """
     if isinstance(contr_indices, int):
         contr_indices = (contr_indices, )

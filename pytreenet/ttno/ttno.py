@@ -6,7 +6,8 @@ import numpy as np
 from ..core.ttn import TreeTensorNetwork
 from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      tensor_svd,
-                                     truncated_tensor_svd)
+                                     truncated_tensor_svd,
+                                     SVDParameters)
 from ..core.node import Node
 from .state_diagram import StateDiagram, TTNOFinder
 
@@ -216,7 +217,8 @@ class TTNO(TreeTensorNetwork):
                 Q, S, Vh = tensor_svd(current_tensor, q_legs, r_legs)
                 R = np.tensordot(np.diag(S), Vh, axes=(1, 0))
             elif mode == Decomposition.tSVD:
-                Q, S, Vh = truncated_tensor_svd(current_tensor, q_legs, r_legs)
+                Q, S, Vh = truncated_tensor_svd(current_tensor, q_legs, r_legs,
+                                                SVDParameters())
                 R = np.tensordot(np.diag(S), Vh, axes=(1, 0))
             else:
                 raise ValueError(f"{mode} is not a valid keyword for mode.")

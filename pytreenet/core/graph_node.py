@@ -4,10 +4,10 @@ Provides the GraphNode class, which is the fundamental building block of trees.
 A GraphNode is a node in a tree structure and contains the information about
 neighbouring nodes, i.e. parent and children nodes.
 
-Example:
-    ```python
+.. code-block:: python
+
     # Create a graph node
-    node = GraphNode("node")
+    node = GraphNode("node"
 
     # Add a parent
     node.add_parent("parent")
@@ -21,7 +21,7 @@ Example:
     node.is_leaf()  # False
     node.is_child_of("parent")  # True
     node.is_parent_of("child1")  # True
-
+    
     # An check the numbers for conneciivity
     node.nparents()  # 1
     node.nchildren()  # 3
@@ -29,7 +29,6 @@ Example:
     node.neighbour_index("child2") # 2
     node.child_index("child2")  # 1
     node.neighbouring_nodes()  # ["parent", "child1", "child2", "child3"]
-    ````
 
 Note that GraphNodes are usually not used directly, but rather via the Node
 child class in tree tensor networks.
@@ -59,8 +58,9 @@ class GraphNode:
 
     def __init__(self, identifier=""):
         """
-        Creates a GraphNode. If no identifier is given, a random
-        unique identifier is assigned.
+        Creates a GraphNode.
+        
+        If no identifier is given, a random unique identifier is assigned.
         Initially no parent or children nodes are assigned.
         References to parent or children nodes are in the form of a node_id (str)
 

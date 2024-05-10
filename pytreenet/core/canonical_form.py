@@ -75,7 +75,7 @@ def split_qr_contract_r_to_neighbour(ttn: TreeTensorNetwork,
                                      mode: SplitMode = SplitMode.REDUCED):
     """
     Takes a node an splits of the virtual leg to a neighbours via QR
-     decomposition. The resulting R tensor is contracted with the neighbour.
+     decomposition. The resulting R tensor is contracted with the neighbour.::
 
          __|__      __|__        __|__      __      __|__
       __|  N1 |____|  N2 | ---> | N1' |____|__|____|  N2 |

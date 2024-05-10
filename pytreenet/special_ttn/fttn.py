@@ -2,7 +2,7 @@
 Provides the fork tree topology TTN.
 
 A fork tree tensor network (FTTN) has the shape of a fork or comb. It consists
-of a main chain of tensor nodes and to each a subchain is attached. For example
+of a main chain of tensor nodes and to each a subchain is attached. For example::
 
      M0 -- S00 -- S01 -- S03
      |
@@ -29,7 +29,7 @@ class ForkTreeTensorNetwork(TreeTensorNetwork):
     """
     An FTTN is a tree tensor network that consists of a main chain
      and subchains attached to each of the nodes in the main chain.
-     Thus they look like a fork/comb:
+     Thus they look like a fork/comb::
 
      M0 -- S00 -- S01 -- S03
      |
@@ -182,7 +182,7 @@ class ForkTreeProductState(ForkTreeTensorNetwork, TreeTensorNetworkState):
 
     A fork tree tensor network state is a tensor network state that has the
     structure of a fork tree tensor network. It consists of a main chain of
-    tensor nodes and to each a subchain is attached. For example
+    tensor nodes and to each a subchain is attached. For example::
 
          M0 -- S00 -- S01 -- S03
          |
@@ -203,7 +203,7 @@ class ForkTreeProductOperator(ForkTreeTensorNetwork, TTNO):
 
     A fork tree tensor network operator is a tensor network operator that has
     the structure of a fork tree tensor network. It consists of a main chain of
-    tensor nodes and to each a subchain is attached. For example
+    tensor nodes and to each a subchain is attached. For example::
 
          M0 -- S00 -- S01 -- S03
          |

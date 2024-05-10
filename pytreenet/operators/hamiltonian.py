@@ -9,7 +9,8 @@ These products define one operator per subsystem and fully define the
 Hamiltonian.
 
 .. math::
-    H = sum_i \\bigotimes_j A_{i}^[j]
+    H = \sum_i \\bigotimes_j A_{i}^[j]
+
 where :math:`A_{i}^{[j]}` is the operator acting on the j-th subsystem of the
 as part of the i-th term of the Hamiltonian.
 """

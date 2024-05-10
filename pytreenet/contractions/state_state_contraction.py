@@ -75,7 +75,8 @@ def contract_node_with_environment(node_id: str,
         np.ndarray: The resulting tensor. A and B are the tensors in state1 and
             state2, respectively, corresponding to the node with the identifier
             node_id. C aer the tensors in the dictionary corresponding to the
-            subtrees going away from the node.
+            subtrees going away from the node::
+
              ______      _____      ______
             |      |____|     |____|      |
             |      |    |  B  |    |      |
@@ -86,6 +87,7 @@ def contract_node_with_environment(node_id: str,
             |      |____|     |____|      |
             |      |    |  A  |    |      |
             |______|    |_____|    |______|
+    
     """
     ket_node, ket_tensor = state1[node_id]
     ketblock_tensor = contract_all_neighbour_blocks_to_ket(ket_tensor,
@@ -140,7 +142,8 @@ def contract_leafs(node_id: str,
         state2 (TreeTensorNetworkState): The second TTN state.
 
     Returns:
-        np.ndarray: The tensor resulting from the contraction:
+        np.ndarray: The tensor resulting from the contraction::
+
                      _____
                 ____|     |
                     |  B  |
@@ -151,7 +154,7 @@ def contract_leafs(node_id: str,
                 ____|     |
                     |  A  |
                     |_____|
-            
+    
             where B is the tensor in state2 and A is the tensor in state1.
     """
     node1 = state1.nodes[node_id]
@@ -186,7 +189,7 @@ def contract_subtrees_using_dictionary(node_id: str, next_node_id: str,
         
         Returns:
             np.ndarray: The resulting tensor. For example, if the nodes have
-             two neighbours.
+                two neighbours::
 
                          _____      ______
                     ____|     |____|      |
@@ -198,6 +201,7 @@ def contract_subtrees_using_dictionary(node_id: str, next_node_id: str,
                     ____|     |____|      |
                         |  A  |    |      |
                         |_____|    |______|
+        
     """
     ket_node, ket_tensor = state1[node_id]
     ketblock_tensor = contract_all_but_one_neighbour_block_to_ket(ket_tensor,
@@ -229,7 +233,8 @@ def contract_bra_to_ket_and_blocks(bra_tensor: np.ndarray,
         ket_node (Node): The ket node.
 
     Returns:
-        np.ndarray: The resulting tensor.
+        np.ndarray: The resulting tensor::
+    
              ______      _____      ______
             |      |____|     |____|      |
             |      |    |  B  |    |      |
@@ -240,6 +245,7 @@ def contract_bra_to_ket_and_blocks(bra_tensor: np.ndarray,
             |      |____|     |____|      |
             |      |    |  A  |    |      |
             |______|    |_____|    |______|
+
     """
     num_neighbours = bra_node.nneighbours()
     legs_block = []
@@ -270,7 +276,7 @@ def contract_bra_to_ket_and_blocks_ignore_one_leg(bra_tensor: np.ndarray,
             virtual legs point.
 
     Returns:
-        np.ndarray: The resulting tensor.
+        np.ndarray: The resulting tensor::
 
                          _____      ______
                     ____|     |____|      |
@@ -282,6 +288,7 @@ def contract_bra_to_ket_and_blocks_ignore_one_leg(bra_tensor: np.ndarray,
                     ____|     |____|      |
                         |  A  |    |      |
                         |_____|    |______|
+        
     """
     legs_block = []
     legs_bra = []

@@ -15,7 +15,9 @@ class Node(GraphNode):
     This means, it keeps track of the leg order or more precisely the
     permutation of the legs compared to the data tensor in order to keep the
     leg convention
-        `(parent, child0, ..., childN-1, open_leg0, ..., open_legM-1)`
+
+    ``(parent, child0, ..., childN-1, open_leg0, ..., open_legM-1)``
+    
     A Node can be created independently from a tensor. It can then be linked to
     this tensor afterwards.
     
