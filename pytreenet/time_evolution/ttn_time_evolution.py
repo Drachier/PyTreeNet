@@ -6,6 +6,7 @@ from numpy import ndarray
 
 from .time_evolution import TimeEvolution
 from ..ttns import TreeTensorNetworkState
+from ..ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
 
 @dataclass
@@ -28,7 +29,7 @@ class TTNTimeEvolution(TimeEvolution):
 
     def __init__(self, initial_state: TreeTensorNetworkState,
                  time_step_size: float, final_time: float,
-                 operators: Union[List[TensorProduct], TensorProduct],
+                 operators: Union[List[Union[TensorProduct, TTNO]], TensorProduct, TTNO],
                  config: Union[TTNTimeEvolutionConfig,None] = None) -> None:
         """
         A time evolution for tree tensor networks starting from and initial
@@ -52,7 +53,7 @@ class TTNTimeEvolution(TimeEvolution):
         """
         return self.bond_dims is not None
 
-    def obtain_bond_dims(self) -> Dict[Tuple[str,str]: int]:
+    def obtain_bond_dims(self) -> Dict[Tuple[str,str], int]:
         """
         Obtains a dictionary of all bond dimensions in the current state.
         """
@@ -85,7 +86,7 @@ class TTNTimeEvolution(TimeEvolution):
         self.record_bond_dimensions()
         return current_results
 
-    def evaluate_operator(self, operator: TensorProduct) -> complex:
+    def evaluate_operator(self, operator: Union[TensorProduct,TTNO]) -> complex:
         """
         Evaluate the expectation value of a single operator.
 
