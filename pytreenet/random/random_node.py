@@ -4,7 +4,7 @@ Module to generate a random node.
 
 from ..core.node import Node
 from ..core.graph_node import GraphNode
-from ..util.util import crandn
+from ..util.std_utils import crandn
 
 def random_graph_node() -> GraphNode:
     """

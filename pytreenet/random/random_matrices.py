@@ -4,7 +4,7 @@ This module contains functions to generate random matrices.
 import numpy as np
 from scipy.linalg import expm
 
-from ..util.util import crandn
+from ..util.std_utils import crandn
 from ..util.ttn_exceptions import positivity_check
 
 def random_matrix(size: int = 2) -> np.ndarray:

@@ -23,7 +23,7 @@ from .operator import NumericOperator
 from .tensorproduct import TensorProduct
 from ..core.ttn import TreeTensorNetwork
 from ..core.tree_structure import TreeStructure
-from ..util.util import compare_lists_by_value
+from ..util.std_utils import compare_lists_by_value
 from ..util.ttn_exceptions import NotCompatibleException
 
 class PadMode(Enum):
