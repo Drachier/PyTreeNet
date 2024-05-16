@@ -23,7 +23,7 @@ from .operator import NumericOperator
 from .tensorproduct import TensorProduct
 from ..core.ttn import TreeTensorNetwork
 from ..core.tree_structure import TreeStructure
-from ..util.util import compare_lists_by_value
+from ..util.std_utils import compare_lists_by_value
 from ..util.ttn_exceptions import NotCompatibleException
 
 class PadMode(Enum):
@@ -167,8 +167,8 @@ class Hamiltonian():
                 raise NotCompatibleException(errstr)
 
     def pad_with_identities(self, reference_ttn: TreeTensorNetwork,
-                          mode: PadMode = PadMode.safe, 
-                          symbolic: bool = True) -> Hamiltonian:
+                           mode: PadMode = PadMode.safe, 
+                           symbolic: bool = True) -> Hamiltonian:
         """
         Pads a Hamiltonian with identities.
 

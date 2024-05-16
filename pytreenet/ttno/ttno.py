@@ -39,7 +39,8 @@ class TTNO(TreeTensorNetwork):
 
     @classmethod
     def from_hamiltonian(cls, hamiltonian: Hamiltonian,
-                            reference_tree: TreeStructure, method: TTNOFinder = TTNOFinder.TREE ) -> TTNO:
+                            reference_tree: TreeStructure,
+                            method: TTNOFinder = TTNOFinder.CM ) -> TTNO:
         """
         Generates a TTNO from a Hamiltonian.
 
@@ -52,6 +53,7 @@ class TTNO(TreeTensorNetwork):
         Returns:
             TTNO: The resulting TTNO.
         """
+        hamiltonian = hamiltonian.pad_with_identities(reference_tree)
         state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
                                                       reference_tree, method)
         ttno = TTNO()
@@ -389,3 +391,5 @@ class TTNO(TreeTensorNetwork):
             del leg_dict[key_w_min_index]
 
         return new_leg_dict
+
+TreeTensorNetworkOperator = TTNO

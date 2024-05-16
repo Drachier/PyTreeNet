@@ -52,7 +52,7 @@ class TEBD(TTNTimeEvolution):
         super().__init__(initial_state,
                          time_step_size, final_time,
                          operators,
-                         None)
+                         config=config)
         self._trotter_splitting = trotter_splitting
         if svd_parameters is None:
             self.svd_parameters = SVDParameters()

@@ -1030,3 +1030,5 @@ class TreeTensorNetwork(TreeStructure):
                 The latter is very useful for debugging.
         """
         return completely_contract_tree(self, to_copy=to_copy)
+
+TTN = TreeTensorNetwork
