@@ -85,7 +85,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             return contract_two_ttns(ttn, conj_ttn)
         # Operator is a TTNO
         return expectation_value(self, operator)
-    
+
     def is_in_canonical_form(self, node_id: Union[None,str] = None) -> bool:
         """
         Returns whether the TTNS is in canonical form.

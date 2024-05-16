@@ -993,10 +993,10 @@ class TreeTensorNetwork(TreeStructure):
          center.
 
         Args:
-            orthogonality_center_id (str): The new orthogonality center of
-             the TTN
-            mode: The mode to be used for the QR decomposition. For details refer to
-            `tensor_util.tensor_qr_decomposition`.
+            orthogonality_center_id (str): The new orthogonality center of the
+                TTN.
+            mode: The mode to be used for the QR decomposition. For details
+                refer to `tensor_util.tensor_qr_decomposition`.
         """
         canonical_form(self, orthogonality_center_id, mode=mode)
 
@@ -1007,27 +1007,28 @@ class TreeTensorNetwork(TreeStructure):
 
         Args:
             orthogonality_center_id (str): The new orthogonality center of the
-             TTN.
-            mode: The mode to be used for the QR decomposition. For details refer to
-            `tensor_util.tensor_qr_decomposition`.
+                TTN.
+            mode: The mode to be used for the QR decomposition. For details
+                refer to `tensor_util.tensor_qr_decomposition`.
         """
         self.canonical_form(orthogonality_center_id, mode=mode)
 
     def completely_contract_tree(self,
                                  to_copy: bool=False) -> Tuple[np.ndarray, List[str]]:
         """
-        Completely contracts the given tree_tensor_network by combining all nodes.
+        Completely contracts the given TTN by combining all nodes.
+
         (WARNING: Can get very costly very fast. Only use for debugging.)
 
         Args:
             ttn (TreeTensorNetwork): The TTN to be contracted.
-            to_copy (bool): Wether or not the contraction should be perfomed on a deep copy.
-                Default is False.
+            to_copy (bool): Wether or not the contraction should be perfomed on
+                a deep copy. Default is False.
 
         Returns:
-            Tuple[np.ndarray, List[str]]: The contracted TTN and the list of the
-                identifiers of the contracted nodes in the order they were contracted.
-                The latter is very useful for debugging.
+            Tuple[np.ndarray, List[str]]: The contracted TTN and the list of
+                the identifiers of the contracted nodes in the order they were
+                contracted. The latter is very useful for debugging.
         """
         return completely_contract_tree(self, to_copy=to_copy)
 
