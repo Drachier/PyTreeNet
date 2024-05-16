@@ -85,3 +85,32 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             return contract_two_ttns(ttn, conj_ttn)
         # Operator is a TTNO
         return expectation_value(self, operator)
+    
+    def is_in_canonical_form(self, node_id: Union[None,str] = None) -> bool:
+        """
+        Returns whether the TTNS is in canonical form.
+        
+        If a node_id is specified, it will check as if that node is the
+        orthogonalisation center. If no node is given, the current
+        orthogonalisation center will be used.
+
+        Args:
+            node_id (Union[None,str], optional): The node to check. If None,
+                the current orthogonalisation center will be used. Defaults
+                to None.
+        
+        Returns:
+            bool: Whether the TTNS is in canonical form.
+        """
+        if node_id is None:
+            node_id = self.orthogonality_center_id
+        if node_id is None:
+            return False
+        total_contraction = self.scalar_product()
+        local_tensor = self.tensors[node_id]
+        legs = range(local_tensor.ndim)
+        local_contraction = complex(np.tensordot(local_tensor, local_tensor.conj(),
+                                                 axes=(legs,legs)))
+        # If the TTNS is in canonical form, the contraction of the
+        # orthogonality center should be equal to the norm of the state.
+        return np.allclose(total_contraction, local_contraction)

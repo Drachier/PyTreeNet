@@ -919,18 +919,19 @@ class TreeTensorNetwork(TreeStructure):
                        u_identifier: str = "", v_identifier: str = "",
                        svd_params: SVDParameters = SVDParameters()):
         """
-        Splits a node in two using singular value decomposition. In the process the tensors
-         are truncated as specified by truncation parameters. The singular values
-         are absorbed into the v_legs.
+        Splits a node in two using singular value decomposition.
+        
+        In the process the tensors are truncated as specified by truncation
+        parameters. The singular values are absorbed into the v_legs.
 
         Args:
             node_id (str): Identifier of the nodes to be split
             u_legs (LegSpecification): The legs which should be part of the U tensor
             v_legs (LegSpecification): The legs which should be part of the V tensor
             u_identifier (str, optional): An identifier for the U-tensor.
-             Defaults to ""
+                Defaults to ""
             v_identifier (str, optional): An identifier for the V-tensor.
-             Defaults to "".
+                Defaults to "".
         """
         self.split_nodes(node_id, u_legs, v_legs, contr_truncated_svd_splitting,
                          out_identifier=u_identifier, in_identifier=v_identifier,
@@ -939,14 +940,16 @@ class TreeTensorNetwork(TreeStructure):
     def move_orthogonalization_center(self, new_center_id: str,
                                       mode: SplitMode = SplitMode.REDUCED):
         """
-        Moves the orthogonalization center from the current node to a
-         different node.
+        Moves the orthogonalization center to a different node.
+
+        For this to work the TTN has to be in a canonical form already, i.e.,
+        there should already be an orthogonalisation center.
 
         Args:
-            new_center (str): The identifier of the new
-             orthogonalisation center.
+            new_center (str): The identifier of the new orthogonalisation
+                center.
             mode: The mode to be used for the QR decomposition. For details refer to
-            `tensor_util.tensor_qr_decomposition`.
+                `tensor_util.tensor_qr_decomposition`.
         """
         if self.orthogonality_center_id is None:
             errstr = "The TTN is not in canonical form, so the orth. center cannot be moved!"
@@ -962,14 +965,13 @@ class TreeTensorNetwork(TreeStructure):
     def _move_orth_center_to_neighbour(self, new_center_id: str,
                                        mode: SplitMode = SplitMode.REDUCED):
         """
-        Moves the orthogonality center to a neighbour of the current
-         orthogonality center.
+        Moves the orthogonality center to a neighbour of the current center.
 
         Args:
             new_center_id (str): The identifier of a neighbour of the current
-             orthogonality center.
+                orthogonality center.
             mode: The mode to be used for the QR decomposition. For details refer to
-            `tensor_util.tensor_qr_decomposition`.
+                `tensor_util.tensor_qr_decomposition`.
         """
         assert self.orthogonality_center_id is not None
         split_qr_contract_r_to_neighbour(self,
@@ -977,32 +979,6 @@ class TreeTensorNetwork(TreeStructure):
                                          new_center_id,
                                          mode=mode)
         self.orthogonality_center_id = new_center_id
-    
-    def is_in_canonical_form(self, node_id: Union[None,str] = None) -> bool:
-        """
-        Returns whether the TTNS is in canonical form. If a node_id is specified,
-         it will check as if that node is the orthogonalisation center. If no
-         node_id is given, the current orthogonalisation center will be used.
-
-        Args:
-            node_id (Union[None,str], optional): The node to check. If None, the
-             current orthogonalisation center will be used. Defaults to None.
-        
-        Returns:
-            bool: Whether the TTNS is in canonical form.
-        """
-        if node_id is None:
-            node_id = self.orthogonality_center_id
-        if node_id is None:
-            return False
-        total_contraction = self.scalar_product()
-        local_tensor = self.tensors[node_id]
-        legs = range(local_tensor.ndim)
-        local_contraction = complex(np.tensordot(local_tensor, local_tensor.conj(),
-                                                 axes=(legs,legs)))
-        # If the TTNS is in canonical form, the contraction of the
-        # orthogonality center should be equal to the norm of the state.
-        return np.allclose(total_contraction, local_contraction)
 
     # Functions below this are just wrappers of external functions that are
     # linked tightly to the TTN and its structure. This allows these functions
