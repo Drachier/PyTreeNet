@@ -85,7 +85,7 @@ class TEBD(TTNTimeEvolution):
             single_site_exponent (NumericOperator): An operator representing a
                 single-site unitary operator.
         """
-        operator = single_site_exponent.operator.T
+        operator = single_site_exponent.operator
         identifier = single_site_exponent.node_identifiers[0]
         self.state.absorb_into_open_legs(identifier, operator)
 

@@ -501,7 +501,7 @@ class TreeTensorNetwork(TreeStructure):
         Since the tensor to be absorbed is considered to represent an operator
         acting on the node, it will have to have exactly twice as many legs as
         the node has open legs. The input legs, i.e. the ones contracted, are
-        assumed to be the first half of the legs of the tensor.
+        assumed to be the second half of the legs of the tensor.
 
         Args:
             node_id (str): The identifier of the node which is to be contracted
@@ -514,7 +514,7 @@ class TreeTensorNetwork(TreeStructure):
         if tensor.shape[:nopen_legs] != tensor.shape[nopen_legs:]:
             errstr = self._absorption_warning()
             raise AssertionError(errstr)
-        tensor_legs = list(range(nopen_legs))
+        tensor_legs = [i + nopen_legs for i in range(nopen_legs)]
         new_tensor = np.tensordot(node_tensor, tensor,
                                   axes=(node.open_legs, tensor_legs))
         # The leg ordering was not changed here
