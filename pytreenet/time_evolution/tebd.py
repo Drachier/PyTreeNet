@@ -100,7 +100,7 @@ class TEBD(TTNTimeEvolution):
                 applied. Contains the numeric value and the identifier of the 
                 sites on which application should happen.
         """
-        operator = two_site_exponent.operator.transpose([2,3,0,1])
+        operator = two_site_exponent.operator
         identifiers = two_site_exponent.node_identifiers
 
         u_legs, v_legs = self.state.legs_before_combination(identifiers[0],
