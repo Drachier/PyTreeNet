@@ -443,7 +443,8 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         for node_id, node_tensor in self.ttn.tensors.items():
             tensor = ptn.crandn(tensor_shape_dict[node_id])
             ref_tensor = deepcopy(node_tensor)
-            tensor_legs = list(range(int(tensor.ndim / 2)))
+            half_legs = int(tensor.ndim / 2)
+            tensor_legs = [i + half_legs for i in range(half_legs)]
             ref_tensor = np.tensordot(ref_tensor, tensor,
                                       axes=(node_open_leg_values[node_id], tensor_legs))
 
