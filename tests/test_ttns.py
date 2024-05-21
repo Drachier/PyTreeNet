@@ -43,7 +43,7 @@ class TestTreeTensorNetworkStateSimple(unittest.TestCase):
         state_vector = self.initial_state.completely_contract_tree(to_copy=True)[0]
         state_vector = state_vector.reshape(24)
         op1 = np.kron(np.kron(self.operators[0]["root"], np.eye(3)), np.eye(4))
-        reference_result = state_vector.conj().T @ op1.T @ state_vector
+        reference_result = state_vector.conj().T @ op1 @ state_vector
 
         self.assertTrue(np.allclose(reference_result, found_result))
 
@@ -65,7 +65,7 @@ class TestTreeTensorNetworkStateSimple(unittest.TestCase):
         state_vector = self.initial_state.completely_contract_tree(to_copy=True)[0]
         state_vector = state_vector.reshape(24)
         op1 = np.kron(np.kron(self.operators[0]["root"], np.eye(3)), np.eye(4))
-        reference_result = state_vector.conj().T @ op1.T @ state_vector
+        reference_result = state_vector.conj().T @ op1 @ state_vector
 
         self.assertTrue(np.allclose(reference_result, found_result))
 
@@ -75,7 +75,7 @@ class TestTreeTensorNetworkStateSimple(unittest.TestCase):
         state_vector = self.initial_state.completely_contract_tree(to_copy=True)[0]
         state_vector = state_vector.reshape(24)
         op1 = self.operators[2].into_operator().to_matrix().operator
-        reference_result = state_vector.conj().T @ op1.T @ state_vector
+        reference_result = state_vector.conj().T @ op1 @ state_vector
 
         self.assertAlmostEqual(reference_result, found_result)
 
@@ -85,7 +85,7 @@ class TestTreeTensorNetworkStateSimple(unittest.TestCase):
         state_vector = self.initial_state.completely_contract_tree(to_copy=True)[0]
         state_vector = state_vector.reshape(24)
         op1 = np.kron(np.eye(2), self.operators[1].into_operator().to_matrix().operator)
-        reference_result = state_vector.conj().T @ op1.T @ state_vector
+        reference_result = state_vector.conj().T @ op1 @ state_vector
 
         self.assertAlmostEqual(reference_result, found_result)
 
