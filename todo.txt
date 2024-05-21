@@ -25,12 +25,15 @@ Modules that were fully refactored and updated to new Docstyle:
 ** special_ttn
 * special_ttn.fttn
 * special_ttn.mps
+** time_evolution
 * time_evolution.tdvp_algorithms
 * time_evolution.time_evo_util
 * time_evolution.exact_time_evolution
 * time_evolution.tebd
 * time_evolution.time_evolution
 * time_evolution.trotter
+* time_evolution.ttn_time_evolution
+* ttno.collections
 ** util
 * util.tensor_util
 * util.tensor_splitting
@@ -41,7 +44,6 @@ Features to add:
 
 
 Tests:
-* trotter
 * expectation values (ttns and contraction)
 
 Other:

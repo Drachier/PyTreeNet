@@ -1,27 +1,40 @@
+"""
+This module provides collections/sets of hyperedges and vertices.
+"""
+
 from __future__ import annotations
 from typing import List, Union, Tuple
+
+from .hyperedge import HyperEdge
+from .vertex import Vertex
 
 class HyperEdgeColl():
     """
     Holds multiple hyperedges that correspond to the same node.
+
+    Attributes:
+        corr_node_id (str): The identifier of the node corresponding to this
+            collection.
+        contained_hyperedges (List[Hyperedge]): A list of all hyperedges
+            contained in this collection.
     """
 
     def __init__(self, corr_node_id: str,
                  contained_hyperedges: Union[None, List[HyperEdge]] = None) -> None:
         """
-
+        Initialises a hyper edge collection.
 
         Args:
             corr_node_id (str): Identifier of a node to which this collection
-             should correspond
-            contained_hyperedges (nion[None, List[HyperEdge]]): A list of
-             hyperedges that are already included in this collection.
-             Default is None
+                should correspond
+            contained_hyperedges (Union[None, List[HyperEdge]]): A list of
+                hyperedges that are already included in this collection.
+                Default is None
         """
         self.corr_node_id = corr_node_id
         if contained_hyperedges is None:
             contained_hyperedges = []
-        self.contained_hyperedges = contained_hyperedges
+        self.contained_hyperedges: List[HyperEdge] = contained_hyperedges
 
     def get_all_labels(self) -> List[str]:
         """
@@ -34,7 +47,7 @@ class HyperEdgeColl():
 
     def get_hyperedges_by_label(self, label: str) -> List[HyperEdge]:
         """
-        Returns all hyperedges in this collection with label 'label'.
+        Returns all hyperedges in this collection with a given label.
 
         Args:
             label (str): The label to be looked for.
@@ -47,8 +60,7 @@ class HyperEdgeColl():
 
     def get_completely_contained_hyperedges(self) -> List[HyperEdge]:
         """
-        Returns all hyperedges that are connected only to vertices
-        that are marked as contained.
+        Returns all hyperedges connected only to vertices marked as contained.
         """
         return [hyperedge for hyperedge in self.contained_hyperedges
                 if hyperedge.all_vertices_contained()]
@@ -56,26 +68,31 @@ class HyperEdgeColl():
 
 class VertexColl:
     """
-    Holds multiple vertices that correspond to the same HyperEdge.
+    Holds multiple vertices that correspond to the same edge.
+
+    Attributes:
+        corr_edge (Tuple[str,str]): The identifiers of the two nodes that are
+            connected by the edge corresponding to this collectino of vertices.
+        contained_vertices (List[Vertex]): A list of all vertices in this
+            collection.
     """
 
     def __init__(self, corr_edge: Tuple[str, str],
-                 contained_vertices: Union[None, List[HyperEdge]]) -> None:
+                 contained_vertices: Union[None, List[Vertex]]) -> None:
         """
-        Contains the identifiers of two nodes which are connected by
-            the edge corresponding to this collection of vertices.
+        Initialises a vertex collection.
 
         Args:
-            corr_edge (Tuple[str, str]): Contains the identifiers of two nodes which
-             are connected by the edge corresponding to this collection of
-             vertices.
+            corr_edge (Tuple[str, str]): Contains the identifiers of two nodes
+                which are connected by the edge corresponding to this
+                collection of vertices.
             contained_vertices (Union[None, List[HyperEdge]]): A list of
-             vertices already contained in this collection.
+                vertices already contained in this collection.
         """
         self.corr_edge = corr_edge
         if contained_vertices is None:
             contained_vertices = []
-        self.contained_vertices = contained_vertices
+        self.contained_vertices: List[Vertex] = contained_vertices
 
     def contains_contained(self) -> bool:
         """
@@ -96,8 +113,10 @@ class VertexColl:
 
     def index_vertices(self):
         """
-        Indexes all vertices contained in this collection. This index is the
-         index value to which this vertex corresponds in the bond dimension.
+        Indexes all vertices contained in this collection.
+        
+        This index is the index value to which this vertex corresponds in the
+        bond dimension.
         """
         for index, vertex in enumerate(self.contained_vertices):
             vertex.index = index
