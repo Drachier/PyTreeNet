@@ -23,8 +23,14 @@ class TTNTimeEvolutionConfig:
 
 class TTNTimeEvolution(TimeEvolution):
     """
-    A time evolution for tree tensor networks. Provides functionality to
-     compute expectation values of operators during the time evolution.
+    A time evolution for tree tensor networks.
+    
+    Provides functionality to compute expectation values of operators during
+    the time evolution and record bond dimensions of the current state.
+
+    Attributes:
+        bond_dims (Union[None,Dict[str,int]]): If a recording of the bond
+            dimension is intended, they are recorded here.
     """
 
     def __init__(self, initial_state: TreeTensorNetworkState,
@@ -32,9 +38,20 @@ class TTNTimeEvolution(TimeEvolution):
                  operators: Union[List[Union[TensorProduct, TTNO]], TensorProduct, TTNO],
                  config: Union[TTNTimeEvolutionConfig,None] = None) -> None:
         """
-        A time evolution for tree tensor networks starting from and initial
-         state and running to a final time with a given time step size. During
-         the time evolution, expectation values of operators are computed.
+        A time evolution for a tree tensor network state.
+
+        Args:
+            initial_state (TreeTensorNetwork): The initial state of the time
+                evolution.
+            time_step_site (float): The time difference progressed by one time
+                step.
+            final_time (float): The final time until which the time evolution
+                runs.
+            operators (Union[List[Union[TensorProduct, TTNO]], TensorProduct, TTNO]):
+                Operators for which the expectation value should be recorded
+                during the time evolution.
+            config (Union[TTNTimeEvolutionConfig,None]): The configuration of
+                time evolution. Defaults to None.
         """
         super().__init__(initial_state, time_step_size, final_time, operators)
         self.initial_state: TreeTensorNetworkState
@@ -48,8 +65,7 @@ class TTNTimeEvolution(TimeEvolution):
     @property
     def records_bond_dim(self) -> bool:
         """
-        Returns whether the bond dimensions are recorded during the time
-         evolution.
+        Are the bond dimensions recorded or not.
         """
         return self.bond_dims is not None
 
@@ -61,8 +77,7 @@ class TTNTimeEvolution(TimeEvolution):
 
     def record_bond_dimensions(self):
         """
-        Records the bond dimensions of the current state, if the bond
-         dimensions are being recorded.
+        Records the bond dimensions of the current state, if desired to do so.
         """
         if self.records_bond_dim:
             if len(self.bond_dims) == 0:
@@ -74,6 +89,18 @@ class TTNTimeEvolution(TimeEvolution):
     def operator_result(self,
                         operator_id: str | int,
                         realise: bool = False) -> ndarray:
+        """
+        Includes the possibility to obtain the bond dimension from the results.
+
+        Args:
+            operator_id (Union[str,int]): The identifier or position of the
+                operator, whose expectation value results should be returned.
+            realise (bool, optional): Whether the results should be
+                transformed into real numbers.
+
+        Returns:
+            ndarray: The expectation value results over time.
+        """
         if isinstance(operator_id, str) and operator_id == "bond_dim":
             if self.records_bond_dim is not None:
                 return self.bond_dims
@@ -82,6 +109,9 @@ class TTNTimeEvolution(TimeEvolution):
         return super().operator_result(operator_id, realise)
 
     def evaluate_operators(self) -> ndarray:
+        """
+        Evaluates the operator including the recording of bond dimensions.
+        """
         current_results = super().evaluate_operators()
         self.record_bond_dimensions()
         return current_results
@@ -92,9 +122,10 @@ class TTNTimeEvolution(TimeEvolution):
 
         Args:
             operator (TensorProduct): The operator for which to compute the
-             expectation value.
+                expectation value.
         
         Returns:
-            np.ndarray: The expectation value of the operator.
+            np.ndarray: The expectation value of the operator with respect to
+                the current state.
         """
         return self.state.operator_expectation_value(operator)
