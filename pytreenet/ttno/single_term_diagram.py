@@ -1,72 +1,97 @@
-"""A state diagram representing a single term Hamiltonian
 """
+A state diagram representing a single term Hamiltonian
+"""
+from typing import Dict, List
 
+from ..core import TreeStructure
 from .hyperedge import HyperEdge
 from .vertex import Vertex
 
 
 class SingleTermDiagram():
-    """A state diagram representing a single term Hamiltonian
+    """
+    A state diagram representing a single term.
 
+    This single term is a single term of an operator, usually a Hamiltonian,
+    that can be represented as a sum of tensor products.
+    As this class only represents a single term, all hyperedges and vertices
+    are uniquely associated to an object in a reference tree.
+
+    Attributes:
+        hyperedges (Dict[str,HyperEdge]): All hyperedges, of which each is
+            uniquely associated to a node.
+        vertices (Dict[str,Vertex]): All verties, of which each is uniquely
+            associated to an edge.
+        reference_tree (TreeStructure): A tree structure on which the state
+            diagram is based, i.e. both have the same structure.
     """
 
-    def __init__(self, reference_tree):
+    def __init__(self, reference_tree: TreeStructure):
         """
-        There is only a single vertex and a single hyperedge so
-        we don't need the collections and save all vertices
-        and edges directly as attributes in a dictionary.
-        """
-        self.hyperedges = {}
-        self.vertices = {}
+        Initialises a SingleTermDiagram.
 
+        There is only a single vertex and a single hyperedge so we don't need
+        the collections and save all vertices and edges directly as attributes
+        in a dictionary.
+
+        Args:
+            reference_tree (TreeStructure): A tree to be used as a reference
+                structure.
+        """
+        self.hyperedges: Dict[str,HyperEdge] = {}
+        self.vertices: Dict[str,Vertex] = {}
         self.reference_tree = reference_tree
 
     def __str__(self) -> str:
+        """
+        A human-readable string representation.
+        """
         string = "Hyperedges: " + str({he.corr_node_id: he.label for he in self.hyperedges.values()}) + "\n"
         string += "Vertices: " + str([vert_id for vert_id in self.vertices])
         return string
 
-    def get_all_vertices(self):
+    def get_all_vertices(self) -> List[Vertex]:
         """
-        Returns all vertices from all collections in a list.
+        Returns all vertices of this state diagram.
         """
         return list(self.vertices.values())
 
-    def get_all_hyperedges(self):
+    def get_all_hyperedges(self) -> List[HyperEdge]:
         """
-        Returns all hyperedges from all collections in a list
+        Returns all hyperedges of this state diagram.
         """
         return list(self.hyperedges.values())
 
-    def get_hyperedge_label(self, node_id):
+    def get_hyperedge_label(self, node_id: str) -> str:
         """
-        Returns the label of the hyperedge at 'node_id'.
+        Returns the label of a hyperedge.
+
+        Args:
+            node_id (str): Specifies which hyperedge to return the label from.
         """
         return self.hyperedges[node_id].label
 
     @classmethod
-    def from_single_term(cls, term, reference_tree):
+    def from_single_term(cls,
+                         term: Dict[str,str],
+                         reference_tree: TreeStructure):
         """
-        Creates a StateDiagram corresponding to a single Hamiltonian term.
+        Creates a state diagram corresponding to a single Hamiltonian term.
 
-        Parameters
-        ----------
-        term : dict
-            The keys are identifiers of the site to which the value, an operator,
-            is to be applied.
-        reference_tree: TreeTensorNetwork
-            Provides the underlying tree structure and the identifiers of all
-            nodes.
+        Args:
+            term (Dict[str,str]): The term the new state diagram should 
+                represent. The leys are identifiers of nodes to which the
+                value, a symbolic operator, is to be applied.
+            reference_tree (TreeStructure): Provides the underlying tree
+                structure and the identifiers of all nodes.
 
-        Returns
-        -------
-        state_diag: StateDiagram
+        Returns:
+            SingleTermDiagram: The state diagram associated to this single
+                term.
         """
         assert len(term) == len(reference_tree.nodes), "The term and reference_tree are incompatible!"
-
         state_diag = cls(reference_tree)
         state_diag._from_single_term_rec((None, reference_tree.root_id), term)
-
         return state_diag
 
     def _from_single_term_rec(self, edge_id_tuple, term):
