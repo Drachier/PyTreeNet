@@ -34,6 +34,8 @@ Modules that were fully refactored and updated to new Docstyle:
 * time_evolution.trotter
 * time_evolution.ttn_time_evolution
 * ttno.collections
+* ttno.hyperedge
+
 ** util
 * util.tensor_util
 * util.tensor_splitting

@@ -1,21 +1,50 @@
+"""
+This module provides a hyperedge to be used in state diagrams.
+"""
 from __future__ import annotations
-from typing import List, Tuple
+from typing import List, Tuple, Union
 import hashlib
-
-
 import uuid
 
+from ..core.tree_structure import TreeStructure
+
 class HyperEdge():
-    def __init__(self, corr_node_id: str, label: str, vertices: list):
+    """
+    A hyperedge, i.e. an edge connecting any number of vertices.
+
+    Attributes:
+        corr_node_id (str): The node to which this hyperedge corresponds.
+        label (str): The label associated to this hyperedge.
+        vertices (List[Vertex]): A list of vertices connected to this
+            hyperedge.
+        hash (str): A hash value corresponding to this hyperedge's label.
+        identifier (str): A unique identifier of this hyperedge.
+
+    """
+    def __init__(self,
+                 corr_node_id: str,
+                 label: str,
+                 vertices: List[Vertex]):
+        """
+        Initialises a hyperedge.
+
+        Args:
+            corr_node_id (str): The node to which this hyperedge corresponds.
+            label (str): The label associated to this hyperedge.
+            vertices (List[Vertex]): A list of vertices connected to this
+                hyperedge.
+        """
         self.corr_node_id = corr_node_id
         self.label = label
         self.vertices = vertices
 
         self.hash = hashlib.sha256(self.label.encode()).hexdigest()
-
         self.identifier = str(uuid.uuid1())
 
     def __repr__(self) -> str:
+        """
+        A string representation of this hyperedge.
+        """
         string = "label = " + self.label + "; "
         string += "corr_site = " + self.corr_node_id + "; "
 
@@ -26,11 +55,13 @@ class HyperEdge():
 
     def __eq__(self, other_he: HyperEdge) -> bool:
         """
+        Implements equality of two hyperedges.
+
         Two hyperedges are equal, if they have the same label and correspond
-         to the same node.
+        to the same node.
 
         Args:
-            other_he (HyperEdge): The hyperedge to compare to
+            other_he (HyperEdge): The hyperedge to compare to.
 
         Returns:
             bool: Equality of the two hyperedges
@@ -39,45 +70,51 @@ class HyperEdge():
         corr_node_id_eq = self.corr_node_id == other_he.corr_node_id
         return labels_eq and corr_node_id_eq
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """
         Generate a hash value of the Hyperedge
         """
-        return hash((frozenset(self.vertices), self.corr_node_id,self.label))
-    
-    def calculate_hash(self, children_hash: str = None):
-        """
-        Calculate the hash of the hyperedge
-        """
+        return hash((frozenset(self.vertices), self.corr_node_id, self.label))
 
+    def calculate_hash(self,
+                       children_hash: Union[str,None] = None) -> str:
+        """
+        Calculate the hash of the hyperedge.
+
+        Args:
+            children_hash (Union[str,None], optional): The hash of vertices
+                connected to the hyperedge. Defaults to None.
+        """
         hash_text = self.label + children_hash
-
         self.hash = hashlib.sha256(hash_text.encode()).hexdigest()
         return self.hash
-    
-    def get_hash(self):
+
+    def get_hash(self) -> str:
         """
         Return the hash of the hyperedge
         """
         return self.hash
-    def set_hash(self, hash: str):
+
+    def set_hash(self, hash_val: str):
         """
         Set the hash of the hyperedge
         """
-        self.hash = hash
+        self.hash = hash_val
 
     def add_vertex(self, vertex: Vertex):
         """
-        Adds a vertex to this hyperedge and adds this hyperedge to the
-         vertex's hyperedges.
+        Adds a vertex to this hyperedge.
+
+        In turn this hyperedge is also added to the vertex.
         """
         self.vertices.append(vertex)
         vertex.hyperedges.append(self)
 
     def add_vertices(self, vertices: list):
         """
-        Adds vertices to this hyperedge and adds this hyperedge to the
-         vertices' hyperedges.
+        Add multiple vertices to this hyperedge.
+
+        In turn this hyperedge is added to all vertices.
         """
         self.vertices.extend(vertices)
         for vertex in vertices:
@@ -85,21 +122,22 @@ class HyperEdge():
 
     def find_vertex(self, other_node_id: str) -> Vertex:
         """
-        Finds the vertex connected to this hyperedge and corresponds to the
-         edge (corr_node_id, other_node_id).
+        Finds the vertex connected to this hyperedge corresponding to the edge 
+        (corr_node_id, other_node_id).
 
         Args:
             other_node_id (str): The vertex corresponds to an edge in the
-             underlying tree structure. One node the edge is connected to is
-             the node this hyperedge corresponds to, while the other node
-             identifier is provided by this string.
+                underlying tree structure. One node the edge is connected to is
+                the node this hyperedge corresponds to, while the other node
+                identifier is provided by this string.
 
         Raises:
-            ValueError: The hyperedge is not connected to a fitting vertx.
+            ValueError: The hyperedge is not connected to a fitting vertex.
 
         Returns:
-            Vertex: The vertex corresponding to the edge connecting
-             self.corr_node and other_node_id.
+            Vertex: The vertex corresponding to the edge connecting this
+                hyperedge and a hyperedge corresponding to the other specified
+                node.
         """
         vertex_list = [vertex for vertex in self.vertices
                        if other_node_id in vertex.corr_edge]
@@ -112,18 +150,22 @@ class HyperEdge():
 
     def vertex_single_he(self, other_node_id: str) -> bool:
         """
-        Checks if the vertex with the corresponding edge
-         (corr_node_id, other_node_id) is connected to a single hyperedge at
-         the current node.
+        Checks if a specified vertex is connected to only a single hyperedge.
+
+        The vertex checked, is the vertex connected to this hyperedge and
+        a hypergraph corresponding to the other specified node. This method
+        checks, if the current hypergraph is the only hypergraph connected to
+        that vertex corresponding to this node
 
         Args:
             other_node_id (str): The vertex corresponds to an edge in the
-             underlying tree structure. One node the edge is connected to is
-             the node this hyperedge corresponds to, while the other node
-             identifier is provided by this string.
+                underlying tree structure. One node the edge is connected to is
+                the node this hyperedge corresponds to, while the other node
+                identifier is provided by this string.
 
         Returns:
-            bool: 
+            bool: Whether the specified vertex is connected to only a single
+                hyperedge.
         """
         vertex = self.find_vertex(other_node_id)
         return vertex.check_hyperedge_uniqueness(self.corr_node_id)
@@ -142,7 +184,11 @@ class HyperEdge():
 
     def get_single_uncontained_vertex(self) -> Vertex:
         """
-        Returns a single uncontained vertex. Throws an error, if there are more or less than one.
+        Returns a single uncontained vertex.
+
+        Raises:
+            AssertionError: If there are more or less than one uncontained
+                vertex.
         """
         uncontained_vertices = self.get_uncontained_vertices()
         err_string = "The hyperedge is not connected to a single contained vertex."
@@ -151,8 +197,7 @@ class HyperEdge():
 
     def num_of_vertices_contained(self) -> int:
         """
-        Determines the number of vertices connected to this hyperedge
-        which are marked as contained.
+        The number of vertices connected to this hyperedge marked as contained.
 
         Returns:
             int: The number of connected contained vertices.
@@ -163,30 +208,29 @@ class HyperEdge():
 
     def all_vertices_contained(self) -> bool:
         """
-        Checks, if all vertices attached to this hyperedge are marked as
-        contained.
+        Returns if all vertices of this hyperedge are marked as contained.
         """
         return len(self.get_uncontained_vertices()) == 0
 
     def all_but_one_vertex_contained(self) -> bool:
         """
-        Checks, if all but one vertex of attached to this hyperedge are
-        marked as contained.
+        Returns if all but one vertex of this hyperedge are marked as contained.
         """
         return len(self.get_uncontained_vertices()) == 1
 
     def find_tensor_position(self,
                              reference_tree: TreeStructure) -> Tuple:
         """
-        Finds the position of the operator represented by this hyperedge in
-         the total TTNO tensor.
+        Finds the position of the operator in the total TTNO tensor.
+
+        The position is of the operator represented by this hyperedge.
 
         Args:
             reference_tree (TreeStructure): A tree to provide the topology.
 
         Returns:
             Tuple: The position of the operator. The last two entries are
-             slices ":" corresponding to the physical dimensions.
+                slices ":" corresponding to the physical dimensions.
         """
         position = [0] * len(self.vertices)
         position.extend([slice(None), slice(None)])
