@@ -1,62 +1,58 @@
+"""
+Provides the class to represent a Tree Tensor Network Operator (TTNO).
+"""
 from __future__ import annotations
 from typing import Dict
 from enum import Enum
 import numpy as np
 
 from ..core.ttn import TreeTensorNetwork
+from ..core.tree_structure import TreeStructure
+from ..core.node import Node
+from ..operators.hamiltonian import Hamiltonian
 from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      tensor_svd,
                                      truncated_tensor_svd,
                                      SVDParameters)
-from ..core.node import Node
 from .state_diagram import StateDiagram, TTNOFinder
 
 class Decomposition(Enum):
+    """
+    An enumeration to choosing decomposition method used for TTNO construction.
+    """
     SVD = "SVD"
     QR = "QR"
     tSVD = "tSVD"
 
-class TTNO(TreeTensorNetwork):
+class TreeTensorNetworkOperator(TreeTensorNetwork):
     """
-    Represents a tree tensor network operator, that is
-    an operator in tensor network form with an
-    underlying tree structure. Every node in this
-    TTN has zero or two open legs of equal dimension.
+    Represents a tree tensor network operator (TTNO).
 
-    Attributes
-    ----------
-    hamiltonian : Hamiltonian
-        The Hamiltonian which is to be brought into TTNO form. Should contain
-        a conversion dictionary to allow for better compression.
-    reference_tree : TreeTensorNetwork
-        A TTN which has the same underlying tree topology as the TTNO is
-        supposed to have.
-
+    A TTNO is a tree tensor network equivalent to an operator. This means every
+    node has two open legs (input and output). The legs can be trivial, i.e.,
+    of dimension 1, but have the same dimension.
     """
-
-    def __init__(self):
-        super().__init__()
 
     @classmethod
-    def from_hamiltonian(cls, hamiltonian: Hamiltonian,
-                            reference_tree: TreeStructure,
-                            method: TTNOFinder = TTNOFinder.CM ) -> TTNO:
+    def from_hamiltonian(cls,hamiltonian: Hamiltonian,
+                             reference_tree: TreeStructure,
+                             method: TTNOFinder = TTNOFinder.CM ) -> TreeTensorNetworkOperator:
         """
         Generates a TTNO from a Hamiltonian.
 
         Args:
             hamiltonian (Hamiltonian): The Hamiltonian, to which the TTNO
-             should be equivalent.
+                should be equivalent.
             reference_tree (TreeStructure): The tree structure which the TTNO
-             should respect.
+                should respect.
 
         Returns:
-            TTNO: The resulting TTNO.
+            TreeTensorNetworkOperator: The resulting TTNO.
         """
         hamiltonian = hamiltonian.pad_with_identities(reference_tree)
         state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
                                                       reference_tree, method)
-        ttno = TTNO()
+        ttno = TreeTensorNetworkOperator()
         root_id = reference_tree.root_id
         root_shape = state_diagram.obtain_tensor_shape(root_id,
                                                        hamiltonian.conversion_dictionary)
@@ -145,7 +141,7 @@ class TTNO(TreeTensorNetwork):
 
         root_node = Node(tensor, identifier=root_id)
 
-        new_TTNO = TTNO()
+        new_TTNO = TreeTensorNetworkOperator()
         new_TTNO.add_root(root_node, tensor)
 
         new_TTNO._from_tensor_rec(
@@ -392,4 +388,4 @@ class TTNO(TreeTensorNetwork):
 
         return new_leg_dict
 
-TreeTensorNetworkOperator = TTNO
+TTNO = TreeTensorNetworkOperator
