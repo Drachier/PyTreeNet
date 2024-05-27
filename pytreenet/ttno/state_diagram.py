@@ -184,6 +184,7 @@ class StateDiagram():
                 state_diagram = cls.from_single_term(term, ref_tree)
             else:
                 state_diagram.add_single_term(term)
+        return state_diagram
 
     @classmethod
     def from_single_term(cls,
