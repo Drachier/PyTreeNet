@@ -37,6 +37,7 @@ Modules that were fully refactored and updated to new Docstyle:
 * ttno.hyperedge
 * ttno.single_term_diagram
 * ttno.state_diagram
+* ttno.ttno
 ** util
 * util.tensor_util
 * util.tensor_splitting
