@@ -1,3 +1,6 @@
+"""
+Provides a class representing tree tensor network states (TTNS)
+"""
 from __future__ import annotations
 from typing import Union
 from copy import deepcopy
@@ -12,13 +15,15 @@ from ..contractions.state_operator_contraction import expectation_value
 
 class TreeTensorNetworkState(TreeTensorNetwork):
     """
-    This class holds methods commonly used with tree tensor networks
-     representing a state.
+    A class representing a tree tensor network state (TTNS).
+
+    A TTNS is a TTN representing a quantum state. This means that every node
+    has exactly one physical leg. That leg can be trivial, i.e. of dimension 1.
     """
 
     def scalar_product(self) -> complex:
         """
-        Computes the scalar product of this TTNS
+        Computes the scalar product of this TTNS.
 
         Returns:
             complex: The resulting scalar product <TTNS|TTNS>
@@ -35,21 +40,23 @@ class TreeTensorNetworkState(TreeTensorNetwork):
     def single_site_operator_expectation_value(self, node_id: str,
                                                operator: np.ndarray) -> complex:
         """
-        Find the expectation value of this TTNS given the single-site operator acting on
-         the node specified.
-        Assumes the node has only one open leg.
+        The expectation value with regards to a single-site operator.
+
+        The single-site operator acts on the specified node.
 
         Args:
-            node_id (str): The identifier of the node, the operator is applied to.
-            operator (np.ndarray): The operator of which we determine the expectation value.
-             Note that the state will be contracted with axis/leg 0 of this operator.
+            node_id (str): The identifier of the node, the operator is applied
+                to.
+            operator (np.ndarray): The operator of which we determine the
+                expectation value. Note that the state will be contracted with
+                axis/leg 1 of this operator.
 
         Returns:
-            complex: The resulting expectation value < TTNS| Operator| TTN >
+            complex: The resulting expectation value < TTNS| Operator| TTN >.
         """
         if self.orthogonality_center_id == node_id:
             tensor = deepcopy(self.tensors[node_id])
-            tensor_op = np.tensordot(tensor, operator, axes=(-1,0))
+            tensor_op = np.tensordot(tensor, operator, axes=(-1,1))
             tensor_conj = tensor.conj()
             legs = tuple(range(tensor.ndim))
             return complex(np.tensordot(tensor_op, tensor_conj, axes=(legs,legs)))
@@ -63,8 +70,8 @@ class TreeTensorNetworkState(TreeTensorNetwork):
 
         Args:
             operator (Union[TensorProduct,TTNO]): A TensorProduct representing
-            the operator as many single site operators. Otherwise a a TTNO
-            with the same structure as the TTNS.
+                the operator as many single site operators. Otherwise a a TTNO
+                with the same structure as the TTNS.
 
         Returns:
             complex: The resulting expectation value < TTNS | operator | TTNS>
@@ -90,7 +97,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         """
         Returns whether the TTNS is in canonical form.
         
-        If a node_id is specified, it will check as if that node is the
+        If a node is specified, it will check as if that node is the
         orthogonalisation center. If no node is given, the current
         orthogonalisation center will be used.
 
@@ -105,6 +112,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         if node_id is None:
             node_id = self.orthogonality_center_id
         if node_id is None:
+            # I.e. no orth. center exists -> no canon. form
             return False
         total_contraction = self.scalar_product()
         local_tensor = self.tensors[node_id]
