@@ -1,11 +1,12 @@
 import unittest
 
 import pytreenet as ptn
+from pytreenet.time_evolution.time_evo_util import TDVPUpdatePathFinder
 
 class TestUpdatePathSimple(unittest.TestCase):
     def setUp(self):
         tree = ptn.random_small_ttns()
-        self.pathfinder = ptn.TDVPUpdatePathFinder(tree)
+        self.pathfinder = TDVPUpdatePathFinder(tree)
 
     def test_find_start_node_id(self):
         self.assertEqual("c1", self.pathfinder.find_start_node_id())
@@ -44,7 +45,7 @@ class TestUpdatePathSimple(unittest.TestCase):
 class TestUpdatePathComplicated(unittest.TestCase):
     def setUp(self):
         tree = ptn.random_big_ttns_two_root_children()
-        self.pathfinder = ptn.TDVPUpdatePathFinder(tree)
+        self.pathfinder = TDVPUpdatePathFinder(tree)
 
     def test_find_start_node_id(self):
         self.assertEqual("site4", self.pathfinder.find_start_node_id())

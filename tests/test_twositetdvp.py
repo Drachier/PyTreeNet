@@ -1,9 +1,9 @@
 import unittest
-from copy import deepcopy
 
 import numpy as np
 
 import pytreenet as ptn
+from pytreenet.contractions.state_operator_contraction import contract_any
 
 class TestTwoSiteTDVPSimple(unittest.TestCase):
     def setUp(self) -> None:
@@ -26,11 +26,11 @@ class TestTwoSiteTDVPSimple(unittest.TestCase):
                                     self.final_time,
                                     self.operators,
                                     self.svd_param)
-        new_cache = ptn.contract_any("c1", "root",
+        new_cache = contract_any("c1", "root",
                                      self.tdvp.state, self.tdvp.hamiltonian,
                                      self.tdvp.partial_tree_cache)
         self.tdvp.partial_tree_cache.add_entry("c1", "root", new_cache)
-        new_cache = ptn.contract_any("root", "c2",
+        new_cache = contract_any("root", "c2",
                                      self.tdvp.state, self.tdvp.hamiltonian,
                                      self.tdvp.partial_tree_cache)
         self.tdvp.partial_tree_cache.add_entry("root", "c2", new_cache)
