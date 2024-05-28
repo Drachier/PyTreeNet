@@ -100,7 +100,7 @@ class Vertex():
 
         return hyperedges_of_node
 
-    def num_hyperedges_to_node(self, node_i: str) -> int:
+    def num_hyperedges_to_node(self, node_id: str) -> int:
         """
         Finds the number of hyperedges corresponding to a given node and are 
         connected to this vertex.
