@@ -52,7 +52,6 @@ Features to add:
 
 
 Tests:
-* expectation values (ttns and contraction)
 
 Other:
 
