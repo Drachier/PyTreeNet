@@ -2,7 +2,7 @@
 Provides the class to represent a Tree Tensor Network Operator (TTNO).
 """
 from __future__ import annotations
-from typing import Dict, List
+from typing import Dict
 from enum import Enum
 import numpy as np
 
