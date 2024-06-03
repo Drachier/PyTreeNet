@@ -6,7 +6,7 @@ from typing import List, Union, Dict
 from .twositetdvp import TwoSiteTDVP
 from ..ttn_time_evolution import TTNTimeEvolutionConfig
 from ...ttns.ttns import TreeTensorNetworkState
-from ...ttno.ttno import TTNO
+from ...ttno.ttno_class import TTNO
 from ...operators.tensorproduct import TensorProduct
 from ...util.tensor_splitting import SVDParameters
 

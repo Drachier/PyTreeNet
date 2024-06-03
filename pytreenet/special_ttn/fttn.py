@@ -23,7 +23,7 @@ import numpy as np
 from ..core.ttn import TreeTensorNetwork
 from ..ttns import TreeTensorNetworkState
 from ..core.node import Node
-from ..ttno.ttno import TTNO
+from ..ttno.ttno_class import TTNO
 
 class ForkTreeTensorNetwork(TreeTensorNetwork):
     """

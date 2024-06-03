@@ -11,7 +11,7 @@ from .tdvp_algorithms import (TDVPAlgorithm,
 from .ttn_time_evolution import TTNTimeEvolutionConfig
 from ..operators.tensorproduct import TensorProduct
 from ..ttns import TreeTensorNetworkState
-from ..ttno.ttno import TTNO
+from ..ttno.ttno_class import TTNO
 from ..util.tensor_splitting import SVDParameters
 
 class TDVPConfig:

@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import List, Union
 
 from ...operators.tensorproduct import TensorProduct
-from ...ttno.ttno import TTNO
+from ...ttno.ttno_class import TTNO
 from ...ttns import TreeTensorNetworkState
 from ..ttn_time_evolution import TTNTimeEvolutionConfig
 

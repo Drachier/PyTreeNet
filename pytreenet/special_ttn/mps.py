@@ -15,7 +15,7 @@ import numpy as np
 from ..core.ttn import TreeTensorNetwork
 from ..ttns import TreeTensorNetworkState
 from ..core.node import Node
-from ..ttno.ttno import TTNO
+from ..ttno.ttno_class import TTNO
 from ..util.ttn_exceptions import non_negativity_check, positivity_check
 
 class MatrixProductTree(TreeTensorNetwork):
