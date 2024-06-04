@@ -2,6 +2,9 @@ import unittest
 from copy import deepcopy
 
 import pytreenet as ptn
+from pytreenet.random import (random_small_ttns,
+                              random_tensor_product,
+                              random_tensor_node)
 
 class TestHamiltonianInitialisation(unittest.TestCase):
 
@@ -28,8 +31,8 @@ class TestHamiltonianSimpleTree(unittest.TestCase):
 
     def setUp(self):
         # Numeric Hamiltonian
-        self.ref_ttn = ptn.random_small_ttns()
-        self.terms_num = [ptn.random_tensor_product(self.ref_ttn, 2) for _ in range(0,3)]
+        self.ref_ttn = random_small_ttns()
+        self.terms_num = [random_tensor_product(self.ref_ttn, 2) for _ in range(0,3)]
         self.ham_num = ptn.Hamiltonian(terms=deepcopy(self.terms_num))
 
         # Symbolic Hamiltonian
@@ -82,7 +85,7 @@ class TestHamiltonianSimpleTree(unittest.TestCase):
 
     def test_is_compatible_with_false(self):
         ttn = ptn.TreeTensorNetwork()
-        node, tensor = ptn.random_tensor_node((2,3,4), identifier="False!")
+        node, tensor = random_tensor_node((2,3,4), identifier="False!")
         ttn.add_root(node, tensor)
         self.assertFalse(self.ham_num.is_compatible_with(ttn))
 

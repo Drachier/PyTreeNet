@@ -3,17 +3,21 @@ import unittest
 import numpy as np
 
 import pytreenet as ptn
+from pytreenet.random import (random_hermitian_matrix,
+                              random_small_ttns,
+                              random_big_ttns_two_root_children,
+                              random_hamiltonian_compatible)
 
 class TestSecondOrderOneSiteTDVPInitSimple(unittest.TestCase):
     def setUp(self) -> None:
-        self.conversion_dict = {"root_op1": ptn.random_hermitian_matrix(),
-                                "root_op2": ptn.random_hermitian_matrix(),
+        self.conversion_dict = {"root_op1": random_hermitian_matrix(),
+                                "root_op2": random_hermitian_matrix(),
                                 "I2": np.eye(2),
-                                "c1_op": ptn.random_hermitian_matrix(size=3),
+                                "c1_op": random_hermitian_matrix(size=3),
                                 "I3": np.eye(3),
-                                "c2_op": ptn.random_hermitian_matrix(size=4),
+                                "c2_op": random_hermitian_matrix(size=4),
                                 "I4": np.eye(4)}
-        self.ref_tree = ptn.random_small_ttns()
+        self.ref_tree = random_small_ttns()
         tensor_prod = [ptn.TensorProduct({"c1": "I3", "root": "root_op1", "c2": "I4"}),
                        ptn.TensorProduct({"c1": "c1_op", "root": "root_op1", "c2": "I4"}),
                        ptn.TensorProduct({"c1": "c1_op", "root": "root_op2", "c2": "c2_op"}),
@@ -33,14 +37,14 @@ class TestSecondOrderOneSiteTDVPInitSimple(unittest.TestCase):
 
 class TestSecondOrderOneSiteTDVPUpdatesSimple(unittest.TestCase):
     def setUp(self) -> None:
-        self.conversion_dict = {"root_op1": ptn.random_hermitian_matrix(),
-                                "root_op2": ptn.random_hermitian_matrix(),
+        self.conversion_dict = {"root_op1": random_hermitian_matrix(),
+                                "root_op2": random_hermitian_matrix(),
                                 "I2": np.eye(2),
-                                "c1_op": ptn.random_hermitian_matrix(size=3),
+                                "c1_op": random_hermitian_matrix(size=3),
                                 "I3": np.eye(3),
-                                "c2_op": ptn.random_hermitian_matrix(size=4),
+                                "c2_op": random_hermitian_matrix(size=4),
                                 "I4": np.eye(4)}
-        self.ref_tree = ptn.random_small_ttns()
+        self.ref_tree = random_small_ttns()
         tensor_prod = [ptn.TensorProduct({"c1": "I3", "root": "root_op1", "c2": "I4"}),
                        ptn.TensorProduct({"c1": "c1_op", "root": "root_op1", "c2": "I4"}),
                        ptn.TensorProduct({"c1": "c1_op", "root": "root_op2", "c2": "c2_op"}),
@@ -54,8 +58,8 @@ class TestSecondOrderOneSiteTDVPUpdatesSimple(unittest.TestCase):
 
 class TestSecondOrderOneSiteTDVPInitComplicated(unittest.TestCase):
     def setUp(self):
-        self.ref_tree = ptn.random_big_ttns_two_root_children()
-        self.hamiltonian = ptn.TTNO.from_hamiltonian(ptn.random_hamiltonian_compatible(),
+        self.ref_tree = random_big_ttns_two_root_children()
+        self.hamiltonian = ptn.TTNO.from_hamiltonian(random_hamiltonian_compatible(),
                                                      self.ref_tree)
         self.tdvp = ptn.SecondOrderOneSiteTDVP(self.ref_tree, self.hamiltonian, 0.1,1,
                                       ptn.TensorProduct({"site0": ptn.pauli_matrices()[0]}))

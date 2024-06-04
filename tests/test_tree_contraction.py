@@ -4,10 +4,13 @@ from copy import deepcopy
 import numpy as np
 
 import pytreenet as ptn
+from pytreenet.random import (random_small_ttns,
+                              random_big_ttns_two_root_children,
+                              RandomTTNSMode)
 
 class TestTreeContractionSimple(unittest.TestCase):
     def setUp(self):
-        self.ttn = ptn.random_small_ttns()
+        self.ttn = random_small_ttns()
 
     def test_completely_contract_tree(self):
         # Reference Computation
@@ -39,7 +42,7 @@ class TestTreeContractionSimple(unittest.TestCase):
 
 class TestTreeContractionComplicated(unittest.TestCase):
     def setUp(self):
-        self.ttn = ptn.random_big_ttns_two_root_children(mode=ptn.RandomTTNSMode.DIFFVIRT)
+        self.ttn = random_big_ttns_two_root_children(mode=RandomTTNSMode.DIFFVIRT)
 
     def test_completely_contract_tree(self):
         # Reference Computation

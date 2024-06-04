@@ -8,6 +8,8 @@ from scipy.linalg import expm
 import pytreenet as ptn
 from pytreenet.contractions.state_operator_contraction import (contract_leaf, 
                                                                contract_subtrees_using_dictionary)
+from pytreenet.random import (random_tensor_node,
+                              random_hermitian_matrix)
 
 class TestTDVPonMPS(unittest.TestCase):
     """
@@ -17,10 +19,10 @@ class TestTDVPonMPS(unittest.TestCase):
         """
         Create a simple MPS.
         """
-        _, tensor0 = ptn.random_tensor_node((4,2), "site_0")
-        _, tensor1 = ptn.random_tensor_node((4,5,3), "site_1")
-        _, tensor2 = ptn.random_tensor_node((5,6,4), "site_2")
-        _, tensor3 = ptn.random_tensor_node((6,5), "site_3")
+        _, tensor0 = random_tensor_node((4,2), "site_0")
+        _, tensor1 = random_tensor_node((4,5,3), "site_1")
+        _, tensor2 = random_tensor_node((5,6,4), "site_2")
+        _, tensor3 = random_tensor_node((6,5), "site_3")
         tensor_list = [tensor0, tensor1, tensor2, tensor3]
         mps = ptn.MatrixProductState.from_tensor_list(tensor_list,root_site=1,
                                                       node_prefix="site_")
@@ -31,7 +33,7 @@ class TestTDVPonMPS(unittest.TestCase):
         """
         Create a simple Hamiltonian as a TTNO.
         """
-        matrix = ptn.random_hermitian_matrix((2*3*4*5))
+        matrix = random_hermitian_matrix((2*3*4*5))
         matrix = matrix.reshape(2,3,4,5,2,3,4,5)
         leg_dict = {"site_"+str(i): i for i in range(4)}
         mpo = ptn.TTNO.from_tensor(mps, matrix, leg_dict)

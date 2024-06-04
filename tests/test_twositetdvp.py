@@ -3,14 +3,17 @@ import unittest
 import numpy as np
 
 import pytreenet as ptn
+from pytreenet.random import (random_small_ttns,
+                              RandomTTNSMode,
+                              random_hermitian_matrix)
 from pytreenet.contractions.state_operator_contraction import contract_any
 
 class TestTwoSiteTDVPSimple(unittest.TestCase):
     def setUp(self) -> None:
-        self.ttn = ptn.random_small_ttns(ptn.RandomTTNSMode.DIFFVIRT)
+        self.ttn = random_small_ttns(RandomTTNSMode.DIFFVIRT)
         self.time_step_size = 0.1
         self.final_time = 1
-        self.hamiltonian = ptn.random_hermitian_matrix((2*3*4))
+        self.hamiltonian = random_hermitian_matrix((2*3*4))
         self.hamiltonian = self.hamiltonian.reshape(4,3,2,4,3,2)
         leg_dict = {"c1": 1, "root": 2, "c2": 0}
         self.operators = []

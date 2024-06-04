@@ -5,11 +5,12 @@ from copy import deepcopy
 import numpy as np
 
 import pytreenet as ptn
+from pytreenet.random import random_small_ttns
 
 class TestTreeTensorNetworkStateSimple(unittest.TestCase):
     def setUp(self):
         # Initialise initial state
-        self.initial_state = ptn.random_small_ttns()
+        self.initial_state = random_small_ttns()
         # Operators
         single_site_operator = ptn.TensorProduct({"root": ptn.crandn((2,2))})
         two_site_operator = ptn.TensorProduct({"c1": ptn.crandn((3,3)),

@@ -7,19 +7,22 @@ from scipy.linalg import expm
 
 import pytreenet as ptn
 from pytreenet.contractions.state_operator_contraction import (contract_any)
-
+from pytreenet.random import (random_hermitian_matrix,
+                              random_small_ttns,
+                              random_big_ttns_two_root_children,
+                              random_hamiltonian_compatible)
 
 class TestContractionMethods(unittest.TestCase):
 
     def setUp(self):
-        self.conversion_dict = {"root_op1": ptn.random_hermitian_matrix(),
-                                "root_op2": ptn.random_hermitian_matrix(),
+        self.conversion_dict = {"root_op1": random_hermitian_matrix(),
+                                "root_op2": random_hermitian_matrix(),
                                 "I2": np.eye(2),
-                                "c1_op": ptn.random_hermitian_matrix(size=3),
+                                "c1_op": random_hermitian_matrix(size=3),
                                 "I3": np.eye(3),
-                                "c2_op": ptn.random_hermitian_matrix(size=4),
+                                "c2_op": random_hermitian_matrix(size=4),
                                 "I4": np.eye(4)}
-        self.ref_tree = ptn.random_small_ttns()
+        self.ref_tree = random_small_ttns()
         tensor_prod = [ptn.TensorProduct({"c1": "I3", "root": "root_op1", "c2": "I4"}),
                        ptn.TensorProduct(
                            {"c1": "c1_op", "root": "root_op1", "c2": "I4"}),
@@ -413,8 +416,8 @@ class TestContractionMethodsComplicated(unittest.TestCase):
     """
 
     def setUp(self) -> None:
-        ref_tree = ptn.random_big_ttns_two_root_children()
-        hamiltonian = ptn.TTNO.from_hamiltonian(ptn.random_hamiltonian_compatible(),
+        ref_tree = random_big_ttns_two_root_children()
+        hamiltonian = ptn.TTNO.from_hamiltonian(random_hamiltonian_compatible(),
                                                 ref_tree)
         self.tdvp = ptn.OneSiteTDVP(ref_tree, hamiltonian, 0.1, 1,
                                     ptn.TensorProduct({"site0": ptn.pauli_matrices()[0]}))

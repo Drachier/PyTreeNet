@@ -1,6 +1,7 @@
 import unittest
 
 import pytreenet as ptn
+from pytreenet.random import random_small_ttns
 
 class TestLegSpecificationInit(unittest.TestCase):
 
@@ -101,7 +102,7 @@ class TestLegSpecificationEquality(unittest.TestCase):
 
 class TestLegSpecMethods(unittest.TestCase):
     def setUp(self) -> None:
-        self.nodes = ptn.random_small_ttns().nodes
+        self.nodes = random_small_ttns().nodes
 
     def test_find_leg_values_root(self):
         leg_spec = ptn.LegSpecification(None,["c1","c2"],[2],

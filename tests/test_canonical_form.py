@@ -6,11 +6,12 @@ from copy import deepcopy
 import pytreenet as ptn
 
 from pytreenet.core.canonical_form import _find_smallest_distance_neighbour
-
+from pytreenet.random import (random_small_ttns,
+                              random_big_ttns_two_root_children)
 
 class TestCanonicalFormSimple(unittest.TestCase):
     def setUp(self):
-        self.ttn = ptn.random_small_ttns()
+        self.ttn = random_small_ttns()
 
     def test_find_smallest_distance_neighbour_to_c1(self):
         distance_dict = self.ttn.distance_to_node("c1")
@@ -236,7 +237,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
 
 class TestCanoncialFormComplicated(unittest.TestCase):
     def setUp(self) -> None:
-        self.ttn = ptn.random_big_ttns_two_root_children()
+        self.ttn = random_big_ttns_two_root_children()
         self.ref_ttn = deepcopy(self.ttn)
 
     def test_canoncial_form_0_center(self):

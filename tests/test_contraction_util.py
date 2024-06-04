@@ -4,11 +4,12 @@ import numpy as np
 
 import pytreenet as ptn
 from pytreenet.contractions import contraction_util
+from pytreenet.random import random_tensor_node
 
 class TestContractionUtil(unittest.TestCase):
     def setUp(self) -> None:
         self.identifier = "I am an identifier that identifiers stuff."
-        self.node, self.tensor = ptn.random_tensor_node((6,5,4,3,2),
+        self.node, self.tensor = random_tensor_node((6,5,4,3,2),
                                                         identifier=self.identifier)
         self.node.add_parent("parent")
         for i in range(3):

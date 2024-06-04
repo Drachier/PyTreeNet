@@ -3,6 +3,7 @@ import unittest
 import numpy as np
 
 import pytreenet as ptn
+from pytreenet.random import random_hermitian_matrix
 
 class TestCommonOperators(unittest.TestCase):
 
@@ -81,15 +82,15 @@ class TestCommonOperators(unittest.TestCase):
 
     def test_hermitian_matrix(self):
         # negative and zero dimension
-        self.assertRaises(ValueError, ptn.random_hermitian_matrix, -56)
-        self.assertRaises(ValueError, ptn.random_hermitian_matrix, 0)
+        self.assertRaises(ValueError, random_hermitian_matrix, -56)
+        self.assertRaises(ValueError, random_hermitian_matrix, 0)
 
         # dim = 1
-        number = ptn.random_hermitian_matrix(size=1)
+        number = random_hermitian_matrix(size=1)
         self.assertTrue(np.isreal(number))
 
         # dim = 2
-        matrix = ptn.random_hermitian_matrix()
+        matrix = random_hermitian_matrix()
         self.assertTrue(np.allclose(matrix, matrix.T.conj()))
 
 if __name__ == "__main__":

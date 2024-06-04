@@ -8,10 +8,11 @@ from pytreenet.contractions.state_operator_contraction import (contract_leaf,
                                                                contract_operator_tensor_ignoring_one_leg,
                                                                contract_bra_tensor_ignore_one_leg)
 from pytreenet.contractions.contraction_util import (contract_all_but_one_neighbour_block_to_ket)
+from pytreenet.random import (random_small_ttns)
 
 class TestStateOperatorContraction(unittest.TestCase):
     def setUp(self):
-        self.state = ptn.random_small_ttns()
+        self.state = random_small_ttns()
         self.conversion_dict = {"root_op1": ptn.crandn((2,2)),
                                 "root_op2": ptn.crandn((2,2)),
                                 "I2": np.eye(2),
@@ -19,7 +20,7 @@ class TestStateOperatorContraction(unittest.TestCase):
                                 "I3": np.eye(3),
                                 "c2_op": ptn.crandn((4,4)),
                                 "I4": np.eye(4)}
-        self.state = ptn.random_small_ttns()
+        self.state = random_small_ttns()
         tensor_prod = [ptn.TensorProduct({"c1": "I3", "root": "root_op1", "c2": "I4"}),
                        ptn.TensorProduct({"c1": "c1_op", "root": "root_op1", "c2": "I4"}),
                        ptn.TensorProduct({"c1": "c1_op", "root": "root_op2", "c2": "c2_op"}),
@@ -232,35 +233,6 @@ class TestStateOperatorContraction(unittest.TestCase):
                                                           ket_node,
                                                           "c1")
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
-
-# class TestPartialTreeCacheComplicated(unittest.TestCase):
-#     def setUp(self):
-#         self.ref_state = ptn.random_big_ttns_two_root_children()
-#         self.hamiltonian = ptn.TTNO.from_hamiltonian(ptn.random_hamiltonian_compatible(),
-#                                                      self.ref_state)
-#         self.partial_tree_cache = ptn.PartialTreeCachDict()
-#         self.partial_tree_cache.add_entry("site2","site1",
-#                                            ptn.PartialTreeCache.for_leaf("site2",
-#                                                                          self.ref_state,
-#                                                                          self.hamiltonian))
-#         self.partial_tree_cache.add_entry("site5","site3",
-#                                            ptn.PartialTreeCache.for_leaf("site5",
-#                                                                          self.ref_state,
-#                                                                          self.hamiltonian))
-#         self.partial_tree_cache.add_entry("site7","site6",
-#                                            ptn.PartialTreeCache.for_leaf("site7",
-#                                                                          self.ref_state,
-#                                                                          self.hamiltonian))
-#         self.partial_tree_cache.add_entry("site6","site0",
-#                                            ptn.PartialTreeCache.with_existing_cache("site6","site0",
-#                                                                                     self.partial_tree_cache,
-#                                                                                     self.ref_state,
-#                                                                                     self.hamiltonian))
-#         self.partial_tree_cache.add_entry("site0","site1",
-#                                            ptn.PartialTreeCache.with_existing_cache("site0","site1",
-#                                                                                     self.partial_tree_cache,
-#                                                                                     self.ref_state,
-#                                                                                     self.hamiltonian))
 
 if __name__ == "__main__":
     unittest.main()

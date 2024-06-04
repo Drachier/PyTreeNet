@@ -4,12 +4,15 @@ from copy import deepcopy
 import numpy as np
 
 import pytreenet as ptn
+from pytreenet.random import (random_small_ttns,
+                              random_big_ttns_two_root_children,
+                              RandomTTNSMode)
 
 class TestContractTwoTTNsSimple(unittest.TestCase):
 
     def test_contract_two_ttns_simple(self):
-        ttns = ptn.random_small_ttns()
-        ttns2 = ptn.random_small_ttns()
+        ttns = random_small_ttns()
+        ttns2 = random_small_ttns()
 
         # Saved to check, the TTN are not affected
         refs = [deepcopy(ttns), deepcopy(ttns2)]
@@ -30,9 +33,9 @@ class TestContractTwoTTNsSimple(unittest.TestCase):
 
 class TestContractTwoTTNsComplicated(unittest.TestCase):
     def setUp(self):
-        mode = ptn.RandomTTNSMode.DIFFVIRT
-        self.ttns1 = ptn.random_big_ttns_two_root_children(mode)
-        self.ttns2 = ptn.random_big_ttns_two_root_children(mode)
+        mode = RandomTTNSMode.DIFFVIRT
+        self.ttns1 = random_big_ttns_two_root_children(mode)
+        self.ttns2 = random_big_ttns_two_root_children(mode)
 
         # Save the original TTNs
         self.refs = [deepcopy(self.ttns1), deepcopy(self.ttns2)]

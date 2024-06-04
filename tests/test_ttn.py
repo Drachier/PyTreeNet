@@ -4,16 +4,16 @@ from copy import deepcopy
 import numpy as np
 
 import pytreenet as ptn
-
+from pytreenet.random import random_tensor_node, random_small_ttns
 
 class TestTreeTensorNetworkBasics(unittest.TestCase):
 
     def setUp(self):
         self.tensortree = ptn.TreeTensorNetwork()
-        self.node1, self.tensor1 = ptn.random_tensor_node((2, 3, 4, 5), identifier="orig_root")
-        self.node2, self.tensor2 = ptn.random_tensor_node((2, 3), identifier="child1")
-        self.node3, self.tensor3 = ptn.random_tensor_node((2, 3, 4, 5), identifier="child2")
-        self.node4, self.tensor4 = ptn.random_tensor_node((2, 3, 4, 5), identifier="new_root")
+        self.node1, self.tensor1 = random_tensor_node((2, 3, 4, 5), identifier="orig_root")
+        self.node2, self.tensor2 = random_tensor_node((2, 3), identifier="child1")
+        self.node3, self.tensor3 = random_tensor_node((2, 3, 4, 5), identifier="child2")
+        self.node4, self.tensor4 = random_tensor_node((2, 3, 4, 5), identifier="new_root")
 
     def test_add_root(self):
         self.assertEqual(self.tensortree.root_id, None)
@@ -67,10 +67,10 @@ class TestTreeTensorNetworkBasics(unittest.TestCase):
 
     def test_root_property(self):
         ttn = ptn.TreeTensorNetwork()
-        node0, tensor0 = ptn.random_tensor_node((4,3,2),"node0")
+        node0, tensor0 = random_tensor_node((4,3,2),"node0")
         tensor0_ref_transposed = np.transpose(tensor0, (2,1,0))
-        node1, tensor1 = ptn.random_tensor_node((2, ),"node1")
-        node2, tensor2 = ptn.random_tensor_node((3, ),"node2")
+        node1, tensor1 = random_tensor_node((2, ),"node1")
+        node2, tensor2 = random_tensor_node((3, ),"node2")
         ttn.add_root(node0, tensor0)
         ttn.add_child_to_parent(node1, tensor1, 0, "node0", 2)
         ttn.add_child_to_parent(node2, tensor2, 0, "node0", 2)
@@ -82,7 +82,7 @@ class TestTreeTensorNetworkBasics(unittest.TestCase):
 class TestTreeTensorNetworkSimple(unittest.TestCase):
 
     def setUp(self):
-        self.tensortree = ptn.random_small_ttns()
+        self.tensortree = random_small_ttns()
         self.svd_params = ptn.SVDParameters(max_bond_dim=float("inf"),
                                             rel_tol=float("-inf"),
                                             total_tol=float("-inf"))
@@ -400,15 +400,15 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def setUp(self):
         self.ttn = ptn.TreeTensorNetwork()
 
-        node1, tensor1 = ptn.random_tensor_node((2, 3, 4, 5), identifier="id1")
-        node2, tensor2 = ptn.random_tensor_node((2, 3, 4, 5), identifier="id2")
-        node3, tensor3 = ptn.random_tensor_node((2, 3, 4, 5), identifier="id3")
-        node4, tensor4 = ptn.random_tensor_node((2, 3, 4, 5), identifier="id4")
-        node5, tensor5 = ptn.random_tensor_node((2, 3, 4, 5), identifier="id5")
-        node6, tensor6 = ptn.random_tensor_node((2, 3, 4, 5), identifier="id6")
-        node7, tensor7 = ptn.random_tensor_node((2, 3, 4, 5), identifier="id7")
-        node8, tensor8 = ptn.random_tensor_node((2, 3, 4, 5), identifier="id8")
-        node9, tensor9 = ptn.random_tensor_node((2, 3, 4, 5), identifier="id9")
+        node1, tensor1 = random_tensor_node((2, 3, 4, 5), identifier="id1")
+        node2, tensor2 = random_tensor_node((2, 3, 4, 5), identifier="id2")
+        node3, tensor3 = random_tensor_node((2, 3, 4, 5), identifier="id3")
+        node4, tensor4 = random_tensor_node((2, 3, 4, 5), identifier="id4")
+        node5, tensor5 = random_tensor_node((2, 3, 4, 5), identifier="id5")
+        node6, tensor6 = random_tensor_node((2, 3, 4, 5), identifier="id6")
+        node7, tensor7 = random_tensor_node((2, 3, 4, 5), identifier="id7")
+        node8, tensor8 = random_tensor_node((2, 3, 4, 5), identifier="id8")
+        node9, tensor9 = random_tensor_node((2, 3, 4, 5), identifier="id9")
 
         self.ttn.add_root(node1, tensor1)
         self.ttn.add_child_to_parent(node2, tensor2, 0, "id1", 0)
@@ -716,33 +716,6 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         self.assertEqual((q_tensor.shape[0], 3, 5), r_tensor.shape)
         found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([1, 2], [1, 2]))
         self.assertTrue(np.allclose(np.eye(q_tensor.shape[0]), found_identity))
-
-# TODO: Reactivate later
-# def test_apply_hamiltonian(self):
-#     ttns = ptn.TreeTensorNetwork()
-#     node1, tensor1 = ptn.random_tensor_node((2, 3), identifier="site1")
-#     node2, tensor2 = ptn.random_tensor_node((2, 4), identifier="site2")
-
-#     ttns.add_root(node1, tensor1)
-#     ttns.add_child_to_parent(node2, tensor2, 0, "site1", 0)
-
-#     full_state = ttns.completely_contract_tree(to_copy=True).tensors["site1_contr_site2"]
-
-#     term1 = {"site1": "11", "site2": "21"}
-#     term2 = {"site1": "12", "site2": "22"}
-#     conversion_dict = {"11": ptn.crandn((3, 3)), "12": ptn.crandn((3, 3)),
-#                        "21": ptn.crandn((4, 4)), "22": ptn.crandn((4, 4))}
-
-#     hamiltonian = ptn.Hamiltonian(terms=[term1, term2],
-#                                   conversion_dictionary=conversion_dict)
-
-#     ttns.apply_hamiltonian(hamiltonian, conversion_dict)
-#     test_output = ttns.completely_contract_tree(to_copy=True).tensors["site1_contr_site2"]
-
-#     full_tensor = hamiltonian.to_tensor(ttns)
-#     ttno_output = np.tensordot(full_state, full_tensor, axes=([0, 1], [2, 3]))
-#     np.allclose(test_output, ttno_output)
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,19 +6,21 @@ import numpy as np
 from scipy.linalg import expm
 
 import pytreenet as ptn
+from pytreenet.random import (random_small_ttns,
+                              random_tensor_product)
 
 class TestTEBDinit(unittest.TestCase):
 
     def setUp(self):
         # Create mock objects for initialization
-        self.initial_state = ptn.random_small_ttns()
-        self.tensor_products = [ptn.random_tensor_product(self.initial_state,2),
-                                ptn.random_tensor_product(self.initial_state,2)]
+        self.initial_state = random_small_ttns()
+        self.tensor_products = [random_tensor_product(self.initial_state,2),
+                                random_tensor_product(self.initial_state,2)]
         self.steps = [ptn.TrotterStep(tp,1) for tp in self.tensor_products]
         self.trotter_splitting = ptn.TrotterSplitting(self.steps)
         self.time_step_size = 0.1
         self.final_time = 1.0
-        self.operators = [ptn.random_tensor_product(self.initial_state, 1)]
+        self.operators = [random_tensor_product(self.initial_state, 1)]
         self.svd_parameters = ptn.SVDParameters(100, 1e-10, 1e-15)
 
     def test_valid_init(self):
@@ -37,7 +39,7 @@ class TestTEBDinit(unittest.TestCase):
 class TestTEBDsmall(unittest.TestCase):
     def setUp(self):
         # We need a ttns to work with
-        self.ttns = ptn.random_small_ttns()
+        self.ttns = random_small_ttns()
 
         # Time parameters
         self.time_step_size = 0.1
@@ -56,7 +58,7 @@ class TestTEBDsmall(unittest.TestCase):
 
         # Operators to measure
         num_ops = 3
-        self.meas_operators = [ptn.random_tensor_product(self.ttns, 2) for i in range(num_ops)]
+        self.meas_operators = [random_tensor_product(self.ttns, 2) for i in range(num_ops)]
 
         # Deactivate Truncation
         self.svd_params = ptn.SVDParameters(float("inf"), float("-inf"), float("-inf"))

@@ -4,11 +4,15 @@ import numpy as np
 from scipy.linalg import expm
 
 import pytreenet as ptn
+from pytreenet.random import (random_small_ttns,
+                              random_big_ttns_two_root_children,
+                              random_hermitian_matrix,
+                              RandomTTNSMode)
 
 class TestSWAPList(unittest.TestCase):
     def setUp(self) -> None:
-        self.small_ttn = ptn.random.random_small_ttns(mode=ptn.RandomTTNSMode.SAMEPHYS)
-        self.big_ttn = ptn.random.random_big_ttns_two_root_children()
+        self.small_ttn = random_small_ttns(mode=RandomTTNSMode.SAMEPHYS)
+        self.big_ttn = random_big_ttns_two_root_children()
         self.small_swaps = [("c1","root"),("root","c2")]
 
         self.ref_swap = np.asarray([[1,0,0,0],
@@ -77,7 +81,7 @@ class TestSWAPList(unittest.TestCase):
         Tests the compatability with a small TTNS, if the two nodes have a
         different open leg dimension.
         """
-        ttn = ptn.random.random_small_ttns()
+        ttn = random_small_ttns()
         swaps = ptn.SWAPlist(self.small_swaps)
         self.assertFalse(swaps.is_compatible_with_ttn(ttn))
 
@@ -121,8 +125,8 @@ class TestTrotterStep(unittest.TestCase):
                                     [0,1,0,0],
                                     [0,0,0,1]])
         self.ref_swap = self.ref_swap.reshape(2,2,2,2)
-        op1 = ptn.random.random_hermitian_matrix(2)
-        op2 = ptn.random.random_hermitian_matrix(2)
+        op1 = random_hermitian_matrix(2)
+        op2 = random_hermitian_matrix(2)
         self.operator = ptn.TensorProduct({"c1": op1, "root": op2})
         self.factor = 0.5
         self.trotter = ptn.TrotterStep(self.operator,
@@ -171,7 +175,7 @@ class TestTrotterStep(unittest.TestCase):
         Exponentiate an operator that is just a matrix.
         """
         delta_t = 0.2
-        operator = ptn.random.random_hermitian_matrix(2)
+        operator = random_hermitian_matrix(2)
         ref_exp = expm(-1j * self.factor * delta_t * operator)
         trotter_step = ptn.TrotterStep(ptn.TensorProduct({"c1":operator}),
                                        self.factor)
@@ -184,7 +188,7 @@ class TestTrotterSplittingInit(unittest.TestCase):
     def setUp(self):
         self.small_swaps = [("c1","root"),("root","c2")]
         self.small_swaps = ptn.SWAPlist(self.small_swaps)
-        self.operators = [ptn.random.random_hermitian_matrix(2) for _ in range(4)]
+        self.operators = [random_hermitian_matrix(2) for _ in range(4)]
         self.tp = [ptn.TensorProduct({"c1": self.operators[0],
                                       "root": self.operators[1]}),
                    ptn.TensorProduct({"c1": self.operators[0],
@@ -315,7 +319,7 @@ class TestTrotterSplittingMethods(unittest.TestCase):
                                     [0,1,0,0],
                                     [0,0,0,1]])
         self.ref_swap = self.ref_swap.reshape(2,2,2,2)
-        self.operators = [ptn.random.random_hermitian_matrix(2) for _ in range(4)]
+        self.operators = [random_hermitian_matrix(2) for _ in range(4)]
         self.tp = [ptn.TensorProduct({"c1": self.operators[0],
                                       "root": self.operators[1]}),
                    ptn.TensorProduct({"c1": self.operators[0],

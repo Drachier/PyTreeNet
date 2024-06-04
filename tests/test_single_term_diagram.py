@@ -1,20 +1,20 @@
 import unittest
 
 import pytreenet as ptn
-
+from pytreenet.random import random_tensor_node
 
 class TestStateDiagram(unittest.TestCase):
 
     def setUp(self):
         self.ref_tree = ptn.TreeTensorNetwork()
 
-        node1, tensor1 = ptn.random_tensor_node((2, 2, 2), identifier="site1")
-        node2, tensor2 = ptn.random_tensor_node((2, 2, 2, 2), identifier="site2")
-        node5, tensor5 = ptn.random_tensor_node((2, 2, 2, 2), identifier="site5")
-        node3, tensor3 = ptn.random_tensor_node((2, 2), identifier="site3")
-        node4, tensor4 = ptn.random_tensor_node((2, 2), identifier="site4")
-        node6, tensor6 = ptn.random_tensor_node((2, 2), identifier="site6")
-        node7, tensor7 = ptn.random_tensor_node((2, 2), identifier="site7")
+        node1, tensor1 = random_tensor_node((2, 2, 2), identifier="site1")
+        node2, tensor2 = random_tensor_node((2, 2, 2, 2), identifier="site2")
+        node5, tensor5 = random_tensor_node((2, 2, 2, 2), identifier="site5")
+        node3, tensor3 = random_tensor_node((2, 2), identifier="site3")
+        node4, tensor4 = random_tensor_node((2, 2), identifier="site4")
+        node6, tensor6 = random_tensor_node((2, 2), identifier="site6")
+        node7, tensor7 = random_tensor_node((2, 2), identifier="site7")
 
         self.ref_tree.add_root(node1, tensor1)
         self.ref_tree.add_child_to_parent(node2, tensor2, 0, "site1", 0)
