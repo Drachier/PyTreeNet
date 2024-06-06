@@ -6,6 +6,7 @@ from copy import deepcopy
 import numpy as np
 
 import pytreenet as ptn
+from pytreenet.random import crandn
 
 class TestTensorContration(unittest.TestCase):
 
@@ -13,7 +14,7 @@ class TestTensorContration(unittest.TestCase):
         shapes = [(5,6,7),(4,5,7),(6, ),(4,5),(5, ),
                   (2,3,4),(2, ),(3, ),(2,3,4,5),(3, ),
                   (2, ),(5, )]
-        self.tensors = {"site"+str(i): ptn.crandn(shape)
+        self.tensors = {"site"+str(i): crandn(shape)
                         for i, shape in enumerate(shapes)}
 
         self.ttn = ptn.TreeTensorNetwork()
@@ -631,7 +632,7 @@ class TestTensorContractionOpenLegs(unittest.TestCase):
         shapes = [(5,6,7,2),(4,5,7,2),(6,2),(4,5,2),(5,2),
                   (2,3,4,2),(2,2),(3,2),(2,3,2,4,5),(2,3),
                   (2,2),(5,2)]
-        self.tensors = {"site"+str(i): ptn.crandn(shape)
+        self.tensors = {"site"+str(i): crandn(shape)
                         for i, shape in enumerate(shapes)}
 
         self.ttn = ptn.TreeTensorNetwork()

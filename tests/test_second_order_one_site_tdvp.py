@@ -6,7 +6,8 @@ import pytreenet as ptn
 from pytreenet.random import (random_hermitian_matrix,
                               random_small_ttns,
                               random_big_ttns_two_root_children,
-                              random_hamiltonian_compatible)
+                              random_hamiltonian_compatible,
+                              crandn)
 
 class TestSecondOrderOneSiteTDVPInitSimple(unittest.TestCase):
     def setUp(self) -> None:
@@ -24,7 +25,7 @@ class TestSecondOrderOneSiteTDVPInitSimple(unittest.TestCase):
                        ptn.TensorProduct({"c1": "c1_op", "root": "I2", "c2": "c2_op"})
                        ]
         ham = ptn.Hamiltonian(tensor_prod, self.conversion_dict)
-        operator = ptn.TensorProduct({"root": ptn.crandn((2,2))})
+        operator = ptn.TensorProduct({"root": crandn((2,2))})
         self.hamiltonian = ptn.TTNO.from_hamiltonian(ham, self.ref_tree)
         self.tdvp = ptn.SecondOrderOneSiteTDVP(self.ref_tree, self.hamiltonian,
                                                0.1, 1, operator)
@@ -51,7 +52,7 @@ class TestSecondOrderOneSiteTDVPUpdatesSimple(unittest.TestCase):
                        ptn.TensorProduct({"c1": "c1_op", "root": "I2", "c2": "c2_op"})
                        ]
         ham = ptn.Hamiltonian(tensor_prod, self.conversion_dict)
-        operator = ptn.TensorProduct({"root": ptn.crandn((2,2))})
+        operator = ptn.TensorProduct({"root": crandn((2,2))})
         self.hamiltonian = ptn.TTNO.from_hamiltonian(ham, self.ref_tree)
         self.tdvp = ptn.SecondOrderOneSiteTDVP(self.ref_tree, self.hamiltonian,
                                                0.1, 1, operator)

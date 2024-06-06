@@ -4,7 +4,8 @@ from copy import deepcopy
 import pytreenet as ptn
 from pytreenet.random import (random_small_ttns,
                               random_tensor_product,
-                              random_tensor_node)
+                              random_tensor_node,
+                              crandn)
 
 class TestHamiltonianInitialisation(unittest.TestCase):
 
@@ -22,7 +23,7 @@ class TestHamiltonianInitialisation(unittest.TestCase):
         self.assertEqual(0, len(ham.conversion_dictionary))
 
     def test_init_with_conversion_dict(self):
-        conv_dict = {"A": ptn.crandn((2,2)), "X": ptn.crandn((4,4))}
+        conv_dict = {"A": crandn((2,2)), "X": crandn((4,4))}
         ham = ptn.Hamiltonian(conversion_dictionary=conv_dict)
         self.assertEqual(0, len(ham.terms))
         self.assertEqual(conv_dict, ham.conversion_dictionary)
@@ -38,9 +39,9 @@ class TestHamiltonianSimpleTree(unittest.TestCase):
         # Symbolic Hamiltonian
         self.terms_symb = [ptn.TensorProduct({"root": "A", "c1": "B"}),
                            ptn.TensorProduct({"root": "A", "c2": "C"})]
-        self.conversion_dict = {"A": ptn.crandn((2,2)),
-                                "B": ptn.crandn((3,3)),
-                                "C": ptn.crandn((4,4))}
+        self.conversion_dict = {"A": crandn((2,2)),
+                                "B": crandn((3,3)),
+                                "C": crandn((4,4))}
         self.ham_symb = ptn.Hamiltonian(terms=deepcopy(self.terms_symb),
                                         conversion_dictionary=self.conversion_dict)
 

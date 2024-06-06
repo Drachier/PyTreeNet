@@ -12,7 +12,7 @@ from numpy.random import default_rng, Generator
 
 from ..core.ttn import TreeTensorNetwork
 from ..operators.tensorproduct import TensorProduct
-from ..util.std_utils import crandn
+from .random_matrices import crandn
 from ..util.ttn_exceptions import non_negativity_check, positivity_check
 
 def random_tensor_product(ref_tree: TreeTensorNetwork,

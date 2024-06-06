@@ -1,13 +1,14 @@
 import unittest
 
 import pytreenet as ptn
+from pytreenet.random import crandn
 
 class TestNodeInit(unittest.TestCase):
 
     def test_init(self):
         shapes = [(), (2, ), (2, 2), (2, 3, 4, 5)]
         for shape in shapes:
-            random_tensor = ptn.crandn(shape)
+            random_tensor = crandn(shape)
             node = ptn.Node(tensor=random_tensor)
             self.assertEqual(len(shape), len(node.leg_permutation))
             self.assertEqual(list(range(len(shape))), node.leg_permutation)
@@ -27,14 +28,14 @@ class TestNodeMethods(unittest.TestCase):
                     "node1p2c0", "node1p2c2", "root1c0", "root1c2", "root2c0", "root2c2"]
 
         # Empty
-        tensor0 = ptn.crandn(())
-        tensor2 = ptn.crandn((2, 3))
+        tensor0 = crandn(())
+        tensor2 = crandn((2, 3))
         self.nodes["empty0"] = ptn.Node(tensor0, identifier="empty0")
         self.nodes["empty2"] = ptn.Node(tensor2, identifier="empty2")
 
         # Leaf
-        tensor0 = ptn.crandn((2,))
-        tensor2 = ptn.crandn((2, 3, 4))
+        tensor0 = crandn((2,))
+        tensor2 = crandn((2, 3, 4))
         parent_id = "parent_id"
         node0 = ptn.Node(tensor0, identifier="leaf0")
         node2 = ptn.Node(tensor2, identifier="leaf2")
@@ -44,8 +45,8 @@ class TestNodeMethods(unittest.TestCase):
         self.nodes["leaf2"] = node2
 
         # 1 parent 1 child
-        tensor0 = ptn.crandn((2, 3))
-        tensor2 = ptn.crandn((2, 3, 4, 5))
+        tensor0 = crandn((2, 3))
+        tensor2 = crandn((2, 3, 4, 5))
         node0 = ptn.Node(tensor0, identifier="node1p1c0")
         node2 = ptn.Node(tensor2, identifier="node1p1c2")
         parent_id = "parent_id"
@@ -58,8 +59,8 @@ class TestNodeMethods(unittest.TestCase):
         self.nodes["node1p1c2"] = node2
 
         # 1 parent 2 children
-        tensor0 = ptn.crandn((2, 3, 4))
-        tensor2 = ptn.crandn((2, 3, 4, 5, 6))
+        tensor0 = crandn((2, 3, 4))
+        tensor2 = crandn((2, 3, 4, 5, 6))
         node0 = ptn.Node(tensor0, identifier="node1p2c0")
         node2 = ptn.Node(tensor2, identifier="node1p2c2")
         parent_id = "parent_id"
@@ -72,8 +73,8 @@ class TestNodeMethods(unittest.TestCase):
         self.nodes["node1p2c2"] = node2
 
         # Root 1 child
-        tensor0 = ptn.crandn((2))
-        tensor2 = ptn.crandn((2, 3, 4))
+        tensor0 = crandn((2))
+        tensor2 = crandn((2, 3, 4))
         node0 = ptn.Node(tensor0, identifier="root1c0")
         node2 = ptn.Node(tensor2, identifier="root1c2")
         child_id = "child_id"
@@ -83,8 +84,8 @@ class TestNodeMethods(unittest.TestCase):
         self.nodes["root1c2"] = node2
 
         # Root 2 children
-        tensor0 = ptn.crandn((2, 3))
-        tensor2 = ptn.crandn((2, 3, 4, 5))
+        tensor0 = crandn((2, 3))
+        tensor2 = crandn((2, 3, 4, 5))
         node0 = ptn.Node(tensor0, identifier="root2c0")
         node2 = ptn.Node(tensor2, identifier="root2c2")
         children_ids = ["child_id", "child2"]
@@ -201,7 +202,7 @@ class TestNodeMethods(unittest.TestCase):
             self.assertEqual(shape[ids],node.shape)
 
     def test_open_legs_to_children_legs_root(self):
-        tensor = ptn.crandn((2,3,4,5,6))
+        tensor = crandn((2,3,4,5,6))
         children_ids = ["id1", "id2", "id3"]
 
         # Test from 0
@@ -232,7 +233,7 @@ class TestNodeMethods(unittest.TestCase):
         self.assertEqual((2,5,4,3,6),root.shape)
 
     def test_open_legs_to_children_legs_non_root_parent_at_0(self):
-        tensor = ptn.crandn((2,3,4,5,6))
+        tensor = crandn((2,3,4,5,6))
         children_ids = ["id1", "id2", "id3"]
 
         # Test ordered
@@ -266,7 +267,7 @@ class TestNodeMethods(unittest.TestCase):
         self.assertEqual((2,5,3,6,4),node.shape)
 
     def test_open_legs_to_children_legs_non_root_parent_at_1(self):
-        tensor = ptn.crandn((2,3,4,5,6))
+        tensor = crandn((2,3,4,5,6))
         children_ids = ["id1", "id2", "id3"]
 
         # Test ordered
@@ -431,8 +432,8 @@ class TestNodeEq(unittest.TestCase):
     """
     def setUp(self) -> None:
         self.shape = (2, 3, 4)
-        tensor1 = ptn.crandn(self.shape)
-        tensor2 = ptn.crandn(self.shape)
+        tensor1 = crandn(self.shape)
+        tensor2 = crandn(self.shape)
         identifier = "id"
         self.node1 = ptn.Node(identifier=identifier, tensor=tensor1)
         self.node2 = ptn.Node(identifier=identifier, tensor=tensor2)

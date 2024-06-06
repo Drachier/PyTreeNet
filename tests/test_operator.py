@@ -4,13 +4,14 @@ import copy
 
 import pytreenet as ptn
 from pytreenet.operators import NumericOperator
+from pytreenet.random import crandn
 
 class TestNumericOperator(unittest.TestCase):
     def setUp(self):
         self.identifiers = ["apple", "pear"]
-        self.tensor = ptn.crandn((2,2,2,2))
-        self.non_op_tensor = ptn.crandn((2,2,2))
-        self.matrix = ptn.crandn((9,9))
+        self.tensor = crandn((2,2,2,2))
+        self.non_op_tensor = crandn((2,2,2))
+        self.matrix = crandn((9,9))
 
     def test_init_correct_tensor_shape(self):
         operator = NumericOperator(self.tensor, self.identifiers)
@@ -22,7 +23,7 @@ class TestNumericOperator(unittest.TestCase):
             self.non_op_tensor, self.identifiers)
 
     def test_to_matrix_shape_2_2(self):
-        correct_matrix = ptn.crandn((2,2))
+        correct_matrix = crandn((2,2))
         operator = NumericOperator(correct_matrix, self.identifiers[0])
         found_operator = operator.to_matrix()
         self.assertTrue(np.allclose(correct_matrix,
@@ -54,11 +55,11 @@ class TestNumericOperator(unittest.TestCase):
     def test_to_tensor_ttn_given(self):
         # Building the reference TTN
         ttn = ptn.TreeTensorNetwork()
-        ttn.add_root(ptn.Node(identifier="I"), ptn.crandn((2,2,3)))
+        ttn.add_root(ptn.Node(identifier="I"), crandn((2,2,3)))
         ttn.add_child_to_parent(ptn.Node(identifier=self.identifiers[0]),
-            ptn.crandn((2,3)), 0, "I", 0)
+            crandn((2,3)), 0, "I", 0)
         ttn.add_child_to_parent(ptn.Node(identifier=self.identifiers[1]),
-            ptn.crandn((2,3)), 0, "I", 1)
+            crandn((2,3)), 0, "I", 1)
 
         operator = NumericOperator(self.matrix, self.identifiers)
         tensor_operator = operator.to_tensor(ttn=ttn)
@@ -84,7 +85,7 @@ class TestNumericOperator(unittest.TestCase):
 
     def test_is_unitary_tensor_3_3_3_3_true(self):
         # Building unitary matrix
-        unitary, _ = np.linalg.qr(ptn.crandn((9,9)))
+        unitary, _ = np.linalg.qr(crandn((9,9)))
         unitary_tensor = np.reshape(unitary, (3,3,3,3))
         operator = NumericOperator(unitary_tensor, self.identifiers)
         self.assertTrue(operator.is_unitary())

@@ -5,19 +5,19 @@ from copy import deepcopy
 import numpy as np
 
 import pytreenet as ptn
-from pytreenet.random import random_small_ttns
+from pytreenet.random import random_small_ttns, crandn
 
 class TestTreeTensorNetworkStateSimple(unittest.TestCase):
     def setUp(self):
         # Initialise initial state
         self.initial_state = random_small_ttns()
         # Operators
-        single_site_operator = ptn.TensorProduct({"root": ptn.crandn((2,2))})
-        two_site_operator = ptn.TensorProduct({"c1": ptn.crandn((3,3)),
-                                               "c2": ptn.crandn((4,4))})
-        three_site_operator = ptn.TensorProduct({"root": ptn.crandn((2,2)),
-                                                 "c1": ptn.crandn((3,3)),
-                                                 "c2": ptn.crandn((4,4))})
+        single_site_operator = ptn.TensorProduct({"root": crandn((2,2))})
+        two_site_operator = ptn.TensorProduct({"c1": crandn((3,3)),
+                                               "c2": crandn((4,4))})
+        three_site_operator = ptn.TensorProduct({"root": crandn((2,2)),
+                                                 "c1": crandn((3,3)),
+                                                 "c2": crandn((4,4))})
         self.operators = [single_site_operator,
                           two_site_operator,
                           three_site_operator]

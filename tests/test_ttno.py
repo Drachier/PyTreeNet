@@ -4,7 +4,8 @@ from copy import deepcopy
 import numpy as np
 
 import pytreenet as ptn
-from pytreenet.random import (random_tensor_node)
+from pytreenet.random import (random_tensor_node,
+                              crandn)
 
 class TestTTNOBasics(unittest.TestCase):
 
@@ -45,7 +46,7 @@ class TestTTNOBasics(unittest.TestCase):
         reference_tree.add_child_to_parent(node4, tensor4,  1, "id3", 2)
 
         shape = [2, 3, 4, 5, 6, 7, 8, 9]
-        start_tensor = ptn.crandn(shape)
+        start_tensor = crandn(shape)
         leg_dict = {"id1": 0, "id2": 1, "id3": 2, "id4": 3}
 
         ttno = ptn.TTNO.from_tensor(reference_tree, start_tensor, leg_dict)
@@ -82,7 +83,7 @@ class TestTTNOBasics(unittest.TestCase):
 
         shape = [i for i in range(2, (num_nodes + 2))]
         shape.extend(shape)
-        start_tensor = ptn.crandn(shape)
+        start_tensor = crandn(shape)
         leg_dict = {"id" + str(i + 1): i for i in range(num_nodes)}
         ttno = ptn.TTNO.from_tensor(reference_tree, start_tensor, leg_dict)
 
@@ -122,7 +123,7 @@ class TestTTNOBasics(unittest.TestCase):
         num_nodes = len(reference_tree.nodes)
 
         shape = [d for i in range(2 * num_nodes)]
-        start_tensor = ptn.crandn(shape)
+        start_tensor = crandn(shape)
         leg_dict = {"id" + str(i + 1): i for i in range(num_nodes)}
         ttno = ptn.TTNO.from_tensor(reference_tree, start_tensor, leg_dict)
 
@@ -149,7 +150,7 @@ class TestTTNOBasics(unittest.TestCase):
         reference_tree.add_child_to_parent(nodes[6][0], nodes[6][1],0,"node5",1)
 
         shape = 2*len(nodes)*[2]
-        start_tensor = ptn.crandn(shape)
+        start_tensor = crandn(shape)
         leg_dict = {"node"+str(i): i for i in range(len(nodes))}
         ttno = ptn.TTNO.from_tensor(reference_tree, deepcopy(start_tensor), leg_dict)
 
@@ -191,13 +192,13 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
         self.transpose_permutation = (7,0,8,1,10,3,11,4,9,2,12,5,13,6)
 
     def test_from_hamiltonian_one_term(self):
-        conversion_dictionary = {"1": ptn.crandn((2, 2)),
-                                 "2": ptn.crandn((2, 2)),
-                                 "3": ptn.crandn((2, 2)),
-                                 "4": ptn.crandn((2, 2)),
-                                 "5": ptn.crandn((2, 2)),
-                                 "6": ptn.crandn((2, 2)),
-                                 "7": ptn.crandn((2, 2)),
+        conversion_dictionary = {"1": crandn((2, 2)),
+                                 "2": crandn((2, 2)),
+                                 "3": crandn((2, 2)),
+                                 "4": crandn((2, 2)),
+                                 "5": crandn((2, 2)),
+                                 "6": crandn((2, 2)),
+                                 "7": crandn((2, 2)),
                                  }
         hamiltonian = ptn.Hamiltonian(terms=[self.term],
                                       conversion_dictionary=conversion_dictionary)
@@ -241,13 +242,13 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
         ref_tree.add_child_to_parent(node6, tensor6, 0, "site5", 1)
         ref_tree.add_child_to_parent(node7, tensor7, 0, "site5", 2)
 
-        conversion_dictionary = {"1": ptn.crandn((2, 2)),
-                                 "2": ptn.crandn((5, 5)),
-                                 "3": ptn.crandn((2, 2)),
-                                 "4": ptn.crandn((2, 2)),
-                                 "5": ptn.crandn((2, 2)),
-                                 "6": ptn.crandn((2, 2)),
-                                 "7": ptn.crandn((2, 2)),
+        conversion_dictionary = {"1": crandn((2, 2)),
+                                 "2": crandn((5, 5)),
+                                 "3": crandn((2, 2)),
+                                 "4": crandn((2, 2)),
+                                 "5": crandn((2, 2)),
+                                 "6": crandn((2, 2)),
+                                 "7": crandn((2, 2)),
                                  }
         hamiltonian = ptn.Hamiltonian(terms=[self.term],
                                       conversion_dictionary=conversion_dictionary)
@@ -277,14 +278,14 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
         self.assertTrue(np.allclose(hamiltonian_tensor, found_tensor))
 
     def test_from_hamiltonian_two_terms_one_operator_different(self):
-        conversion_dictionary = {"1": ptn.crandn((2, 2)),
-                                 "2": ptn.crandn((2, 2)),
-                                 "3": ptn.crandn((2, 2)),
-                                 "4": ptn.crandn((2, 2)),
-                                 "5": ptn.crandn((2, 2)),
-                                 "6": ptn.crandn((2, 2)),
-                                 "7": ptn.crandn((2, 2)),
-                                 "22": ptn.crandn((2, 2))
+        conversion_dictionary = {"1": crandn((2, 2)),
+                                 "2": crandn((2, 2)),
+                                 "3": crandn((2, 2)),
+                                 "4": crandn((2, 2)),
+                                 "5": crandn((2, 2)),
+                                 "6": crandn((2, 2)),
+                                 "7": crandn((2, 2)),
+                                 "22": crandn((2, 2))
                                  }
         term2 = ptn.TensorProduct({"site1": "1",
                                     "site2": "22",
@@ -324,20 +325,20 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
         self.assertTrue(np.allclose(hamiltonian_tensor, found_tensor))
 
     def test_from_hamiltonian_two_terms_completely_different(self):
-        conversion_dictionary = {"1": ptn.crandn((2, 2)),
-                                 "2": ptn.crandn((2, 2)),
-                                 "3": ptn.crandn((2, 2)),
-                                 "4": ptn.crandn((2, 2)),
-                                 "5": ptn.crandn((2, 2)),
-                                 "6": ptn.crandn((2, 2)),
-                                 "7": ptn.crandn((2, 2)),
-                                 "12": ptn.crandn((2, 2)),
-                                 "22": ptn.crandn((2, 2)),
-                                 "32": ptn.crandn((2, 2)),
-                                 "42": ptn.crandn((2, 2)),
-                                 "52": ptn.crandn((2, 2)),
-                                 "62": ptn.crandn((2, 2)),
-                                 "72": ptn.crandn((2, 2)),
+        conversion_dictionary = {"1": crandn((2, 2)),
+                                 "2": crandn((2, 2)),
+                                 "3": crandn((2, 2)),
+                                 "4": crandn((2, 2)),
+                                 "5": crandn((2, 2)),
+                                 "6": crandn((2, 2)),
+                                 "7": crandn((2, 2)),
+                                 "12": crandn((2, 2)),
+                                 "22": crandn((2, 2)),
+                                 "32": crandn((2, 2)),
+                                 "42": crandn((2, 2)),
+                                 "52": crandn((2, 2)),
+                                 "62": crandn((2, 2)),
+                                 "72": crandn((2, 2)),
                                  }
         term2 = ptn.TensorProduct({"site1": "12",
                                     "site2": "22",
@@ -373,19 +374,19 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
         self.assertTrue(np.allclose(hamiltonian_tensor, found_tensor))
 
     def test_from_hamiltonian_two_terms_all_but_root_different(self):
-        conversion_dictionary = {"1": ptn.crandn((2, 2)),
-                                 "2": ptn.crandn((2, 2)),
-                                 "3": ptn.crandn((2, 2)),
-                                 "4": ptn.crandn((2, 2)),
-                                 "5": ptn.crandn((2, 2)),
-                                 "6": ptn.crandn((2, 2)),
-                                 "7": ptn.crandn((2, 2)),
-                                 "22": ptn.crandn((2, 2)),
-                                 "32": ptn.crandn((2, 2)),
-                                 "42": ptn.crandn((2, 2)),
-                                 "52": ptn.crandn((2, 2)),
-                                 "62": ptn.crandn((2, 2)),
-                                 "72": ptn.crandn((2, 2)),
+        conversion_dictionary = {"1": crandn((2, 2)),
+                                 "2": crandn((2, 2)),
+                                 "3": crandn((2, 2)),
+                                 "4": crandn((2, 2)),
+                                 "5": crandn((2, 2)),
+                                 "6": crandn((2, 2)),
+                                 "7": crandn((2, 2)),
+                                 "22": crandn((2, 2)),
+                                 "32": crandn((2, 2)),
+                                 "42": crandn((2, 2)),
+                                 "52": crandn((2, 2)),
+                                 "62": crandn((2, 2)),
+                                 "72": crandn((2, 2)),
                                  }
         term2 = ptn.TensorProduct({"site1": "1",
                                     "site2": "22",

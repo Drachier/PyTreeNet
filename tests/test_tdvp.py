@@ -10,7 +10,8 @@ from pytreenet.contractions.state_operator_contraction import (contract_any)
 from pytreenet.random import (random_hermitian_matrix,
                               random_small_ttns,
                               random_big_ttns_two_root_children,
-                              random_hamiltonian_compatible)
+                              random_hamiltonian_compatible,
+                              crandn)
 
 class TestTDVPInit(unittest.TestCase):
 
@@ -29,7 +30,7 @@ class TestTDVPInit(unittest.TestCase):
                        ptn.TensorProduct({"c1": "c1_op", "root": "I2", "c2": "c2_op"})
                        ]
         ham = ptn.Hamiltonian(tensor_prod, self.conversion_dict)
-        operator = ptn.TensorProduct({"root": ptn.crandn((2,2))})
+        operator = ptn.TensorProduct({"root": crandn((2,2))})
         self.hamiltonian = ptn.TTNO.from_hamiltonian(ham, self.ref_tree)
         self.tdvp = ptn.TDVPAlgorithm(self.ref_tree, self.hamiltonian,
                                       0.1, 1, operator)
@@ -91,7 +92,7 @@ class TestContractionMethods(unittest.TestCase):
                        ptn.TensorProduct({"c1": "c1_op", "root": "I2", "c2": "c2_op"})
                        ]
         ham = ptn.Hamiltonian(tensor_prod, self.conversion_dict)
-        operator = ptn.TensorProduct({"root": ptn.crandn((2,2))})
+        operator = ptn.TensorProduct({"root": crandn((2,2))})
         self.hamiltonian = ptn.TTNO.from_hamiltonian(ham, self.ref_tree)
         self.tdvp = ptn.TDVPAlgorithm(self.ref_tree, self.hamiltonian,
                                       0.1, 1, operator)

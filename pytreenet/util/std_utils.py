@@ -11,21 +11,6 @@ from scipy.sparse.linalg import expm_multiply, eigsh
 from scipy.sparse.linalg import expm as expm_sparse
 from scipy.sparse import csr_matrix
 
-def crandn(size: Tuple[int,...]) -> np.ndarray:
-    """
-    Draw random samples from the standard complex normal (Gaussian)
-      distribution.
-
-    Args:
-        size (Tuple[int,...]): The size/shape of the output array.
-
-    Returns:
-        np.ndarray: The array of random complex numbers.
-    """
-    # 1/sqrt(2) is a normalization factor
-    return (np.random.standard_normal(size)
-       + 1j*np.random.standard_normal(size)) / np.sqrt(2)
-
 def copy_object(obj: Any, deep=True) -> Any:
     """
     Copy an object.

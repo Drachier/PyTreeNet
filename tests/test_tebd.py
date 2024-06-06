@@ -7,7 +7,8 @@ from scipy.linalg import expm
 
 import pytreenet as ptn
 from pytreenet.random import (random_small_ttns,
-                              random_tensor_product)
+                              random_tensor_product,
+                              crandn)
 
 class TestTEBDinit(unittest.TestCase):
 
@@ -46,11 +47,11 @@ class TestTEBDsmall(unittest.TestCase):
         self.final_time = 1.0
 
         # Trotter operators
-        operator_r = ptn.TensorProduct({"root": ptn.crandn((2,2))})
-        operator_r_c1 = ptn.TensorProduct({"root": ptn.crandn((2,2)),
-                                           "c1": ptn.crandn((3,3))})
-        operator_r_c2 = ptn.TensorProduct({"c2": ptn.crandn((4,4)), # Opposite order, to expected order
-                                           "root": ptn.crandn((2,2))})
+        operator_r = ptn.TensorProduct({"root": crandn((2,2))})
+        operator_r_c1 = ptn.TensorProduct({"root": crandn((2,2)),
+                                           "c1": crandn((3,3))})
+        operator_r_c2 = ptn.TensorProduct({"c2": crandn((4,4)), # Opposite order, to expected order
+                                           "root": crandn((2,2))})
         self.tps = [operator_r, operator_r_c1, operator_r_c2]
         self.trotter_factor = 0.2
         self.steps = [ptn.TrotterStep(tp,0.2) for tp in self.tps]
@@ -191,7 +192,7 @@ class TestTEBDsmall(unittest.TestCase):
         self.assertTrue(np.allclose(reference_state, found_state))
 
     def test_apply_one_trotter_step__three_sites(self):
-        operator = ptn.NumericOperator(ptn.crandn((24,24)), ["root", "c1", "c2"])
+        operator = ptn.NumericOperator(crandn((24,24)), ["root", "c1", "c2"])
         self.assertRaises(NotImplementedError, self.tebd_no_trunc._apply_one_trotter_step,
                           operator)
 

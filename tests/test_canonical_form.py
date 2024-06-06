@@ -6,6 +6,7 @@ from copy import deepcopy
 import pytreenet as ptn
 
 from pytreenet.core.canonical_form import _find_smallest_distance_neighbour
+from pytreenet.util.tensor_util import compute_transfer_tensor
 from pytreenet.random import (random_small_ttns,
                               random_big_ttns_two_root_children)
 
@@ -60,7 +61,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
         contr_indices = [root_node.child_index("c2")]
         contr_indices.extend(root_node.open_legs)
         contr_indices = tuple(contr_indices)
-        found_transfer_tensor = ptn.compute_transfer_tensor(root_tensor,
+        found_transfer_tensor = compute_transfer_tensor(root_tensor,
                                                             contr_indices)
         identity = np.eye(5)
         self.assertTrue(np.allclose(identity,found_transfer_tensor))
@@ -68,7 +69,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
         # Check, if c2 is isometry
         c2_node, c2_tensor = self.ttn["c2"]
         contr_indices = tuple(c2_node.open_legs)
-        found_transfer_tensor = ptn.compute_transfer_tensor(c2_tensor,
+        found_transfer_tensor = compute_transfer_tensor(c2_tensor,
                                                             contr_indices)
         identity = np.eye(4)
         self.assertTrue(np.allclose(identity,found_transfer_tensor))
@@ -85,7 +86,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
         # Check, if c1 is isometry
         c1_node, c1_tensor = self.ttn["c1"]
         contr_indices = tuple(c1_node.open_legs)
-        found_transfer_tensor = ptn.compute_transfer_tensor(c1_tensor,
+        found_transfer_tensor = compute_transfer_tensor(c1_tensor,
                                                             contr_indices)
         identity = np.eye(3)
         self.assertTrue(np.allclose(identity,found_transfer_tensor))
@@ -93,7 +94,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
         # Check, if c2 is isometry
         c2_node, c2_tensor = self.ttn["c2"]
         contr_indices = tuple(c2_node.open_legs)
-        found_transfer_tensor = ptn.compute_transfer_tensor(c2_tensor,
+        found_transfer_tensor = compute_transfer_tensor(c2_tensor,
                                                             contr_indices)
         identity = np.eye(4)
         self.assertTrue(np.allclose(identity,found_transfer_tensor))
@@ -113,7 +114,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
         contr_indices = [root_node.child_index("c1")]
         contr_indices.extend(root_node.open_legs)
         contr_indices = tuple(contr_indices)
-        found_transfer_tensor = ptn.compute_transfer_tensor(root_tensor,
+        found_transfer_tensor = compute_transfer_tensor(root_tensor,
                                                             contr_indices)
         identity = np.eye(6)
         self.assertTrue(np.allclose(identity,found_transfer_tensor))
@@ -121,7 +122,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
         # Check, if c1 is isometry
         c1_node, c1_tensor = self.ttn["c1"]
         contr_indices = tuple(c1_node.open_legs)
-        found_transfer_tensor = ptn.compute_transfer_tensor(c1_tensor,
+        found_transfer_tensor = compute_transfer_tensor(c1_tensor,
                                                             contr_indices)
         identity = np.eye(3)
         self.assertTrue(np.allclose(identity,found_transfer_tensor))
@@ -140,7 +141,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
         contr_indices = [root_node.child_index("c2")]
         contr_indices.extend(root_node.open_legs)
         contr_indices = tuple(contr_indices)
-        found_transfer_tensor = ptn.compute_transfer_tensor(root_tensor,
+        found_transfer_tensor = compute_transfer_tensor(root_tensor,
                                                             contr_indices)
         identity = np.eye(5)
         self.assertTrue(np.allclose(identity,found_transfer_tensor))
@@ -152,7 +153,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
         # Check, if c2 is isometry
         c2_node, c2_tensor = self.ttn["c2"]
         contr_indices = tuple(c2_node.open_legs)
-        found_transfer_tensor = ptn.compute_transfer_tensor(c2_tensor,
+        found_transfer_tensor = compute_transfer_tensor(c2_tensor,
                                                             contr_indices)
         identity = np.eye(4)
         identity = np.pad(identity, (0,2))
@@ -174,7 +175,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
         # Check, if c1 is isometry
         c1_node, c1_tensor = self.ttn["c1"]
         contr_indices = tuple(c1_node.open_legs)
-        found_transfer_tensor = ptn.compute_transfer_tensor(c1_tensor,
+        found_transfer_tensor = compute_transfer_tensor(c1_tensor,
                                                             contr_indices)
         identity = np.eye(3)
         identity = np.pad(identity, (0,2))
@@ -187,7 +188,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
         # Check, if c2 is isometry
         c2_node, c2_tensor = self.ttn["c2"]
         contr_indices = tuple(c2_node.open_legs)
-        found_transfer_tensor = ptn.compute_transfer_tensor(c2_tensor,
+        found_transfer_tensor = compute_transfer_tensor(c2_tensor,
                                                             contr_indices)
         identity = np.eye(4)
         identity = np.pad(identity, (0,2))
@@ -212,7 +213,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
         contr_indices = [root_node.child_index("c1")]
         contr_indices.extend(root_node.open_legs)
         contr_indices = tuple(contr_indices)
-        found_transfer_tensor = ptn.compute_transfer_tensor(root_tensor,
+        found_transfer_tensor = compute_transfer_tensor(root_tensor,
                                                             contr_indices)
         identity = np.eye(6)
         self.assertTrue(np.allclose(identity,found_transfer_tensor))
@@ -225,7 +226,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
         # Check, if c1 is isometry
         c1_node, c1_tensor = self.ttn["c1"]
         contr_indices = tuple(c1_node.open_legs)
-        found_transfer_tensor = ptn.compute_transfer_tensor(c1_tensor,
+        found_transfer_tensor = compute_transfer_tensor(c1_tensor,
                                                             contr_indices)
         identity = np.eye(3)
         identity = np.pad(identity, (0,2))

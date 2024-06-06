@@ -4,7 +4,10 @@ from copy import deepcopy
 import numpy as np
 
 import pytreenet as ptn
-from pytreenet.random import random_tensor_node, random_small_ttns
+from pytreenet.util import compute_transfer_tensor
+from pytreenet.random import (random_tensor_node,
+                               random_small_ttns,
+                               crandn)
 
 class TestTreeTensorNetworkBasics(unittest.TestCase):
 
@@ -285,12 +288,12 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
 
         # Test for isometries
         tensor = self.tensortree.tensors["c1"]
-        transfer_tensor = ptn.compute_transfer_tensor(tensor, 1)
+        transfer_tensor = compute_transfer_tensor(tensor, 1)
         identity = np.eye(tensor.shape[0])
         self.assertTrue(np.allclose(identity, transfer_tensor))
 
         tensor = self.tensortree.tensors["c2"]
-        transfer_tensor = ptn.compute_transfer_tensor(tensor, 1)
+        transfer_tensor = compute_transfer_tensor(tensor, 1)
         identity = np.eye(tensor.shape[0])
         self.assertTrue(np.allclose(identity, transfer_tensor))
 
@@ -308,14 +311,14 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         # Test for isometries
         tensor = self.tensortree.tensors["root"]
         child_leg = self.tensortree.nodes["root"].neighbour_index("c2")
-        transfer_tensor = ptn.compute_transfer_tensor(tensor,
+        transfer_tensor = compute_transfer_tensor(tensor,
                                                       (child_leg,2))
         child_leg = self.tensortree.nodes["root"].neighbour_index("c1")
         identity = np.eye(tensor.shape[child_leg])
         self.assertTrue(np.allclose(identity, transfer_tensor))
 
         tensor = self.tensortree.tensors["c2"]
-        transfer_tensor = ptn.compute_transfer_tensor(tensor, 1)
+        transfer_tensor = compute_transfer_tensor(tensor, 1)
         identity = np.eye(tensor.shape[0])
         self.assertTrue(np.allclose(identity, transfer_tensor))
 
@@ -332,13 +335,13 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
 
         # Test for isometries
         tensor = self.tensortree.tensors["c1"]
-        transfer_tensor = ptn.compute_transfer_tensor(tensor, 1)
+        transfer_tensor = compute_transfer_tensor(tensor, 1)
         identity = np.eye(tensor.shape[0])
         self.assertTrue(np.allclose(identity, transfer_tensor))
 
         tensor = self.tensortree.tensors["root"]
         child_leg = self.tensortree.nodes["root"].neighbour_index("c1")
-        transfer_tensor = ptn.compute_transfer_tensor(tensor,
+        transfer_tensor = compute_transfer_tensor(tensor,
                                                       (child_leg,2))
         child_leg = self.tensortree.nodes["root"].neighbour_index("c2")
         identity = np.eye(tensor.shape[child_leg])
@@ -358,12 +361,12 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
 
         # Test for isometries
         tensor = self.tensortree.tensors["c1"]
-        transfer_tensor = ptn.compute_transfer_tensor(tensor, 1)
+        transfer_tensor = compute_transfer_tensor(tensor, 1)
         identity = np.eye(tensor.shape[0])
         self.assertTrue(np.allclose(identity, transfer_tensor))
 
         tensor = self.tensortree.tensors["c2"]
-        transfer_tensor = ptn.compute_transfer_tensor(tensor, 1)
+        transfer_tensor = compute_transfer_tensor(tensor, 1)
         identity = np.eye(tensor.shape[0])
         self.assertTrue(np.allclose(identity, transfer_tensor))
 
@@ -380,13 +383,13 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
 
         # Test for isometries
         tensor = self.tensortree.tensors["c1"]
-        transfer_tensor = ptn.compute_transfer_tensor(tensor, 1)
+        transfer_tensor = compute_transfer_tensor(tensor, 1)
         identity = np.eye(tensor.shape[0])
         self.assertTrue(np.allclose(identity, transfer_tensor))
 
         tensor = self.tensortree.tensors["root"]
         child_leg = self.tensortree.nodes["root"].neighbour_index("c1")
-        transfer_tensor = ptn.compute_transfer_tensor(tensor,
+        transfer_tensor = compute_transfer_tensor(tensor,
                                                       (child_leg,2))
         child_leg = self.tensortree.nodes["root"].neighbour_index("c2")
         identity = np.eye(tensor.shape[child_leg])
@@ -441,7 +444,7 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
                                 "id9": [1, 2, 3]}
 
         for node_id, node_tensor in self.ttn.tensors.items():
-            tensor = ptn.crandn(tensor_shape_dict[node_id])
+            tensor = crandn(tensor_shape_dict[node_id])
             ref_tensor = deepcopy(node_tensor)
             half_legs = int(tensor.ndim / 2)
             tensor_legs = [i + half_legs for i in range(half_legs)]

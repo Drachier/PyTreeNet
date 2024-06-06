@@ -7,10 +7,15 @@ from scipy.linalg import expm
 
 import pytreenet as ptn
 from pytreenet.contractions.state_operator_contraction import (contract_any)
+from pytreenet.operators.common_operators import pauli_matrices
 from pytreenet.random import (random_hermitian_matrix,
                               random_small_ttns,
                               random_big_ttns_two_root_children,
-                              random_hamiltonian_compatible)
+                              random_hamiltonian_compatible,
+                              crandn)
+from pytreenet.util import (compute_transfer_tensor,
+                            SplitMode,
+                            NoConnectionException)
 
 class TestContractionMethods(unittest.TestCase):
 
@@ -32,7 +37,7 @@ class TestContractionMethods(unittest.TestCase):
                            {"c1": "c1_op", "root": "I2", "c2": "c2_op"})
                        ]
         ham = ptn.Hamiltonian(tensor_prod, self.conversion_dict)
-        operator = ptn.TensorProduct({"root": ptn.crandn((2, 2))})
+        operator = ptn.TensorProduct({"root": crandn((2, 2))})
         self.hamiltonian = ptn.TTNO.from_hamiltonian(ham, self.ref_tree)
         self.tdvp = ptn.OneSiteTDVP(self.ref_tree, self.hamiltonian,
                                     0.1, 1, operator)
@@ -234,7 +239,7 @@ class TestContractionMethods(unittest.TestCase):
                                 q_identifier=node_id,
                                 r_identifier=self.tdvp.create_link_id(
                                     node_id, "root"),
-                                mode=ptn.SplitMode.KEEP)
+                                mode=SplitMode.KEEP)
         ref_old_cache = deepcopy(
             self.tdvp.partial_tree_cache.get_entry(node_id, "root"))
 
@@ -257,7 +262,7 @@ class TestContractionMethods(unittest.TestCase):
                                 q_identifier=node_id,
                                 r_identifier=self.tdvp.create_link_id(
                                     node_id, "root"),
-                                mode=ptn.SplitMode.KEEP)
+                                mode=SplitMode.KEEP)
 
         self.tdvp._split_updated_site(node_id, "root")
         self.assertTrue(np.allclose(ref_state.tensors[node_id],
@@ -304,7 +309,7 @@ class TestContractionMethods(unittest.TestCase):
                                     self.tdvp.state.tensors[link_id]))
 
     def test_split_updated_site_exception(self):
-        self.assertRaises(ptn.NoConnectionException,
+        self.assertRaises(NoConnectionException,
                           self.tdvp._split_updated_site,
                           "c1", "c2")
 
@@ -331,7 +336,7 @@ class TestContractionMethods(unittest.TestCase):
         ref_tdvp.state.orthogonality_center_id = next_node_id
 
         self.tdvp._update_link(node_id, next_node_id)
-        transfer_tensor = ptn.compute_transfer_tensor(ref_tdvp.state.tensors[node_id],
+        transfer_tensor = compute_transfer_tensor(ref_tdvp.state.tensors[node_id],
                                                       (0, ))
         self.assertTrue(np.allclose(np.eye(3), transfer_tensor))
         self.assertEqual(ref_tdvp.state, self.tdvp.state)
@@ -420,7 +425,7 @@ class TestContractionMethodsComplicated(unittest.TestCase):
         hamiltonian = ptn.TTNO.from_hamiltonian(random_hamiltonian_compatible(),
                                                 ref_tree)
         self.tdvp = ptn.OneSiteTDVP(ref_tree, hamiltonian, 0.1, 1,
-                                    ptn.TensorProduct({"site0": ptn.pauli_matrices()[0]}))
+                                    ptn.TensorProduct({"site0": pauli_matrices()[0]}))
         # To correctly compute the contractions we need all potential cached tensors
         non_init_pairs = [("site4", "site3"), ("site3", "site5"), ("site3", "site1"),
                           ("site1", "site2"), ("site1",

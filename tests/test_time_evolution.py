@@ -1,28 +1,28 @@
-from contextlib import AbstractContextManager
 import unittest
 
 import numpy as np
 
 import pytreenet as ptn
+from pytreenet.random import crandn
 
 class TestTimeEvolutionInit(unittest.TestCase):
 
     def setUp(self):
         # Initialise initial state
         self.initial_state = ptn.TreeTensorNetworkState()
-        self.initial_state.add_root(ptn.Node(identifier="root"), ptn.crandn((5,6,2)))
+        self.initial_state.add_root(ptn.Node(identifier="root"), crandn((5,6,2)))
         self.initial_state.add_child_to_parent(ptn.Node(identifier="c1"),
-            ptn.crandn((5,3)), 0, "root", 0)
+            crandn((5,3)), 0, "root", 0)
         self.initial_state.add_child_to_parent(ptn.Node(identifier="c2"),
-            ptn.crandn((6,4)), 0, "root", 1)
+            crandn((6,4)), 0, "root", 1)
 
         # Operators
-        single_site_operator = ptn.TensorProduct({"root": ptn.crandn((2,2))})
-        two_site_operator = ptn.TensorProduct({"c1": ptn.crandn((3,3)),
-                                               "c2": ptn.crandn((4,4))})
-        three_site_operator = ptn.TensorProduct({"c1": ptn.crandn((3,3)),
-                                                  "c2": ptn.crandn((4,4)),
-                                                  "root": ptn.crandn((2,2))})
+        single_site_operator = ptn.TensorProduct({"root": crandn((2,2))})
+        two_site_operator = ptn.TensorProduct({"c1": crandn((3,3)),
+                                               "c2": crandn((4,4))})
+        three_site_operator = ptn.TensorProduct({"c1": crandn((3,3)),
+                                                  "c2": crandn((4,4)),
+                                                  "root": crandn((2,2))})
         self.operators = [single_site_operator,
                           two_site_operator,
                           three_site_operator]
@@ -76,19 +76,19 @@ class TestTimeEvolutionMethods(unittest.TestCase):
     def setUp(self):
         # Initialise initial state
         self.initial_state = ptn.TreeTensorNetworkState()
-        self.initial_state.add_root(ptn.Node(identifier="root"), ptn.crandn((5,6,2)))
+        self.initial_state.add_root(ptn.Node(identifier="root"), crandn((5,6,2)))
         self.initial_state.add_child_to_parent(ptn.Node(identifier="c1"),
-            ptn.crandn((5,3)), 0, "root", 0)
+            crandn((5,3)), 0, "root", 0)
         self.initial_state.add_child_to_parent(ptn.Node(identifier="c2"),
-            ptn.crandn((6,4)), 0, "root", 1)
+            crandn((6,4)), 0, "root", 1)
 
         # Operators
-        single_site_operator = ptn.TensorProduct({"root": ptn.crandn((2,2))})
-        two_site_operator = ptn.TensorProduct({"c1": ptn.crandn((3,3)),
-                                               "c2": ptn.crandn((4,4))})
-        three_site_operator = ptn.TensorProduct({"c1": ptn.crandn((3,3)),
-                                                  "c2": ptn.crandn((4,4)),
-                                                  "root": ptn.crandn((2,2))})
+        single_site_operator = ptn.TensorProduct({"root": crandn((2,2))})
+        two_site_operator = ptn.TensorProduct({"c1": crandn((3,3)),
+                                               "c2": crandn((4,4))})
+        three_site_operator = ptn.TensorProduct({"c1": crandn((3,3)),
+                                                  "c2": crandn((4,4)),
+                                                  "root": crandn((2,2))})
         self.operators = [single_site_operator,
                           two_site_operator,
                           three_site_operator]
@@ -166,7 +166,7 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         Should be True for real results.
         """
         self.time_evol._init_results()
-        test_results = np.real(ptn.crandn(self.time_evol.results.shape))
+        test_results = np.real(crandn(self.time_evol.results.shape))
         self.time_evol._results = test_results
         self.assertTrue(self.time_evol.results_real())
 
@@ -175,7 +175,7 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         Should be False for complex results.
         """
         self.time_evol._init_results()
-        test_results = ptn.crandn(self.time_evol.results.shape)
+        test_results = crandn(self.time_evol.results.shape)
         self.time_evol._results = test_results
         self.assertFalse(self.time_evol.results_real())
 
@@ -185,7 +185,7 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         They are always assumed to be real.
         """
         self.time_evol._init_results()
-        times = ptn.crandn((11, ))
+        times = crandn((11, ))
         self.time_evol._results[-1] = times
         self.assertFalse(np.allclose(times, self.time_evol.times()))
         times = np.real(times)
@@ -196,7 +196,7 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         Should return the operator results without realising them.
         """
         self.time_evol._init_results()
-        results = ptn.crandn(self.time_evol.results.shape)
+        results = crandn(self.time_evol.results.shape)
         self.time_evol._results = results
         self.assertTrue(np.allclose(results[0:-1], self.time_evol.operator_results()))
 
@@ -205,7 +205,7 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         Should return the operator results and realise them.
         """
         self.time_evol._init_results()
-        results = ptn.crandn(self.time_evol.results.shape)
+        results = crandn(self.time_evol.results.shape)
         self.time_evol._results = results
         self.assertTrue(np.allclose(np.real(results[0:-1]), self.time_evol.operator_results(realise=True)))
 

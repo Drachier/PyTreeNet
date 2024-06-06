@@ -8,17 +8,18 @@ from pytreenet.contractions.state_operator_contraction import (contract_leaf,
                                                                contract_operator_tensor_ignoring_one_leg,
                                                                contract_bra_tensor_ignore_one_leg)
 from pytreenet.contractions.contraction_util import (contract_all_but_one_neighbour_block_to_ket)
-from pytreenet.random import (random_small_ttns)
+from pytreenet.random import (random_small_ttns,
+                              crandn)
 
 class TestStateOperatorContraction(unittest.TestCase):
     def setUp(self):
         self.state = random_small_ttns()
-        self.conversion_dict = {"root_op1": ptn.crandn((2,2)),
-                                "root_op2": ptn.crandn((2,2)),
+        self.conversion_dict = {"root_op1": crandn((2,2)),
+                                "root_op2": crandn((2,2)),
                                 "I2": np.eye(2),
-                                "c1_op": ptn.crandn((3,3)),
+                                "c1_op": crandn((3,3)),
                                 "I3": np.eye(3),
-                                "c2_op": ptn.crandn((4,4)),
+                                "c2_op": crandn((4,4)),
                                 "I4": np.eye(4)}
         self.state = random_small_ttns()
         tensor_prod = [ptn.TensorProduct({"c1": "I3", "root": "root_op1", "c2": "I4"}),
@@ -31,8 +32,8 @@ class TestStateOperatorContraction(unittest.TestCase):
         self.operator = ptn.TTNO.from_hamiltonian(ham, self.state)
 
         self.tensor_dict = ptn.PartialTreeCachDict()
-        self.tensor_dict.add_entry("c1","root",ptn.crandn((5,2,5)))
-        self.tensor_dict.add_entry("c2","root",ptn.crandn((6,2,6)))
+        self.tensor_dict.add_entry("c1","root",crandn((5,2,5)))
+        self.tensor_dict.add_entry("c2","root",crandn((6,2,6)))
 
     def test_contract_leaf_c1(self):
         """

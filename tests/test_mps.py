@@ -3,16 +3,16 @@ import unittest
 import numpy as np
 
 import pytreenet as ptn
-
+from pytreenet.random import crandn
 
 class TestMPT_Attaching(unittest.TestCase):
     def setUp(self) -> None:
         self.mpt = ptn.MatrixProductTree()
-        self.mpt.add_root(ptn.Node(identifier="site2"), ptn.crandn((4, 5, 2)))
+        self.mpt.add_root(ptn.Node(identifier="site2"), crandn((4, 5, 2)))
 
         self.nodes = [ptn.Node(identifier="site"+str(i)) for i in (0, 1, 3, 4)]
         shapes = [(3, 2), (3, 4, 2), (5, 3, 2), (3, 2)]
-        self.tensors = [ptn.crandn(shape) for shape in shapes]
+        self.tensors = [crandn(shape) for shape in shapes]
 
     def test_add_left_first(self):
         self.mpt.attach_node_left_end(self.nodes[1], self.tensors[1])
@@ -137,7 +137,7 @@ class TestMPT_Attaching(unittest.TestCase):
 class TestMPT_classmethods(unittest.TestCase):
     def setUp(self) -> None:
         shapes = [(3, 2), (3, 4, 2), (4, 5, 2), (5, 3, 2), (3, 2)]
-        self.tensors = [ptn.crandn(shape) for shape in shapes]
+        self.tensors = [crandn(shape) for shape in shapes]
 
     def test_from_tensor_list_root_at_2(self):
         mpt = ptn.MatrixProductTree.from_tensor_list(self.tensors,

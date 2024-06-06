@@ -4,7 +4,7 @@ import numpy as np
 
 import pytreenet as ptn
 from pytreenet.contractions import contraction_util
-from pytreenet.random import random_tensor_node
+from pytreenet.random import random_tensor_node, crandn
 
 class TestContractionUtil(unittest.TestCase):
     def setUp(self) -> None:
@@ -19,7 +19,7 @@ class TestContractionUtil(unittest.TestCase):
         identifiers = ["parent", "child0", "child1", "child2"]
         shapes = [(6,2),(5,3),(4, ),(3,5,4)]
         for i, ident in enumerate(identifiers):
-            tensor = ptn.crandn(shapes[i])
+            tensor = crandn(shapes[i])
             self.dictionary.add_entry(ident,
                                       self.identifier,
                                       tensor)

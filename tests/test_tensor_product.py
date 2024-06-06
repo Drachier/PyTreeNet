@@ -4,6 +4,7 @@ import numpy as np
 from scipy.linalg import expm
 
 import pytreenet as ptn
+from pytreenet.random import crandn
 
 class TestTensorProductInit(unittest.TestCase):
 
@@ -12,8 +13,8 @@ class TestTensorProductInit(unittest.TestCase):
         self.assertEqual(0, len(empty_tp))
 
     def test_init_numerical(self):
-        array_dict = {"site1": ptn.crandn((2,2)),
-                      "site2": ptn.crandn((3,3))}
+        array_dict = {"site1": crandn((2,2)),
+                      "site2": crandn((3,3))}
         tensor_prod = ptn.TensorProduct(array_dict)
 
         self.assertEqual(2, len(tensor_prod))
@@ -30,7 +31,7 @@ class TestTensorProductInit(unittest.TestCase):
         self.assertEqual(str_dict["site2"], tensor_prod["site2"])
 
     def test_init_mixed(self):
-        dictionary = {"site1": ptn.crandn((2,2)),
+        dictionary = {"site1": crandn((2,2)),
                       "site2": "a"}
         tensor_prod = ptn.TensorProduct(dictionary)
 
@@ -41,7 +42,7 @@ class TestTensorProductInit(unittest.TestCase):
 class TestTensorProduct(unittest.TestCase):
 
     def test_from_operator(self):
-        rand = ptn.crandn((2,2))
+        rand = crandn((2,2))
         operators = [ptn.NumericOperator(rand, ["site1"]),
                      ptn.NumericOperator(rand, ["site2"])]
         tensor_prod = ptn.TensorProduct.from_operators(operators)
@@ -50,14 +51,14 @@ class TestTensorProduct(unittest.TestCase):
         self.assertTrue(np.allclose(rand, tensor_prod["site2"]))
 
         # With non-single site operator
-        rand2 = ptn.crandn((2,2,2,2))
+        rand2 = crandn((2,2,2,2))
         operators.append(ptn.NumericOperator(rand2, ["site3", "site4"]))
         self.assertRaises(AssertionError, ptn.TensorProduct.from_operators,
                           operators)
 
     def test_into_operator_numeric(self):
-        random_arrays = [ptn.crandn((2,2)),
-                         ptn.crandn((3,3))]
+        random_arrays = [crandn((2,2)),
+                         crandn((3,3))]
         operators = [ptn.NumericOperator(random_arrays[i], "site" + str(i))
                      for i in range(len(random_arrays))]
         tensor_prod = ptn.TensorProduct.from_operators(operators)
@@ -67,8 +68,8 @@ class TestTensorProduct(unittest.TestCase):
         self.assertEqual(["site0", "site1"], new_operator.node_identifiers)
 
     def test_into_operator_symbolic(self):
-        conversion_dict = {"op0": ptn.crandn((2,2)),
-                           "op1": ptn.crandn((3,3))}
+        conversion_dict = {"op0": crandn((2,2)),
+                           "op1": crandn((3,3))}
         tensor_prod = ptn.TensorProduct({"site0": "op0", "site1": "op1"})
         new_operator = tensor_prod.into_operator(conversion_dict)
         correct_array = np.kron(conversion_dict["op0"],
@@ -116,11 +117,11 @@ class TestTensorProductWithTTN(unittest.TestCase):
     def setUp(self):
         self.ttn = ptn.TreeTensorNetwork()
         self.ttn.add_root(ptn.Node(identifier="root"),
-            ptn.crandn((2,2,3)))
+            crandn((2,2,3)))
         self.ttn.add_child_to_parent(ptn.Node(identifier="c1"),
-            ptn.crandn((2,2)), 0, "root", 0)
+            crandn((2,2)), 0, "root", 0)
         self.ttn.add_child_to_parent(ptn.Node(identifier="c2"),
-            ptn.crandn((2,4)), 0, "root", 1)
+            crandn((2,4)), 0, "root", 1)
 
         self.symbolic_dict = {"root": "X",
                          "c1": "a^dagger",
