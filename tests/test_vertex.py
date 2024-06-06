@@ -1,19 +1,21 @@
 import unittest
 
 import pytreenet as ptn
+from pytreenet.ttno import (Vertex,
+                            HyperEdge)
 
 class TestStateDiagram(unittest.TestCase):
 
     def setUp(self) -> None:
         self.node_ids = ("site1", "site2")
-        self.vertex_empty = ptn.Vertex(self.node_ids, [])
+        self.vertex_empty = Vertex(self.node_ids, [])
 
-        hyperedges = [ptn.HyperEdge("site1", "X", []),
-                      ptn.HyperEdge("site1", "Y", []),
-                      ptn.HyperEdge("site2", "Z", []),
-                      ptn.HyperEdge("site2", "X", [])]
+        hyperedges = [HyperEdge("site1", "X", []),
+                      HyperEdge("site1", "Y", []),
+                      HyperEdge("site2", "Z", []),
+                      HyperEdge("site2", "X", [])]
         self.hyperedge_ids = [hyperedge.identifier for hyperedge in hyperedges]
-        self.vertex_full = ptn.Vertex(self.node_ids, [])
+        self.vertex_full = Vertex(self.node_ids, [])
         self.vertex_full.add_hyperedges(hyperedges)
 
     def test_check_validity_of_node(self):
@@ -56,10 +58,10 @@ class TestStateDiagram(unittest.TestCase):
             self.assertFalse(self.vertex_full.check_hyperedge_uniqueness(node_id))
 
         # One unique, one too much
-        vertex_temp = ptn.Vertex(self.node_ids, [])
-        hyperedges = [ptn.HyperEdge("site1", "X", []),
-                        ptn.HyperEdge("site1", "Y", []),
-                        ptn.HyperEdge("site2", "Z", [])]
+        vertex_temp = Vertex(self.node_ids, [])
+        hyperedges = [HyperEdge("site1", "X", []),
+                        HyperEdge("site1", "Y", []),
+                        HyperEdge("site2", "Z", [])]
         vertex_temp.add_hyperedges(hyperedges)
         self.assertFalse(vertex_temp.check_hyperedge_uniqueness("site1"))
         self.assertTrue(vertex_temp.check_hyperedge_uniqueness("site2"))

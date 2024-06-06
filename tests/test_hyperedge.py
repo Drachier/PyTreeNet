@@ -1,18 +1,19 @@
 import unittest
 
 import pytreenet as ptn
+from pytreenet.ttno import HyperEdge, Vertex
 
 class TestStateDiagram(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.hyperedge_empty = ptn.HyperEdge("site1", "X", [])
+        self.hyperedge_empty = HyperEdge("site1", "X", [])
 
-        vertices = [ptn.Vertex(("site1, site2"),[]),
-                    ptn.Vertex(("site1, site3"),[]),
-                    ptn.Vertex(("site1, site4"),[])]
+        vertices = [Vertex(("site1, site2"),[]),
+                    Vertex(("site1, site3"),[]),
+                    Vertex(("site1, site4"),[])]
         self.vertex_ids = [vertex.identifier for vertex in vertices]
         self.other_node_ids = ["site2", "site3", "site4"]
-        self.hyperedge_full = ptn.HyperEdge("site1", "X", [])
+        self.hyperedge_full = HyperEdge("site1", "X", [])
         for vertex in vertices:
             self.hyperedge_full.add_vertex(vertex)
 
@@ -27,7 +28,7 @@ class TestStateDiagram(unittest.TestCase):
             self.assertEqual(expected_vertex_id, found_vertex_id)
 
         # Multiple nodes
-        self.hyperedge_full.vertices.append(ptn.Vertex(("site1", "site2"), [self.hyperedge_full]))
+        self.hyperedge_full.vertices.append(Vertex(("site1", "site2"), [self.hyperedge_full]))
         self.assertRaises(AssertionError, self.hyperedge_full.find_vertex, "site2")
 
     def test_vertex_single_he(self):
@@ -38,7 +39,7 @@ class TestStateDiagram(unittest.TestCase):
         self.assertTrue(self.hyperedge_full.vertex_single_he(self.other_node_ids[0]))
 
         # Not unique hyperedge
-        new_hyperedge = ptn.HyperEdge("site1", "Z", [])
+        new_hyperedge = HyperEdge("site1", "Z", [])
         new_hyperedge.add_vertex(self.hyperedge_full.vertices[0])
         self.assertFalse(self.hyperedge_full.vertex_single_he(self.other_node_ids[0]))
 
@@ -145,7 +146,7 @@ class TestStateDiagram(unittest.TestCase):
         self.assertTrue(self.hyperedge_full.all_but_one_vertex_contained())
 
         # With single vertex
-        hyperedge_single = ptn.HyperEdge("site1", "X", [ptn.Vertex(("site1","site2"), [])])
+        hyperedge_single = HyperEdge("site1", "X", [Vertex(("site1","site2"), [])])
         self.assertTrue(hyperedge_single.all_but_one_vertex_contained())
         hyperedge_single.vertices[0].contained = True
         self.assertFalse(hyperedge_single.all_but_one_vertex_contained())

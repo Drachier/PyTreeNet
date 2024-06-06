@@ -1,6 +1,7 @@
 import unittest
 
 import pytreenet as ptn
+from pytreenet.ttno import SingleTermDiagram
 from pytreenet.random import random_tensor_node
 
 class TestStateDiagram(unittest.TestCase):
@@ -27,10 +28,10 @@ class TestStateDiagram(unittest.TestCase):
         self.term = {"site1": "1", "site2": "2", "site3": "3",
                      "site4": "4", "site5": "5", "site6": "6", "site7": "7"}
 
-        self.state_diagram_empty = ptn.SingleTermDiagram(ptn.TreeTensorNetwork())
+        self.state_diagram_empty = SingleTermDiagram(ptn.TreeTensorNetwork())
 
     def test_from_single_term(self):
-        state_diagram = ptn.SingleTermDiagram.from_single_term(
+        state_diagram = SingleTermDiagram.from_single_term(
             self.term, self.ref_tree)
 
         self.assertEqual(6, len(state_diagram.vertices))
@@ -55,7 +56,7 @@ class TestStateDiagram(unittest.TestCase):
         self.assertEqual([], self.state_diagram_empty.get_all_vertices())
 
         # Non-Empty
-        state_diagram = ptn.SingleTermDiagram.from_single_term(
+        state_diagram = SingleTermDiagram.from_single_term(
             self.term, self.ref_tree)
         self.assertEqual(6, len(state_diagram.get_all_vertices()))
 
@@ -64,12 +65,12 @@ class TestStateDiagram(unittest.TestCase):
         self.assertEqual([], self.state_diagram_empty.get_all_hyperedges())
 
         # Non-empty
-        state_diagram = ptn.SingleTermDiagram.from_single_term(
+        state_diagram = SingleTermDiagram.from_single_term(
             self.term, self.ref_tree)
         self.assertEqual(7, len(state_diagram.get_all_hyperedges()))
 
     def test_get_hyperedge_label(self):
-        state_diagram = ptn.SingleTermDiagram.from_single_term(
+        state_diagram = SingleTermDiagram.from_single_term(
             self.term, self.ref_tree)
         for node_id, label in self.term.items():
             self.assertEqual(label, state_diagram.get_hyperedge_label(node_id))

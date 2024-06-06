@@ -16,6 +16,8 @@ from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      SVDParameters)
 from .state_diagram import StateDiagram, TTNOFinder
 
+__all__ = ["Decomposition", "TTNO", "TreeTensorNetworkOperator"]
+
 class Decomposition(Enum):
     """
     An enumeration to choosing decomposition method used for TTNO construction.

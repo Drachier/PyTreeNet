@@ -1,7 +1,9 @@
 import unittest
 
 import pytreenet as ptn
-from pytreenet.random import (random_tensor_node)
+from pytreenet.random import random_tensor_node
+from pytreenet.ttno import (HyperEdge,
+                            StateDiagram)
 
 def check_hyperedge_coll(state_diagram, node_id, he_labels, num_hes, num_connected_vertices):
     """
@@ -88,7 +90,7 @@ class TestonSingleStateDiagram(unittest.TestCase):
 
         self.term = {"site1": "1", "site2": "2", "site3": "3",
                      "site4": "4", "site5": "5", "site6": "6", "site7": "7"}
-        self.sd = ptn.StateDiagram.from_single_term(self.term, self.ref_tree)
+        self.sd = StateDiagram.from_single_term(self.term, self.ref_tree)
 
     def reset_check(self):
         # Checking the markers are reset correctly
@@ -207,7 +209,7 @@ class TestonSingleStateDiagram(unittest.TestCase):
                 # Site 3 has only one corresponding hyperedge
                 self.assertTrue(len(he_coll.contained_hyperedges) == 1)
                 for he in he_coll.contained_hyperedges:
-                    self.assertEqual(ptn.HyperEdge("site3", "3", []), he)
+                    self.assertEqual(HyperEdge("site3", "3", []), he)
                     self.assertEqual(1, len(he.vertices))
 
             else:
@@ -476,7 +478,7 @@ class TestFromHamiltonian(unittest.TestCase):
         terms = [term1]
         hamiltonian = ptn.Hamiltonian(terms=terms)
 
-        sd = ptn.StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
+        sd = StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
 
         self.assertEqual(6, len(sd.vertex_colls))
         self.assertEqual(7, len(sd.hyperedge_colls))
@@ -522,7 +524,7 @@ class TestFromHamiltonian(unittest.TestCase):
         terms = [term1, term2]
         hamiltonian = ptn.Hamiltonian(terms=terms)
 
-        sd = ptn.StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
+        sd = StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
 
         # The number of of vertex and hyperedge collections depends on the underlying tree.
         self.assertTrue(len(sd.hyperedge_colls) == 7)
@@ -563,7 +565,7 @@ class TestFromHamiltonian(unittest.TestCase):
         terms = [term1, term2, term3]
         hamiltonian = ptn.Hamiltonian(terms=terms)
 
-        sd = ptn.StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
+        sd = StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
 
         # The number of of vertex and hyperedge collections depends on the underlying tree.
         self.assertTrue(len(sd.hyperedge_colls) == 7)
@@ -618,7 +620,7 @@ class TestFromHamiltonian(unittest.TestCase):
         terms = [term1, term2, term3]
         hamiltonian = ptn.Hamiltonian(terms=terms)
 
-        sd = ptn.StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
+        sd = StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
 
         # The number of of vertex and hyperedge collections depends on the underlying tree.
         self.assertTrue(len(sd.hyperedge_colls) == 7)
@@ -705,7 +707,7 @@ class TestFromHamiltonian(unittest.TestCase):
         terms = [term1, term2, term3, term4]
         hamiltonian = ptn.Hamiltonian(terms=terms)
 
-        sd = ptn.StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
+        sd = StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
 
         potential_num_vertices_dict = {"site1": {2},
                                        "site2": {3},
@@ -796,7 +798,7 @@ class TestFromHamiltonianAsymmetric(unittest.TestCase):
 
         hamiltonian = ptn.Hamiltonian(terms=terms)
 
-        sd = ptn.StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
+        sd = StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
 
         potential_num_vertices_dict = {"site1": {2},
                                        "site2": {3},
