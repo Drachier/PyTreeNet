@@ -79,3 +79,20 @@ def swap_gate(dimension: int = 2) -> np.ndarray:
             if (output_sys1 == input_sys2) and (input_sys1 == output_sys2):
                 swap[i,j] = 1
     return swap
+
+def projector(dimension: int, index: int) -> np.ndarray:
+    """
+    A projector on a specific index of a system with a given dimension.
+
+    Args:
+        dimension (int): The dimension of the system.
+        index (int): The index of the state to project to.
+    
+    Returns:
+        np.ndarray: The projector on the index of the system.
+    """
+    matrix = np.zeros((dimension, dimension), dtype=complex)
+    matrix[index, index] = 1
+    return matrix
+
+
