@@ -12,7 +12,6 @@ description = "Tree tensor network library for quantum simulations"
 readme = "README.md"
 authors = [{ name = "Richard M. Milbradt", email = "r.milbradt@tum.de" },
             { name = "Qunsheng Huang"}]
-maintainer = [{ name = "Richard M. Milbradt", email = "r.milbradt@tum.de" }]
 license = { text = "European Union Public License, v1.1" }
 requires-python = ">=3.8.10"
 dependencies = [
