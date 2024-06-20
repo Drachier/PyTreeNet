@@ -23,6 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 notebook = ["ipykernel >= 6.24.0", "matplotlib==3.7.2"]
+docs = ["sphinx >= 7.1.2", "sphinxcontrib-napoleon==0.7"]
 
 [project.urls]
 Repository = "https://github.com/Drachier/PyTreeNet"
