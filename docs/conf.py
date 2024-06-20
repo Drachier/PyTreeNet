@@ -14,7 +14,7 @@ release = '1.0.0'
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ['sphinxcontrib.napoleon',
+extensions = ['sphinx.ext.napoleon',
               'sphinx.ext.autosummary',
               'sphinx.ext.autodoc',
               'sphinx.ext.mathjax',]
