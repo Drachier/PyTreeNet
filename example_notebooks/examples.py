@@ -14,33 +14,35 @@ import pytreenet as ptn
 
 # Generating a random tensor
 # --------------------------
+from pytreenet import random
 shape = (2, 3, 4)
-tensor = ptn.util.crandn(shape)
+tensor = random.crandn(shape)
 
 # QR Decomposition
 # ----------------
-tensor = ptn.util.crandn((2,3,4,5))
+from pytreenet import util
+tensor = random.crandn((2,3,4,5))
 qlegs = (0, 1)
 rlegs = (2, 3)
-Q, R = ptn.util.tensor_qr_decomposition(tensor,
+Q, R = util.tensor_qr_decomposition(tensor,
                                         qlegs,
                                         rlegs)
 
-Q, R = ptn.util.tensor_qr_decomposition(tensor,
+Q, R = util.tensor_qr_decomposition(tensor,
                                         qlegs,
                                         rlegs,
                                         mode=ptn.SplitMode.REDUCED)
 print(Q.shape) # -> (2,3,6)
 print(R.shape) # -> (6,4,5)
 
-Q, R = ptn.util.tensor_qr_decomposition(tensor,
+Q, R = util.tensor_qr_decomposition(tensor,
                                         qlegs,
                                         rlegs,
                                         mode=ptn.SplitMode.FULL)
 print(Q.shape) # -> (2,3,6)
 print(R.shape) # -> (6,4,5)
 
-Q, R = ptn.util.tensor_qr_decomposition(tensor,
+Q, R = util.tensor_qr_decomposition(tensor,
                                         qlegs,
                                         rlegs,
                                         mode=ptn.SplitMode.KEEP)
@@ -54,29 +56,29 @@ tensor = np.diag(svector).reshape(2,2,2,2)
 u_legs = (0,1)
 v_legs = (2,3)
 
-U, S, Vh = ptn.util.tensor_svd(tensor, u_legs, v_legs,
+U, S, Vh = util.tensor_svd(tensor, u_legs, v_legs,
                                mode=ptn.SplitMode.REDUCED)
 print(S.shape) # -> (3, )
 
-U, S, Vh = ptn.util.tensor_svd(tensor, u_legs, v_legs,
+U, S, Vh = util.tensor_svd(tensor, u_legs, v_legs,
                                mode=ptn.SplitMode.FULL)
 print(S.shape) # -> (4, )
 
 # Truncated SVD Decomposition
 # ---------------------------
-svd_params = ptn.util.SVDParameters()
+svd_params = util.SVDParameters()
 svd_params.total_tol = 1e-2
-U, S, Vh = ptn.util.truncated_tensor_svd(tensor, u_legs, v_legs,
+U, S, Vh = util.truncated_tensor_svd(tensor, u_legs, v_legs,
                                          svd_params=svd_params)
 print(S.shape) # -> (3, )
 
 svd_params.rel_tol = 1e-1
-U, S, Vh = ptn.util.truncated_tensor_svd(tensor, u_legs, v_legs,
+U, S, Vh = util.truncated_tensor_svd(tensor, u_legs, v_legs,
                                          svd_params=svd_params)
 print(S.shape) # -> (2, )
 
-svd_params.maximum_bond_dim = 1
-U, S, Vh = ptn.util.truncated_tensor_svd(tensor, u_legs, v_legs,
+svd_params.max_bond_dim = 1
+U, S, Vh = util.truncated_tensor_svd(tensor, u_legs, v_legs,
                                          svd_params=svd_params)
 print(S.shape) # -> (1, )
 
@@ -84,24 +86,24 @@ print(S.shape) # -> (1, )
 # --------------
 ttn = ptn.TreeTensorNetwork()
 
-root_node, root_tensor = ptn.random.random_tensor_node((2,4,5,3),
+root_node, root_tensor = random.random_tensor_node((2,4,5,3),
                                                        "root")
 ttn.add_root(root_node, root_tensor)
 
-node1, tensor1 = ptn.random.random_tensor_node((4,2,2),"node1")
+node1, tensor1 = random.random_tensor_node((4,2,2),"node1")
 ttn.add_child_to_parent(node1, tensor1, 0, "root", 1)
 
 print(node1.neighbour_index("root")) # -> 0
 print(root_node.neighbour_index("node1")) # -> 0
 
-node4, tensor4 = ptn.random.random_tensor_node((5,2,3),"node4")
-node5, tensor5 = ptn.random.random_tensor_node((3,2),"node5")
+node4, tensor4 = random.random_tensor_node((5,2,3),"node4")
+node5, tensor5 = random.random_tensor_node((3,2),"node5")
 ttn.add_child_to_parent(node4, tensor4, 0, "root", 2)
 ttn.add_child_to_parent(node5, tensor5, 0, "root", 3)
 
-node2, tensor2 = ptn.random.random_tensor_node((2,2),"node2")
-node3, tensor3 = ptn.random.random_tensor_node((2,2),"node3")
-node6, tensor6 = ptn.random.random_tensor_node((2,2),"node6")
+node2, tensor2 = random.random_tensor_node((2,2),"node2")
+node3, tensor3 = random.random_tensor_node((2,2),"node3")
+node6, tensor6 = random.random_tensor_node((2,2),"node6")
 ttn.add_child_to_parent(node2, tensor2, 0, "node1", 1)
 ttn.add_child_to_parent(node3, tensor3, 0, "node1", 2)
 ttn.add_child_to_parent(node6, tensor6, 0, "node5", 1)
@@ -134,18 +136,18 @@ print(order)
 
 # Creating the smallest non-trivial Contraction
 ttn_dash = ptn.TreeTensorNetwork()
-p_node, p_tensor = ptn.random_tensor_node((3,),"p")
+p_node, p_tensor = random.random_tensor_node((3,),"p")
 ttn_dash.add_root(p_node, p_tensor)
-a_node, a_tensor = ptn.random_tensor_node((3,4,5,2),"a")
+a_node, a_tensor = random.random_tensor_node((3,4,5,2),"a")
 ttn_dash.add_child_to_parent(a_node, a_tensor, 0,
                              "p", 0)
-c1_node, c1_tensor = ptn.random_tensor_node((4,),"c1")
+c1_node, c1_tensor = random.random_tensor_node((4,),"c1")
 ttn_dash.add_child_to_parent(c1_node, c1_tensor, 0,
                              "a", 1)
-b_node, b_tensor = ptn.random_tensor_node((5,4,3),"b")
+b_node, b_tensor = random.random_tensor_node((5,4,3),"b")
 ttn_dash.add_child_to_parent(b_node, b_tensor, 0,
                              "a", 2)
-c2_node, c2_tensor = ptn.random_tensor_node((4,),"c2")
+c2_node, c2_tensor = random.random_tensor_node((4,),"c2")
 ttn_dash.add_child_to_parent(c2_node, c2_tensor, 0,
                              "b", 1)
 
@@ -177,18 +179,18 @@ ttn.split_node_qr(root_id,legs_01,legs_02,
 # ------------------
 ## Rebuilding the example TTN
 ttn = ptn.TreeTensorNetwork()
-root_node, root_tensor = ptn.random.random_tensor_node((2,4,5,3),
+root_node, root_tensor = random.random_tensor_node((2,4,5,3),
                                                        "root")
 ttn.add_root(root_node, root_tensor)
-node1, tensor1 = ptn.random.random_tensor_node((4,2,2),"node1")
+node1, tensor1 = random.random_tensor_node((4,2,2),"node1")
 ttn.add_child_to_parent(node1, tensor1, 0, "root", 1)
-node4, tensor4 = ptn.random.random_tensor_node((5,2,3),"node4")
-node5, tensor5 = ptn.random.random_tensor_node((3,2),"node5")
+node4, tensor4 = random.random_tensor_node((5,2,3),"node4")
+node5, tensor5 = random.random_tensor_node((3,2),"node5")
 ttn.add_child_to_parent(node4, tensor4, 0, "root", 2)
 ttn.add_child_to_parent(node5, tensor5, 0, "root", 3)
-node2, tensor2 = ptn.random.random_tensor_node((2,2),"node2")
-node3, tensor3 = ptn.random.random_tensor_node((2,2),"node3")
-node6, tensor6 = ptn.random.random_tensor_node((2,2),"node6")
+node2, tensor2 = random.random_tensor_node((2,2),"node2")
+node3, tensor3 = random.random_tensor_node((2,2),"node3")
+node6, tensor6 = random.random_tensor_node((2,2),"node6")
 ttn.add_child_to_parent(node2, tensor2, 0, "node1", 1)
 ttn.add_child_to_parent(node3, tensor3, 0, "node1", 2)
 ttn.add_child_to_parent(node6, tensor6, 0, "node5", 1)
@@ -204,21 +206,21 @@ ttn.move_orthogonalization_center("node6")
 # ------------
 ttns = ptn.TreeTensorNetworkState()
 center_node = ptn.Node(identifier="0")
-center_tensor = ptn.random.crandn((4,4,4,1))
+center_tensor = random.crandn((4,4,4,1))
 ttns.add_root(center_node, center_tensor)
 for i in range(3):
     chain_node = ptn.Node(identifier=f"{i}0")
-    chain_tensor = ptn.random.crandn((4,3,2))
+    chain_tensor = random.crandn((4,3,2))
     ttns.add_child_to_parent(chain_node, chain_tensor,
                                 0,"0",i)
     end_node = ptn.Node(identifier=f"{i}1")
-    end_tensor = ptn.random.crandn((3,2))
+    end_tensor = random.crandn((3,2))
     ttns.add_child_to_parent(end_node, end_tensor,
                                 0,f"{i}0",1)
 
 # Tensor Product
 # --------------
-operators = {f"{i}0": ptn.random.random_hermitian_matrix(2)}
+operators = {f"{i}0": random.random_hermitian_matrix(2)}
 omega = ptn.TensorProduct(operators)
 
 # Expectation Values
@@ -232,15 +234,15 @@ operator_exp = ttns.operator_expectation_value(z20)
 # ------------
 ttno = ptn.TTNO()
 center_node = ptn.Node(identifier="0")
-center_tensor = ptn.random.crandn((4,4,4,1,1))
+center_tensor = random.crandn((4,4,4,1,1))
 ttno.add_root(center_node, center_tensor)
 for i in range(3):
     chain_node = ptn.Node(identifier=f"{i}0")
-    chain_tensor = ptn.random.crandn((4,3,2,2))
+    chain_tensor = random.crandn((4,3,2,2))
     ttno.add_child_to_parent(chain_node, chain_tensor,
                                 0,"0",i)
     end_node = ptn.Node(identifier=f"{i}1")
-    end_tensor = ptn.random.crandn((3,2,2))
+    end_tensor = random.crandn((3,2,2))
     ttno.add_child_to_parent(end_node, end_tensor,
                                 0,f"{i}0",1)
 
@@ -267,9 +269,9 @@ ttno = ptn.TreeTensorNetworkOperator.from_hamiltonian(ham,ttns)
 # ------------------------------------
 qubits = ["q1", "q2"]
 dim = 2
-A  = ptn.TensorProduct({idt: ptn.random.random_hermitian_matrix(dim)
+A  = ptn.TensorProduct({idt: random.random_hermitian_matrix(dim)
                         for idt in qubits})
-B  = ptn.TensorProduct({idt: ptn.random.random_hermitian_matrix(dim)
+B  = ptn.TensorProduct({idt: random.random_hermitian_matrix(dim)
                         for idt in qubits})
 stepA = ptn.TrotterStep(A,1)
 stepB = ptn.TrotterStep(B,1)
@@ -290,15 +292,15 @@ unitaries_Strang = strang.exponentiate_splitting(delta_time,
 # ---------------------
 ttns = ptn.TreeTensorNetworkState()
 center_node = ptn.Node(identifier="0")
-center_tensor = ptn.random.crandn((4,4,4,2))
+center_tensor = random.crandn((4,4,4,2))
 ttns.add_root(center_node, center_tensor)
 for i in range(3):
     chain_node = ptn.Node(identifier=f"{i}0")
-    chain_tensor = ptn.random.crandn((4,3,2))
+    chain_tensor = random.crandn((4,3,2))
     ttns.add_child_to_parent(chain_node, chain_tensor,
                                 0,"0",i)
     end_node = ptn.Node(identifier=f"{i}1")
-    end_tensor = ptn.random.crandn((3,2))
+    end_tensor = random.crandn((3,2))
     ttns.add_child_to_parent(end_node, end_tensor,
                                 0,f"{i}0",1)
 
@@ -359,7 +361,7 @@ delta_t = 0.01
 magn = ptn.TensorProduct({ide: Z for ide in ttns.nodes})
 final_time = 1
 max_bd = 3
-svd_params = ptn.util.SVDParameters(max_bond_dim=max_bd,
+svd_params = util.SVDParameters(max_bond_dim=max_bd,
                                     rel_tol=1e-5,
                                     total_tol=1e-6)
 config = ptn.TTNTimeEvolutionConfig(record_bond_dim=True)
