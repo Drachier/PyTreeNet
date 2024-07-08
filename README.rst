@@ -29,6 +29,7 @@ Alternatively, you can clone the `repository <https://github.com/Drachier/PyTree
 
 Documentation
 -------------
+You can find the documentation of PyTreeNet at `Read the Docs <https://pytreenet.readthedocs.io/>`_.
 
 Directory structure
 -------------------
