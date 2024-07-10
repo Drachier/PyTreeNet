@@ -59,21 +59,38 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
         hamiltonian = hamiltonian.pad_with_identities(reference_tree)
         state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
                                                       reference_tree, method)
-        ttno = TreeTensorNetworkOperator()
+        return cls.from_state_diagram(state_diagram,
+                                      hamiltonian.conversion_dictionary)
+
+    @classmethod
+    def from_state_diagram(cls, state_diagram: StateDiagram,
+                           conversion_dict: Dict[str, np.ndarray]
+                           ) -> TreeTensorNetworkOperator:
+        """
+        Generates a TTNO from a state diagram.
+
+        Args:
+            state_diagram (StateDiagram): The state diagram, which the TTNO
+                should represent.
+            conversion_dict (Dict[str, np.ndarray]): A conversion dictionary to
+                determine the physical dimensions required.
+        """
+        ttno = cls()
+        reference_tree = state_diagram.reference_tree
         root_id = reference_tree.root_id
         root_shape = state_diagram.obtain_tensor_shape(root_id,
-                                                       hamiltonian.conversion_dictionary)
+                                                       conversion_dict)
         root_tensor = np.zeros(root_shape, dtype=complex)
         root_node = Node(identifier=root_id)
         ttno.add_root(root_node, root_tensor)
         for child_id in reference_tree.nodes[root_id].children:
             ttno._rec_zero_ttno(child_id, state_diagram,
-                                hamiltonian.conversion_dictionary)
+                                conversion_dict)
         # Now we have a TTNO filled with zero tensors of the correct shape.
         state_diagram.set_all_vertex_indices() # Fixing index_values
         for he in state_diagram.get_all_hyperedges():
             position = he.find_tensor_position(reference_tree)
-            operator = hamiltonian.conversion_dictionary[he.label]
+            operator = conversion_dict[he.label]
             ttno.tensors[he.corr_node_id][position] += operator
         return ttno
 
