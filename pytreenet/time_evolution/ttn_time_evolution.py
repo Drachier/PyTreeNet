@@ -35,7 +35,10 @@ class TTNTimeEvolution(TimeEvolution):
 
     def __init__(self, initial_state: TreeTensorNetworkState,
                  time_step_size: float, final_time: float,
-                 operators: Union[List[Union[TensorProduct, TTNO]], TensorProduct, TTNO],
+                 operators: Union[List[Union[TensorProduct, TTNO]],
+                                  Dict[str, Union[TensorProduct, TTNO]],
+                                  TensorProduct,
+                                  TTNO],
                  config: Union[TTNTimeEvolutionConfig,None] = None) -> None:
         """
         A time evolution for a tree tensor network state.

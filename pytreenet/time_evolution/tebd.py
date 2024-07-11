@@ -2,7 +2,7 @@
 Module implementing the TEBD time-evolution for TTNS.
 """
 from __future__ import annotations
-from typing import List, Union
+from typing import List, Union, Dict
 
 from ..ttns import TreeTensorNetworkState
 from .ttn_time_evolution import TTNTimeEvolution, TTNTimeEvolutionConfig
@@ -10,6 +10,7 @@ from .trotter import TrotterSplitting
 from ..operators.operator import NumericOperator
 from ..operators.tensorproduct import TensorProduct
 from ..util.tensor_splitting import SVDParameters
+from ..ttno.ttno_class import TreeTensorNetworkOperator as TTNO
 
 class TEBD(TTNTimeEvolution):
     """
@@ -27,7 +28,11 @@ class TEBD(TTNTimeEvolution):
 
     def __init__(self, initial_state: TreeTensorNetworkState,
                  trotter_splitting: TrotterSplitting, time_step_size: float,
-                 final_time: float, operators: Union[List[TensorProduct], TensorProduct],
+                 final_time: float,
+                 operators: Union[List[Union[TensorProduct, TTNO]],
+                                  Dict[str, Union[TensorProduct, TTNO]],
+                                  TensorProduct,
+                                  TTNO],
                  svd_parameters: Union[SVDParameters,None] = None,
                  config: Union[TTNTimeEvolutionConfig,None] = None):
         """
@@ -40,7 +45,8 @@ class TEBD(TTNTimeEvolution):
                 used for time-evolution.
             time_step_size (float): The time step size to be used.
             final_time (float): The final time until which to run.
-            operators (Union[List[TensorProduct], TensorProduct]): Operators in
+            operators (Union[List[TensorProduct], Dict[str,
+                Union[TensorProduct, TTNO]], TTNO, TensorProduct]): Operators in
                 the form of single site tensor product for which expectation
                 values should be determined.
             svd_parameters (Union[SVDParameters,None]): The parameters for the
