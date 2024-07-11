@@ -20,6 +20,7 @@ from randomised_hamiltonians_to_TTNO import (save_metadata,
                                              create_bond_dim_data_sets,
                                              obtain_bond_dimensions)
 import pytreenet as ptn
+from pytreenet.random import random_tensor_node
 
 def construct_tree_root_at_5():
     """
@@ -29,14 +30,14 @@ def construct_tree_root_at_5():
     ttns = ptn.TreeTensorNetworkState()
 
     # Physical legs come last
-    node1, tensor1 = ptn.random_tensor_node((1, 1, 2), identifier="site1")
-    node2, tensor2 = ptn.random_tensor_node((1, 1, 1, 2), identifier="site2")
-    node3, tensor3 = ptn.random_tensor_node((1, 2), identifier="site3")
-    node4, tensor4 = ptn.random_tensor_node((1, 2), identifier="site4")
-    node5, tensor5 = ptn.random_tensor_node((1, 1, 1, 2), identifier="site5")
-    node6, tensor6 = ptn.random_tensor_node((1, 2), identifier="site6")
-    node7, tensor7 = ptn.random_tensor_node((1, 1, 2), identifier="site7")
-    node8, tensor8 = ptn.random_tensor_node((1, 2), identifier="site8")
+    node1, tensor1 = random_tensor_node((1, 1, 2), identifier="site1")
+    node2, tensor2 = random_tensor_node((1, 1, 1, 2), identifier="site2")
+    node3, tensor3 = random_tensor_node((1, 2), identifier="site3")
+    node4, tensor4 = random_tensor_node((1, 2), identifier="site4")
+    node5, tensor5 = random_tensor_node((1, 1, 1, 2), identifier="site5")
+    node6, tensor6 = random_tensor_node((1, 2), identifier="site6")
+    node7, tensor7 = random_tensor_node((1, 1, 2), identifier="site7")
+    node8, tensor8 = random_tensor_node((1, 2), identifier="site8")
 
     ttns.add_root(node5, tensor5)
     ttns.add_child_to_parent(node1, tensor1, 0, "site5", 0)
@@ -56,14 +57,14 @@ def construct_tree_root_at_6():
     ttns = ptn.TreeTensorNetworkState()
 
     # Physical legs come last
-    node1, tensor1 = ptn.random_tensor_node((1, 1, 2), identifier="site1")
-    node2, tensor2 = ptn.random_tensor_node((1, 1, 1, 2), identifier="site2")
-    node3, tensor3 = ptn.random_tensor_node((1, 2), identifier="site3")
-    node4, tensor4 = ptn.random_tensor_node((1, 2), identifier="site4")
-    node5, tensor5 = ptn.random_tensor_node((1, 1, 1, 2), identifier="site5")
-    node6, tensor6 = ptn.random_tensor_node((1, 2), identifier="site6")
-    node7, tensor7 = ptn.random_tensor_node((1, 1, 2), identifier="site7")
-    node8, tensor8 = ptn.random_tensor_node((1, 2), identifier="site8")
+    node1, tensor1 = random_tensor_node((1, 1, 2), identifier="site1")
+    node2, tensor2 = random_tensor_node((1, 1, 1, 2), identifier="site2")
+    node3, tensor3 = random_tensor_node((1, 2), identifier="site3")
+    node4, tensor4 = random_tensor_node((1, 2), identifier="site4")
+    node5, tensor5 = random_tensor_node((1, 1, 1, 2), identifier="site5")
+    node6, tensor6 = random_tensor_node((1, 2), identifier="site6")
+    node7, tensor7 = random_tensor_node((1, 1, 2), identifier="site7")
+    node8, tensor8 = random_tensor_node((1, 2), identifier="site8")
 
     ttns.add_root(node6, tensor6)
     ttns.add_child_to_parent(node5, tensor5, 0, "site6", 0)

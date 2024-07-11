@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Any, Dict, Tuple
 from argparse import ArgumentParser
+import re
 
 import h5py
 import numpy as np
@@ -9,36 +10,9 @@ from tqdm import tqdm
 from numpy.random import default_rng
 
 import pytreenet as ptn
-
-
-
-def construct_tree_root_at_1() -> ptn.TreeTensorNetworkState:
-    """
-    Generates the desired tree tensor network used as a reference to construct
-     the Hamiltonian.
-    """
-    ttns = ptn.TreeTensorNetworkState()
-
-    # Physical legs come last
-    node1, tensor1 = ptn.random_tensor_node((1, 1, 2), identifier="site1")
-    node2, tensor2 = ptn.random_tensor_node((1, 1, 1, 2), identifier="site2")
-    node3, tensor3 = ptn.random_tensor_node((1, 2), identifier="site3")
-    node4, tensor4 = ptn.random_tensor_node((1, 2), identifier="site4")
-    node5, tensor5 = ptn.random_tensor_node((1, 1, 1, 2), identifier="site5")
-    node6, tensor6 = ptn.random_tensor_node((1, 2), identifier="site6")
-    node7, tensor7 = ptn.random_tensor_node((1, 1, 2), identifier="site7")
-    node8, tensor8 = ptn.random_tensor_node((1, 2), identifier="site8")
-
-    ttns.add_root(node1, tensor1)
-    ttns.add_child_to_parent(node2, tensor2, 0, "site1", 0)
-    ttns.add_child_to_parent(node3, tensor3, 0, "site2", 1)
-    ttns.add_child_to_parent(node4, tensor4, 0, "site2", 2)
-    ttns.add_child_to_parent(node5, tensor5, 0, "site1", 1)
-    ttns.add_child_to_parent(node6, tensor6, 0, "site5", 1)
-    ttns.add_child_to_parent(node7, tensor7, 0, "site5", 2)
-    ttns.add_child_to_parent(node8, tensor8, 0, "site7", 1)
-
-    return ttns
+from pytreenet.ttno.state_diagram import TTNOFinder
+import pytreenet.random as rand
+import trees
 
 def save_metadata(file: Any, seed: int, max_num_terms: int, num_runs: int,
                   conversion_dict: Dict[str, np.ndarray],
@@ -89,12 +63,12 @@ def generate_random_hamiltonian(conversion_dict: Dict[str, np.ndarray],
     """
     site_ids = list(ref_tree.nodes.keys())
     possible_operators = list(conversion_dict.keys())
-    random_terms = ptn.random_symbolic_terms(num_terms,
-                                             possible_operators,
-                                             site_ids,
-                                             min_num_sites=1,
-                                             max_num_sites=8,
-                                             seed=rng)
+    random_terms = rand.random_symbolic_terms(num_terms,
+                                              possible_operators,
+                                              site_ids,
+                                              min_num_sites=1,
+                                              max_num_sites=8,
+                                              seed=rng)
     hamiltonian = ptn.Hamiltonian(random_terms,
                                   conversion_dictionary=conversion_dict)
     return hamiltonian.pad_with_identities(ref_tree)
@@ -143,21 +117,23 @@ def obtain_bond_dimensions(ttno: ptn.TTNO) -> np.ndarray:
             dimensions.append(node.parent_leg_dim())
     return np.asarray(dimensions)
 
-def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
+def main(filename: str,
+         ref_tree: ptn.TreeTensorNetworkState,
          leg_dict: Dict[str,int],
-         num_runs: int = 10000, min_num_terms: int=1,
-         max_num_terms: int = 30):
+         num_runs: int = 40000,
+         min_num_terms: int = 30,
+         max_num_terms: int = 30,
+         find_mode: TTNOFinder = TTNOFinder.TREE):
     # Prepare variables
     X, Y, Z = ptn.pauli_matrices()
     conversion_dict = {"X": X, "Y": Y, "Z": Z, "I2": np.eye(2, dtype="complex")}
-    num_bonds = 7
+    num_bonds = len(ref_tree.nodes) - 1
     seed = 49892894
     rng = default_rng(seed=seed)
 
     with h5py.File(filename, "w") as file:
         save_metadata(file, seed, max_num_terms, num_runs, conversion_dict,
                       leg_dict)
-        error_count = 0
 
         for num_terms in tqdm(range(min_num_terms, max_num_terms + 1)):
             dset_svd, dset_ham = create_bond_dim_data_sets(file,
@@ -166,13 +142,16 @@ def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
                                                            num_runs)
             run = 0
             while run < num_runs:
-                print("num: ", run) if run % 25 == 0 else None
                 hamiltonian = generate_random_hamiltonian(conversion_dict,
                                                           ref_tree,
                                                           rng,
                                                           num_terms)
                 if not hamiltonian.contains_duplicates():
-                    ttno_ham = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree)
+                    if run % 25 == 0:
+                        print("Run:", run)
+                    ttno_ham = ptn.TTNO.from_hamiltonian(hamiltonian,
+                                                         ref_tree,
+                                                         method=find_mode)
                     total_tensor = hamiltonian.to_tensor(ref_tree).operator
                     ttno_svd = ptn.TTNO.from_tensor(ref_tree,
                                                     total_tensor,
@@ -180,20 +159,39 @@ def main(filename: str, ref_tree: ptn.TreeTensorNetworkState,
                                                     mode=ptn.Decomposition.tSVD)
                     dset_ham[run, :] = obtain_bond_dimensions(ttno_ham)
                     dset_svd[run, :] = obtain_bond_dimensions(ttno_svd)
-                    if np.any(dset_ham[run, :] > dset_svd[run, :]):
-                        print(hamiltonian)
-                        print("Difference is: ", dset_ham[run, :], " ---- ", dset_svd[run, :])
-                        error_count += 1
-                        print("Total difference: ", error_count)
                     run += 1
 
-if __name__ == "__main__":
+def input_handling():
+    """
+    Handles the input parsed from the command line.
+    """
     parser = ArgumentParser()
     parser.add_argument("filepath", type=str, nargs=1)
-    filepath = vars(parser.parse_args())["filepath"][0]
-    # For root at 1
-    filepath1 = filepath + "_root_at_1.hdf5"
+    parser.add_argument("tree_option", type=str, nargs=1)
+    parser.add_argument("--mode", type=str, nargs=1, default=["TREE"])
+    args = vars(parser.parse_args())
+    filepath = args["filepath"][0]
+    if not re.match(r".+\.hdf5$", filepath):
+        filepath = filepath + ".hdf5"
     print("Data will be saved in " + filepath)
-    leg_dict1 = {"site1": 0, "site2": 1, "site3": 2, "site4": 3, "site5": 4,
-                "site6": 5, "site7": 6, "site8": 7}
-    main(filepath1, construct_tree_root_at_1(), leg_dict1)
+    tree_option = args["tree_option"][0]
+    if tree_option == "0":
+        tree, leg_dict = trees.construct_orig_pub_tree()
+    elif tree_option == "1":
+        tree, leg_dict = trees.construct_T_tree()
+    elif tree_option == "2":
+        tree, leg_dict = trees.construct_user_guide_example_tree()
+    else:
+        raise ValueError("Tree option not recognised.")
+    mode = args["mode"][0]
+    if mode == "TREE":
+        find_mode = TTNOFinder.TREE
+    elif mode == "CM":
+        find_mode = TTNOFinder.CM
+    else:
+        raise ValueError("Mode not recognised.")
+    return filepath, tree, leg_dict, find_mode
+
+if __name__ == "__main__":
+    path1, tree1, leg_dict1, mode1 = input_handling()
+    main(path1, tree1, leg_dict1, find_mode=mode1)
