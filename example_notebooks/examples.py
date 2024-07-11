@@ -206,7 +206,7 @@ ttn.move_orthogonalization_center("node6")
 # ------------
 ttns = ptn.TreeTensorNetworkState()
 center_node = ptn.Node(identifier="0")
-center_tensor = random.crandn((4,4,4,1))
+center_tensor = random.crandn((4,4,4,2))
 ttns.add_root(center_node, center_tensor)
 for i in range(3):
     chain_node = ptn.Node(identifier=f"{i}0")
@@ -234,7 +234,7 @@ operator_exp = ttns.operator_expectation_value(z20)
 # ------------
 ttno = ptn.TTNO()
 center_node = ptn.Node(identifier="0")
-center_tensor = random.crandn((4,4,4,1,1))
+center_tensor = random.crandn((4,4,4,2,2))
 ttno.add_root(center_node, center_tensor)
 for i in range(3):
     chain_node = ptn.Node(identifier=f"{i}0")
@@ -393,7 +393,7 @@ one_state[1] = 1
 ttns = ptn.TreeTensorNetworkState()
 center_node = ptn.Node(identifier="0")
 bond_dim = 3
-center_tensor = np.asarray([1]).reshape(1,1,1,1)
+center_tensor = np.asarray([1]).reshape(1,1,1,2)
 center_tensor = np.pad(center_tensor,
                        ((0, bond_dim-1),(0, bond_dim-1),
                         (0, bond_dim-1),(0, 0)))
