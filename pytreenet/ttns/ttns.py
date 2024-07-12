@@ -122,7 +122,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         # If the TTNS is in canonical form, the contraction of the
         # orthogonality center should be equal to the norm of the state.
         return np.allclose(total_contraction, local_contraction)
-    
+
     def apply_operator(self, operator: TensorProduct):
         """
         Applies a tensor product operator to the TTNS.
