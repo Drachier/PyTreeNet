@@ -51,11 +51,6 @@ class TestTDVPInit(unittest.TestCase):
     def test_init_orth_path(self):
         self.assertEqual([["root"],["c2"]], self.tdvp.orthogonalization_path)
 
-    def test_find_caching_path(self):
-        caching_path, next_node_id_dict = self.tdvp._find_caching_path()
-        self.assertEqual(["c2", "root", "c1"], caching_path)
-        self.assertEqual({"c2": "root", "root": "c1"}, next_node_id_dict)
-
     def test_init_partial_tree_cache(self):
         # Creating reference
         ref_tdvp = deepcopy(self.tdvp)
@@ -339,16 +334,6 @@ class TestTDVPInitComplicated(unittest.TestCase):
         correct_path = [["site3","site5"],["site3"],["site1","site2"],
                         ["site1"],["site0"],["site6"],["site7"]]
         self.assertEqual(correct_path, self.tdvp.orthogonalization_path)
-
-    def test_find_caching_path(self):
-        caching_path, next_node_id_dict = self.tdvp._find_caching_path()
-        correct_path = ["site7", "site6", "site0", "site2",
-                        "site1", "site5", "site3", "site4"]
-        self.assertEqual(correct_path, caching_path)
-        correct_dict = {"site7": "site6", "site6": "site0",
-                        "site0": "site1", "site2": "site1",
-                        "site1": "site3", "site5": "site3", "site3": "site4"}
-        self.assertEqual(correct_dict, next_node_id_dict)
 
     def test_init_tree_cache_7_to_6(self):
         node_id = "site7"
