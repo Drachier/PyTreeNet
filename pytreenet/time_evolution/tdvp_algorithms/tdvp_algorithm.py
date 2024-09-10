@@ -7,7 +7,7 @@ Reference:
         Tensor Networks", DOI: 10.21468/SciPostPhys.8.2.024
 """
 from __future__ import annotations
-from typing import Union, List, Tuple, Dict
+from typing import Union, List, Tuple
 
 import numpy as np
 
@@ -18,8 +18,7 @@ from ...util.tensor_splitting import SplitMode
 from ...ttns import TreeTensorNetworkState
 from ...ttno.ttno_class import TTNO
 from ...operators.tensorproduct import TensorProduct
-from ...contractions.tree_cach_dict import PartialTreeCachDict
-from ...contractions.state_operator_contraction import contract_any
+from ...contractions.sandwich_caching import SandwichCache
 from ..time_evo_util.update_path import TDVPUpdatePathFinder
 
 class TDVPAlgorithm(TTNTimeEvolution):
@@ -72,8 +71,9 @@ class TDVPAlgorithm(TTNTimeEvolution):
         self._orthogonalize_init()
 
         # Caching for speed up
-        self.partial_tree_cache = PartialTreeCachDict()
-        self._init_partial_tree_cache()
+        self.partial_tree_cache = SandwichCache.init_cache_but_one(self.state,
+                                                                   self.hamiltonian,
+                                                                   self.update_path[0])
 
     def _orthogonalize_init(self, force_new: bool=False):
         """
@@ -124,66 +124,6 @@ class TDVPAlgorithm(TTNTimeEvolution):
         """
         return TDVPUpdatePathFinder(self.initial_state).find_path()
 
-    def _find_caching_path(self) -> Tuple[List[str], Dict[str,str]]:
-        """
-        Finds the path used to cache the contracted subtrees initially.
-
-        Returns:
-            List[str]: The path along which to update.
-            Dict[str,str]: A dictionary with node_ids. If we compute at the
-                key identifier, the legs of the cached tensor should point
-                towards the value identifier node.
-        """
-        initial_path = self.state.find_path_to_root(self.update_path[0])
-        initial_path.reverse()
-        caching_path = []
-        next_id_dict = {node_id: initial_path[i+1]
-                        for i, node_id in enumerate(initial_path[:-1])}
-        for node_id in initial_path:
-            self._find_caching_path_rec(node_id, caching_path,
-                                        next_id_dict, initial_path)
-        return (caching_path, next_id_dict)
-
-    def _find_caching_path_rec(self, node_id: str,
-                               caching_path: List[str],
-                               next_id_dict: Dict[str,str],
-                               initial_path: List[str]):
-        """
-        Runs through the subranch starting at node_id and adds the the branch
-        to the path starting with the leafs.
-
-        Args:
-            node_id (str): The identifier of the current node.
-            caching_path (List[str]): The list in which the path is saved.
-            Dict[str,str]: A dictionary with node_ids. If we compute at the
-                key identifier, the legs of the cached tensor should point
-                towards the value identifier node.
-        """
-        node = self.state.nodes[node_id]
-        new_children = [node_id for node_id in node.children
-                        if node_id not in initial_path]
-        for child_id in new_children:
-            self._find_caching_path_rec(child_id, caching_path,
-                                        next_id_dict, initial_path)
-        if node_id not in next_id_dict and node_id != initial_path[-1]:
-            # The root can never appear here, since it already appeared before
-            assert node.parent is not None
-            next_id_dict[node_id] = node.parent
-        caching_path.append(node_id)
-
-    def _init_partial_tree_cache(self):
-        """
-        Initialises the caching for the partial trees. 
-        
-        This means all the partial trees that are not the starting node of
-        the tdvp path have the bra, ket, and hamiltonian tensor corresponding
-        to this node contracted and saved into the cache dictionary.
-        """
-        rev_update_path, next_node_id_dict = self._find_caching_path()
-        for node_id in rev_update_path[:-1]:
-            next_node_id = next_node_id_dict[node_id]
-            self.update_tree_cache(node_id, next_node_id)
-
     def update_tree_cache(self, node_id: str, next_node_id: str):
         """
         Updates a tree tensor for given node identifiers.
@@ -192,16 +132,15 @@ class TDVPAlgorithm(TTNTimeEvolution):
         `node_id` and has open legs pointing towards the neighbour node with
         identifier `next_node_id`.
 
+        Remains for now to keep compatability. Will be removed in the future.
+
         Args:
             node_id (str): The identifier of the node to which this cache
                 corresponds.
             next_node_id (str): The identifier of the node to which the open
                 legs of the tensor point.
         """
-        new_tensor = contract_any(node_id, next_node_id,
-                                  self.state, self.hamiltonian,
-                                  self.partial_tree_cache)
-        self.partial_tree_cache.add_entry(node_id, next_node_id, new_tensor)
+        self.partial_tree_cache.update_tree_cache(node_id, next_node_id)
 
     def _find_tensor_leg_permutation(self, node_id: str) -> Tuple[int,...]:
         """
@@ -326,4 +265,4 @@ class TDVPAlgorithm(TTNTimeEvolution):
             self.state.move_orthogonalization_center(node_id,
                                                      mode=SplitMode.KEEP)
             previous_node_id = path[i] # +0, because path starts at 1.
-            self.update_tree_cache(previous_node_id, node_id)
+            self.partial_tree_cache.update_tree_cache(previous_node_id, node_id)
