@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import Union, Dict, Tuple, List
 
-from numpy import ndarray
+from numpy import ndarray, allclose
 
 from .state_operator_contraction import contract_any
 from .tree_cach_dict import PartialTreeCachDict
@@ -40,6 +40,28 @@ class SandwichCache(PartialTreeCachDict):
         super().__init__(dictionary)
         self.state = state
         self.hamiltonian = hamiltonian
+
+    def close_to(self, other: SandwichCache) -> bool:
+        """
+        Checks if the other cache is close to this cache.
+
+        Args:
+            other (SandwichCache): The other cache to compare with.
+
+        Returns:
+            bool: True if the other cache is close to this cache.
+        """
+        if len(self) != len(other):
+            return False
+        for key in self:
+            if key not in other:
+                return False
+            if not allclose(self[key], other[key]):
+                return False
+        # At this point the dictionaries are the same
+        states_close = self.state == other.state
+        hamiltonians_close = self.hamiltonian == other.hamiltonian
+        return states_close and hamiltonians_close
 
     def update_tree_cache(self, node_id: str, next_node_id: str):
         """
