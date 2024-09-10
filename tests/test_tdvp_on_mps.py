@@ -10,6 +10,7 @@ from pytreenet.contractions.state_operator_contraction import (contract_leaf,
                                                                contract_subtrees_using_dictionary)
 from pytreenet.random import (random_tensor_node,
                               random_hermitian_matrix)
+from pytreenet.contractions.sandwich_caching import SandwichCache
 
 class TestTDVPonMPS(unittest.TestCase):
     """
@@ -49,11 +50,11 @@ class TestTDVPonMPS(unittest.TestCase):
         operators.append(ptn.TensorProduct({f"site_{i-2}": np.eye(i) for i in range(2,6)}))
         return operators
 
-    def _init_ref_cache(self, ref_mps, mpo) -> ptn.PartialTreeCachDict:
+    def _init_ref_cache(self, ref_mps, mpo) -> SandwichCache:
         """
         Generate a reference of the inital cache for the TDVP algorithm.
         """
-        ref_cache_dict = ptn.PartialTreeCachDict()
+        ref_cache_dict = SandwichCache(ref_mps, mpo)
         cache0 = contract_leaf("site_0", ref_mps, mpo)
         ref_cache_dict.add_entry("site_0", "site_1", cache0)
         cache1 = contract_subtrees_using_dictionary("site_1", "site_2",
@@ -67,7 +68,7 @@ class TestTDVPonMPS(unittest.TestCase):
         return ref_cache_dict
 
     def _check_cache_initialization(self, tdvp: ptn.FirstOrderOneSiteTDVP,
-                                    ref_cache_dict: ptn.PartialTreeCachDict):
+                                    ref_cache_dict: SandwichCache):
         """
         Check that the cache is correctly initialized.
         """
@@ -100,7 +101,7 @@ class TestTDVPonMPS(unittest.TestCase):
     def reference_update_of_site_3(self,
                                    ref_mps: ptn.TreeTensorNetworkState,
                                    mpo: ptn.TTNO,
-                                   ref_cache_dict: ptn.PartialTreeCachDict,
+                                   ref_cache_dict: SandwichCache,
                                    time_step_size: float) -> ptn.TreeTensorNetworkState:
         """
         Explicitely computes the update of the site_3 tensor of the MPS.
@@ -139,7 +140,7 @@ class TestTDVPonMPS(unittest.TestCase):
     def reference_update_of_site_2(self,
                                    ref_mps: ptn.TreeTensorNetworkState,
                                    mpo: ptn.TTNO,
-                                   ref_cache_dict: ptn.PartialTreeCachDict,
+                                   ref_cache_dict: SandwichCache,
                                    time_step_size: float) -> ptn.TreeTensorNetworkState:
         """
         Explicitely computes the update of the site_2 tensor of the MPS.
@@ -180,7 +181,7 @@ class TestTDVPonMPS(unittest.TestCase):
     def reference_update_of_site_1(self,
                                    ref_mps: ptn.TreeTensorNetworkState,
                                    mpo: ptn.TTNO,
-                                   ref_cache_dict: ptn.PartialTreeCachDict,
+                                   ref_cache_dict: SandwichCache,
                                    time_step_size: float) -> ptn.TreeTensorNetworkState:
         """
         Explicitely computes the update of the site_1 tensor of the MPS.
@@ -225,8 +226,8 @@ class TestTDVPonMPS(unittest.TestCase):
     def reference_update_of_site_0(self,
                                    ref_mps: ptn.TreeTensorNetworkState,
                                    mpo: ptn.TTNO,
-                                   ref_cache_dict: ptn.PartialTreeCachDict,
-                                   time_step_size: float) -> Tuple[ptn.TreeTensorNetworkState,ptn.PartialTreeCachDict]:
+                                   ref_cache_dict: SandwichCache,
+                                   time_step_size: float) -> Tuple[ptn.TreeTensorNetworkState,SandwichCache]:
         """
         Explicitely computes the update of the site_0 tensor of the MPS.
         """

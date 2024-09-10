@@ -72,7 +72,7 @@ class FirstOrderOneSiteTDVP(OneSiteTDVP):
         self.state.move_orthogonalization_center(self.update_path[0],
                                                  mode = SplitMode.KEEP)
         # We have to recache all partial tree tensors
-        self._init_partial_tree_cache()
+        self.partial_tree_cache = self._init_partial_tree_cache()
 
     def _final_update(self, node_id: str):
         """

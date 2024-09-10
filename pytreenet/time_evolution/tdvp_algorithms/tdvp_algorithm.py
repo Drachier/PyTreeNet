@@ -71,9 +71,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
         self._orthogonalize_init()
 
         # Caching for speed up
-        self.partial_tree_cache = SandwichCache.init_cache_but_one(self.state,
-                                                                   self.hamiltonian,
-                                                                   self.update_path[0])
+        self.partial_tree_cache = self._init_partial_tree_cache()
 
     def _orthogonalize_init(self, force_new: bool=False):
         """
@@ -123,6 +121,16 @@ class TDVPAlgorithm(TTNTimeEvolution):
                 evolved.
         """
         return TDVPUpdatePathFinder(self.initial_state).find_path()
+
+    def _init_partial_tree_cache(self) -> SandwichCache:
+        """
+        Initialises the partial tree cache such that for all sites the bra,
+        ket, and Hamiltonian tensor are contracted and saved in the cache,
+        except for the first site to be updated.
+        """
+        return SandwichCache.init_cache_but_one(self.state,
+                                                self.hamiltonian,
+                                                self.update_path[0])
 
     def update_tree_cache(self, node_id: str, next_node_id: str):
         """
