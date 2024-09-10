@@ -48,10 +48,10 @@ class Vertex():
         """
         Returns a string representation of the vertex.
         """
-        string = "corr_edge = " + str(self.corr_edge) + "; "
+        string = f"corr_edge = {str(self.corr_edge)}; "
         string += "connected to "
         for he in self.hyperedges:
-            string += "(" + he.label + ", " + he.corr_node_id + "), "
+            string += f"({he.label}, {he.corr_node_id}, {he.identifier}), "
 
         return string
 

@@ -45,12 +45,12 @@ class HyperEdge():
         """
         A string representation of this hyperedge.
         """
-        string = "label = " + self.label + "; "
-        string += "corr_site = " + self.corr_node_id + "; "
+        string = f"label = {self.label}; "
+        string += f"corr_site = {self.corr_node_id}; "
 
         string += "connected to "
         for vertex in self.vertices:
-            string += str(vertex.corr_edge) + ", "
+            string += f"{str(vertex.corr_edge)}, "
         return string
 
     def __eq__(self, other_he: HyperEdge) -> bool:
