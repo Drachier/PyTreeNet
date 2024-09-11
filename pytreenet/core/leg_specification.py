@@ -97,7 +97,7 @@ class LegSpecification():
                 operation. They are usually not the indices of the open legs of
                 newly created nodes.
             node (Union[Node,None], optional): A node that is required to
-                translate the   stored identifiers into indices. Can be None,
+                translate the stored identifiers into indices. Can be None,
                 as the node needing it might be created at a later point.
                 Defaults to None.
         """
