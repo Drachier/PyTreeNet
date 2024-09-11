@@ -380,3 +380,27 @@ def _node_operator_output_leg(node: Node) -> int:
     """
     # Corr bra leg
     return node.nneighbours()
+
+def env_tensor_ket_leg_index():
+    """
+    Returns the index of the leg of the environment tensor corresponding to a
+    ket tensors virtual leg
+    
+    """
+    return 0
+
+def env_tensor_ham_leg_index():
+    """
+    Returns the index of the leg of the environment tensor corresponding to a
+    hamiltonian tensors virtual leg
+    
+    """
+    return 1
+
+def env_tensor_bra_leg_index():
+    """
+    Returns the index of the leg of the environment tensor corresponding to a
+    bra tensors virtual leg
+    
+    """
+    return 2
