@@ -54,6 +54,7 @@ from .tree_structure import TreeStructure
 from .node import Node
 from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      contr_truncated_svd_splitting,
+                                     idiots_splitting,
                                      SplitMode,
                                      SVDParameters)
 from .leg_specification import LegSpecification
@@ -694,6 +695,12 @@ class TreeTensorNetwork(TreeStructure):
             in_legs (LegSpecification): The legs associated to the input of the
                 matricised node tensor: (The R legs for QR and the SVh legs for SVD)
             splitting_function (Callable): The function to be used for the splitting
+                of the tensor. This function should take the tensor and the
+                legs in the form of integers and return two tensors. The first
+                tensor should have the legs in the order
+                (parent_leg, children_legs, open_legs, new_leg) and the second
+                tensor should have the legs in the order
+                (new_leg, parent_leg, children_legs, open_legs).
             out_identifier (str, optional): An identifier for the tensor with the
             output legs. Defaults to "".
             in_identifier (str, optional): An identifier for the tensor with the input
@@ -936,6 +943,33 @@ class TreeTensorNetwork(TreeStructure):
         self.split_nodes(node_id, u_legs, v_legs, contr_truncated_svd_splitting,
                          out_identifier=u_identifier, in_identifier=v_identifier,
                          svd_params=svd_params)
+
+    def split_node_replace(self, node_id: str,
+                           tensor_a: np.ndarray, tensor_b: np.ndarray,
+                           identifier_a: str, identifier_b: str,
+                           legs_a: LegSpecification, legs_b: LegSpecification):
+        """
+        Replaces a node with two new nodes of compatible shape.
+
+        Args:
+            node_id (str): Identifier of the node to be replaced
+            tensor_a (np.ndarray): The tensor to be associated with the first
+                new node. Has to have the leg order
+                (parent_leg, children_legs, open_legs, new_leg)
+            tensor_b (np.ndarray): The tensor to be associated with the second
+                new node. Has to have the leg order
+                (new_leg, parent_leg, children_legs, open_legs)
+            identifier_a (str): Identifier for the first new node.
+            identifier_b (str): Identifier for the second new node.
+            legs_a (LegSpecification): The legs which should be part of the
+                first new node.
+            legs_b (LegSpecification): The legs which should be part of the
+                second new node.
+        """
+        self.split_nodes(node_id, legs_a, legs_b, idiots_splitting,
+                         identifier_a, identifier_b,
+                         a_tensor=tensor_a, b_tensor=tensor_b)
+
 
     def move_orthogonalization_center(self, new_center_id: str,
                                       mode: SplitMode = SplitMode.REDUCED):
