@@ -391,7 +391,6 @@ def idiots_splitting(tensor: np.ndarray,
     tensor_shape_b = tuple([tensor.shape[i] for i in b_legs])
     a_shape = a_tensor.shape[0:-1]
     b_shape = b_tensor.shape[1:]
-    print(tensor_shape_a,a_shape,tensor_shape_b,b_shape)
     if tensor_shape_a != a_shape:
         raise ValueError("A tensor not compatible!")
     if tensor_shape_b != b_shape:
