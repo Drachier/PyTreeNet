@@ -12,7 +12,7 @@ from .contraction_util import (contract_all_but_one_neighbour_block_to_ket,
                                contract_all_neighbour_blocks_to_ket,
                                get_equivalent_legs)
 
-__all__ = ['expectation_value']
+__all__ = ['expectation_value', 'single_node_expectation_value']
 
 def expectation_value(state: TreeTensorNetworkState,
                       operator: TTNO) -> complex:
@@ -351,6 +351,30 @@ def contract_bra_tensor_ignore_one_leg(bra_tensor: np.ndarray,
     legs_bra_tensor.extend(range(ignored_node_index+1,num_neighbours+1))
     return np.tensordot(ketopblock_tensor, bra_tensor,
                         axes=(legs_tensor, legs_bra_tensor))
+
+def single_node_expectation_value(node: Node,
+                                  ket_tensor: np.ndarray,
+                                  operator_tensor: np.ndarray) -> complex:
+    """
+    This is a function for the special case, in which a TTN is only one node.
+
+    The function computes the expectation value of the given ket tensor with
+    respect to the given operator tensor.
+
+    Args:
+        node (Node): The node of the TTN.
+        ket_tensor (np.ndarray): The ket tensor.
+        operator_tensor (np.ndarray): The operator tensor.
+
+    Returns:
+        complex: The expectation value.
+
+    """
+    assert node.is_leaf() and node.is_root(), "Node is not a leaf and a root!"
+    assert ket_tensor.ndim == 1, "Ket tensor has too many legs"
+    assert operator_tensor.ndim == 2, "Operator tensor has too many legs"
+    bra_tensor = ket_tensor.conj()
+    return bra_tensor @ operator_tensor @ ket_tensor[0]
 
 def _node_state_phys_leg(node: Node) -> int:
     """
