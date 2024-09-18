@@ -46,7 +46,7 @@ class TimeEvolution:
                 operator or a list of operators. If a dictionary is given, the
                 results can be called by using the keys of the dictionary.
         """
-        self._intital_state = initial_state
+        self._initial_state = initial_state
         self.state = deepcopy(initial_state)
         positivity_check(time_step_size, "size of one time step")
         self._time_step_size = time_step_size
@@ -104,7 +104,7 @@ class TimeEvolution:
         """
         Returns the initial state.
         """
-        return self._intital_state
+        return self._initial_state
 
     @property
     def time_step_size(self) -> float:
@@ -330,7 +330,7 @@ class TimeEvolution:
         """
         Resets the current state to the intial state
         """
-        self.state = deepcopy(self._intital_state)
+        self.state = deepcopy(self._initial_state)
 
 def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
                 time_difference: float,

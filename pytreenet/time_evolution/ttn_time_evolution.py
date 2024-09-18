@@ -57,7 +57,7 @@ class TTNTimeEvolution(TimeEvolution):
                 time evolution. Defaults to None.
         """
         super().__init__(initial_state, time_step_size, final_time, operators)
-        self.initial_state: TreeTensorNetworkState
+        self._initial_state: TreeTensorNetworkState
         self.state: TreeTensorNetworkState
 
         if config is not None and config.record_bond_dim:
