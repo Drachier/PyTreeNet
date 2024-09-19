@@ -34,7 +34,7 @@ Note that GraphNodes are usually not used directly, but rather via the Node
 child class in tree tensor networks.
 """
 from __future__ import annotations
-from typing import List, Union
+from typing import List, Union, Callable
 import uuid
 from copy import copy
 
@@ -318,3 +318,40 @@ class GraphNode:
             neighbour_ids = [self.parent]
         neighbour_ids.extend(self.children)
         return neighbour_ids
+
+def find_children_permutation(old_node: GraphNode,
+                              new_node: GraphNode,
+                              modify_function: Union[Callable,None] = None) -> List[int]:
+    """
+    Finds a permutation of children of one node to the other.
+
+    The permutation found is the permutation required to transform the children
+    of the old node to the children of the new node.
+
+    .. code-block:: python
+
+        old_node = GraphNode("old")
+        old_node.add_children(["child1", "child2", "child3"])
+        new_node = GraphNode("new")
+        new_node.add_children(["child2", "child3", "child1"])
+        perm = find_children_permutation(old_node, new_node)
+        print(perm)  # [1, 2, 0]
+
+
+    Args:
+        old_node (GraphNode): The old node.
+        new_node (GraphNode): The new node.
+        modify_function (Callable): A function that modifies the children
+            identifiers of the new node.
+
+    Returns:
+        List[int]: The permutation of the children of the old node to the
+            children of the new node.
+    """
+    if len(old_node.children) != len(new_node.children):
+        raise ValueError("The number of children must be the same!")
+    if modify_function is None:
+        return [old_node.children.index(child_id)
+                for child_id in new_node.children]
+    return [old_node.children.index(modify_function(child_id))
+            for child_id in new_node.children]

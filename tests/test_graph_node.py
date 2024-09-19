@@ -1,20 +1,21 @@
 import unittest
 
-import pytreenet as ptn
+from pytreenet.core.graph_node import GraphNode, find_children_permutation
+from pytreenet.util.ttn_exceptions import NoConnectionException
 
 class TestInitilisation(unittest.TestCase):
 
     def test_initialisation(self):
 
         # Without extra attributes
-        empty_node = ptn.GraphNode()
+        empty_node = GraphNode()
         self.assertNotEqual("", empty_node.identifier)
         self.assertEqual(None, empty_node.parent)
         self.assertEqual([], empty_node.children)
 
         # With identifier
         ids = "id"
-        node = ptn.GraphNode(identifier=ids)
+        node = GraphNode(identifier=ids)
         self.assertEqual(ids, node.identifier)
 
 class TestGraphNode(unittest.TestCase):
@@ -24,7 +25,7 @@ class TestGraphNode(unittest.TestCase):
         self.child1_id = "c1"
         self.child2_id = "c2"
 
-        self.node = ptn.GraphNode(identifier="this")
+        self.node = GraphNode(identifier="this")
 
     def test_add_parent(self):
         self.assertEqual(None, self.node.parent)
@@ -85,7 +86,7 @@ class TestGraphNode(unittest.TestCase):
         self.assertEqual(1, self.node.child_index(self.child2_id))
 
     def test_neighbour_index_not_existing(self):
-        self.assertRaises(ptn.NoConnectionException, self.node.neighbour_index, "some")
+        self.assertRaises(NoConnectionException, self.node.neighbour_index, "some")
 
     def test_neighbour_index_children_only(self):
         self.node.add_children([self.child1_id,self.child2_id])
@@ -124,7 +125,7 @@ class TestGraphNode(unittest.TestCase):
     def test_replace_neighbour_non_existing(self):
         self.node.add_parent(self.parent_id)
         self.node.add_children([self.child1_id,self.child2_id])
-        self.assertRaises(ptn.NoConnectionException,self.node.replace_neighbour,
+        self.assertRaises(NoConnectionException,self.node.replace_neighbour,
                           "false","other")
 
     def test_replace_neighbour_parent(self):
@@ -261,8 +262,8 @@ class TestGraphNode(unittest.TestCase):
 
     def test_eq(self):
         # Empty Nodes
-        self.assertFalse(ptn.GraphNode(identifier="Not this") == self.node)
-        other_node = ptn.GraphNode(identifier="this")
+        self.assertFalse(GraphNode(identifier="Not this") == self.node)
+        other_node = GraphNode(identifier="this")
         self.assertTrue(other_node, self.node)
 
         # With parent
@@ -288,27 +289,81 @@ class TestGraphNode(unittest.TestCase):
         Tests the special cases, where roots are involved.
         """
         # Different roots
-        other_node = ptn.GraphNode(identifier="other")
+        other_node = GraphNode(identifier="other")
         self.assertFalse(other_node == self.node)
 
         # Same root
-        other_node = ptn.GraphNode(identifier="this")
+        other_node = GraphNode(identifier="this")
         self.assertTrue(other_node == self.node)
 
         # One root, but not the other
-        other_node = ptn.GraphNode(identifier="this")
+        other_node = GraphNode(identifier="this")
         other_node.add_parent("parent")
         self.assertFalse(other_node == self.node)
         self.assertFalse(self.node == other_node)
 
         # With children
-        other_node = ptn.GraphNode(identifier="this")
+        other_node = GraphNode(identifier="this")
         self.node.add_children([self.child1_id, self.child2_id])
         self.assertFalse(other_node == self.node)
         other_node.add_children([self.child1_id, self.child2_id])
         self.assertTrue(other_node == self.node)
 
+class TestNodeFunctions(unittest.TestCase):
 
+    def test_find_children_permutation_trivial(self):
+        old_node = GraphNode()
+        old_node.add_children(["c1", "c2", "c3"])
+        new_node = GraphNode()
+        new_node.add_children(["c1", "c2", "c3"])
+        perm = find_children_permutation(old_node, new_node)
+        self.assertEqual([0, 1, 2], perm)
+
+    def test_find_children_permutation_elementary_permutation(self):
+        old_node = GraphNode()
+        old_node.add_children(["c1", "c2", "c3"])
+        new_node = GraphNode()
+        new_node.add_children(["c1", "c3", "c2"])
+        perm = find_children_permutation(old_node, new_node)
+        self.assertEqual([0, 2, 1], perm)
+
+    def test_find_children_permutation_complex(self):
+        old_node = GraphNode()
+        old_node.add_children(["c1", "c2", "c3"])
+        new_node = GraphNode()
+        new_node.add_children(["c2", "c3", "c1"])
+        perm = find_children_permutation(old_node, new_node)
+        self.assertEqual([1,2,0], perm)
+
+    def test_find_children_permutation_trivial_modify(self):
+        old_node = GraphNode()
+        old_node.add_children(["c1", "c2", "c3"])
+        modifier = lambda x: "c" + x
+        new_node = GraphNode()
+        new_node.add_children(["1", "2", "3"])
+        perm = find_children_permutation(old_node, new_node,
+                                         modify_function=modifier)
+        self.assertEqual([0, 1, 2], perm)
+
+    def test_find_children_permutation_elementary_permutation_modify(self):
+        old_node = GraphNode()
+        old_node.add_children(["c1", "c2", "c3"])
+        modifier = lambda x: "c" + x
+        new_node = GraphNode()
+        new_node.add_children(["1", "3", "2"])
+        perm = find_children_permutation(old_node, new_node,
+                                         modify_function=modifier)
+        self.assertEqual([0, 2, 1], perm)
+
+    def test_find_children_permutation_complex_modify(self):
+        old_node = GraphNode()
+        old_node.add_children(["c1", "c2", "c3"])
+        modifier = lambda x: "c" + x
+        new_node = GraphNode()
+        new_node.add_children(["2", "3", "1"])
+        perm = find_children_permutation(old_node, new_node,
+                                         modify_function=modifier)
+        self.assertEqual([1,2,0], perm)
 
 if __name__ == "__main__":
     unittest.main()
