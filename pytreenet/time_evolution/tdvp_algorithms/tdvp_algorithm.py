@@ -19,6 +19,7 @@ from ...ttns import TreeTensorNetworkState
 from ...ttno.ttno_class import TTNO
 from ...operators.tensorproduct import TensorProduct
 from ...contractions.sandwich_caching import SandwichCache
+from ...contractions.effective_hamiltonians import get_effective_single_site_hamiltonian
 from ..time_evo_util.update_path import TDVPUpdatePathFinder
 
 class TDVPAlgorithm(TTNTimeEvolution):
@@ -150,81 +151,6 @@ class TDVPAlgorithm(TTNTimeEvolution):
         """
         self.partial_tree_cache.update_tree_cache(node_id, next_node_id)
 
-    def _find_tensor_leg_permutation(self, node_id: str) -> Tuple[int,...]:
-        """
-        Find the correct permutation to permute the effective hamiltonian
-        tensor to fit with the state tensor legs.
-        
-        After contracting all the cached tensors to the site Hamiltonian, the
-        legs of the resulting tensor are in the order of the Hamiltonian TTNO.
-        However, they need to be permuted to match the legs of the site's
-        state tensor. Such that the two can be easily contracted.
-        """
-        state_node = self.state.nodes[node_id]
-        hamiltonian_node = self.hamiltonian.nodes[node_id]
-        permutation = []
-        for neighbour_id in state_node.neighbouring_nodes():
-            hamiltonian_index = hamiltonian_node.neighbour_index(neighbour_id)
-            permutation.append(hamiltonian_index)
-        output_legs = []
-        input_legs = []
-        for hamiltonian_index in permutation:
-            output_legs.append(2*hamiltonian_index+3)
-            input_legs.append(2*hamiltonian_index+2)
-        output_legs.append(0)
-        input_legs.append(1)
-        output_legs.extend(input_legs)
-        return tuple(output_legs)
-
-    def _contract_all_except_node(self,
-                                  target_node_id: str) -> np.ndarray:
-        """
-        Contract bra, ket and hamiltonian for all but one node into that
-        node's Hamiltonian tensor.
-
-        Uses the cached trees to contract the bra, ket, and hamiltonian
-        tensors for all nodes in the trees apart from the given target node.
-        All the resulting tensors are contracted to the hamiltonian tensor
-        corresponding to the target node.
-
-        Args:
-            target_node_id (str): The node which is not to be part of the
-                contraction.
-        
-        Returns:
-            np.ndarray: The tensor resulting from the contraction::
-            
-                 _____       out         _____
-                |     |____n-1    0_____|     |
-                |     |                 |     |
-                |     |        |n       |     |
-                |     |     ___|__      |     |
-                |     |    |      |     |     |
-                |     |____|      |_____|     |
-                |     |    |   H  |     |     |
-                |     |    |______|     |     |
-                |     |        |        |     |
-                |     |        |2n+1    |     |
-                |     |                 |     |
-                |     |_____       _____|     |
-                |_____|  2n         n+1 |_____|
-                              in
-
-                where n is the number of neighbours of the node.
-        """
-        target_node = self.hamiltonian.nodes[target_node_id]
-        neighbours = target_node.neighbouring_nodes()
-        tensor = self.hamiltonian.tensors[target_node_id]
-        for neighbour_id in neighbours:
-            cached_tensor = self.partial_tree_cache.get_entry(neighbour_id,
-                                                                target_node_id)
-            tensor = np.tensordot(tensor, cached_tensor,
-                                  axes=((0,1)))
-        # Transposing to have correct leg order
-        axes = self._find_tensor_leg_permutation(target_node_id)
-        tensor = np.transpose(tensor, axes=axes)
-        return tensor
-
     def _get_effective_site_hamiltonian(self,
                                         node_id: str) -> np.ndarray:
         """
@@ -236,8 +162,10 @@ class TDVPAlgorithm(TTNTimeEvolution):
         Returns:
             np.ndarray: The effective site Hamiltonian
         """
-        tensor = self._contract_all_except_node(node_id)
-        return tensor_matricisation_half(tensor)
+        return get_effective_single_site_hamiltonian(node_id,
+                                                     self.state,
+                                                     self.hamiltonian,
+                                                     self.partial_tree_cache)
 
     def _update_site(self, node_id: str,
                      time_step_factor: float = 1):
