@@ -7,13 +7,12 @@ Reference:
         Tensor Networks", DOI: 10.21468/SciPostPhys.8.2.024
 """
 from __future__ import annotations
-from typing import Union, List, Tuple
+from typing import Union, List
 
 import numpy as np
 
 from ..time_evolution import time_evolve
 from ..ttn_time_evolution import TTNTimeEvolution, TTNTimeEvolutionConfig
-from ...util.tensor_util import tensor_matricisation_half
 from ...util.tensor_splitting import SplitMode
 from ...ttns import TreeTensorNetworkState
 from ...ttno.ttno_class import TTNO
