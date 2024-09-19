@@ -77,10 +77,8 @@ class SandwichCache(PartialTreeCachDict):
             next_node_id (str): The identifier of the node to which the open
                 legs of the tensor point.
         """
-        new_tensor = contract_any(node_id, next_node_id,
-                                    self.state, self.hamiltonian,
-                                    self)
-        self.add_entry(node_id, next_node_id, new_tensor)
+        update_tree_cache(self, self.state, self.hamiltonian,
+                            node_id, next_node_id)
 
     @classmethod
     def init_cache_but_one(cls,
@@ -108,6 +106,30 @@ class SandwichCache(PartialTreeCachDict):
             next_node_id = next_node_id_dict[node_id]
             cache.update_tree_cache(node_id, next_node_id)
         return cache
+
+def update_tree_cache(cache: SandwichCache,
+                      state: TreeTensorNetworkState,
+                      hamiltonian: TreeTensorNetworkOperator,
+                      node_id: str,
+                      next_node_id: str):
+    """
+    Updates the cache tensor for given node identifiers.
+
+    Args:
+    cache (SandwichCache): The cache to update.
+    state (TreeTensorNetworkState): The tree tensor network state to be
+        used for the update.
+    hamiltonian (TreeTensorNetworkOperator): The Hamiltonian to be used
+        for the update.
+    node_id (str): The node at which the contraction should happen.
+    next_node_id (str): The node to which the open legs of the tensor
+        should point.
+
+    """
+    new_tensor = contract_any(node_id, next_node_id,
+                                state, hamiltonian,
+                                cache)
+    cache.add_entry(node_id, next_node_id, new_tensor)
 
 def _find_caching_path(state: TreeTensorNetworkState,
                        left_out_id: str
