@@ -76,6 +76,21 @@ class BUG(TTNTimeEvolution):
                                                 self.hamiltonian,
                                                 self.state.root_id)
 
+    def _assert_orth_center(self, *args, **kwargs):
+        """
+        Asserts that the node is the orthogonality center.
+
+        Args:
+            node_id (str): The id of the node to check.
+            object_name (str): The name of the object to check.
+
+        Raises:
+            AssertionError: If the node is not the orthogonality center.
+
+        """
+        # We basically wrap the assertion of the old state.
+        self.old_state.assert_orth_center(*args, **kwargs)
+
     def pull_tensor_from_old_state(self, node_id: str):
         """
         Pulls a tensor from the old state to the new state.
@@ -101,7 +116,7 @@ class BUG(TTNTimeEvolution):
         Time evolves the node with the given id.
 
         """
-        assert node_id == self.old_state.orthogonality_center_id, "Node is not the orthogonality center!"
+        self._assert_orth_center(node_id)
         h_eff = get_effective_single_site_hamiltonian(node_id,
                                                       self.state,
                                                       self.hamiltonian,
@@ -183,7 +198,7 @@ class BUG(TTNTimeEvolution):
 
         """
         node = self.state.nodes[node_id] # TODO: Check if these have the same python id
-        assert self.old_state.orthogonality_center_id == node.parent, "Parent is not the orthogonality center!"
+        self._assert_orth_center(node.parent, object_name="parent node")
         self.old_state.move_orthogonalization_center(node_id)
         self.tensor_cache.update_tree_cache(node_id, node.parent)
         node = self.state.nodes[node_id] # TODO: Check if these have the same python id
@@ -195,7 +210,7 @@ class BUG(TTNTimeEvolution):
         for child_id in node.children:
             self.subtree_update(child_id)
         # Now the new state contains the updated children tensors and basis changes
-        assert node_id == self.old_state.orthogonality_center_id, "Node is not the orthogonality center!"
+        self._assert_orth_center(node_id)
         # We need the tensor of the old state as the orth center
         self.pull_tensor_from_old_state(node_id)
         # Now we contract the basis change tensors of the children
