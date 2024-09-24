@@ -161,3 +161,17 @@ def tensor_multidot(tensor: np.ndarray,
         tensor = np.tensordot(tensor, t, axes=(main_legs[i]-connected_legs, other_legs[i]))
         connected_legs += 1
     return tensor
+
+def make_last_leg_first(tensor: np.ndarray) -> np.ndarray:
+    """
+    Flips the last leg of a tensor to be the first leg.
+
+    Args:
+        tensor (np.ndarray): Tensor to be flipped.
+
+    Returns:
+        np.ndarray: The flipped tensor.
+    """
+    if tensor.ndim == 1:
+        return tensor
+    return np.moveaxis(tensor, -1, 0)
