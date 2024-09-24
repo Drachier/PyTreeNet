@@ -23,6 +23,19 @@ def crandn(size: Tuple[int,...]) -> np.ndarray:
     return (np.random.standard_normal(size)
        + 1j*np.random.standard_normal(size)) / np.sqrt(2)
 
+def crandn_like(array: np.ndarray) -> np.ndarray:
+    """
+    Draw random samples from the standard complex normal (Gaussian)
+      distribution with the same shape as the input array.
+
+    Args:
+        array (np.ndarray): The input array.
+
+    Returns:
+        np.ndarray: The array of random complex numbers.
+    """
+    return crandn(array.shape)
+
 def random_matrix(size: int = 2) -> np.ndarray:
     """
     Creates a random matrix of given size.
