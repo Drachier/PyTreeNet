@@ -76,88 +76,6 @@ class BUG(TTNTimeEvolution):
                                                 self.hamiltonian,
                                                 self.state.root_id)
 
-    def build_effective_leaf_hamiltonian(self, node_id: str) -> ndarray:
-        """
-        Builds the effective Hamiltonian for the leaf node with the given id.
-
-                _________        
-            |2    2|     |
-          __|__    |     |
-         |     |___|     |
-         |     |0 1|     |
-         |_____|   |     |
-            |      |     |
-            |1     |     |
-                ___|_____|
-                  0
-
-        Args:
-            node_id (str): The id of the leaf node.
-
-        Returns:
-            ndarray: The effective Hamiltonian as a matrix.
-            Leg order = ((ket_env,out_node),(bra_env,in_node))
-
-        """
-        node = self.state.nodes[node_id]
-        ham_tensor = self.hamiltonian.tensors[node_id]
-        assert node.is_leaf(), "Node is not a leaf!"
-        if node.is_root():
-            return ham_tensor
-        parent_id = node.parent
-        environment_tensor = self.tensor_cache.get_entry(parent_id,
-                                                         node_id)
-        axes = [env_tensor_ham_leg_index(),node.parent_leg]
-        h_eff = tensordot(environment_tensor,
-                            ham_tensor,
-                            axes=axes)
-        # make the input and output legs to neighbours and
-        # fit the usual matrix convention
-        h_eff = h_eff.transpose([1,2,0,3])
-        shape = h_eff.shape
-        h_eff = h_eff.reshape((shape[0]*shape[1],
-                               shape[2]*shape[3]))
-        return h_eff
-
-    def update_leaf(self, node_id: str):
-        """
-        Updates the leaf node with the given id.
-
-        The notable difference is that for leaf nodes, the old tensor used
-        to compute the new basis tensor is an isometry, while for non-leaf
-        nodes, the old tensor is the orthogonality center.
-
-        Args:
-            node_id (str): The id of the leaf node to update.
-
-        """
-        assert node_id == self.old_state.orthogonality_center_id, "Node is not the orthogonality center!"
-        h_eff = self.build_effective_leaf_hamiltonian(node_id)
-        # We always use the data from the old state
-        site_tensor = self.old_state.nodes[node_id] # Leg order (parent,physical)
-        # The tensor already fits with the hamiltonian leg order
-        updated_tensor = time_evolve(site_tensor, h_eff,
-                                     self.time_step_size) # Leg order (parent,physical)
-        # We must ensure that in the old state, we have the original isometric tensor
-        parent_id = self.old_state.nodes[node_id].parent
-        if not parent_id == self.old_state.orthogonality_center_id:
-            self.old_state.move_orthogonalization_center(parent_id)
-        old_basis_tensor = self.old_state.tensors[node_id] # Leg order (parent,physical)
-        combined_tensor = vstack((old_basis_tensor, updated_tensor)) # Shape (2*parent_dim,physical_dim)
-        _, new_basis_tensor = rq(combined_tensor) # Leg order (new,physical)
-        basis_change_tensor = old_basis_tensor @ new_basis_tensor.conj().T # Leg order (parent,new)
-        legs_basis_change = LegSpecification(parent_id,[],[])
-        legs_new_basis = LegSpecification(None,[],[1])
-        # We use the new state to store the new tensors in
-        self.state.split_node_replace(node_id,
-                                      basis_change_tensor,
-                                      new_basis_tensor,
-                                      basis_change_tensor_id(node_id),
-                                      node_id,
-                                      legs_basis_change,
-                                      legs_new_basis)
-        # We update the cache later, to keep the old cache for sibling nodes
-
     def pull_tensor_from_old_state(self, node_id: str):
         """
         Pulls a tensor from the old state to the new state.
@@ -222,25 +140,32 @@ class BUG(TTNTimeEvolution):
                                       leg_specs[0],
                                       leg_specs[1])
 
-    def update_non_leaf(self, node_id: str):
+    def update_non_root(self, node_id: str):
         """
-        Performs the update for a non-leaf node.
+        Performs the update for a non-root node.
 
         """
         # We combine the updated tensor and the tensor with the basis change
         # tensors of the children contracted to find the new basis tensor for
         # this node
         updated_tensor = self.time_evolve_node(node_id)
+        node = self.state.nodes[node_id]
+        if node.is_leaf():
+            # For a leaf the orthogonalised old node is already needed for
+            # the computation of the new basis tensor.
+            parent_id = node.parent
+            self.old_state.move_orthogonalization_center(parent_id)
         old_tensor = self.state.tensors[node_id]
         new_basis_tensor = compute_new_basis_tensor(self.state.nodes[node_id],
                                                     old_tensor,
                                                     updated_tensor)
-        # Now we need the old orthogonal tensor
-        parent_id = self.state.nodes[node_id].parent
-        self.old_state.move_orthogonalization_center(parent_id)
+        if not node.is_leaf():
+            # For an non-leaf the orthogonalised old node is only needed for
+            # the computation of the basis change tensor.
+            parent_id = node.parent
+            self.old_state.move_orthogonalization_center(parent_id)
         old_basis_tensor = self.old_state.tensors[node_id]
-        # The leg order should be the same so we contract
-        # to get the basis change tensor
+        # The leg order of both tensors is the same
         basis_change_tensor = compute_basis_change_tensor(old_basis_tensor,
                                                             new_basis_tensor)
         # Now we replace the node in the new state
@@ -264,7 +189,7 @@ class BUG(TTNTimeEvolution):
         node = self.state.nodes[node_id] # TODO: Check if these have the same python id
         self.tensor_cache.update_tree_cache(node.parent, node_id)
         if node.is_leaf():
-            self.update_leaf(node_id)
+            self.update_non_root(node_id)
             return
         # Not a leaf
         for child_id in node.children:
@@ -287,7 +212,7 @@ class BUG(TTNTimeEvolution):
                               child_id,
                               node_id)
         # Now we can update the node
-        self.update_non_leaf(node_id)
+        self.update_non_root(node_id)
 
 
     def run_one_time_step(self, **kwargs):
