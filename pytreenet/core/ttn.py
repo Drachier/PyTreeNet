@@ -1014,6 +1014,23 @@ class TreeTensorNetwork(TreeStructure):
                                          mode=mode)
         self.orthogonality_center_id = new_center_id
 
+    def assert_orth_center(self, node_id: str, object_name: str = "node"):
+        """
+        Asserts that a given node is the orthogonality center.
+
+        Args:
+            node_id (str): The identifier of the node to be checked.
+            object_name (str, optional): The name of the object to be checked.
+                Defaults to "node".
+        
+        Raises:
+            AssertionError: If the node is not the orthogonality center.
+
+        """
+        if self.orthogonality_center_id != node_id:
+            errstr = f"The {object_name} {node_id} is not the orthogonality center!"
+            raise AssertionError(errstr)
+
     # Functions below this are just wrappers of external functions that are
     # linked tightly to the TTN and its structure. This allows these functions
     # to be overwritten for subclasses of the TTN with more known structure.
