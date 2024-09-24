@@ -344,7 +344,7 @@ class Test_compute_basis_change_tensor(unittest.TestCase):
         new_basis_tensor = crandn((3,6,5))
         self.assertRaises(AssertionError, compute_basis_change_tensor,
                           old_basis_tensor, new_basis_tensor)
-        
+
 class Test_find_new_basis_replacement_leg_specs(unittest.TestCase):
 
     def setUp(self):
@@ -361,7 +361,7 @@ class Test_find_new_basis_replacement_leg_specs(unittest.TestCase):
         ref_u_legs = LegSpecification(None,[],[1])
         self.assertEqual(new_legs[0], self.m_legs)
         self.assertEqual(new_legs[1], ref_u_legs)
-    
+
     def test_on_two_children(self):
         """
         Test the finding of the new basis replacement legs for a tensor with two

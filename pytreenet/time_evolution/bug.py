@@ -200,32 +200,29 @@ class BUG(TTNTimeEvolution):
         node = self.state.nodes[node_id] # TODO: Check if these have the same python id
         self._assert_orth_center(node.parent, object_name="parent node")
         self.old_state.move_orthogonalization_center(node_id)
-        self.tensor_cache.update_tree_cache(node_id, node.parent)
-        node = self.state.nodes[node_id] # TODO: Check if these have the same python id
         self.tensor_cache.update_tree_cache(node.parent, node_id)
-        if node.is_leaf():
-            self.update_non_root(node_id)
-            return
-        # Not a leaf
-        for child_id in node.children:
-            self.subtree_update(child_id)
-        # Now the new state contains the updated children tensors and basis changes
-        self._assert_orth_center(node_id)
-        # We need the tensor of the old state as the orth center
-        self.pull_tensor_from_old_state(node_id)
-        # Now we contract the basis change tensors of the children
-        for child_id in copy(node.children):
-            self.state.contract_nodes(child_id,node_id,
-                                      new_identifier=node_id)
-        # Now the children have the original children identifiers
         node = self.state.nodes[node_id] # TODO: Check if these have the same python id
-        for child_id in node.children:
-            # We need to update the cache with respect to the new state
-            update_tree_cache(self.tensor_cache,
-                              self.state,
-                              self.hamiltonian,
-                              child_id,
-                              node_id)
+        if not node.is_leaf():
+            # Not a leaf
+            for child_id in node.children:
+                self.subtree_update(child_id)
+            # Now the new state contains the updated children tensors and basis changes
+            self._assert_orth_center(node_id)
+            # We need the tensor of the old state as the orth center
+            self.pull_tensor_from_old_state(node_id)
+            # Now we contract the basis change tensors of the children
+            for child_id in copy(node.children):
+                self.state.contract_nodes(child_id,node_id,
+                                        new_identifier=node_id)
+            # Now the children have the original children identifiers
+            node = self.state.nodes[node_id] # TODO: Check if these have the same python id
+            for child_id in node.children:
+                # We need to update the cache with respect to the new state
+                update_tree_cache(self.tensor_cache,
+                                self.state,
+                                self.hamiltonian,
+                                child_id,
+                                node_id)
         # Now we can update the node
         self.update_non_root(node_id)
 
