@@ -1,15 +1,19 @@
 import unittest
+from copy import copy
 
 from numpy import zeros, allclose, eye, tensordot
 from numpy.linalg import qr
 
+from pytreenet.core.leg_specification import LegSpecification
 from pytreenet.random.random_node import random_tensor_node
 from pytreenet.random.random_matrices import crandn
 
 from pytreenet.time_evolution.bug import (new_basis_tensor_qr_legs,
                                           concat_along_parent_leg,
                                           _compute_new_basis_tensor_qr,
-                                          compute_new_basis_tensor)
+                                          compute_new_basis_tensor,
+                                          compute_basis_change_tensor,
+                                          _find_new_basis_replacement_leg_specs)
 
 class TestNewBasisTensorQRLegs(unittest.TestCase):
 
@@ -269,6 +273,122 @@ class Test_compute_new_basis_tensor(unittest.TestCase):
         ref = _compute_new_basis_tensor_qr(node, comb)
         ref = ref.transpose([2,0,1])
         self.assertTrue(allclose(new_basis_tensor, ref))
+
+class Test_compute_basis_change_tensor(unittest.TestCase):
+
+    def test_on_leaf(self):
+        """
+        Test the computation of the basis change tensor for a leaf tensor.
+        """
+        shape = (4, )
+        old_virt_dim = 2
+        old_basis_tensor = crandn((old_virt_dim, shape[0]))
+        new_virt_dim = 3
+        new_basis_tensor = crandn((new_virt_dim, shape[0]))
+        basis_change_tensor = compute_basis_change_tensor(old_basis_tensor,
+                                                          new_basis_tensor)
+        # Check the shape
+        self.assertEqual(basis_change_tensor.shape,
+                            (old_virt_dim, new_virt_dim))
+        # Reference tensor
+        ref = old_basis_tensor @ new_basis_tensor.T.conj()
+        self.assertTrue(allclose(basis_change_tensor, ref))
+
+    def test_on_two_children(self):
+        """
+        Test the computation of the basis change tensor for a tensor with two
+        children.
+        """
+        shape = (6,5,4)
+        old_virt_dim = 2
+        old_basis_tensor = crandn((old_virt_dim, shape[0], shape[1], shape[2]))
+        new_virt_dim = 3
+        new_basis_tensor = crandn((new_virt_dim, shape[0], shape[1], shape[2]))
+        basis_change_tensor = compute_basis_change_tensor(old_basis_tensor,
+                                                          new_basis_tensor)
+        # Check the shape
+        self.assertEqual(basis_change_tensor.shape,
+                            (old_virt_dim, new_virt_dim))
+        # Reference tensor
+        ref = tensordot(old_basis_tensor,
+                        new_basis_tensor.conj(),
+                        axes=([1,2,3],[1,2,3]))
+        self.assertTrue(allclose(basis_change_tensor, ref))
+    
+    def test_on_no_phys_leg(self):
+        """
+        Test the computation of the basis change tensor for a tensor with no
+        physical legs.
+        """
+        shape = (5,4)
+        old_virt_dim = 2
+        old_basis_tensor = crandn((old_virt_dim, shape[0], shape[1]))
+        new_virt_dim = 3
+        new_basis_tensor = crandn((new_virt_dim, shape[0], shape[1]))
+        basis_change_tensor = compute_basis_change_tensor(old_basis_tensor,
+                                                          new_basis_tensor)
+        # Check the shape
+        self.assertEqual(basis_change_tensor.shape,
+                            (old_virt_dim, new_virt_dim))
+        # Reference tensor
+        ref = tensordot(old_basis_tensor,
+                        new_basis_tensor.conj(),
+                        axes=([1,2],[1,2]))
+        self.assertTrue(allclose(basis_change_tensor, ref))
+
+    def test_invalid_shapes(self):
+        """
+        Test the cases in which the two basis tensors have incompatible shapes.
+        """
+        old_basis_tensor = crandn((2,6,4))
+        new_basis_tensor = crandn((3,6,5))
+        self.assertRaises(AssertionError, compute_basis_change_tensor,
+                          old_basis_tensor, new_basis_tensor)
+        
+class Test_find_new_basis_replacement_leg_specs(unittest.TestCase):
+
+    def setUp(self):
+        self.m_legs = LegSpecification("parent",
+                                       [],[])
+
+    def test_on_leaf(self):
+        """
+        Test the finding of the new basis replacement legs for a leaf tensor.
+        """
+        node, _ = random_tensor_node((3,2))
+        node.add_parent("parent")
+        new_legs = _find_new_basis_replacement_leg_specs(node)
+        ref_u_legs = LegSpecification(None,[],[1])
+        self.assertEqual(new_legs[0], self.m_legs)
+        self.assertEqual(new_legs[1], ref_u_legs)
+    
+    def test_on_two_children(self):
+        """
+        Test the finding of the new basis replacement legs for a tensor with two
+        children.
+        """
+        node, _ = random_tensor_node((5,4,3,2))
+        node.add_parent("parent")
+        children = ["child1","child2"]
+        node.add_children(children)
+        new_legs = _find_new_basis_replacement_leg_specs(node)
+        ref_u_legs = LegSpecification(None,copy(children),[3])
+        self.assertEqual(new_legs[0], self.m_legs)
+        self.assertEqual(new_legs[1], ref_u_legs)
+
+    def test_on_no_phys_leg(self):
+        """
+        Test the finding of the new basis replacement legs for a tensor with no
+        physical legs.
+        """
+        node, _ = random_tensor_node((4,3,2))
+        node.add_parent("parent")
+        children = ["child1","child2"]
+        node.add_children(children)
+        new_legs = _find_new_basis_replacement_leg_specs(node)
+        ref_u_legs = LegSpecification(None,copy(children),[])
+        self.assertEqual(new_legs[0], self.m_legs)
+        self.assertEqual(new_legs[1], ref_u_legs)
 
 if __name__ == '__main__':
     unittest.main()

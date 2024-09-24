@@ -178,48 +178,75 @@ class BUG(TTNTimeEvolution):
         # Add the tensor to the new state
         self.state.tensors[node_id] = old_tensor
 
-    def evolve_non_leaf(self, node_id: str):
+    def time_evolve_node(self, node_id: str) -> ndarray:
         """
-        Performs the update for a non-leaf node.
+        Time evolves the node with the given id.
 
         """
         assert node_id == self.old_state.orthogonality_center_id, "Node is not the orthogonality center!"
         h_eff = get_effective_single_site_hamiltonian(node_id,
-                                                      self.old_state,
+                                                      self.state,
                                                       self.hamiltonian,
                                                       self.tensor_cache)
         # The effective Hamiltonian is created, such that the legs fit to the
         # node tensor's legs.
+        # We take the tensor from the new state, where the basis change tensors
+        # of the children are already contracted
         old_tensor = self.state.tensors[node_id]
         updated_tensor = time_evolve(old_tensor,
                                         h_eff,
                                         self.time_step_size,
                                         forward=True)
-        new_basis_tensor = compute_new_basis_tensor(self.state.nodes[node_id],
-                                                    old_tensor,
-                                                    updated_tensor)
-        # Now we need the old orthogonal tensor
-        parent_id = self.state.nodes[node_id].parent
-        if not parent_id == self.old_state.orthogonality_center_id:
-            self.old_state.move_orthogonalization_center(parent_id)
-        old_basis_tensor = self.old_state.tensors[node_id]
-        # The leg order should be the same so we contract
-        # to get the basis change tensor
-        legs = list(range(1,old_basis_tensor.ndim))
-        basis_change_tensor = tensordot(old_basis_tensor,
-                                        new_basis_tensor.conj(),
-                                        axes=(legs,legs))
-        # Now we replace the node in the new state
+        return updated_tensor
+
+    def replace_node_with_updated_basis(self, node_id: str,
+                                        new_basis_tensor: ndarray,
+                                        basis_change_tensor: ndarray
+                                        ):
+        """
+        Replaces a node with the tenors of the updated basis.
+
+        Args:
+            node_id (str): The id of the node to replace.
+            new_basis_tensor (ndarray): The new basis tensor.
+            basis_change_tensor (ndarray): The basis change tensor.
+        
+        """
         node = self.state.nodes[node_id]
-        legs_basis_change = LegSpecification(parent_id,[],[])
-        leg_new_basis = LegSpecification(None,[node.children],node.open_legs)
+        leg_specs = _find_new_basis_replacement_leg_specs(node)
         self.state.split_node_replace(node_id,
                                       basis_change_tensor,
                                       new_basis_tensor,
                                       basis_change_tensor_id(node_id),
                                       node_id,
-                                      legs_basis_change,
-                                      leg_new_basis)
+                                      leg_specs[0],
+                                      leg_specs[1])
+
+    def update_non_leaf(self, node_id: str):
+        """
+        Performs the update for a non-leaf node.
+
+        """
+        # We combine the updated tensor and the tensor with the basis change
+        # tensors of the children contracted to find the new basis tensor for
+        # this node
+        updated_tensor = self.time_evolve_node(node_id)
+        old_tensor = self.state.tensors[node_id]
+        new_basis_tensor = compute_new_basis_tensor(self.state.nodes[node_id],
+                                                    old_tensor,
+                                                    updated_tensor)
+        # Now we need the old orthogonal tensor
+        parent_id = self.state.nodes[node_id].parent
+        self.old_state.move_orthogonalization_center(parent_id)
+        old_basis_tensor = self.old_state.tensors[node_id]
+        # The leg order should be the same so we contract
+        # to get the basis change tensor
+        basis_change_tensor = compute_basis_change_tensor(old_basis_tensor,
+                                                            new_basis_tensor)
+        # Now we replace the node in the new state
+        self.replace_node_with_updated_basis(node_id,
+                                            new_basis_tensor,
+                                            basis_change_tensor)
         # We update the cache later, to keep the old cache for sibling nodes
 
     def subtree_update(self, node_id: str):
@@ -260,7 +287,7 @@ class BUG(TTNTimeEvolution):
                               child_id,
                               node_id)
         # Now we can update the node
-        self.evolve_non_leaf(node_id)
+        self.update_non_leaf(node_id)
 
 
     def run_one_time_step(self, **kwargs):
@@ -385,3 +412,50 @@ def compute_new_basis_tensor(node: Node,
     # Currently the parent leg is the last leg
     new_basis_tensor = make_last_leg_first(new_basis_tensor)
     return new_basis_tensor
+
+def compute_basis_change_tensor(old_basis_tensor: ndarray,
+                                new_basis_tensor: ndarray
+                                ) -> ndarray:
+    """
+    Compute the new basis change tensor M_hat.
+
+          ____             ____  other ____
+       0 |    | 1       0 |    |______|    | 0
+      ___|Mhat|___  =  ___| U  |______|Uhat|___
+     rold|____|rnew   rold|____|______|____|rnew
+                                 legs
+                                (1:n-1)
+                                 
+    Args:
+        old_basis_tensor (ndarray): The old basis tensor.
+        new_basis_tensor (ndarray): The new basis tensor.
+
+    Returns:
+        ndarray: The basis change tensor M_hat. This is a matrix with the
+            leg order (parent,new), i.e. mapping the new rank to the old rank.
+    
+    """
+    errstr = "The basis tensors have different shapes!"
+    assert old_basis_tensor.shape[1:] == new_basis_tensor.shape[1:], errstr
+    legs = list(range(1,old_basis_tensor.ndim))
+    basis_change_tensor = tensordot(old_basis_tensor,
+                                    new_basis_tensor.conj(),
+                                    axes=(legs,legs))
+    return basis_change_tensor
+
+def _find_new_basis_replacement_leg_specs(node: Node
+                                          ) -> Tuple[LegSpecification,LegSpecification]:
+    """
+    Find the leg specifications to replace a node by the new basis tensors.
+
+    Args:
+        node (GraphNode): The node to replace.
+    
+    Returns:
+        Tuple[LegSpecification,LegSpecification]: (legs_basis_change,
+            legs_new_basis) The leg specifications associated to the basis
+            change tensor and the new basis tensor respectively.
+    """
+    legs_basis_change = LegSpecification(node.parent,[],[])
+    leg_new_basis = LegSpecification(None,node.children,node.open_legs)
+    return legs_basis_change, leg_new_basis
