@@ -17,6 +17,7 @@ from ..contractions.effective_hamiltonians import get_effective_single_site_hami
 from ..contractions.state_operator_contraction import (env_tensor_bra_leg_index,
                                                        env_tensor_ham_leg_index,
                                                        env_tensor_ket_leg_index)
+from ..util.tensor_util import make_last_leg_first
 from ..util.tensor_splitting import tensor_qr_decomposition
 from .time_evolution import time_evolve
 
@@ -122,6 +123,10 @@ class BUG(TTNTimeEvolution):
         """
         Updates the leaf node with the given id.
 
+        The notable difference is that for leaf nodes, the old tensor used
+        to compute the new basis tensor is an isometry, while for non-leaf
+        nodes, the old tensor is the orthogonality center.
+
         Args:
             node_id (str): The id of the leaf node to update.
 
@@ -129,7 +134,7 @@ class BUG(TTNTimeEvolution):
         assert node_id == self.old_state.orthogonality_center_id, "Node is not the orthogonality center!"
         h_eff = self.build_effective_leaf_hamiltonian(node_id)
         # We always use the data from the old state
-        site_tensor = self.old_state.nodes[node_id].tensor # Leg order (parent,physical)
+        site_tensor = self.old_state.nodes[node_id] # Leg order (parent,physical)
         # The tensor already fits with the hamiltonian leg order
         updated_tensor = time_evolve(site_tensor, h_eff,
                                      self.time_step_size) # Leg order (parent,physical)
@@ -178,8 +183,9 @@ class BUG(TTNTimeEvolution):
         Performs the update for a non-leaf node.
 
         """
+        assert node_id == self.old_state.orthogonality_center_id, "Node is not the orthogonality center!"
         h_eff = get_effective_single_site_hamiltonian(node_id,
-                                                      self.state,
+                                                      self.old_state,
                                                       self.hamiltonian,
                                                       self.tensor_cache)
         # The effective Hamiltonian is created, such that the legs fit to the
@@ -268,7 +274,7 @@ class BUG(TTNTimeEvolution):
             kwargs: Additional keyword arguments for the time step.
 
         """
-        pass
+        raise NotImplementedError("Not yet implemented!")
 
 def basis_change_tensor_id(node_id: str) -> str:
     """
@@ -283,6 +289,27 @@ def reverse_basis_change_tensor_id(node_id: str) -> str:
 
     """
     return node_id[-len("basis_change_tensor"):]
+
+def concat_along_parent_leg(node: Node,
+                            old_tensor: ndarray,
+                            updated_tensor: ndarray) -> ndarray:
+    """
+    Concatenates two tensors along the parent leg.
+
+    The old tensor will take the first parent dimension and the updated tensor
+    the second parent dimension.
+
+    Args:
+        node (GraphNode): The node for which to concatenate the tensors.
+        old_tensor (ndarray): The old tensor to concatenate.
+        updated_tensor (ndarray): The updated tensor to concatenate.
+
+    Returns:
+        ndarray: The concatenated tensor with doubled parent leg dimension,
+            but with the same leg order as the input tensors.
+    """
+    return concatenate((old_tensor, updated_tensor),
+                        axis=node.parent_leg)
 
 def new_basis_tensor_qr_legs(node: Node) -> Tuple[List[int],List[int]]:
     """
@@ -302,21 +329,26 @@ def new_basis_tensor_qr_legs(node: Node) -> Tuple[List[int],List[int]]:
     r_legs = [node.parent_leg]
     return q_legs, r_legs
 
-def find_new_basis_tensor_leg_permutation(node: Node) -> List[int]:
+def _compute_new_basis_tensor_qr(node: Node,
+                                 combined_tensor: ndarray) -> ndarray:
     """
-    Finds the permutation of the legs of the new basis tensor.
-
-    We want the parent leg to be the first leg. However, the QR decomposition
-    will have the parent leg as the last leg.
+    Computes the new basis tensor from a concatenated tensor.
 
     Args:
-        node (GraphNode): The node for which to find the permutation.
-    
+        node (GraphNode): The node for which to compute the new basis tensor.
+        combined_tensor (ndarray): The concatenated tensor of the old tensor
+            and the updated tensor. While the parent leg dimension is doubled,
+            the leg order is the same as for the node.
+        
     Returns:
-        List[int]: The permutation to apply to the new basis tensor.
+        ndarray: The new basis tensor. Note that the leg order is incorrect.
+
     """
-    nlegs = node.nlegs()
-    return [nlegs-1] + list(range(nlegs-1))
+    q_legs, r_legs = new_basis_tensor_qr_legs(node)
+    new_basis_tensor, _ = tensor_qr_decomposition(combined_tensor,
+                                            q_legs,
+                                            r_legs)
+    return new_basis_tensor
 
 def compute_new_basis_tensor(node: Node,
                              old_tensor: ndarray,
@@ -343,15 +375,13 @@ def compute_new_basis_tensor(node: Node,
     """
     # We know that both tensors have the same leg order
     # We stack them along the parent axis
-    combined_tensor = concatenate((old_tensor, updated_tensor),
-                                    axis=node.parent_leg)
+    combined_tensor = concat_along_parent_leg(node,
+                                              old_tensor,
+                                              updated_tensor)
     # We perform a QR decomposition
-    q_legs, r_legs = new_basis_tensor_qr_legs(node)
-    new_basis_tensor, _ = tensor_qr_decomposition(combined_tensor,
-                                                q_legs,
-                                                r_legs)
+    new_basis_tensor = _compute_new_basis_tensor_qr(node,
+                                                    combined_tensor)
     # We will have to transpose this anyway later on
     # Currently the parent leg is the last leg
-    transpose_legs = find_new_basis_tensor_leg_permutation(node)
-    new_basis_tensor = new_basis_tensor.transpose(transpose_legs)
+    new_basis_tensor = make_last_leg_first(new_basis_tensor)
     return new_basis_tensor
