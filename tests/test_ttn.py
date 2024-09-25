@@ -720,5 +720,88 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         found_identity = np.tensordot(q_tensor, q_tensor.conj(), axes=([1, 2], [1, 2]))
         self.assertTrue(np.allclose(np.eye(q_tensor.shape[0]), found_identity))
 
+    def test_replace_tensor(self):
+        """
+        Replace every tensor with a reference tensor. Sometimes a permutation
+        is required, sometimes not.
+        """
+        ref_tensor = crandn((2, 3, 4, 5))
+        # Node 1
+        new_tensor = deepcopy(ref_tensor)
+        self.ttn.replace_tensor("id1", new_tensor)
+        found_tensor = self.ttn.tensors["id1"]
+        self.assertTrue(np.allclose(ref_tensor, found_tensor))
+
+        # Node 2
+        new_tensor = deepcopy(ref_tensor)
+        permutation = [0,3,2,1]
+        self.ttn.replace_tensor("id2", new_tensor, permutation)
+        found_tensor = self.ttn.tensors["id2"]
+        self.assertTrue(np.allclose(ref_tensor.transpose(permutation),
+                                    found_tensor))
+
+        # Node 3
+        new_tensor = deepcopy(ref_tensor)
+        node_id = "id3"
+        permutation = [3,0,1,2]
+        self.ttn.replace_tensor(node_id, new_tensor, permutation)
+        found_tensor = self.ttn.tensors[node_id]
+        self.assertTrue(np.allclose(ref_tensor.transpose(permutation),
+                                    found_tensor))
+
+        # Node 4
+        new_tensor = deepcopy(ref_tensor)
+        node_id = "id4"
+        permutation = [0,1,2,3]
+        self.ttn.replace_tensor(node_id, new_tensor, permutation)
+        found_tensor = self.ttn.tensors[node_id]
+        self.assertTrue(np.allclose(ref_tensor,
+                                    found_tensor))
+
+        # Node 5
+        new_tensor = deepcopy(ref_tensor)
+        node_id = "id5"
+        permutation = [2,0,1,3]
+        self.ttn.replace_tensor(node_id, new_tensor, permutation)
+        found_tensor = self.ttn.tensors[node_id]
+        self.assertTrue(np.allclose(ref_tensor.transpose(permutation),
+                                    found_tensor))
+
+        # Node 6
+        new_tensor = deepcopy(ref_tensor)
+        node_id = "id6"
+        self.ttn.replace_tensor(node_id, new_tensor)
+        found_tensor = self.ttn.tensors[node_id]
+        self.assertTrue(np.allclose(ref_tensor,
+                                    found_tensor))
+
+        # Node 7
+        new_tensor = deepcopy(ref_tensor)
+        node_id = "id7"
+        permutation = [1,0,2,3]
+        self.ttn.replace_tensor(node_id, new_tensor, permutation)
+        found_tensor = self.ttn.tensors[node_id]
+        self.assertTrue(np.allclose(ref_tensor.transpose(permutation),
+                                    found_tensor))
+
+        # Node 8
+        new_tensor = deepcopy(ref_tensor)
+        node_id = "id8"
+        permutation = [1,2,0,3]
+        self.ttn.replace_tensor(node_id, new_tensor, permutation)
+        found_tensor = self.ttn.tensors[node_id]
+        self.assertTrue(np.allclose(ref_tensor.transpose(permutation),
+                                    found_tensor))
+
+        # Node 9
+        new_tensor = deepcopy(ref_tensor)
+        node_id = "id9"
+        permutation = [2,0,1,3]
+        self.ttn.replace_tensor(node_id, new_tensor, permutation)
+        found_tensor = self.ttn.tensors[node_id]
+        self.assertTrue(np.allclose(ref_tensor.transpose(permutation),
+                                    found_tensor))
+
+
 if __name__ == "__main__":
     unittest.main()

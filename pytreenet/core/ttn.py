@@ -139,6 +139,7 @@ class TreeTensorNetwork(TreeStructure):
         super().__init__()
         self._tensors = TensorDict(self._nodes)
         self.orthogonality_center_id: Union[str,None] = None
+        self._nodes: Dict[str,Node]
 
     @property
     def tensors(self) -> TensorDict[str, np.ndarray]:
@@ -520,6 +521,26 @@ class TreeTensorNetwork(TreeStructure):
                                   axes=(node.open_legs, tensor_legs))
         # The leg ordering was not changed here
         self.tensors[node_id] = new_tensor
+
+    def replace_tensor(self,
+                       node_id: str,
+                       new_tensor: np.ndarray,
+                       permutation: Union[None, List[int]] = None):
+        """
+        Replaces the tensor associated with a node.
+
+        Args:
+            node_id (str): The identifier of the node.
+            new_tensor (np.ndarray): The new tensor to be associated with the
+                node.
+            permutation (Union[None, List[int]], optional): A permutation to
+                be applied to the new tensor to match the leg ordering of the
+                node. Defaults to None.
+
+        """
+        self._nodes[node_id].replace_tensor(new_tensor,
+                                            permutation=permutation)
+        self._tensors[node_id] = new_tensor
 
     def contract_nodes(self, node_id1: str, node_id2: str, new_identifier: str = ""):
         """
