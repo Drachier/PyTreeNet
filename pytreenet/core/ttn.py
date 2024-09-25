@@ -667,6 +667,27 @@ class TreeTensorNetwork(TreeStructure):
             new_node.exchange_open_leg_ranges(range_parent, range_child)
         return new_node
 
+    def contract_all_children(self, node_id: str,
+                              new_identifier: Union[str,None] = None):
+        """
+        Contracts all children of a node.
+
+        This is done by contracting the children with the parent node.
+
+        Args:
+            node_id (str): Identifier of the parent node.
+            new_identifier (str, optional): An identifier for the new tensor.
+                Defaults to the node identifier.
+        
+        """
+        node = self.nodes[node_id]
+        if new_identifier is None:
+            new_identifier = node_id
+        children = node.children
+        for child_id in copy(children):
+            self.contract_nodes(node_id, child_id,
+                                new_identifier=new_identifier)
+
     def legs_before_combination(self, node1_id: str,
                                 node2_id: str) -> Tuple[LegSpecification, LegSpecification]:
         """
