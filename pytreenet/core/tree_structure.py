@@ -368,7 +368,7 @@ class TreeStructure():
 
         Args:
             new_node_id (str): Identifier of the node to be added
-            old_node_id (atr): Identifier of the node to be replaced
+            old_node_id (str): Identifier of the node to be replaced
         """
         if new_node_id != old_node_id:
             old_node = self._nodes[old_node_id]
