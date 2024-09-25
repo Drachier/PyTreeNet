@@ -361,7 +361,7 @@ class TreeStructure():
             return (node_id2, node_id1)
         errstr = f"Nodes {node_id1} and {node_id2} are no neighbours!"
         raise NoConnectionException(errstr)
-    
+
     def change_node_identifier(self, new_node_id: str, old_node_id: str):
         """
         Changes the identifier of a node and all references to it.
