@@ -374,9 +374,9 @@ class TreeStructure():
         if old_node_id != new_node_id:
             self.ensure_existence(old_node_id)
             self.ensure_uniqueness(new_node_id)
-            self._nodes[new_node_id] = self._nodes.pop(old_node_id)
             self.replace_node_in_neighbours(new_node_id, old_node_id,
                                             del_old_node=False)
+            self._nodes[new_node_id] = self._nodes.pop(old_node_id)
             self._nodes[new_node_id].set_identifier(new_node_id)
 
     def replace_node_in_neighbours(self, new_node_id: str, old_node_id: str,

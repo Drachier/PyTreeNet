@@ -534,8 +534,8 @@ class TreeTensorNetwork(TreeStructure):
             old_node_id (str): The old identifier of the node.
 
         """
-        super().change_node_identifier(new_node_id, old_node_id)
         self.tensors[new_node_id] = self._tensors.pop(old_node_id)
+        super().change_node_identifier(new_node_id, old_node_id)
 
     def replace_tensor(self,
                        node_id: str,
