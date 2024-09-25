@@ -2,21 +2,17 @@
 from typing import Dict, List, Union, Tuple
 from copy import deepcopy, copy
 
-from numpy import ndarray, tensordot, vstack, concatenate
-from scipy.linalg import rq
+from numpy import ndarray, tensordot, concatenate
 
 from .ttn_time_evolution import TTNTimeEvolution, TTNTimeEvolutionConfig
 from ..operators.tensorproduct import TensorProduct
-from ..core.graph_node import find_children_permutation
+from ..core.graph_node import find_child_permutation_neighbour_index
 from ..ttns.ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TreeTensorNetworkOperator
 from ..core.leg_specification import LegSpecification
 from ..core.node import Node
 from ..contractions.sandwich_caching import SandwichCache, update_tree_cache
 from ..contractions.effective_hamiltonians import get_effective_single_site_hamiltonian
-from ..contractions.state_operator_contraction import (env_tensor_bra_leg_index,
-                                                       env_tensor_ham_leg_index,
-                                                       env_tensor_ket_leg_index)
 from ..util.tensor_util import make_last_leg_first
 from ..util.tensor_splitting import tensor_qr_decomposition
 from .time_evolution import time_evolve
@@ -103,9 +99,14 @@ class BUG(TTNTimeEvolution):
         new_node = self.state.nodes[node_id]
         # Find a potential permutation of the children
         # The children in the new state are the basis change tensord
-        perm = find_children_permutation(old_node, new_node,
+        child_perm = find_child_permutation_neighbour_index(old_node, new_node,
                                          modify_function=reverse_basis_change_tensor_id)
-        perm = [new_node.parent_leg] + perm + new_node.open_legs
+        if new_node.is_root():
+            # The root has no parent leg
+            perm = []
+        else:
+            perm = [new_node.parent_leg]
+        perm = perm + child_perm + new_node.open_legs
         old_tensor = self.old_state.tensors[node_id]
         self.state.replace_tensor(node_id, deepcopy(old_tensor), perm)
 
