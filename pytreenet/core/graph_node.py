@@ -100,6 +100,17 @@ class GraphNode:
         """
         return self._identifier
 
+    def set_identifier(self, new_id: str):
+        """
+        Sets a new identifier for this node.
+
+        Should only happen very explicitly, as this can lead to inconsistencies
+
+        Args:
+            new_id (str): The new identifier.
+        """
+        self._identifier = new_id
+
     def __eq__(self, other: GraphNode) -> bool:
         """
         Checks if two GraphNodes are the same.

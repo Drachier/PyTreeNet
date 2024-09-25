@@ -361,14 +361,35 @@ class TreeStructure():
             return (node_id2, node_id1)
         errstr = f"Nodes {node_id1} and {node_id2} are no neighbours!"
         raise NoConnectionException(errstr)
+    
+    def change_node_identifier(self, new_node_id: str, old_node_id: str):
+        """
+        Changes the identifier of a node and all references to it.
 
-    def replace_node_in_neighbours(self, new_node_id: str, old_node_id: str):
+        Args:
+            new_node_id (str): The new identifier.
+            old_node_id (str): The old identifier.
+
+        """
+        if old_node_id != new_node_id:
+            self.ensure_existence(old_node_id)
+            self.ensure_uniqueness(new_node_id)
+            self._nodes[new_node_id] = self._nodes.pop(old_node_id)
+            self.replace_node_in_neighbours(new_node_id, old_node_id,
+                                            del_old_node=False)
+            self._nodes[new_node_id].set_identifier(new_node_id)
+
+    def replace_node_in_neighbours(self, new_node_id: str, old_node_id: str,
+                                   del_old_node: bool = True):
         """
         Replaces a node in all neighbours of the old node.
 
         Args:
             new_node_id (str): Identifier of the node to be added
             old_node_id (str): Identifier of the node to be replaced
+            del_old_node (bool, optional): Whether to delete the old node.
+                Defaults to True.
+
         """
         if new_node_id != old_node_id:
             old_node = self._nodes[old_node_id]
@@ -382,7 +403,8 @@ class TreeStructure():
                 if old_node.parent != new_node_id:
                     # Otherwise the new node might neighbour itself
                     self._nodes[old_node.parent].replace_child(old_node_id, new_node_id)
-            self._nodes.pop(old_node_id)
+            if del_old_node:
+                self._nodes.pop(old_node_id)
 
     def replace_node_in_some_neighbours(self, new_node_id: str, old_node_id: str,
                                          neighbour_ids: List[str]):

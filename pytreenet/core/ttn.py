@@ -522,6 +522,21 @@ class TreeTensorNetwork(TreeStructure):
         # The leg ordering was not changed here
         self.tensors[node_id] = new_tensor
 
+    def change_node_identifier(self, new_node_id: str, old_node_id: str):
+        """
+        Changes the identifier of a node in the TTN.
+
+        This also changes all references to the node in the TTN and the tensor
+        dictionary.
+
+        Args:
+            new_node_id (str): The new identifier of the node.
+            old_node_id (str): The old identifier of the node.
+
+        """
+        super().change_node_identifier(new_node_id, old_node_id)
+        self.tensors[new_node_id] = self._tensors.pop(old_node_id)
+
     def replace_tensor(self,
                        node_id: str,
                        new_tensor: np.ndarray,
