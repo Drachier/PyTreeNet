@@ -71,6 +71,38 @@ class BUG(TTNTimeEvolution):
         return SandwichCache.init_cache_but_one(self.old_state, # Importantly the old state
                                                 self.hamiltonian,
                                                 self.state.root_id)
+    
+    def update_tensor_cache_old_state(self,
+                                      node_id: str,
+                                      next_node_id: str):
+        """
+        Updates the tensor cache with respect to the old state.
+
+        Args:
+            node_id (str): The id of the node on which to sandwich contract.
+            next_node_id (str): The id of the node to which the open tensor
+                legs will point
+
+        """
+        self.tensor_cache.update_tree_cache(node_id, next_node_id)
+
+    def update_tensor_cache_new_state(self,
+                                      node_id: str,
+                                      next_node_id: str):
+        """
+        Updates the tensor cache with respect to the new state.
+
+        Args:
+            node_id (str): The id of the node on which to sandwich contract.
+            next_node_id (str): The id of the node to which the open tensor
+                legs will point
+
+        """
+        update_tree_cache(self.tensor_cache,
+                          self.state,
+                          self.hamiltonian,
+                          node_id,
+                          next_node_id)
 
     def _assert_orth_center(self, *args, **kwargs):
         """
@@ -124,8 +156,8 @@ class BUG(TTNTimeEvolution):
         # node tensor's legs.
         # We take the tensor from the new state, where the basis change tensors
         # of the children are already contracted
-        old_tensor = self.state.tensors[node_id]
-        updated_tensor = time_evolve(old_tensor,
+        current_tensor = self.state.tensors[node_id]
+        updated_tensor = time_evolve(current_tensor,
                                         h_eff,
                                         self.time_step_size,
                                         forward=True)
@@ -222,6 +254,10 @@ class BUG(TTNTimeEvolution):
                                 self.hamiltonian,
                                 child_id,
                                 node_id)
+        else:
+            # We need the tensor of the old state as the orth center
+            # Since we didn't do anythin this is still the case
+            self.pull_tensor_from_old_state(node_id)
         # Now we can update the node
         self.update_non_root(node_id)
 
