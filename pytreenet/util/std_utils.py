@@ -61,6 +61,20 @@ def compare_lists_by_value(list1: List, list2: List) -> bool:
         return True
     return False
 
+def permute_tuple(tup: Tuple, permutation: List[int]) -> Tuple:
+    """
+    Permute the elements of a tuple.
+
+    Args:
+        tup (Tuple): The original tuple.
+        permutation (List[int]): The permutation of the elements.
+    
+    Returns:
+        Tuple: The permuted tuple.
+    """
+    assert len(tup) == len(permutation)
+    return tuple(tup[i] for i in permutation)
+
 def fast_exp_action(exponent: np.ndarray,
                     vector: np.ndarray,
                     mode: str = "fastest") -> np.ndarray:
