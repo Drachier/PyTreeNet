@@ -1,6 +1,8 @@
 import unittest
 
-from pytreenet.core.graph_node import GraphNode, find_children_permutation
+from pytreenet.core.graph_node import (GraphNode,
+                                       find_children_permutation,
+                                       find_child_permutation_neighbour_index)
 from pytreenet.util.ttn_exceptions import NoConnectionException
 
 class TestInitilisation(unittest.TestCase):
@@ -364,6 +366,60 @@ class TestNodeFunctions(unittest.TestCase):
         perm = find_children_permutation(old_node, new_node,
                                          modify_function=modifier)
         self.assertEqual([1,2,0], perm)
+
+    def test_find_children_permutation_complex_parent(self):
+        old_node = GraphNode()
+        old_node.add_parent("parent")
+        old_node.add_children(["c1", "c2", "c3"])
+        new_node = GraphNode()
+        new_node.add_parent("parent")
+        new_node.add_children(["c2", "c3", "c1"])
+        perm = find_children_permutation(old_node, new_node)
+        self.assertEqual([1,2,0], perm)
+
+    def test_find_children_permutation_complex_parent_modify(self):
+        old_node = GraphNode()
+        old_node.add_parent("parent")
+        old_node.add_children(["c1", "c2", "c3"])
+        modifier = lambda x: "c" + x
+        new_node = GraphNode()
+        new_node.add_parent("parent")
+        new_node.add_children(["2", "3", "1"])
+        perm = find_children_permutation(old_node, new_node,
+                                         modify_function=modifier)
+        self.assertEqual([1,2,0], perm)
+
+    def test_find_child_permutation_neighbour_index_complex_modify(self):
+        old_node = GraphNode()
+        old_node.add_children(["c1", "c2", "c3"])
+        modifier = lambda x: "c" + x
+        new_node = GraphNode()
+        new_node.add_children(["2", "3", "1"])
+        perm = find_child_permutation_neighbour_index(old_node, new_node,
+                                         modify_function=modifier)
+        self.assertEqual([1,2,0], perm)
+
+    def test_find_child_permutation_neighbour_index_complex_parent(self):
+        old_node = GraphNode()
+        old_node.add_parent("parent")
+        old_node.add_children(["c1", "c2", "c3"])
+        new_node = GraphNode()
+        new_node.add_parent("parent")
+        new_node.add_children(["c2", "c3", "c1"])
+        perm = find_child_permutation_neighbour_index(old_node, new_node)
+        self.assertEqual([2,3,1], perm)
+
+    def test_find_child_permutation_neighbour_index_complex_parent_modify(self):
+        old_node = GraphNode()
+        old_node.add_parent("parent")
+        old_node.add_children(["c1", "c2", "c3"])
+        modifier = lambda x: "c" + x
+        new_node = GraphNode()
+        new_node.add_parent("parent")
+        new_node.add_children(["2", "3", "1"])
+        perm = find_child_permutation_neighbour_index(old_node, new_node,
+                                                     modify_function=modifier)
+        self.assertEqual([2,3,1], perm)
 
 if __name__ == "__main__":
     unittest.main()

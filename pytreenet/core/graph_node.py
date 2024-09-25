@@ -332,7 +332,8 @@ class GraphNode:
 
 def find_children_permutation(old_node: GraphNode,
                               new_node: GraphNode,
-                              modify_function: Union[Callable,None] = None) -> List[int]:
+                              modify_function: Union[Callable,None] = None
+                              ) -> List[int]:
     """
     Finds a permutation of children of one node to the other.
 
@@ -366,3 +367,43 @@ def find_children_permutation(old_node: GraphNode,
                 for child_id in new_node.children]
     return [old_node.children.index(modify_function(child_id))
             for child_id in new_node.children]
+
+def find_child_permutation_neighbour_index(old_node: GraphNode,
+                                            new_node: GraphNode,
+                                            modify_function: Union[Callable,None] = None
+                                            ) -> List[str]:
+    """
+    Finds a permutation of children of one node to the other according to their
+    neighbour indices.
+
+    The permutation found is the permutation required to transform the children
+    of the old node to the children of the new node.
+
+    .. code-block:: python
+
+        old_node = GraphNode("old")
+        old_node.add_children(["child1", "child2", "child3"])
+        old_node.add_parent("parent")
+        new_node = GraphNode("new")
+        new_node.add_children(["child2", "child3", "child1"])
+        new_node.add_parent("parent")
+        perm = find_children_permutation(old_node, new_node)
+        print(perm)  # [2, 3, 1]
+
+
+    Args:
+        old_node (GraphNode): The old node.
+        new_node (GraphNode): The new node.
+        modify_function (Callable): A function that modifies the children
+            identifiers of the new node.
+
+    Returns:
+        List[int]: The permutation of the children of the old node to the
+            children of the new node, according to their neighbour index.
+    """
+    child_perm = find_children_permutation(old_node,
+                                           new_node,
+                                           modify_function)
+    assert old_node.nparents() == new_node.nparents()
+    nparents = old_node.nparents()
+    return [num+nparents for num in child_perm]
