@@ -5,6 +5,7 @@ from functools import reduce
 from numpy import ndarray
 
 from .graph_node import GraphNode
+from ..util.std_utils import permute_tuple
 from ..util.ttn_exceptions import NotCompatibleException
 
 
@@ -76,7 +77,7 @@ class Node(GraphNode):
         """
         if self._shape is None:
             return None
-        return tuple([self._shape[i] for i in self._leg_permutation])
+        return permute_tuple(self._shape, self._leg_permutation)
 
     @property
     def parent_leg(self) -> int:
@@ -139,6 +140,29 @@ class Node(GraphNode):
         """
         self._shape = self.shape
         self._leg_permutation = list(range(len(self._leg_permutation)))
+
+    def replace_tensor(self,
+                       tensor: ndarray,
+                       permutation: Union[None,Tuple[int]] = None):
+        """
+        Replaces the tensor associated to this node.
+
+        Args:
+            tensor (ndarray): The tensor to be linked with this node.
+            permutation (Union[None,Tuple[int]]): The permutation of the legs
+                compared to the current node legs. If None, the permutation is
+                not changed.
+        """
+        if permutation is None and self.shape == tensor.shape:
+            # In this case the tensor fits without changes needed.
+            self._reset_permutation()
+        elif permutation is not None and permute_tuple(tensor.shape, permutation) == self.shape:
+            # The tensor fits with the permutation.
+            self._leg_permutation = permutation
+            self._shape = tensor.shape
+        else:
+            errstr = "Shapes of the tensor and the node do not match!"
+            raise NotCompatibleException(errstr)
 
     def _open_leg_checks(self, open_leg: int,
                          other_id: Union[str, None] = None):

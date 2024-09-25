@@ -1,6 +1,9 @@
 import unittest
 
-import pytreenet as ptn
+from copy import deepcopy
+
+from pytreenet.core.node import Node
+from pytreenet.util.ttn_exceptions import NotCompatibleException
 from pytreenet.random import crandn
 
 class TestNodeInit(unittest.TestCase):
@@ -9,13 +12,13 @@ class TestNodeInit(unittest.TestCase):
         shapes = [(), (2, ), (2, 2), (2, 3, 4, 5)]
         for shape in shapes:
             random_tensor = crandn(shape)
-            node = ptn.Node(tensor=random_tensor)
+            node = Node(tensor=random_tensor)
             self.assertEqual(len(shape), len(node.leg_permutation))
             self.assertEqual(list(range(len(shape))), node.leg_permutation)
             self.assertEqual(shape, node.shape)
 
     def test_empty_init(self):
-        empty = ptn.Node()
+        empty = Node()
         self.assertTrue(empty.leg_permutation is None)
         self.assertTrue(empty.shape is None)
 
@@ -30,15 +33,15 @@ class TestNodeMethods(unittest.TestCase):
         # Empty
         tensor0 = crandn(())
         tensor2 = crandn((2, 3))
-        self.nodes["empty0"] = ptn.Node(tensor0, identifier="empty0")
-        self.nodes["empty2"] = ptn.Node(tensor2, identifier="empty2")
+        self.nodes["empty0"] = Node(tensor0, identifier="empty0")
+        self.nodes["empty2"] = Node(tensor2, identifier="empty2")
 
         # Leaf
         tensor0 = crandn((2,))
         tensor2 = crandn((2, 3, 4))
         parent_id = "parent_id"
-        node0 = ptn.Node(tensor0, identifier="leaf0")
-        node2 = ptn.Node(tensor2, identifier="leaf2")
+        node0 = Node(tensor0, identifier="leaf0")
+        node2 = Node(tensor2, identifier="leaf2")
         node0.add_parent(parent_id)
         node2.add_parent(parent_id)
         self.nodes["leaf0"] = node0
@@ -47,8 +50,8 @@ class TestNodeMethods(unittest.TestCase):
         # 1 parent 1 child
         tensor0 = crandn((2, 3))
         tensor2 = crandn((2, 3, 4, 5))
-        node0 = ptn.Node(tensor0, identifier="node1p1c0")
-        node2 = ptn.Node(tensor2, identifier="node1p1c2")
+        node0 = Node(tensor0, identifier="node1p1c0")
+        node2 = Node(tensor2, identifier="node1p1c2")
         parent_id = "parent_id"
         node0.add_parent(parent_id)
         node2.add_parent(parent_id)
@@ -61,8 +64,8 @@ class TestNodeMethods(unittest.TestCase):
         # 1 parent 2 children
         tensor0 = crandn((2, 3, 4))
         tensor2 = crandn((2, 3, 4, 5, 6))
-        node0 = ptn.Node(tensor0, identifier="node1p2c0")
-        node2 = ptn.Node(tensor2, identifier="node1p2c2")
+        node0 = Node(tensor0, identifier="node1p2c0")
+        node2 = Node(tensor2, identifier="node1p2c2")
         parent_id = "parent_id"
         node0.add_parent(parent_id)
         node2.add_parent(parent_id)
@@ -75,8 +78,8 @@ class TestNodeMethods(unittest.TestCase):
         # Root 1 child
         tensor0 = crandn((2))
         tensor2 = crandn((2, 3, 4))
-        node0 = ptn.Node(tensor0, identifier="root1c0")
-        node2 = ptn.Node(tensor2, identifier="root1c2")
+        node0 = Node(tensor0, identifier="root1c0")
+        node2 = Node(tensor2, identifier="root1c2")
         child_id = "child_id"
         node0.add_child(child_id)
         node2.add_child(child_id)
@@ -86,8 +89,8 @@ class TestNodeMethods(unittest.TestCase):
         # Root 2 children
         tensor0 = crandn((2, 3))
         tensor2 = crandn((2, 3, 4, 5))
-        node0 = ptn.Node(tensor0, identifier="root2c0")
-        node2 = ptn.Node(tensor2, identifier="root2c2")
+        node0 = Node(tensor0, identifier="root2c0")
+        node2 = Node(tensor2, identifier="root2c2")
         children_ids = ["child_id", "child2"]
         node0.add_children(children_ids)
         node2.add_children(children_ids)
@@ -105,14 +108,14 @@ class TestNodeMethods(unittest.TestCase):
         # Already have a parent
         id_list = ["node1p2c0","node1p2c2","node1p1c0","node1p1c2"]
         for ids in id_list:
-            self.assertRaises(ptn.NotCompatibleException,
+            self.assertRaises(NotCompatibleException,
                               self.nodes[ids].open_leg_to_parent,
                               "id!",2)
 
     def test_open_leg_to_parent_occupied_leg(self):
         id_list = ["root1c2","root2c2"]
         for ids in id_list:
-            self.assertRaises(ptn.NotCompatibleException,
+            self.assertRaises(NotCompatibleException,
                               self.nodes[ids].open_leg_to_parent,
                               "id!",0)
 
@@ -165,7 +168,7 @@ class TestNodeMethods(unittest.TestCase):
         # Have no open leg
         id_list = ["root1c2", "root2c2","node1p1c2","node1p2c2"]
         for ids in id_list:
-            self.assertRaises(ptn.NotCompatibleException, self.nodes[ids].open_leg_to_child,
+            self.assertRaises(NotCompatibleException, self.nodes[ids].open_leg_to_child,
                               "Any", 0)
 
     def test_open_leg_to_child_1st_open_leg(self):
@@ -206,7 +209,7 @@ class TestNodeMethods(unittest.TestCase):
         children_ids = ["id1", "id2", "id3"]
 
         # Test from 0
-        root = ptn.Node(tensor=tensor, identifier="root")
+        root = Node(tensor=tensor, identifier="root")
         open_legs = [0,1,2]
         child_dict = dict(zip(children_ids, open_legs))
         root.open_legs_to_children(child_dict)
@@ -215,7 +218,7 @@ class TestNodeMethods(unittest.TestCase):
         self.assertEqual((2,3,4,5,6),root.shape)
 
         # Test not from 0
-        root = ptn.Node(tensor=tensor, identifier="root")
+        root = Node(tensor=tensor, identifier="root")
         open_legs = [2,3,4]
         child_dict = dict(zip(children_ids, open_legs))
         root.open_legs_to_children(child_dict)
@@ -224,7 +227,7 @@ class TestNodeMethods(unittest.TestCase):
         self.assertEqual((4,5,6,2,3),root.shape)
 
         # Test unordered
-        root = ptn.Node(tensor=tensor, identifier="root")
+        root = Node(tensor=tensor, identifier="root")
         open_legs = [0,3,2]
         child_dict = dict(zip(children_ids, open_legs))
         root.open_legs_to_children(child_dict)
@@ -237,7 +240,7 @@ class TestNodeMethods(unittest.TestCase):
         children_ids = ["id1", "id2", "id3"]
 
         # Test ordered
-        node = ptn.Node(tensor=tensor, identifier="node")
+        node = Node(tensor=tensor, identifier="node")
         node.open_leg_to_parent("Vader", 0)
         open_legs = [1,2,3]
         child_dict = dict(zip(children_ids, open_legs))
@@ -247,7 +250,7 @@ class TestNodeMethods(unittest.TestCase):
         self.assertEqual((2,3,4,5,6),node.shape)
 
         # Test not from 1
-        node = ptn.Node(tensor=tensor, identifier="node")
+        node = Node(tensor=tensor, identifier="node")
         node.open_leg_to_parent("Vader", 0)
         open_legs = [2,3,4]
         child_dict = dict(zip(children_ids, open_legs))
@@ -257,7 +260,7 @@ class TestNodeMethods(unittest.TestCase):
         self.assertEqual((2,4,5,6,3),node.shape)
 
         # Test unordered
-        node = ptn.Node(tensor=tensor, identifier="node")
+        node = Node(tensor=tensor, identifier="node")
         node.open_leg_to_parent("Vader", 0)
         open_legs = [3,1,4]
         child_dict = dict(zip(children_ids, open_legs))
@@ -271,7 +274,7 @@ class TestNodeMethods(unittest.TestCase):
         children_ids = ["id1", "id2", "id3"]
 
         # Test ordered
-        node = ptn.Node(tensor=tensor, identifier="node")
+        node = Node(tensor=tensor, identifier="node")
         node.open_leg_to_parent("Vader", 1)
         open_legs = [1,2,3]
         child_dict = dict(zip(children_ids, open_legs))
@@ -281,7 +284,7 @@ class TestNodeMethods(unittest.TestCase):
         self.assertEqual((3,2,4,5,6),node.shape)
 
         # Test not from 1
-        node = ptn.Node(tensor=tensor, identifier="node")
+        node = Node(tensor=tensor, identifier="node")
         node.open_leg_to_parent("Vader", 1)
         open_legs = [2,3,4]
         child_dict = dict(zip(children_ids, open_legs))
@@ -291,7 +294,7 @@ class TestNodeMethods(unittest.TestCase):
         self.assertEqual((3,4,5,6,2),node.shape)
 
         # Test unordered
-        node = ptn.Node(tensor=tensor, identifier="node")
+        node = Node(tensor=tensor, identifier="node")
         node.open_leg_to_parent("Vader", 1)
         open_legs = [3,1,4]
         child_dict = dict(zip(children_ids, open_legs))
@@ -435,8 +438,8 @@ class TestNodeEq(unittest.TestCase):
         tensor1 = crandn(self.shape)
         tensor2 = crandn(self.shape)
         identifier = "id"
-        self.node1 = ptn.Node(identifier=identifier, tensor=tensor1)
-        self.node2 = ptn.Node(identifier=identifier, tensor=tensor2)
+        self.node1 = Node(identifier=identifier, tensor=tensor1)
+        self.node2 = Node(identifier=identifier, tensor=tensor2)
 
     def test_eq_shape_same_ext_shape_same_internal_shape(self):
         """
@@ -470,6 +473,139 @@ class TestNodeEq(unittest.TestCase):
         self.node2._leg_permutation = [0,2,1]
         self.assertFalse(self.node1 == self.node2)
         self.assertFalse(self.node2 == self.node1)
+
+class Test_replace_tensor(unittest.TestCase):
+
+    def test_trivial(self):
+        """
+        Tests the method with a tensor that fits without issue.
+        """
+        tensor = crandn((2,3,4))
+        node = Node(tensor, identifier="id")
+        ref = deepcopy(node)
+        new_tensor = crandn((2,3,4))
+        node.replace_tensor(new_tensor)
+        # Accordingly the nothing should have changed
+        self.assertEqual(ref, node)
+
+    def test_with_perm(self):
+        """
+        Tests the method where the tensor needs a permutation to fit, 
+        but the node has a trivial permutation.
+        """
+        tensor = crandn((2,3,4))
+        node = Node(tensor, identifier="id")
+        new_tensor = crandn((4,2,3))
+        perm = [1,2,0]
+        node.replace_tensor(new_tensor, permutation=perm)
+        self.assertEqual(perm, node._leg_permutation)
+        self.assertEqual(new_tensor.shape, node._shape)
+
+    def test_with_double_perm(self):
+        """
+        Tests the method were the tensor needs a permutation to fit and the
+        node already has a permutation.
+        """
+        tensor = crandn((2,3,4))
+        node = Node(tensor, identifier="id")
+        node.open_leg_to_parent("parent", 1)
+        node.open_leg_to_child("child", 2)
+        new_tensor = crandn((4,3,2))
+        perm = [1,0,2]
+        node.replace_tensor(new_tensor, permutation=perm)
+        self.assertEqual(perm, node._leg_permutation)
+        self.assertEqual(new_tensor.shape, node._shape)
+
+    def test_with_node_perm(self):
+        """
+        Tests the method were the tensor does not need a permutation to fit,
+        but the node has a permutation.
+        """
+        tensor = crandn((2,3,4))
+        node = Node(tensor, identifier="id")
+        node.open_leg_to_parent("parent", 1)
+        node.open_leg_to_child("child", 2)
+        new_tensor = crandn((3,4,2))
+        node.replace_tensor(new_tensor)
+        self.assertEqual([0,1,2], node._leg_permutation)
+        self.assertEqual(new_tensor.shape, node._shape)
+
+    def test_invalid_no_perm(self):
+        """
+        Tests the method were the tensor does not fit and no permutation is
+        given.
+        """
+        tensor = crandn((2,3,4))
+        node = Node(tensor, identifier="id")
+        new_tensor = crandn((3,4,2))
+        self.assertRaises(NotCompatibleException, node.replace_tensor,
+                          new_tensor)
+
+    def test_invalid_node_perm(self):
+        """
+        Testst the method were the tensor does not fit and has not permutation
+        given, but the node has a permutation.
+        """
+        tensor = crandn((2,3,4))
+        node = Node(tensor, identifier="id")
+        node.open_leg_to_parent("parent", 1)
+        node.open_leg_to_child("child", 2)
+        new_tensor = crandn((2,3,4))
+        self.assertRaises(NotCompatibleException, node.replace_tensor,
+                          new_tensor)
+
+    def test_invalid_perm(self):
+        """
+        Tests the method were the tensor does not fit and a permutation is
+        given but wrong.
+        """
+        tensor = crandn((2,3,4))
+        node = Node(tensor, identifier="id")
+        new_tensor = crandn((3,4,2))
+        perm = [1,2,0]
+        self.assertRaises(NotCompatibleException, node.replace_tensor,
+                          new_tensor, perm)
+
+    def test_invalid_perm_orig_shape(self):
+        """
+        Tests the method were the tensor does fit, but a wrong permutation is
+        given.
+        """
+        tensor = crandn((2,3,4))
+        node = Node(tensor, identifier="id")
+        new_tensor = crandn((2,3,4))
+        perm = [1,2,0]
+        self.assertRaises(NotCompatibleException, node.replace_tensor,
+                          new_tensor, perm)
+
+    def test_invalid_two_perms(self):
+        """
+        Tests the method were the tensor does not fit and a wrong permutation
+        is given, while the node also has a permutation.
+        """
+        tensor = crandn((2,3,4))
+        node = Node(tensor, identifier="id")
+        node.open_leg_to_parent("parent", 1)
+        node.open_leg_to_child("child", 2)
+        new_tensor = crandn((2,4,3))
+        perm = [1,0,2]
+        self.assertRaises(NotCompatibleException, node.replace_tensor,
+                          new_tensor, perm)
+
+    def test_invalid_two_perms_orig_shape(self):
+        """
+        Tests the method were the tensor does fit, but a wrong permutation is
+        given, while the node also has a permutation.
+        """
+        tensor = crandn((2,3,4))
+        node = Node(tensor, identifier="id")
+        node.open_leg_to_parent("parent", 1)
+        node.open_leg_to_child("child", 2)
+        new_tensor = crandn((3,4,2))
+        perm = [1,0,2]
+        self.assertRaises(NotCompatibleException, node.replace_tensor,
+                          new_tensor, perm)
+
 
 if __name__ == "__main__":
     unittest.main()
