@@ -8,12 +8,34 @@ from pytreenet.core.leg_specification import LegSpecification
 from pytreenet.random.random_node import random_tensor_node
 from pytreenet.random.random_matrices import crandn
 
-from pytreenet.time_evolution.bug import (new_basis_tensor_qr_legs,
+from pytreenet.time_evolution.bug import (basis_change_tensor_id,
+                                          reverse_basis_change_tensor_id,
+                                          new_basis_tensor_qr_legs,
                                           concat_along_parent_leg,
                                           _compute_new_basis_tensor_qr,
                                           compute_new_basis_tensor,
                                           compute_basis_change_tensor,
                                           _find_new_basis_replacement_leg_specs)
+
+class Test_identifier_functions(unittest.TestCase):
+
+    def test_basis_change_tensor_id(self):
+        """
+        Test the basis change tensor identifier function.
+        """
+        node_id = "node"
+        found = basis_change_tensor_id(node_id)
+        correct = node_id + "_basis_change_tensor"
+        self.assertEqual(found, correct)
+
+    def test_reverse_basis_change_tensor_id(self):
+        """
+        Test the reverse basis change tensor identifier function.
+        """
+        node_id = "node"
+        full_node_id = node_id + "_basis_change_tensor"
+        found = reverse_basis_change_tensor_id(full_node_id)
+        self.assertEqual(found, node_id)
 
 class TestNewBasisTensorQRLegs(unittest.TestCase):
 

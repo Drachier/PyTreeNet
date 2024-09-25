@@ -102,14 +102,12 @@ class BUG(TTNTimeEvolution):
         old_node = self.old_state.nodes[node_id]
         new_node = self.state.nodes[node_id]
         # Find a potential permutation of the children
-        # The children in the new state are the basis change tensor
+        # The children in the new state are the basis change tensord
         perm = find_children_permutation(old_node, new_node,
                                          modify_function=reverse_basis_change_tensor_id)
-        # Permute the odl tensor
+        perm = [new_node.parent_leg] + perm + new_node.open_legs
         old_tensor = self.old_state.tensors[node_id]
-        old_tensor = old_tensor.transpose(perm)
-        # Add the tensor to the new state
-        self.state.tensors[node_id] = old_tensor
+        self.state.replace_tensor(node_id, deepcopy(old_tensor), perm)
 
     def time_evolve_node(self, node_id: str) -> ndarray:
         """
@@ -245,14 +243,14 @@ def basis_change_tensor_id(node_id: str) -> str:
     The identifier for a basis change tensor.
 
     """
-    return node_id + "basis_change_tensor"
+    return node_id + "_basis_change_tensor"
 
 def reverse_basis_change_tensor_id(node_id: str) -> str:
     """
     Returns the original node identifier from a basis change tensor identifier.
 
     """
-    return node_id[-len("basis_change_tensor"):]
+    return node_id[:-len("_basis_change_tensor")]
 
 def concat_along_parent_leg(node: Node,
                             old_tensor: ndarray,
