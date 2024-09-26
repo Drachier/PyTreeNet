@@ -1,12 +1,19 @@
 
-from typing import List, Tuple
+from typing import Dict, List, Tuple, Union
 
 from numpy import ndarray, concatenate, tensordot
+
+from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
+from pytreenet.ttns.ttns import TreeTensorNetworkState
 
 from ...core.node import Node
 from ...core.leg_specification import LegSpecification
 from ...util.tensor_util import make_last_leg_first
 from ...util.tensor_splitting import tensor_qr_decomposition
+from ...contractions.sandwich_caching import (SandwichCache,
+                                              update_tree_cache
+                                              )
+from ...contractions.tree_cach_dict import PartialTreeCachDict
 
 
 def basis_change_tensor_id(node_id: str) -> str:
@@ -165,3 +172,127 @@ def find_new_basis_replacement_leg_specs(node: Node
     legs_basis_change = LegSpecification(node.parent,[],[])
     leg_new_basis = LegSpecification(None,node.children,node.open_legs)
     return legs_basis_change, leg_new_basis
+
+class BUGSandwichCache(SandwichCache):
+    """
+    The BUG algorithm has some special needs to store two versions of the same
+    cached tensor for some time. This class provides that.
+    """
+
+    def __init__(self,
+                 old_state: TreeTensorNetworkState,
+                 new_state: TreeTensorNetworkState,
+                 hamiltonian: TreeTensorNetworkOperator,
+                 dictionary: Union[Dict[Tuple[str, str], ndarray],None] = None) -> None:
+        super().__init__(old_state, hamiltonian, dictionary)
+        self.new_state = new_state
+        self.storage = PartialTreeCachDict()
+
+    @property
+    def old_state(self) -> TreeTensorNetworkState:
+        """
+        The old state of the system.
+
+        """
+        return self.state
+
+    def cache_update_old(self,
+                         node_id: str,
+                         next_node_id: str):
+        """
+        Updates the cache using the tensors from the old state.
+
+        Args:
+            node_id (str): The identifier of the node to which this cache
+                corresponds.
+            next_node_id (str): The identifier of the node to which the open
+                legs of the tensor point.
+
+        """
+        self.update_tree_cache(node_id,next_node_id)
+
+    def cache_update_new(self,
+                         node_id: str,
+                         next_node_id: str):
+        """
+        Updates the cache using the tensors from the new state.
+
+        Args:
+            node_id (str): The identifier of the node to which this cache
+                corresponds.
+            next_node_id (str): The identifier of the node to which the open
+                legs of the tensor point.
+
+        """
+        update_tree_cache(self,
+                          self.new_state,
+                          self.hamiltonian,
+                          node_id,next_node_id)
+
+    def to_storage(self,
+                   node_id: str,
+                   next_node_id: str):
+        """
+        Moves a given tensor to the storage.
+
+        Deletes the tensor from the main cache and overwrites any tensor under
+        the same key in the storage.
+
+        Args:
+            node_id (str): The identifier of the node to which this cache
+                corresponds.
+            next_node_id (str): The identifier of the node to which the open
+                legs of the tensor point.
+
+        """
+        tensor = self.get_entry(node_id,next_node_id)
+        self.storage.add_entry(node_id,next_node_id,tensor)
+        self.delete_entry(node_id,next_node_id)
+
+    def from_storage(self,
+                     node_id: str,
+                     next_node_id: str):
+        """
+        Moves a given tensor from the storage to the main cache.
+
+        Deletes the tensor from the storage and overwrites any tensor under the
+        same key in the main cache.
+
+        Args:
+            node_id (str): The identifier of the node to which this cache
+                corresponds.
+            next_node_id (str): The identifier of the node to which the open
+                legs of the tensor point.
+
+        """
+        tensor = self.storage.get_entry(node_id,next_node_id)
+        self.add_entry(node_id,next_node_id,tensor)
+        self.storage.delete_entry(node_id,next_node_id)
+
+    def switch_storage(self,
+                       node_id: str,
+                       next_node_id: str):
+        """
+        Switches the tensors between the main cache and the storage.
+
+        Args:
+            node_id (str): The identifier of the node to which this cache
+                corresponds.
+            next_node_id (str): The identifier of the node to which the open
+                legs of the tensor point.
+
+        """
+        tensor_main = self.get_entry(node_id,next_node_id)
+        tensor_storage = self.storage.get_entry(node_id,next_node_id)
+        self.add_entry(node_id,next_node_id,tensor_storage)
+        self.storage.add_entry(node_id,next_node_id,tensor_main)
+
+    def storage_empty(self) -> bool:
+        """
+        Checks if the storage is empty.
+
+        Returns:
+            bool: True if the storage is empty.
+
+        """
+        return len(self.storage) == 0

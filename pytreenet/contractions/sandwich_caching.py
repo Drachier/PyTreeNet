@@ -86,6 +86,7 @@ class SandwichCache(PartialTreeCachDict):
                 corresponds.
             next_node_id (str): The identifier of the node to which the open
                 legs of the tensor point.
+
         """
         update_tree_cache(self, self.state, self.hamiltonian,
                             node_id, next_node_id)
