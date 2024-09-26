@@ -377,7 +377,7 @@ class Node(GraphNode):
             raise NotCompatibleException(errstr)
         return self._shape[self._leg_permutation[0]]
 
-# ---------------------------- Usefull functions using nodes ---------------------------- 
+# ---------------------------- Usefull functions using nodes ----------------------------
 def relative_leg_permutation(old_node: Node,
                              new_node: Node,
                              modify_function: Union[Callable,None] = None,
