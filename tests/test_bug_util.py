@@ -8,14 +8,14 @@ from pytreenet.core.leg_specification import LegSpecification
 from pytreenet.random.random_node import random_tensor_node
 from pytreenet.random.random_matrices import crandn
 
-from pytreenet.time_evolution.bug import (basis_change_tensor_id,
-                                          reverse_basis_change_tensor_id,
-                                          new_basis_tensor_qr_legs,
-                                          concat_along_parent_leg,
-                                          _compute_new_basis_tensor_qr,
-                                          compute_new_basis_tensor,
-                                          compute_basis_change_tensor,
-                                          _find_new_basis_replacement_leg_specs)
+from pytreenet.time_evolution.time_evo_util.bug_util import (basis_change_tensor_id,
+                                                            reverse_basis_change_tensor_id,
+                                                            new_basis_tensor_qr_legs,
+                                                            concat_along_parent_leg,
+                                                            _compute_new_basis_tensor_qr,
+                                                            compute_new_basis_tensor,
+                                                            compute_basis_change_tensor,
+                                                            find_new_basis_replacement_leg_specs)
 
 class Test_identifier_functions(unittest.TestCase):
 
@@ -367,7 +367,7 @@ class Test_compute_basis_change_tensor(unittest.TestCase):
         self.assertRaises(AssertionError, compute_basis_change_tensor,
                           old_basis_tensor, new_basis_tensor)
 
-class Test_find_new_basis_replacement_leg_specs(unittest.TestCase):
+class Testfind_new_basis_replacement_leg_specs(unittest.TestCase):
 
     def setUp(self):
         self.m_legs = LegSpecification("parent",
@@ -379,7 +379,7 @@ class Test_find_new_basis_replacement_leg_specs(unittest.TestCase):
         """
         node, _ = random_tensor_node((3,2))
         node.add_parent("parent")
-        new_legs = _find_new_basis_replacement_leg_specs(node)
+        new_legs = find_new_basis_replacement_leg_specs(node)
         ref_u_legs = LegSpecification(None,[],[1])
         self.assertEqual(new_legs[0], self.m_legs)
         self.assertEqual(new_legs[1], ref_u_legs)
@@ -393,7 +393,7 @@ class Test_find_new_basis_replacement_leg_specs(unittest.TestCase):
         node.add_parent("parent")
         children = ["child1","child2"]
         node.add_children(children)
-        new_legs = _find_new_basis_replacement_leg_specs(node)
+        new_legs = find_new_basis_replacement_leg_specs(node)
         ref_u_legs = LegSpecification(None,copy(children),[3])
         self.assertEqual(new_legs[0], self.m_legs)
         self.assertEqual(new_legs[1], ref_u_legs)
@@ -407,7 +407,7 @@ class Test_find_new_basis_replacement_leg_specs(unittest.TestCase):
         node.add_parent("parent")
         children = ["child1","child2"]
         node.add_children(children)
-        new_legs = _find_new_basis_replacement_leg_specs(node)
+        new_legs = find_new_basis_replacement_leg_specs(node)
         ref_u_legs = LegSpecification(None,copy(children),[])
         self.assertEqual(new_legs[0], self.m_legs)
         self.assertEqual(new_legs[1], ref_u_legs)

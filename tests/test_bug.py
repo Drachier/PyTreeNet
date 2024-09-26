@@ -5,11 +5,11 @@ from copy import deepcopy, copy
 from numpy import allclose
 from scipy.linalg import expm
 
-from pytreenet.time_evolution.bug import (BUG,
-                                          basis_change_tensor_id,
-                                          reverse_basis_change_tensor_id,
-                                          compute_new_basis_tensor,
-                                          compute_basis_change_tensor)
+from pytreenet.time_evolution.bug import BUG
+from pytreenet.time_evolution.time_evo_util.bug_util import (basis_change_tensor_id,
+                                                            reverse_basis_change_tensor_id,
+                                                            compute_new_basis_tensor,
+                                                            compute_basis_change_tensor)
 from pytreenet.random.random_ttns_and_ttno import (small_ttns_and_ttno,
                                                    big_ttns_and_ttno)
 from pytreenet.random.random_ttns import RandomTTNSMode
@@ -609,6 +609,25 @@ class TestBUGComplicated(unittest.TestCase):
         new_state_tensor = new_state_tensor_vector.reshape(old_shape)
         # Check the result
         self.assertTrue(allclose(found_tensor, new_state_tensor))
+
+    def test_subtree_update_site1(self):
+        node_id = "site1"
+        print(self.bug.old_state.nodes[node_id].shape)
+        print(self.bug.old_state.nodes["site0"].shape)
+        # Prepare
+        self.bug.subtree_update(node_id)
+
+    def test_subtree_update_site3(self):
+        node_id = "site3"
+        # Prepare
+        self.bug.old_state.move_orthogonalization_center("site1")
+        self.bug.update_tensor_cache_old_state("site0", "site1")
+        self.bug.subtree_update(node_id)
+
+    def test_subtree_update_site6(self):
+        node_id = "site6"
+        # Prepare
+        self.bug.subtree_update(node_id)
 
 
 if __name__ == "__main__":

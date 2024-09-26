@@ -4,7 +4,8 @@ from numpy import tensordot, transpose, allclose, reshape
 
 from pytreenet.core.graph_node import GraphNode
 from pytreenet.random.random_ttns_and_ttno import (small_ttns_and_ttno,
-                                                   big_ttns_and_ttno)
+                                                   big_ttns_and_ttno,
+                                                   RandomTTNSMode)
 from pytreenet.contractions.sandwich_caching import SandwichCache
 
 from pytreenet.contractions.effective_hamiltonians import (find_tensor_leg_permutation,
@@ -146,7 +147,7 @@ class TestContractionMethodsSimple(unittest.TestCase):
 
 class TestContractionMethodsBig(unittest.TestCase):
     def setUp(self) -> None:
-        self.state, self.hamiltonian = big_ttns_and_ttno()
+        self.state, self.hamiltonian = big_ttns_and_ttno(mode=RandomTTNSMode.DIFFVIRT)
         self.state.canonical_form("site4") # To have some nodes with differeing child ordering
         self.cache = SandwichCache(self.state, self.hamiltonian)
         # To correctly compute the contractions we need all potential cached tensors
@@ -413,7 +414,8 @@ class TestContractionMethodsBig(unittest.TestCase):
                                               self.state,
                                               self.hamiltonian,
                                               self.cache)
-        ref_matrix = reshape(ref_matrix,(8,8))
+        shape = 7*4*2
+        ref_matrix = reshape(ref_matrix,(shape,shape))
 
         found_matrix = get_effective_single_site_hamiltonian(node_id,
                                                             self.state,
@@ -427,7 +429,8 @@ class TestContractionMethodsBig(unittest.TestCase):
                                               self.state,
                                               self.hamiltonian,
                                               self.cache)
-        ref_matrix = reshape(ref_matrix,(8,8))
+        size = 4*2*2
+        ref_matrix = reshape(ref_matrix,(size,size))
 
         found_matrix = get_effective_single_site_hamiltonian(node_id,
                                                             self.state,
@@ -441,7 +444,8 @@ class TestContractionMethodsBig(unittest.TestCase):
                                               self.state,
                                               self.hamiltonian,
                                               self.cache)
-        ref_matrix = reshape(ref_matrix,(16,16))
+        size = 7*5*2*2
+        ref_matrix = reshape(ref_matrix,(size,size))
 
         found_matrix = get_effective_single_site_hamiltonian(node_id,
                                                             self.state,
@@ -455,7 +459,8 @@ class TestContractionMethodsBig(unittest.TestCase):
                                               self.state,
                                               self.hamiltonian,
                                               self.cache)
-        ref_matrix = reshape(ref_matrix,(16,16))
+        size = 5*2*2*2
+        ref_matrix = reshape(ref_matrix,(size,size))
 
         found_matrix = get_effective_single_site_hamiltonian(node_id,
                                                             self.state,
