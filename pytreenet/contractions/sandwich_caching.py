@@ -63,6 +63,16 @@ class SandwichCache(PartialTreeCachDict):
         hamiltonians_close = self.hamiltonian == other.hamiltonian
         return states_close and hamiltonians_close
 
+    def shapes(self) -> Dict[Tuple[str,str],Tuple[int]]:
+        """
+        Returns the shapes of the tensors in the cache.
+
+        Returns:
+            Dict[Tuple[str,str],Tuple[int]]: A dictionary with the shapes
+                of the tensors in the cache.
+        """
+        return {key: self[key].shape for key in self}
+
     def update_tree_cache(self, node_id: str, next_node_id: str):
         """
         Updates a tree tensor for given node identifiers.
