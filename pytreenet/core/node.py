@@ -1,10 +1,11 @@
 from __future__ import annotations
-from typing import List, Dict, Union, Tuple
+from typing import List, Dict, Union, Tuple, Callable
 from functools import reduce
 
 from numpy import ndarray
 
-from .graph_node import GraphNode
+from .graph_node import (GraphNode,
+                         find_child_permutation_neighbour_index)
 from ..util.std_utils import permute_tuple
 from ..util.ttn_exceptions import NotCompatibleException
 
@@ -375,3 +376,41 @@ class Node(GraphNode):
             errstr = f"Node {self.identifier} is root, thus does not have a parent!"
             raise NotCompatibleException(errstr)
         return self._shape[self._leg_permutation[0]]
+
+# ---------------------------- Usefull functions using nodes ---------------------------- 
+def relative_leg_permutation(old_node: Node,
+                             new_node: Node,
+                             modify_function: Union[Callable,None] = None,
+                             modified_parent: bool = False) -> List[int]:
+    """
+    Calculates the relative permutation between two nodes.
+
+    This is the permutation required to transform the legs of the old node
+    to the legs of the new node. Thus applying the permutation to the tensor
+    of the old node, will make it fit the leg order of the new node.
+
+    Args:
+        old_node (Node): The node to be transformed.
+        new_node (Node): The node to be transformed to.
+        modify_function (Union[Callable,None]): A function by which the 
+            neighbour identifiers of the old node differ from the neighbour
+            identifiers of the new node. If None, the neighbour identifiers
+            are assumed to be the same.
+        modified_parent (bool): If True, the parent leg can also be different.
+    
+    Returns:
+        List[int]: The relative permutation.
+    """
+    if modified_parent:
+        raise NotImplementedError
+    else:
+        child_perm = find_child_permutation_neighbour_index(old_node,
+                                                            new_node,
+                                                            modify_function)
+        if new_node.is_root():
+            perm = []
+        else:
+            perm = [new_node.parent_leg]
+        perm += child_perm
+        perm += new_node.open_legs
+        return perm
