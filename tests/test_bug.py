@@ -576,7 +576,7 @@ class TestBUGComplicated(unittest.TestCase):
         Test the time evolution of the site1 tensor.
 
         A lot would happen before the tensor is actually time-evolved, so
-        we need to accunt for that.
+        we need to account for that.
         """
         node_id = "site1"
         # Prepare

@@ -219,12 +219,11 @@ class BUG(TTNTimeEvolution):
             parent_id = node.parent
             self.old_state.move_orthogonalization_center(parent_id)
             self.update_tensor_cache_old_state(node_id, parent_id)
-            old_tensor = self.old_state.tensors[node_id]
+            old_tensor = self.get_old_state_tensor(node_id)
         else:
             # Otherwise we use the node with the basis change tensors of the
             # children contracted into it
             old_tensor = self.state.tensors[node_id]
-        # TODO: What if the nodes do not have the same child order?
         new_basis_tensor = compute_new_basis_tensor(self.state.nodes[node_id],
                                                     old_tensor,
                                                     updated_tensor)
@@ -234,7 +233,7 @@ class BUG(TTNTimeEvolution):
             parent_id = node.parent
             self.old_state.move_orthogonalization_center(parent_id)
             self.update_tensor_cache_old_state(node_id, parent_id)
-        old_basis_tensor = self.old_state.tensors[node_id]
+        old_basis_tensor = self.get_old_state_tensor(node_id)
         # The leg order of both tensors is the same
         basis_change_tensor = compute_basis_change_tensor(old_basis_tensor,
                                                             new_basis_tensor)
@@ -243,6 +242,14 @@ class BUG(TTNTimeEvolution):
                                             new_basis_tensor,
                                             basis_change_tensor)
         # We update the cache later, to keep the old cache for sibling nodes
+
+    def update_root(self):
+        """
+        Updates the root node, by time evolving the tensor.
+        """
+        root_id = self.state.root_id
+        updated_tensor = self.time_evolve_node(root_id)
+        self.state.replace_tensor(root_id, updated_tensor)
 
     def subtree_update(self, node_id: str):
         """
