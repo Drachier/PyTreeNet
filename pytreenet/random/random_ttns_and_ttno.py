@@ -11,7 +11,8 @@ from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
 from pytreenet.ttns.ttns import TreeTensorNetworkState
 
 from pytreenet.random.random_ttns import (random_small_ttns,
-                                            random_big_ttns_two_root_children)
+                                            random_big_ttns_two_root_children,
+                                            RandomTTNSMode)
 from pytreenet.random.random_matrices import random_hermitian_matrix
 from pytreenet.random.random_hamiltonian import random_hamiltonian_compatible
 
@@ -54,8 +55,8 @@ def small_ttns_and_ttno() -> Tuple[TreeTensorNetworkState,
     hamiltonian = TreeTensorNetworkOperator.from_hamiltonian(ham, ref_tree)
     return ref_tree, hamiltonian
 
-def big_ttns_and_ttno() -> Tuple[TreeTensorNetworkState,
-                                TreeTensorNetworkOperator]:
+def big_ttns_and_ttno(mode: RandomTTNSMode = RandomTTNSMode.SAME) -> Tuple[TreeTensorNetworkState,
+                                                            TreeTensorNetworkOperator]:
     """
     Returns a random big TTNS and TTNO where the root has only two children.
 
@@ -82,7 +83,7 @@ def big_ttns_and_ttno() -> Tuple[TreeTensorNetworkState,
              4     5
     
     """
-    ref_tree = random_big_ttns_two_root_children()
+    ref_tree = random_big_ttns_two_root_children(mode=mode)
     ham = random_hamiltonian_compatible()
     hamiltonian = TreeTensorNetworkOperator.from_hamiltonian(ham,
                                                     ref_tree)
