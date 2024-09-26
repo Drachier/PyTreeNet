@@ -1,12 +1,12 @@
 
 from typing import Dict, List, Union, Tuple
-from copy import deepcopy, copy
+from copy import deepcopy
 
 from numpy import ndarray, tensordot, concatenate
 
 from .ttn_time_evolution import TTNTimeEvolution, TTNTimeEvolutionConfig
 from ..operators.tensorproduct import TensorProduct
-from ..core.graph_node import find_child_permutation_neighbour_index
+from ..core.node import relative_leg_permutation
 from ..ttns.ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TreeTensorNetworkOperator
 from ..core.leg_specification import LegSpecification
@@ -71,7 +71,7 @@ class BUG(TTNTimeEvolution):
         return SandwichCache.init_cache_but_one(self.old_state, # Importantly the old state
                                                 self.hamiltonian,
                                                 self.state.root_id)
-    
+
     def update_tensor_cache_old_state(self,
                                       node_id: str,
                                       next_node_id: str):
@@ -129,25 +129,41 @@ class BUG(TTNTimeEvolution):
         """
         old_node = self.old_state.nodes[node_id]
         new_node = self.state.nodes[node_id]
-        # Find a potential permutation of the children
-        # The children in the new state are the basis change tensord
-        child_perm = find_child_permutation_neighbour_index(old_node, new_node,
-                                         modify_function=reverse_basis_change_tensor_id)
-        if new_node.is_root():
-            # The root has no parent leg
-            perm = []
-        else:
-            perm = [new_node.parent_leg]
-        perm = perm + child_perm + new_node.open_legs
+        # Find a potential permutation of the neighbours
+        # The children in the new state are the basis change tensors
+        perm = relative_leg_permutation(old_node, new_node,
+                                        modify_function=reverse_basis_change_tensor_id)
         old_tensor = self.old_state.tensors[node_id]
         self.state.replace_tensor(node_id, deepcopy(old_tensor), perm)
+
+    def get_old_state_tensor(self, node_id: str) -> ndarray:
+        """
+        Gets a tensor from the old state and transposes it to fit the new state.
+
+        The children order of the nodes in the two states can differ, so the
+        leg order of a tensor from the old state might not fit with that of the
+        new state.
+
+        Args:
+            node_id (str): The id of the node to get.
+        
+        Returns:
+            ndarray: The tensor from the old state, but tranformed to fit the
+                new state.
+
+        """
+        old_node = self.old_state.nodes[node_id]
+        new_node = self.state.nodes[node_id]
+        # Find a potential permutation of the neighbours
+        perm = relative_leg_permutation(old_node, new_node)
+        old_tensor = self.old_state.tensors[node_id]
+        return old_tensor.transpose(perm)
 
     def time_evolve_node(self, node_id: str) -> ndarray:
         """
         Time evolves the node with the given id.
 
         """
-        self._assert_orth_center(node_id)
         h_eff = get_effective_single_site_hamiltonian(node_id,
                                                       self.state,
                                                       self.hamiltonian,
@@ -168,7 +184,7 @@ class BUG(TTNTimeEvolution):
                                         basis_change_tensor: ndarray
                                         ):
         """
-        Replaces a node with the tenors of the updated basis.
+        Replaces a node with the tensors of the updated basis.
 
         Args:
             node_id (str): The id of the node to replace.
@@ -194,6 +210,7 @@ class BUG(TTNTimeEvolution):
         # We combine the updated tensor and the tensor with the basis change
         # tensors of the children contracted to find the new basis tensor for
         # this node
+        self._assert_orth_center(node_id)
         updated_tensor = self.time_evolve_node(node_id)
         node = self.state.nodes[node_id]
         if node.is_leaf():
@@ -201,7 +218,13 @@ class BUG(TTNTimeEvolution):
             # the computation of the new basis tensor.
             parent_id = node.parent
             self.old_state.move_orthogonalization_center(parent_id)
-        old_tensor = self.state.tensors[node_id]
+            self.update_tensor_cache_old_state(node_id, parent_id)
+            old_tensor = self.old_state.tensors[node_id]
+        else:
+            # Otherwise we use the node with the basis change tensors of the
+            # children contracted into it
+            old_tensor = self.state.tensors[node_id]
+        # TODO: What if the nodes do not have the same child order?
         new_basis_tensor = compute_new_basis_tensor(self.state.nodes[node_id],
                                                     old_tensor,
                                                     updated_tensor)
@@ -210,6 +233,7 @@ class BUG(TTNTimeEvolution):
             # the computation of the basis change tensor.
             parent_id = node.parent
             self.old_state.move_orthogonalization_center(parent_id)
+            self.update_tensor_cache_old_state(node_id, parent_id)
         old_basis_tensor = self.old_state.tensors[node_id]
         # The leg order of both tensors is the same
         basis_change_tensor = compute_basis_change_tensor(old_basis_tensor,
@@ -231,7 +255,7 @@ class BUG(TTNTimeEvolution):
         node = self.state.nodes[node_id] # TODO: Check if these have the same python id
         self._assert_orth_center(node.parent, object_name="parent node")
         self.old_state.move_orthogonalization_center(node_id)
-        self.tensor_cache.update_tree_cache(node.parent, node_id)
+        self.update_tensor_cache_old_state(node.parent, node_id)
         node = self.state.nodes[node_id] # TODO: Check if these have the same python id
         if not node.is_leaf():
             # Not a leaf
@@ -241,19 +265,15 @@ class BUG(TTNTimeEvolution):
             self._assert_orth_center(node_id)
             # We need the tensor of the old state as the orth center
             self.pull_tensor_from_old_state(node_id)
-            # Now we contract the basis change tensors of the children
-            for child_id in copy(node.children):
-                self.state.contract_nodes(child_id,node_id,
-                                        new_identifier=node_id)
+            # Due to the updates of the children subtrees, the children are now
+            # the basis change tensors. Contraction yields the core tensor with
+            # the new basis/virtual bond dimensions.
+            self.state.contract_all_children(node_id)
             # Now the children have the original children identifiers
             node = self.state.nodes[node_id] # TODO: Check if these have the same python id
             for child_id in node.children:
                 # We need to update the cache with respect to the new state
-                update_tree_cache(self.tensor_cache,
-                                self.state,
-                                self.hamiltonian,
-                                child_id,
-                                node_id)
+                self.update_tensor_cache_new_state(child_id, node_id)
         else:
             # We need the tensor of the old state as the orth center
             # Since we didn't do anythin this is still the case
