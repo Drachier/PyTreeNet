@@ -1,7 +1,6 @@
 from unittest import TestCase, main
 
-from pytreenet.core.node import (Node,
-                                 relative_leg_permutation)
+from pytreenet.core.node import relative_leg_permutation
 from pytreenet.random.random_node import random_tensor_node
 
 class Test_find_child_permutation_neighbour_index(TestCase):
