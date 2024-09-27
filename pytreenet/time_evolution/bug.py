@@ -1,16 +1,18 @@
 
 from typing import Dict, List, Union
-from copy import deepcopy
+from copy import deepcopy, copy
 
 from numpy import ndarray
 
 from .ttn_time_evolution import TTNTimeEvolution, TTNTimeEvolutionConfig
 from ..operators.tensorproduct import TensorProduct
-from ..core.node import relative_leg_permutation
+from ..core.ttn import (pull_tensor_from_different_ttn,
+                        get_tensor_from_different_ttn)
 from ..ttns.ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TreeTensorNetworkOperator
-from ..contractions.sandwich_caching import SandwichCache, update_tree_cache
 from ..contractions.effective_hamiltonians import get_effective_single_site_hamiltonian
+from ..contractions.sandwich_caching import SandwichCache
+from ..contractions.tree_cach_dict import PartialTreeCachDict
 from .time_evolution import time_evolve
 from .time_evo_util.bug_util import (basis_change_tensor_id,
                                      reverse_basis_change_tensor_id,
@@ -43,10 +45,10 @@ class BUG(TTNTimeEvolution):
                          time_step_size, final_time,
                          operators, config)
         self.hamiltonian = hamiltonian
-        self._ensure_root_orth_center()
-        self.old_state = deepcopy(self.state)
-        # Deal with cache of tensor contractions
-        self.tensor_cache = self._init_tensor_cache()
+        self.ttns_dict: Dict[str,TreeTensorNetworkState] = {}
+        self.cache_dict: Dict[str,SandwichCache] = {}
+        self.basis_change_cache = PartialTreeCachDict()
+        self.tensor_cache = SandwichCache(self.state, self.hamiltonian)
 
     def _ensure_root_orth_center(self):
         """
@@ -62,103 +64,6 @@ class BUG(TTNTimeEvolution):
             self.state.move_orthogonalization_center(root_id)
         # Otherwise an external reset might take the uncanonicalised state
         self._initial_state = deepcopy(self.state)
-
-    def _init_tensor_cache(self) -> SandwichCache:
-        """
-        Initializes the sandwich cache, where only the root is not contracted.
-
-        """
-        assert self.old_state.root_id is not None, "Root id is None!"
-        return SandwichCache.init_cache_but_one(self.old_state, # Importantly the old state
-                                                self.hamiltonian,
-                                                self.state.root_id)
-
-    def update_tensor_cache_old_state(self,
-                                      node_id: str,
-                                      next_node_id: str):
-        """
-        Updates the tensor cache with respect to the old state.
-
-        Args:
-            node_id (str): The id of the node on which to sandwich contract.
-            next_node_id (str): The id of the node to which the open tensor
-                legs will point
-
-        """
-        self.tensor_cache.update_tree_cache(node_id, next_node_id)
-
-    def update_tensor_cache_new_state(self,
-                                      node_id: str,
-                                      next_node_id: str):
-        """
-        Updates the tensor cache with respect to the new state.
-
-        Args:
-            node_id (str): The id of the node on which to sandwich contract.
-            next_node_id (str): The id of the node to which the open tensor
-                legs will point
-
-        """
-        update_tree_cache(self.tensor_cache,
-                          self.state,
-                          self.hamiltonian,
-                          node_id,
-                          next_node_id)
-
-    def _assert_orth_center(self, *args, **kwargs):
-        """
-        Asserts that the node is the orthogonality center.
-
-        Args:
-            node_id (str): The id of the node to check.
-            object_name (str): The name of the object to check.
-
-        Raises:
-            AssertionError: If the node is not the orthogonality center.
-
-        """
-        # We basically wrap the assertion of the old state.
-        self.old_state.assert_orth_center(*args, **kwargs)
-
-    def pull_tensor_from_old_state(self, node_id: str):
-        """
-        Pulls a tensor from the old state to the new state.
-
-        Args:
-            node_id (str): The id of the node to pull.
-
-        """
-        old_node = self.old_state.nodes[node_id]
-        new_node = self.state.nodes[node_id]
-        # Find a potential permutation of the neighbours
-        # The children in the new state are the basis change tensors
-        perm = relative_leg_permutation(old_node, new_node,
-                                        modify_function=reverse_basis_change_tensor_id)
-        old_tensor = self.old_state.tensors[node_id]
-        self.state.replace_tensor(node_id, deepcopy(old_tensor), perm)
-
-    def get_old_state_tensor(self, node_id: str) -> ndarray:
-        """
-        Gets a tensor from the old state and transposes it to fit the new state.
-
-        The children order of the nodes in the two states can differ, so the
-        leg order of a tensor from the old state might not fit with that of the
-        new state.
-
-        Args:
-            node_id (str): The id of the node to get.
-        
-        Returns:
-            ndarray: The tensor from the old state, but tranformed to fit the
-                new state.
-
-        """
-        old_node = self.old_state.nodes[node_id]
-        new_node = self.state.nodes[node_id]
-        # Find a potential permutation of the neighbours
-        perm = relative_leg_permutation(old_node, new_node)
-        old_tensor = self.old_state.tensors[node_id]
-        return old_tensor.transpose(perm)
 
     def time_evolve_node(self, node_id: str) -> ndarray:
         """
@@ -203,47 +108,6 @@ class BUG(TTNTimeEvolution):
                                       leg_specs[0],
                                       leg_specs[1])
 
-    def update_non_root(self, node_id: str):
-        """
-        Performs the update for a non-root node.
-
-        """
-        # We combine the updated tensor and the tensor with the basis change
-        # tensors of the children contracted to find the new basis tensor for
-        # this node
-        self._assert_orth_center(node_id)
-        updated_tensor = self.time_evolve_node(node_id)
-        node = self.state.nodes[node_id]
-        if node.is_leaf():
-            # For a leaf the orthogonalised old node is already needed for
-            # the computation of the new basis tensor.
-            parent_id = node.parent
-            self.old_state.move_orthogonalization_center(parent_id)
-            self.update_tensor_cache_old_state(node_id, parent_id)
-            old_tensor = self.get_old_state_tensor(node_id)
-        else:
-            # Otherwise we use the node with the basis change tensors of the
-            # children contracted into it
-            old_tensor = self.state.tensors[node_id]
-        new_basis_tensor = compute_new_basis_tensor(self.state.nodes[node_id],
-                                                    old_tensor,
-                                                    updated_tensor)
-        if not node.is_leaf():
-            # For an non-leaf the orthogonalised old node is only needed for
-            # the computation of the basis change tensor.
-            parent_id = node.parent
-            self.old_state.move_orthogonalization_center(parent_id)
-            self.update_tensor_cache_old_state(node_id, parent_id)
-        old_basis_tensor = self.get_old_state_tensor(node_id)
-        # The leg order of both tensors is the same
-        basis_change_tensor = compute_basis_change_tensor(old_basis_tensor,
-                                                            new_basis_tensor)
-        # Now we replace the node in the new state
-        self.replace_node_with_updated_basis(node_id,
-                                            new_basis_tensor,
-                                            basis_change_tensor)
-        # We update the cache later, to keep the old cache for sibling nodes
-
     def update_root(self):
         """
         Updates the root node, by time evolving the tensor.
@@ -251,6 +115,43 @@ class BUG(TTNTimeEvolution):
         root_id = self.state.root_id
         updated_tensor = self.time_evolve_node(root_id)
         self.state.replace_tensor(root_id, updated_tensor)
+
+    def tree_update(self):
+        """
+        Starts the recursive update of the tree.
+        
+        """
+        root_id = self.state.root_id
+        self.state.assert_orth_center(root_id)
+        root_ttns = deepcopy(self.state)
+        self.ttns_dict[root_id] = root_ttns
+        current_cache = SandwichCache.init_cache_but_one(root_ttns,
+                                                         self.hamiltonian,
+                                                         root_id)
+        self.cache_dict[root_id] = current_cache
+        for child_id in self.state.nodes[root_id].children:
+            self.subtree_update(child_id)
+        # Now the children in the state are the basis change tensors
+        pull_tensor_from_different_ttn(root_ttns, self.state,
+                                       root_id,
+                                       mod_fct=reverse_basis_change_tensor_id)
+        self.state.contract_all_children(root_id)
+        for child_id in self.state.nodes[root_id].children:
+            cache_tensor = self.tensor_cache.get_entry(child_id, root_id)
+            current_cache.add_entry(child_id, root_id,
+                                    cache_tensor)
+        h_eff = get_effective_single_site_hamiltonian(root_id,
+                                                      self.state,
+                                                      self.hamiltonian,
+                                                      current_cache)
+        updated_tensor = time_evolve(self.state.tensors[root_id],
+                                     h_eff,
+                                     self.time_step_size,
+                                     forward=True)
+        self.state.replace_tensor(root_id,updated_tensor)
+        del self.ttns_dict[root_id]
+        del self.cache_dict[root_id]
+        self.basis_change_cache = PartialTreeCachDict()
 
     def subtree_update(self, node_id: str):
         """
@@ -260,37 +161,110 @@ class BUG(TTNTimeEvolution):
             node_id (str): The id of the node to update.
 
         """
-        print("Subtree update for node", node_id)
-        node = self.state.nodes[node_id] # TODO: Check if these have the same python id
-        self._assert_orth_center(node.parent, object_name="parent node")
-        self.old_state.move_orthogonalization_center(node_id)
-        self.update_tensor_cache_old_state(node.parent, node_id)
-        node = self.state.nodes[node_id] # TODO: Check if these have the same python id
-        if not node.is_leaf():
-            # Not a leaf
-            for child_id in node.children:
-                self.subtree_update(child_id)
-                print("Updated child", child_id)
-            # Now the new state contains the updated children tensors and basis changes
-            self._assert_orth_center(node_id)
-            # We need the tensor of the old state as the orth center
-            self.pull_tensor_from_old_state(node_id)
-            # Due to the updates of the children subtrees, the children are now
-            # the basis change tensors. Contraction yields the core tensor with
-            # the new basis/virtual bond dimensions.
-            self.state.contract_all_children(node_id)
-            # Now the children have the original children identifiers
-            node = self.state.nodes[node_id] # TODO: Check if these have the same python id
-            for child_id in node.children:
-                # We need to update the cache with respect to the new state
-                self.update_tensor_cache_new_state(child_id, node_id)
-        else:
-            # We need the tensor of the old state as the orth center
-            # Since we didn't do anythin this is still the case
-            self.pull_tensor_from_old_state(node_id)
-        # Now we can update the node
-        self.update_non_root(node_id)
+        node = self.state.nodes[node_id]
+        parent_id = node.parent
+        current_ttns = deepcopy(self.ttns_dict[parent_id])
+        current_ttns.assert_orth_center(parent_id)
+        current_ttns.move_orthogonalization_center(node_id)
+        current_cache = copy(self.cache_dict[parent_id])
+        current_cache.state = current_ttns
+        current_cache.update_tree_cache(parent_id,node_id)
+        self.ttns_dict[node_id] = current_ttns
+        self.cache_dict[node_id] = current_cache
+        for child_id in node.children:
+            self.subtree_update(child_id)
+        # Now the children in the state are the basis change tensors
+        # and the children sandwich tensors and the children basis change
+        # tensors are in their resepctive caches.
+        for child_id in node.children:
+            tensor = self.tensor_cache.get_entry(child_id, node_id)
+            current_cache.add_entry(child_id, node_id,
+                                    tensor)
+        pull_tensor_from_different_ttn(current_ttns, self.state,
+                                       node_id,
+                                       mod_fct=reverse_basis_change_tensor_id)
+        current_ttns.contract_all_children(node_id)
+        h_eff = get_effective_single_site_hamiltonian(node_id,
+                                                      self.state,
+                                                      self.hamiltonian,
+                                                      current_cache)
+        updated_tensor = time_evolve(self.state.tensors[node_id],
+                                     h_eff,
+                                     self.time_step_size,
+                                     forward=True)
+        new_basis_tensor = compute_new_basis_tensor(self.state.nodes[node_id],
+                                                    self.state.tensors[node_id],
+                                                    updated_tensor)
+        # All the children's basis change tensors are already contracted
+        basis_change_tensor = compute_basis_change_tensor(self.ttns_dict[parent_id].nodes[node_id],
+                                                          self.state.nodes[node_id],
+                                                          self.ttns_dict[parent_id].tensors[node_id],
+                                                          new_basis_tensor,
+                                                          self.basis_change_cache)
+        self.replace_node_with_updated_basis(node_id,
+                                             new_basis_tensor,
+                                             basis_change_tensor)
+        self.basis_change_cache.add_entry(node_id, parent_id,
+                                          basis_change_tensor)
+        self.tensor_cache.update_tree_cache(node_id,
+                                            basis_change_tensor_id(node_id))
+        self.tensor_cache.change_next_id_for_entry(node_id,
+                                                   basis_change_tensor_id(node_id),
+                                                   parent_id)
 
+    def leaf_subtree_update(self, node_id: str):
+        """
+        Updates the subtree rooted at the given node.
+
+        Args:
+            node_id (str): The id of the node to update.
+
+        """
+        node = self.state.nodes[node_id]
+        parent_id = node.parent
+        current_ttns = deepcopy(self.ttns_dict[parent_id])
+        current_ttns.assert_orth_center(parent_id)
+        current_ttns.move_orthogonalization_center(node_id)
+        current_cache = copy(self.cache_dict[parent_id])
+        current_cache.state = current_ttns
+        current_cache.update_tree_cache(parent_id,node_id)
+        self.ttns_dict[node_id] = current_ttns
+        self.cache_dict[node_id] = current_cache
+        # Now the children in the state are the basis change tensors
+        # and the children sandwich tensors and the children basis change
+        # tensors are in their resepctive caches.
+        pull_tensor_from_different_ttn(current_ttns, self.state,
+                                       node_id,
+                                       mod_fct=reverse_basis_change_tensor_id)
+        h_eff = get_effective_single_site_hamiltonian(node_id,
+                                                      self.state,
+                                                      self.hamiltonian,
+                                                      current_cache)
+        updated_tensor = time_evolve(self.state.tensors[node_id],
+                                     h_eff,
+                                     self.time_step_size,
+                                     forward=True)
+        new_basis_tensor = compute_new_basis_tensor(self.state.nodes[node_id],
+                                                    get_tensor_from_different_ttn(self.ttns_dict[parent_id],
+                                                                                  self.state,
+                                                                                  node_id),
+                                                    updated_tensor)
+        # All the children's basis change tensors are already contracted
+        basis_change_tensor = compute_basis_change_tensor(self.ttns_dict[parent_id].nodes[node_id],
+                                                          self.state.nodes[node_id],
+                                                          self.ttns_dict[parent_id].tensors[node_id],
+                                                          new_basis_tensor,
+                                                          self.basis_change_cache)
+        self.replace_node_with_updated_basis(node_id,
+                                             new_basis_tensor,
+                                             basis_change_tensor)
+        self.basis_change_cache.add_entry(node_id, parent_id,
+                                          basis_change_tensor)
+        self.tensor_cache.update_tree_cache(node_id,
+                                            basis_change_tensor_id(node_id))
+        self.tensor_cache.change_next_id_for_entry(node_id,
+                                                   basis_change_tensor_id(node_id),
+                                                   parent_id)
 
     def run_one_time_step(self, **kwargs):
         """
