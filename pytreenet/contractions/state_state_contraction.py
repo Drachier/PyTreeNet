@@ -118,72 +118,116 @@ def contract_any(node_id: str, next_node_id: str,
         dictionary (PartialTreeCacheDict): The dictionary containing the
             already contracted subtrees.
     """
-    node = state1.nodes[node_id]
-    if node.is_leaf():
-        return contract_leafs(node_id, state1, state2)
-    return contract_subtrees_using_dictionary(node_id,
-                                              next_node_id,
-                                              state1,
-                                              state2,
+    node1, tensor1 = state1[node_id]
+    node2, tensor2 = state2[node_id]
+    return contract_any_nodes(next_node_id, node1, node2,
+                              tensor1, tensor2, dictionary)
+
+def contract_any_nodes(next_node_id: str,
+                       node1: Node, node2: Node,
+                       tensor1: np.ndarray, tensor2: np.ndarray,
+                       dictionary: PartialTreeCachDict) -> np.ndarray:
+    """
+    Contracts any two nodes using the given tensors.
+
+    More specifically, it contracts the given tensors with all but one of the
+    subtrees attached to the nodes. The remaining open legs of the resulting
+    tensor point to the uncontracted next node.
+
+    Note that the two nodes have to have the same connectivity, i.e. the same
+    identifiers as neighbours.
+
+    Args:
+        next_node_id (str): The identifier of the node to which the remaining
+            virtual legs point.
+        node1 (Node): The first node.
+        node2 (Node): The second node.
+        tensor1 (np.ndarray): The tensor corresponding to node1.
+        tensor2 (np.ndarray): The tensor corresponding to node2.
+        dictionary (PartialTreeCacheDict): The dictionary containing the
+            already contracted subtrees.
+    
+    Returns:
+        np.ndarray: The resulting tensor. 
+
+                 _____      ______
+            ____|     |____|      |
+            1   |  B  |    |      |
+                |_____|    |      |
+                   |       |      |
+                   |       |  C1  |
+                 __|__     |      |
+            ____|     |____|      |
+            0   |  A  |    |      |
+                |_____|    |______|
+    """
+    if node1.is_leaf():
+        return contract_leafs(node1, node2, tensor1, tensor2)
+    return contract_subtrees_using_dictionary(next_node_id,
+                                              node1, node2,
+                                              tensor1, tensor2,
                                               dictionary)
 
-def contract_leafs(node_id: str,
-                   state1: TreeTensorNetworkState,
-                   state2: TreeTensorNetworkState) -> np.ndarray:
+def contract_leafs(node1: Node, node2: Node,
+                   tensor1: np.ndarray, tensor2: np.ndarray
+                   ) -> np.ndarray:
     """
-    Contracts the leaf nodes of two states.
+    Contracts tensors associated with two leaf nodes.
 
     If the current subtree starts at a leaf node, only the tensors correspoding
     to this leaf in the two states must be contracted with each other.
 
     Args:
-        node_id (str): The identifier of the leaf node.
-        state1 (TreeTensorNetworkState): The first TTN state.
-        state2 (TreeTensorNetworkState): The second TTN state.
+        node1 (Node): The first node.
+        node2 (Node): The second node.
+        tensor1 (np.ndarray): The tensor corresponding to node1.
+        tensor2 (np.ndarray): The tensor corresponding to node2.
 
     Returns:
         np.ndarray: The tensor resulting from the contraction::
 
                      _____
                 ____|     |
-                    |  B  |
+                    |  T1 |
                     |_____|
                        |
                        |
                      __|__
                 ____|     |
-                    |  A  |
+                    |  T2 |
                     |_____|
     
-            where B is the tensor in state2 and A is the tensor in state1.
+
     """
-    node1 = state1.nodes[node_id]
-    node2 = state2.nodes[node_id]
     assert node1.is_leaf() and node2.is_leaf()
     errstr = "The leaf nodes must have exactly one open leg."
     assert len(node1.open_legs) == 1 and len(node2.open_legs) == 1, errstr
-    tensor = np.tensordot(state1.tensors[node_id], state2.tensors[node_id],
-                            axes=(node1.open_legs[0], node2.open_legs[0]))
+    axes = (node1.open_legs[0], node2.open_legs[0])
+    tensor = np.tensordot(tensor1, tensor2,
+                            axes=axes)
     return tensor
 
-def contract_subtrees_using_dictionary(node_id: str, next_node_id: str,
-                                       state1: TreeTensorNetworkState,
-                                       state2: TreeTensorNetworkState,
-                                       dictionary: PartialTreeCachDict) -> np.ndarray:
+def contract_subtrees_using_dictionary(next_node_id: str,
+                                       node1: Node, node2: Node,
+                                       tensor1: np.ndarray,
+                                       tensor2: np.ndarray,
+                                       dictionary: PartialTreeCachDict
+                                       ) -> np.ndarray:
     """
     Contracts a node with all but one of the subtrees attached to it.
 
-    The tensors of the two states corresponding to the node are contracted with
+    The tensors corresponding to the nodes are contracted with
     each other and all but one subtrees starting from this node. The other
     subtrees are assumed to already be contracted and stored in the provided
     dictionary.
 
     Args:
-        node_id (str): The identifier of the node.
         next_node_id (str): The identifier of the node to which the remaining
             virtual legs point.
-        state1 (TreeTensorNetworkState): The first TTN state.
-        state2 (TreeTensorNetworkState): The second TTN state.
+        node1 (Node): The first node.
+        node2 (Node): The second node.
+        tensor1 (np.ndarray): The tensor corresponding to node1.
+        tensor2 (np.ndarray): The tensor corresponding to node2.
         dictionary (PartialTreeCacheDict): The dictionary containing the
             already contracted subtrees.
         
@@ -193,22 +237,24 @@ def contract_subtrees_using_dictionary(node_id: str, next_node_id: str,
 
                          _____      ______
                     ____|     |____|      |
-                        |  B  |    |      |
+                        |  T1 |    |      |
                         |_____|    |      |
                            |       |      |
                            |       |  C   |
                          __|__     |      |
                     ____|     |____|      |
-                        |  A  |    |      |
+                        |  T2 |    |      |
                         |_____|    |______|
         
     """
-    ket_node, ket_tensor = state1[node_id]
+    ket_node = node1
+    ket_tensor = tensor1
     ketblock_tensor = contract_all_but_one_neighbour_block_to_ket(ket_tensor,
                                                                   ket_node,
                                                                   next_node_id,
                                                                   dictionary)
-    bra_node, bra_tensor = state2[node_id]
+    bra_node = node2
+    bra_tensor = tensor2
     return contract_bra_to_ket_and_blocks_ignore_one_leg(bra_tensor,
                                                          ketblock_tensor,
                                                          bra_node,
