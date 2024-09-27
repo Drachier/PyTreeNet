@@ -1,20 +1,13 @@
 
 from __future__ import annotations
-from typing import Dict, List, Tuple, Union
+from typing import List, Tuple
 
 from numpy import ndarray, concatenate
-
-from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
-from pytreenet.ttns.ttns import TreeTensorNetworkState
 
 from ...core.node import Node
 from ...core.leg_specification import LegSpecification
 from ...util.tensor_util import make_last_leg_first
 from ...util.tensor_splitting import tensor_qr_decomposition
-from ...contractions.sandwich_caching import (SandwichCache,
-                                              update_tree_cache,
-                                              _find_caching_path
-                                              )
 from ...contractions.tree_cach_dict import PartialTreeCachDict
 from ...contractions.state_state_contraction import contract_any_nodes
 
