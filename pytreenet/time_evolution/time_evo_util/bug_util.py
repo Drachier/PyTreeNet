@@ -1,7 +1,8 @@
 
+from __future__ import annotations
 from typing import Dict, List, Tuple, Union
 
-from numpy import ndarray, concatenate, tensordot
+from numpy import ndarray, concatenate
 
 from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
 from pytreenet.ttns.ttns import TreeTensorNetworkState
@@ -11,9 +12,11 @@ from ...core.leg_specification import LegSpecification
 from ...util.tensor_util import make_last_leg_first
 from ...util.tensor_splitting import tensor_qr_decomposition
 from ...contractions.sandwich_caching import (SandwichCache,
-                                              update_tree_cache
+                                              update_tree_cache,
+                                              _find_caching_path
                                               )
 from ...contractions.tree_cach_dict import PartialTreeCachDict
+from ...contractions.state_state_contraction import contract_any_nodes
 
 
 def basis_change_tensor_id(node_id: str) -> str:
@@ -126,34 +129,38 @@ def compute_new_basis_tensor(node: Node,
     new_basis_tensor = make_last_leg_first(new_basis_tensor)
     return new_basis_tensor
 
-def compute_basis_change_tensor(old_basis_tensor: ndarray,
-                                new_basis_tensor: ndarray
+def compute_basis_change_tensor(node_old: Node,
+                                node_new: Node,
+                                tensor_old: ndarray,
+                                tensor_new: ndarray,
+                                basis_change_tensor_cache: PartialTreeCachDict
                                 ) -> ndarray:
     """
-    Compute the new basis change tensor M_hat.
+    Computes the basis change tensor.
 
-          ____             ____  other ____
-       0 |    | 1       0 |    |______|    | 0
-      ___|Mhat|___  =  ___| U  |______|Uhat|___
-     rold|____|rnew   rold|____|______|____|rnew
-                                 legs
-                                (1:n-1)
-                                 
+    The basis change tensor is found by contracting the old and new basis
+    tensors via their phyical leg and contract the virtual legs with the
+    already computed basis change tensors.
+
     Args:
-        old_basis_tensor (ndarray): The old basis tensor.
-        new_basis_tensor (ndarray): The new basis tensor.
-
-    Returns:
-        ndarray: The basis change tensor M_hat. This is a matrix with the
-            leg order (parent,new), i.e. mapping the new rank to the old rank.
+        node_old (GraphNode): The node of the old basis tensor.
+        node_new (GraphNode): The node of the new basis tensor.
+        tensor_old (ndarray): The old basis tensor.
+        tensor_new (ndarray): The new basis tensor.
+        basis_change_tensor_cache (PartialTreeCachDict): The cache for the
+            basis change tensors.
     
+    Returns:
+        ndarray: The basis change tensor, which is a matrix. The first leg will
+            have the dimension of the old basis tensor and the second leg the
+            dimension of the new basis tensor.
+
     """
-    errstr = "The basis tensors have different shapes!"
-    assert old_basis_tensor.shape[1:] == new_basis_tensor.shape[1:], errstr
-    legs = list(range(1,old_basis_tensor.ndim))
-    basis_change_tensor = tensordot(old_basis_tensor,
-                                    new_basis_tensor.conj(),
-                                    axes=(legs,legs))
+    parent_id = node_old.parent
+    basis_change_tensor = contract_any_nodes(parent_id,
+                                             node_old, node_new,
+                                             tensor_old, tensor_new,
+                                             basis_change_tensor_cache)
     return basis_change_tensor
 
 def find_new_basis_replacement_leg_specs(node: Node
@@ -172,127 +179,3 @@ def find_new_basis_replacement_leg_specs(node: Node
     legs_basis_change = LegSpecification(node.parent,[],[])
     leg_new_basis = LegSpecification(None,node.children,node.open_legs)
     return legs_basis_change, leg_new_basis
-
-class BUGSandwichCache(SandwichCache):
-    """
-    The BUG algorithm has some special needs to store two versions of the same
-    cached tensor for some time. This class provides that.
-    """
-
-    def __init__(self,
-                 old_state: TreeTensorNetworkState,
-                 new_state: TreeTensorNetworkState,
-                 hamiltonian: TreeTensorNetworkOperator,
-                 dictionary: Union[Dict[Tuple[str, str], ndarray],None] = None) -> None:
-        super().__init__(old_state, hamiltonian, dictionary)
-        self.new_state = new_state
-        self.storage = PartialTreeCachDict()
-
-    @property
-    def old_state(self) -> TreeTensorNetworkState:
-        """
-        The old state of the system.
-
-        """
-        return self.state
-
-    def cache_update_old(self,
-                         node_id: str,
-                         next_node_id: str):
-        """
-        Updates the cache using the tensors from the old state.
-
-        Args:
-            node_id (str): The identifier of the node to which this cache
-                corresponds.
-            next_node_id (str): The identifier of the node to which the open
-                legs of the tensor point.
-
-        """
-        self.update_tree_cache(node_id,next_node_id)
-
-    def cache_update_new(self,
-                         node_id: str,
-                         next_node_id: str):
-        """
-        Updates the cache using the tensors from the new state.
-
-        Args:
-            node_id (str): The identifier of the node to which this cache
-                corresponds.
-            next_node_id (str): The identifier of the node to which the open
-                legs of the tensor point.
-
-        """
-        update_tree_cache(self,
-                          self.new_state,
-                          self.hamiltonian,
-                          node_id,next_node_id)
-
-    def to_storage(self,
-                   node_id: str,
-                   next_node_id: str):
-        """
-        Moves a given tensor to the storage.
-
-        Deletes the tensor from the main cache and overwrites any tensor under
-        the same key in the storage.
-
-        Args:
-            node_id (str): The identifier of the node to which this cache
-                corresponds.
-            next_node_id (str): The identifier of the node to which the open
-                legs of the tensor point.
-
-        """
-        tensor = self.get_entry(node_id,next_node_id)
-        self.storage.add_entry(node_id,next_node_id,tensor)
-        self.delete_entry(node_id,next_node_id)
-
-    def from_storage(self,
-                     node_id: str,
-                     next_node_id: str):
-        """
-        Moves a given tensor from the storage to the main cache.
-
-        Deletes the tensor from the storage and overwrites any tensor under the
-        same key in the main cache.
-
-        Args:
-            node_id (str): The identifier of the node to which this cache
-                corresponds.
-            next_node_id (str): The identifier of the node to which the open
-                legs of the tensor point.
-
-        """
-        tensor = self.storage.get_entry(node_id,next_node_id)
-        self.add_entry(node_id,next_node_id,tensor)
-        self.storage.delete_entry(node_id,next_node_id)
-
-    def switch_storage(self,
-                       node_id: str,
-                       next_node_id: str):
-        """
-        Switches the tensors between the main cache and the storage.
-
-        Args:
-            node_id (str): The identifier of the node to which this cache
-                corresponds.
-            next_node_id (str): The identifier of the node to which the open
-                legs of the tensor point.
-
-        """
-        tensor_main = self.get_entry(node_id,next_node_id)
-        tensor_storage = self.storage.get_entry(node_id,next_node_id)
-        self.add_entry(node_id,next_node_id,tensor_storage)
-        self.storage.add_entry(node_id,next_node_id,tensor_main)
-
-    def storage_empty(self) -> bool:
-        """
-        Checks if the storage is empty.
-
-        Returns:
-            bool: True if the storage is empty.
-
-        """
-        return len(self.storage) == 0
