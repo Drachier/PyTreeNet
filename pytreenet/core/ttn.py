@@ -51,7 +51,7 @@ from collections import UserDict
 import numpy as np
 
 from .tree_structure import TreeStructure
-from .node import Node
+from .node import Node, relative_leg_permutation
 from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      contr_truncated_svd_splitting,
                                      idiots_splitting,
@@ -1141,3 +1141,58 @@ class TreeTensorNetwork(TreeStructure):
         return completely_contract_tree(self, to_copy=to_copy)
 
 TTN = TreeTensorNetwork
+
+def pull_tensor_from_different_ttn(old_ttn: TreeTensorNetwork,
+                                   new_ttn: TreeTensorNetwork,
+                                   node_id: str,
+                                   mod_fct: Union[Callable, None] = None):
+    """
+    Pulls a tensor from a different TTN into the current TTN.
+
+    Args:
+        old_ttn (TreeTensorNetwork): The TTN from which the tensor is pulled.
+        new_ttn (TreeTensorNetwork): The TTN into which the tensor is pulled.
+        node_id (str): The identifier of the node in the old TTN.
+        mod_fct (Union[Callable, None], optional): A function to modify the
+            children identifiers of the node in the new TTN to match the
+            identifiers in the old TTN. Defaults to None.
+    
+    """
+    old_node = old_ttn.nodes[node_id]
+    new_node = new_ttn.nodes[node_id]
+    # Find a potential permutation of the neighbours
+    # The children in the new state are the basis change tensors
+    perm = relative_leg_permutation(old_node, new_node,
+                                    modify_function=mod_fct)
+    old_tensor = old_ttn.tensors[node_id]
+    new_ttn.replace_tensor(node_id, deepcopy(old_tensor), perm)
+
+def get_tensor_from_different_ttn(old_ttn: TreeTensorNetwork,
+                                  new_ttn: TreeTensorNetwork,
+                                  node_id: str,
+                                  mod_fct: Union[Callable, None] = None
+                                  ) -> np.ndarray:
+    """
+    Gets a tensor from one TTN and transforms it to fit with the leg order of
+    another TTN.
+
+    To directly insert into the other TTN use `pull_tensor_from_different_ttn`.
+
+    Args:
+        old_ttn (TreeTensorNetwork): The TTN from which the tensor is pulled.
+        new_ttn (TreeTensorNetwork): The TTN into which the tensor is pulled.
+        node_id (str): The identifier of the node in the old TTN.
+        mod_fct (Union[Callable, None], optional): A function to modify the
+            children identifiers of the node in the new TTN to match the
+            identifiers in the old TTN. Defaults to None.
+    
+    Returns:
+        np.ndarray: The tensor from the old TTN in the leg order of the new
+            TTN. Might be a view of the original tensor.
+    """
+    old_node, old_tensor = old_ttn[node_id]
+    new_node = new_ttn.nodes[node_id]
+    # Find a potential permutation of the neighbours
+    perm = relative_leg_permutation(new_node, old_node,
+                                    modify_function=mod_fct)
+    return old_tensor.transpose(perm)
