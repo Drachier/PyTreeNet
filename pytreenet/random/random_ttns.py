@@ -5,6 +5,7 @@ There are a variety of given tree topologies, which can be filled with random
 tensors.
 """
 from __future__ import annotations
+from typing import Union, List, Tuple
 from enum import Enum
 
 from ..ttns.ttns import TreeTensorNetworkState
@@ -125,7 +126,8 @@ def random_big_ttns(mode: RandomTTNSMode = RandomTTNSMode.SAME) -> TreeTensorNet
     errstr = "The only supported mode is RandomTTNSMode.SAME"
     raise NotImplementedError(errstr)
 
-def random_big_ttns_two_root_children(mode: RandomTTNSMode = RandomTTNSMode.SAME) -> TreeTensorNetworkState:
+def random_big_ttns_two_root_children(mode: Union[RandomTTNSMode,List[Tuple[int]]] = RandomTTNSMode.SAME
+                                      ) -> TreeTensorNetworkState:
     """
     Returns a random big TTNS where the root has only two children.
 
@@ -135,7 +137,8 @@ def random_big_ttns_two_root_children(mode: RandomTTNSMode = RandomTTNSMode.SAME
     Args:
         mode (RandomTTNSMode): The mode of random generation of the TTNS. If it
             is SAME all legs will be chosen as 2. For DIFFVIRT the virtual
-            bond dimensons are all different.
+            bond dimensons are all different. Alternatively, a list of tuples
+            representing the shapes of the tensors can be passed.
     
     Returns:
         TreeTensorNetworkState: A random TTNS with the topology::
@@ -158,6 +161,12 @@ def random_big_ttns_two_root_children(mode: RandomTTNSMode = RandomTTNSMode.SAME
     elif mode == RandomTTNSMode.DIFFVIRT:
         shapes = [(7,6,2),(7,4,5,2),(4,2),(5,2,3,2),
                   (2,2),(3,2),(6,3,2),(3,2)]
+    elif isinstance(mode, list):
+        assert len(mode) == 8, "The list must have 8 elements!"
+        shapes = mode
+    else:
+        errstr = "Only RandomTTNSMode.SAME, RandomTTNSMode.DIFFVIRT or a list of shapes is supported!"
+        raise NotImplementedError(errstr)
 
     nodes = [random_tensor_node(shape, identifier="site"+str(i))
              for i, shape in enumerate(shapes)]
