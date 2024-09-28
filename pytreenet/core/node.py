@@ -377,6 +377,16 @@ class Node(GraphNode):
             raise NotCompatibleException(errstr)
         return self._shape[self._leg_permutation[0]]
 
+    def neighbour_dim(self, neighbour_id: str) -> int:
+        """
+        Returns the dimension associated to the neighbour leg.
+
+        Args:
+            neighbour_id (str): The identifier of the neighbour node.
+        """
+        neighbour_index = self.neighbour_index(neighbour_id)
+        return self.shape[neighbour_index]
+
 # ---------------------------- Usefull functions using nodes ----------------------------
 def relative_leg_permutation(old_node: Node,
                              new_node: Node,
