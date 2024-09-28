@@ -21,7 +21,9 @@ from .time_evo_util.bug_util import (basis_change_tensor_id,
                                     compute_basis_change_tensor,
                                     compute_new_basis_tensor,
                                     find_new_basis_replacement_leg_specs,
-                                    get_truncation_projector)
+                                    get_truncation_projector,
+                                    identity_id,
+                                    projector_identifier)
 
 class BUG(TTNTimeEvolution):
     """
@@ -345,6 +347,34 @@ class BUG(TTNTimeEvolution):
         # Remove the old TTNS and cache
         self.clean_up(node_id)
 
+    def insert_projection_operator_and_conjugate(self,
+                                                 child_id: str,
+                                                 node_id: str,
+                                                 projector: ndarray
+                                                 ):
+        """
+        Inserts the projector and its conjugate between two nodes.
+
+        Args:
+            child_id (str): The id of the child node.
+            node_id (str): The id of the parent node.
+            projector (ndarray): The projector to insert.
+
+        """
+        id_identity = identity_id(child_id, node_id)
+        self.state.insert_identity(child_id, node_id,
+                                    new_identifier=id_identity)
+        proj_star_legs = LegSpecification(node_id,[],[])
+        proj_legs = LegSpecification(None,[child_id],[])
+        self.state.split_node_replace(id_identity,
+                                        projector.conj().T,
+                                        projector,
+                                        projector_identifier(node_id, child_id, True),
+                                        projector_identifier(node_id, child_id, False),
+                                        proj_star_legs,
+                                        proj_legs
+                                        )
+
     def truncate_node(self, node_id: str):
         """
         Truncates the node with the given id.
@@ -354,41 +384,25 @@ class BUG(TTNTimeEvolution):
 
         """
         node = self.state.nodes[node_id]
-        if not node.is_root():
-            self.state.contract_nodes(node_id, node.parent,
-                                      new_identifier=node_id)
-        for child_id in copy(node.children):
+        orig_children = copy(node.children)
+        for child_id in orig_children:
             projector = get_truncation_projector(node,
                                                  self.state.tensors[node_id],
                                                  child_id,
                                                  self.svd_parameters)
-            child_dim = node.neighbour_dim(child_id)
-            identity = eye(child_dim)
-            node_legs = LegSpecification(node.parent,
-                                         [c_id for c_id in node.children if c_id != child_id],
-                                         node.open_legs,
-                                         is_root = node.is_root())
-            id_legs = LegSpecification(None,[child_id],[])
-            # Check tensor leg order
-            self.state.split_node_replace(node_id,
-                                          self.state.tensors[node_id],
-                                          identity,
-                                          node_id,
-                                          f"{node_id}_{child_id}_identity",
-                                          node_legs,
-                                          id_legs)
-            proj_star_legs = LegSpecification(node_id,[],[])
-            proj_legs = LegSpecification(None,[child_id],[])
-            self.state.split_node_replace(f"{node_id}_{child_id}_identity",
-                                          projector.conj().T,
-                                          projector,
-                                          f"{node_id}_{child_id}_projector_star",
-                                          f"{node_id}_{child_id}_projector",
-                                          proj_star_legs,
-                                          proj_legs
-                                          )
+            self.insert_projection_operator_and_conjugate(child_id,
+                                                          node_id,
+                                                          projector)
         self.state.contract_all_children(node_id)
-        for child_id in copy(node.children):
+        # Now we contract all the projectors into the former children
+        for child_id in copy(self.state.nodes[node_id].children):
+            child_node = self.state.nodes[child_id]
+            assert len(child_node.children) == 1, "Projector node has more than one child!"
+            orig_child_id = child_node.children[0]
+            self.state.contract_all_children(child_id,
+                                             new_identifier=orig_child_id)
+        # This makes the former children, the new children
+        for child_id in orig_children:
             self.truncate_node(child_id)
 
     def truncation(self):
