@@ -7,10 +7,11 @@ from numpy import ndarray, concatenate
 from ...core.node import Node
 from ...core.leg_specification import LegSpecification
 from ...util.tensor_util import make_last_leg_first
-from ...util.tensor_splitting import tensor_qr_decomposition
+from ...util.tensor_splitting import (tensor_qr_decomposition,
+                                      SVDParameters,
+                                      truncated_tensor_svd)
 from ...contractions.tree_cach_dict import PartialTreeCachDict
 from ...contractions.state_state_contraction import contract_any_nodes
-
 
 def basis_change_tensor_id(node_id: str) -> str:
     """
@@ -172,3 +173,37 @@ def find_new_basis_replacement_leg_specs(node: Node
     legs_basis_change = LegSpecification(node.parent,[],[])
     leg_new_basis = LegSpecification(None,node.children,node.open_legs)
     return legs_basis_change, leg_new_basis
+
+def get_truncation_projector(node: Node,
+                             node_tensor: ndarray,
+                             child_id: str,
+                             svd_parameters: SVDParameters) -> ndarray:
+    """
+    Finds the projector that truncates a node for a given leg.
+
+    This corresponds to finding P_i for child=i in the reference.
+
+    Args:
+        node (GraphNode): The node to truncate.
+        node_tensor (ndarray): The tensor of the node.
+        child_id (str): The identifier of the child for which to truncate.
+        svd_parameters (SVDParameters): The parameters for the SVD.
+    
+    Returns:
+        ndarray: The projector that truncates the node for the given child.
+            Has the leg order (child_leg,new_leg).
+    
+    """
+    child_leg = None
+    other_legs = []
+    for index, other_ids in enumerate(node.children):
+        if other_ids == child_id:
+            child_leg = index
+        else:
+            other_legs.append(index)
+    assert child_leg is not None, f"{child_id} is not a child of {node.id}!"
+    projector, _, _ = truncated_tensor_svd(node_tensor,
+                                        (child_leg, ),
+                                        tuple(other_legs),
+                                        svd_parameters)
+    return projector
