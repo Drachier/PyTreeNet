@@ -194,16 +194,43 @@ def get_truncation_projector(node: Node,
             Has the leg order (child_leg,new_leg).
     
     """
-    child_leg = None
-    other_legs = []
-    for index, other_ids in enumerate(node.children):
-        if other_ids == child_id:
-            child_leg = index
-        else:
-            other_legs.append(index)
-    assert child_leg is not None, f"{child_id} is not a child of {node.id}!"
+    other_legs = list(range(node.nlegs()))
+    child_index = node.neighbour_index(child_id)
+    other_legs.pop(child_index)
     projector, _, _ = truncated_tensor_svd(node_tensor,
-                                        (child_leg, ),
+                                        (child_index, ),
                                         tuple(other_legs),
                                         svd_parameters)
     return projector
+
+def identity_id(child_id: str, node_id: str) -> str:
+    """
+    Returns the identifier for the identity tensor.
+
+    Args:
+        child_id (str): The identifier of the child node.
+        node_id (str): The identifier of the node.
+    
+    Returns:
+        str: The identifier for the identity tensor.
+
+    """
+    return f"{child_id}_identity_{node_id}"
+
+def projector_identifier(child_id: str, node_id: str,
+                         star: bool) -> str:
+    """
+    Returns the identifier for the projector tensor.
+
+    Args:
+        child_id (str): The identifier of the child node.
+        node_id (str): The identifier of the node.
+        star (bool): Whether the projector is the conjugated or not.
+    
+    Returns:
+        str: The identifier for the projector tensor.
+
+    """
+    if star:
+        return f"{child_id}_projectorstar_{node_id}"
+    return f"{child_id}_projector_{node_id}"
