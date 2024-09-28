@@ -48,6 +48,7 @@ class BUG(TTNTimeEvolution):
         self.ttns_dict: Dict[str,TreeTensorNetworkState] = {}
         self.cache_dict: Dict[str,SandwichCache] = {}
         self.basis_change_cache = PartialTreeCachDict()
+        self._ensure_root_orth_center()
         self.tensor_cache = SandwichCache.init_cache_but_one(self.state,
                                                              self.hamiltonian,
                                                              self.state.root_id)
