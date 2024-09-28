@@ -152,7 +152,7 @@ def compute_basis_change_tensor(node_old: Node,
     parent_id = node_old.parent
     basis_change_tensor = contract_any_nodes(parent_id,
                                              node_old, node_new,
-                                             tensor_old, tensor_new,
+                                             tensor_old, tensor_new.conj(),
                                              basis_change_tensor_cache)
     return basis_change_tensor
 

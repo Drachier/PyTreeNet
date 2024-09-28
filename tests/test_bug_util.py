@@ -6,11 +6,11 @@ from numpy.linalg import qr
 
 from pytreenet.core.leg_specification import LegSpecification
 from pytreenet.random.random_node import random_tensor_node
-from pytreenet.random.random_matrices import crandn, crandn_like
-from pytreenet.random.random_ttns_and_ttno import big_ttns_and_ttno
-from pytreenet.random.random_ttns import (random_big_ttns_two_root_children,
+from pytreenet.random.random_ttns import (random_small_ttns,
+                                          random_big_ttns_two_root_children,
                                           RandomTTNSMode)
-from pytreenet.contractions.sandwich_caching import SandwichCache
+from pytreenet.random.random_matrices import crandn
+from pytreenet.contractions.tree_cach_dict import PartialTreeCachDict
 from pytreenet.time_evolution.time_evo_util.bug_util import (basis_change_tensor_id,
                                                             reverse_basis_change_tensor_id,
                                                             new_basis_tensor_qr_legs,
@@ -18,8 +18,7 @@ from pytreenet.time_evolution.time_evo_util.bug_util import (basis_change_tensor
                                                             _compute_new_basis_tensor_qr,
                                                             compute_new_basis_tensor,
                                                             compute_basis_change_tensor,
-                                                            find_new_basis_replacement_leg_specs,
-                                                            BUGSandwichCache)
+                                                            find_new_basis_replacement_leg_specs,)
 
 class Test_identifier_functions(unittest.TestCase):
 
@@ -300,76 +299,156 @@ class Test_compute_new_basis_tensor(unittest.TestCase):
         ref = ref.transpose([2,0,1])
         self.assertTrue(allclose(new_basis_tensor, ref))
 
-class Test_compute_basis_change_tensor(unittest.TestCase):
+class Test_compute_basis_change_tensor_Complicated(unittest.TestCase):
 
-    def test_on_leaf(self):
-        """
-        Test the computation of the basis change tensor for a leaf tensor.
-        """
-        shape = (4, )
-        old_virt_dim = 2
-        old_basis_tensor = crandn((old_virt_dim, shape[0]))
-        new_virt_dim = 3
-        new_basis_tensor = crandn((new_virt_dim, shape[0]))
-        basis_change_tensor = compute_basis_change_tensor(old_basis_tensor,
-                                                          new_basis_tensor)
-        # Check the shape
-        self.assertEqual(basis_change_tensor.shape,
-                            (old_virt_dim, new_virt_dim))
-        # Reference tensor
-        ref = old_basis_tensor @ new_basis_tensor.T.conj()
-        self.assertTrue(allclose(basis_change_tensor, ref))
+    def setUp(self):
+        shapes_old = [(7,6,2),(7,4,5,3),(4,2),(5,4,6,2),
+                      (4,3),(6,3),(6,4,3),(4,2)]
+        self.old_ttns = random_big_ttns_two_root_children(mode=shapes_old)
+        shapes_new = [(8,5,2),(8,2,6,3),(2,2),(6,3,3,2),
+                      (3,3),(3,3),(5,2,3),(2,2)]
+        self.new_ttns = random_big_ttns_two_root_children(mode=shapes_new)
+        # Mix up the leg order a bit
+        self.new_ttns.canonical_form("site5")
+        self.basis_change_cache = PartialTreeCachDict()
 
-    def test_on_two_children(self):
+    def test_on_leaf_site2(self):
         """
-        Test the computation of the basis change tensor for a tensor with two
-        children.
+        Test the computation of the basis change tensor for the leaf site2.
         """
-        shape = (6,5,4)
-        old_virt_dim = 2
-        old_basis_tensor = crandn((old_virt_dim, shape[0], shape[1], shape[2]))
-        new_virt_dim = 3
-        new_basis_tensor = crandn((new_virt_dim, shape[0], shape[1], shape[2]))
-        basis_change_tensor = compute_basis_change_tensor(old_basis_tensor,
-                                                          new_basis_tensor)
-        # Check the shape
-        self.assertEqual(basis_change_tensor.shape,
-                            (old_virt_dim, new_virt_dim))
-        # Reference tensor
-        ref = tensordot(old_basis_tensor,
-                        new_basis_tensor.conj(),
-                        axes=([1,2,3],[1,2,3]))
-        self.assertTrue(allclose(basis_change_tensor, ref))
-    
-    def test_on_no_phys_leg(self):
-        """
-        Test the computation of the basis change tensor for a tensor with no
-        physical legs.
-        """
-        shape = (5,4)
-        old_virt_dim = 2
-        old_basis_tensor = crandn((old_virt_dim, shape[0], shape[1]))
-        new_virt_dim = 3
-        new_basis_tensor = crandn((new_virt_dim, shape[0], shape[1]))
-        basis_change_tensor = compute_basis_change_tensor(old_basis_tensor,
-                                                          new_basis_tensor)
-        # Check the shape
-        self.assertEqual(basis_change_tensor.shape,
-                            (old_virt_dim, new_virt_dim))
-        # Reference tensor
-        ref = tensordot(old_basis_tensor,
-                        new_basis_tensor.conj(),
-                        axes=([1,2],[1,2]))
-        self.assertTrue(allclose(basis_change_tensor, ref))
+        node_id = "site2"
+        node_old, tensor_old = self.old_ttns[node_id]
+        node_new, tensor_new = self.new_ttns[node_id]
+        ref_old = deepcopy(tensor_old)
+        ref_new = deepcopy(tensor_new)
+        found = compute_basis_change_tensor(node_old,
+                                            node_new,
+                                            tensor_old,
+                                            tensor_new,
+                                            self.basis_change_cache)
+        # Check
+        correct = tensordot(ref_old,ref_new.conj(),axes=(1,1))
+        self.assertTrue(allclose(found, correct))
 
-    def test_invalid_shapes(self):
+    def test_on_site6(self):
         """
-        Test the cases in which the two basis tensors have incompatible shapes.
+        Test the computation of the basis change tensor for site6.
         """
-        old_basis_tensor = crandn((2,6,4))
-        new_basis_tensor = crandn((3,6,5))
-        self.assertRaises(AssertionError, compute_basis_change_tensor,
-                          old_basis_tensor, new_basis_tensor)
+        node_id = "site6"
+        node_old, tensor_old = self.old_ttns[node_id]
+        node_new, tensor_new = self.new_ttns[node_id]
+        ref_old = deepcopy(tensor_old)
+        ref_new = deepcopy(tensor_new)
+        # We need the basis change tensor for site7
+        node_id7 = "site7"
+        nold7, told7 = self.old_ttns[node_id7]
+        nnew7, tnew7 = self.new_ttns[node_id7]
+        basis_change_tensor7 = compute_basis_change_tensor(nold7,
+                                                           nnew7,
+                                                           told7,
+                                                           tnew7,
+                                                           self.basis_change_cache)
+        self.basis_change_cache.add_entry(node_id7, node_id,
+                                          basis_change_tensor7)
+        ref_cache = deepcopy(self.basis_change_cache)
+        # Compute the basis change tensor
+        found = compute_basis_change_tensor(node_old,
+                                            node_new,
+                                            tensor_old,
+                                            tensor_new,
+                                            self.basis_change_cache)
+        # Check
+        correct = tensordot(ref_old,ref_new.conj(),axes=(2,2))
+        correct = tensordot(correct,
+                            ref_cache.get_entry(node_id7, node_id),
+                            axes=([1,3],[0,1]))
+        self.assertEqual(found.shape, (6,5))
+        self.assertTrue(allclose(found, correct))
+
+    def test_on_site3(self):
+        """
+        Test the computation of the basis change tensor for site3.
+        """
+        node_id = "site3"
+        node_old, tensor_old = self.old_ttns[node_id]
+        node_new, tensor_new = self.new_ttns[node_id]
+        ref_old = deepcopy(tensor_old)
+        ref_new = deepcopy(tensor_new)
+        # We need to compute the basis change tensor for the children first
+        node_ids = ["site4","site5"]
+        for child_id in node_ids:
+            nold, told = self.old_ttns[child_id]
+            nnew, tnew = self.new_ttns[child_id]
+            basis_change_tensor = compute_basis_change_tensor(nold,
+                                                            nnew,
+                                                            told,
+                                                            tnew,
+                                                            self.basis_change_cache)
+            self.basis_change_cache.add_entry(child_id, node_id,
+                                            basis_change_tensor)
+        ref_cache = deepcopy(self.basis_change_cache)
+        # Compute the basis change tensor
+        found = compute_basis_change_tensor(node_old,
+                                            node_new,
+                                            tensor_old,
+                                            tensor_new,
+                                            self.basis_change_cache)
+        # Check
+        # old child order is site4, site5
+        # new child order is site5, site4
+        correct = tensordot(ref_old,ref_new.conj(),axes=(3,3))
+        correct = tensordot(correct,
+                            ref_cache.get_entry("site5", node_id),
+                            axes=([2,4],[0,1]))
+        correct = tensordot(correct,
+                            ref_cache.get_entry("site4", node_id),
+                            axes=([1,3],[0,1]))
+        self.assertEqual(found.shape, (5,6))
+        self.assertTrue(allclose(found, correct))
+
+    def test_on_site1(self):
+        """
+        Test the computation of the basis change tensor for site3.
+        """
+        node_id = "site1"
+        node_old, tensor_old = self.old_ttns[node_id]
+        node_new, tensor_new = self.new_ttns[node_id]
+        ref_old = deepcopy(tensor_old)
+        ref_new = deepcopy(tensor_new)
+        # We need to compute the basis change tensor for the children first
+        node_ids = [("site2","site1"),
+                    ("site4","site3"),
+                    ("site5","site3"),
+                    ("site3","site1")]
+        for child_id, parent_id in node_ids:
+            nold, told = self.old_ttns[child_id]
+            nnew, tnew = self.new_ttns[child_id]
+            basis_change_tensor = compute_basis_change_tensor(nold,
+                                                            nnew,
+                                                            told,
+                                                            tnew,
+                                                            self.basis_change_cache)
+            self.basis_change_cache.add_entry(child_id, parent_id,
+                                            basis_change_tensor)
+        ref_cache = deepcopy(self.basis_change_cache)
+        # Compute the basis change tensor
+        found = compute_basis_change_tensor(node_old,
+                                            node_new,
+                                            tensor_old,
+                                            tensor_new,
+                                            self.basis_change_cache)
+        # Check
+        # old child order is site2, site3
+        # new child order is site3, site2
+        correct = tensordot(ref_old,ref_new.conj(),axes=(3,3))
+        correct = tensordot(correct,
+                            ref_cache.get_entry("site3", node_id),
+                            axes=([2,4],[0,1]))
+        correct = tensordot(correct,
+                            ref_cache.get_entry("site2", node_id),
+                            axes=([1,3],[0,1]))
+        self.assertEqual(found.shape, (7,8))
+        self.assertTrue(allclose(found, correct))
 
 class Testfind_new_basis_replacement_leg_specs(unittest.TestCase):
 
