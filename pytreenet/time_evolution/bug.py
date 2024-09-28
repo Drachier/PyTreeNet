@@ -48,7 +48,9 @@ class BUG(TTNTimeEvolution):
         self.ttns_dict: Dict[str,TreeTensorNetworkState] = {}
         self.cache_dict: Dict[str,SandwichCache] = {}
         self.basis_change_cache = PartialTreeCachDict()
-        self.tensor_cache = SandwichCache(self.state, self.hamiltonian)
+        self.tensor_cache = SandwichCache.init_cache_but_one(self.state,
+                                                             self.hamiltonian,
+                                                             self.state.root_id)
 
     def _ensure_root_orth_center(self):
         """
@@ -163,11 +165,10 @@ class BUG(TTNTimeEvolution):
         self.state.assert_orth_center(root_id)
         root_ttns = deepcopy(self.state)
         self.ttns_dict[root_id] = root_ttns
-        # TODO: Maybe we don't need to build a new one at every time step
-        # Maybe we can reuse the cache from the last time step
-        current_cache = SandwichCache.init_cache_but_one(root_ttns,
-                                                         self.hamiltonian,
-                                                         root_id)
+        current_cache = self.tensor_cache
+        self.tensor_cache = SandwichCache(self.state,
+                                          self.hamiltonian)
+        current_cache.state = root_ttns
         self.cache_dict[root_id] = current_cache
         for child_id in root_ttns.nodes[root_id].children:
             self.subtree_update(child_id)
