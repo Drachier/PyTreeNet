@@ -49,6 +49,8 @@ from copy import copy, deepcopy
 from collections import UserDict
 
 import numpy as np
+from numpy import eye, ndarray
+from uuid import uuid1
 
 from .tree_structure import TreeStructure
 from .node import Node, relative_leg_permutation
@@ -556,6 +558,38 @@ class TreeTensorNetwork(TreeStructure):
         self._nodes[node_id].replace_tensor(new_tensor,
                                             permutation=permutation)
         self._tensors[node_id] = new_tensor
+
+    def insert_identity(self, child_id: str, parent_id: str,
+                        new_identifier: Union[str,None] = None):
+        """
+        Insertes an identity tensor between two nodes.
+
+        Args:
+            child_id (str): Identifier of the child node.
+            parent_id (str): Identifier of the parent node.
+            new_identifier (Union[str,None], optional): An identifier for the
+                new tensor. If None, a random unique identifier is used.
+                Defaults to None.
+
+        """
+        assert self.is_child_of(child_id, parent_id)
+        assert self.is_parent_of(parent_id, child_id)
+        if new_identifier is None:
+            new_identifier = str(uuid1())
+        # Change node connecitivity
+        child_node = self.nodes[child_id]
+        child_node.replace_neighbour(parent_id, new_identifier)
+        parent_node = self.nodes[parent_id]
+        parent_node.replace_neighbour(child_id, new_identifier)
+        # Create Identity node
+        dim = child_node.parent_leg_dim()
+        identity = eye(dim)
+        id_node = Node(identifier=new_identifier,
+                       tensor=identity)
+        id_node.open_leg_to_parent(parent_id, 0)
+        id_node.open_leg_to_child(child_id, 1)
+        self._nodes[new_identifier] = id_node
+        self._tensors[new_identifier] = identity
 
     def contract_nodes(self, node_id1: str, node_id2: str, new_identifier: str = ""):
         """

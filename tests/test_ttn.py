@@ -802,6 +802,137 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         self.assertTrue(np.allclose(ref_tensor.transpose(permutation),
                                     found_tensor))
 
+    def test_insert_identity(self):
+        """
+        Tests the insertion of an identity between two nodes.
+        """
+        # Node 1 and 2
+        child_id = "id2"
+        parent_id = "id1"
+        new_id = "id1id2"
+        dim = 2
+        self.ttn.insert_identity(child_id, parent_id,
+                                 new_identifier=new_id)
+        self.assertIn(new_id, self.ttn.nodes)
+        self.assertIn(new_id, self.ttn.tensors)
+        self.assertTrue(self.ttn.is_parent_of(parent_id, new_id))
+        self.assertTrue(self.ttn.is_child_of(child_id, new_id))
+        self.assertTrue(self.ttn.is_child_of(new_id, parent_id))
+        self.assertTrue(self.ttn.is_parent_of(new_id, child_id))
+        found_tensor = self.ttn.tensors[new_id]
+        self.assertTrue(np.allclose(np.eye(dim), found_tensor))
+
+        # Node 2 and 3
+        child_id = "id3"
+        parent_id = "id2"
+        new_id = parent_id + child_id
+        dim = 5
+        self.ttn.insert_identity(child_id, parent_id,
+                                 new_identifier=new_id)
+        self.assertIn(new_id, self.ttn.nodes)
+        self.assertIn(new_id, self.ttn.tensors)
+        self.assertTrue(self.ttn.is_parent_of(parent_id, new_id))
+        self.assertTrue(self.ttn.is_child_of(child_id, new_id))
+        self.assertTrue(self.ttn.is_child_of(new_id, parent_id))
+        self.assertTrue(self.ttn.is_parent_of(new_id, child_id))
+        found_tensor = self.ttn.tensors[new_id]
+        self.assertTrue(np.allclose(np.eye(dim), found_tensor))
+
+        # Node 3 and 4
+        child_id = "id4"
+        parent_id = "id3"
+        new_id = parent_id + child_id
+        dim = 2
+        self.ttn.insert_identity(child_id, parent_id,
+                                 new_identifier=new_id)
+        self.assertIn(new_id, self.ttn.nodes)
+        self.assertIn(new_id, self.ttn.tensors)
+        self.assertTrue(self.ttn.is_parent_of(parent_id, new_id))
+        self.assertTrue(self.ttn.is_child_of(child_id, new_id))
+        self.assertTrue(self.ttn.is_child_of(new_id, parent_id))
+        self.assertTrue(self.ttn.is_parent_of(new_id, child_id))
+        found_tensor = self.ttn.tensors[new_id]
+        self.assertTrue(np.allclose(np.eye(dim), found_tensor))
+
+        # Node 2 and 5
+        child_id = "id5"
+        parent_id = "id2"
+        new_id = parent_id + child_id
+        dim = 4
+        self.ttn.insert_identity(child_id, parent_id,
+                                 new_identifier=new_id)
+        self.assertIn(new_id, self.ttn.nodes)
+        self.assertIn(new_id, self.ttn.tensors)
+        self.assertTrue(self.ttn.is_parent_of(parent_id, new_id))
+        self.assertTrue(self.ttn.is_child_of(child_id, new_id))
+        self.assertTrue(self.ttn.is_child_of(new_id, parent_id))
+        self.assertTrue(self.ttn.is_parent_of(new_id, child_id))
+        found_tensor = self.ttn.tensors[new_id]
+        self.assertTrue(np.allclose(np.eye(dim), found_tensor))
+
+        # Node 5 and 6
+        child_id = "id6"
+        parent_id = "id5"
+        new_id = parent_id + child_id
+        dim = 2
+        self.ttn.insert_identity(child_id, parent_id,
+                                 new_identifier=new_id)
+        self.assertIn(new_id, self.ttn.nodes)
+        self.assertIn(new_id, self.ttn.tensors)
+        self.assertTrue(self.ttn.is_parent_of(parent_id, new_id))
+        self.assertTrue(self.ttn.is_child_of(child_id, new_id))
+        self.assertTrue(self.ttn.is_child_of(new_id, parent_id))
+        self.assertTrue(self.ttn.is_parent_of(new_id, child_id))
+        found_tensor = self.ttn.tensors[new_id]
+        self.assertTrue(np.allclose(np.eye(dim), found_tensor))
+
+        # Node 5 and 7
+        child_id = "id7"
+        parent_id = "id5"
+        new_id = parent_id + child_id
+        dim = 3
+        self.ttn.insert_identity(child_id, parent_id,
+                                 new_identifier=new_id)
+        self.assertIn(new_id, self.ttn.nodes)
+        self.assertIn(new_id, self.ttn.tensors)
+        self.assertTrue(self.ttn.is_parent_of(parent_id, new_id))
+        self.assertTrue(self.ttn.is_child_of(child_id, new_id))
+        self.assertTrue(self.ttn.is_child_of(new_id, parent_id))
+        self.assertTrue(self.ttn.is_parent_of(new_id, child_id))
+        found_tensor = self.ttn.tensors[new_id]
+        self.assertTrue(np.allclose(np.eye(dim), found_tensor))
+
+        # Node 1 and 8
+        child_id = "id8"
+        parent_id = "id1"
+        new_id = parent_id + child_id
+        dim = 3
+        self.ttn.insert_identity(child_id, parent_id,
+                                 new_identifier=new_id)
+        self.assertIn(new_id, self.ttn.nodes)
+        self.assertIn(new_id, self.ttn.tensors)
+        self.assertTrue(self.ttn.is_parent_of(parent_id, new_id))
+        self.assertTrue(self.ttn.is_child_of(child_id, new_id))
+        self.assertTrue(self.ttn.is_child_of(new_id, parent_id))
+        self.assertTrue(self.ttn.is_parent_of(new_id, child_id))
+        found_tensor = self.ttn.tensors[new_id]
+        self.assertTrue(np.allclose(np.eye(dim), found_tensor))
+
+        # Node 8 and 9
+        child_id = "id9"
+        parent_id = "id8"
+        new_id = parent_id + child_id
+        dim = 4
+        self.ttn.insert_identity(child_id, parent_id,
+                                 new_identifier=new_id)
+        self.assertIn(new_id, self.ttn.nodes)
+        self.assertIn(new_id, self.ttn.tensors)
+        self.assertTrue(self.ttn.is_parent_of(parent_id, new_id))
+        self.assertTrue(self.ttn.is_child_of(child_id, new_id))
+        self.assertTrue(self.ttn.is_child_of(new_id, parent_id))
+        self.assertTrue(self.ttn.is_parent_of(new_id, child_id))
+        found_tensor = self.ttn.tensors[new_id]
+        self.assertTrue(np.allclose(np.eye(dim), found_tensor))
 
 if __name__ == "__main__":
     unittest.main()
