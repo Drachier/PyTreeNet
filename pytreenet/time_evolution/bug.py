@@ -2,23 +2,26 @@
 from typing import Dict, List, Union, Tuple
 from copy import deepcopy, copy
 
-from numpy import ndarray
+from numpy import ndarray, eye
 
 from .ttn_time_evolution import TTNTimeEvolution, TTNTimeEvolutionConfig
 from ..operators.tensorproduct import TensorProduct
 from ..core.ttn import (pull_tensor_from_different_ttn,
                         get_tensor_from_different_ttn)
+from ..core.leg_specification import LegSpecification
 from ..ttns.ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TreeTensorNetworkOperator
 from ..contractions.effective_hamiltonians import get_effective_single_site_hamiltonian
 from ..contractions.sandwich_caching import SandwichCache
 from ..contractions.tree_cach_dict import PartialTreeCachDict
+from ..util.tensor_splitting import SVDParameters
 from .time_evolution import time_evolve
 from .time_evo_util.bug_util import (basis_change_tensor_id,
                                      reverse_basis_change_tensor_id,
                                     compute_basis_change_tensor,
                                     compute_new_basis_tensor,
-                                    find_new_basis_replacement_leg_specs)
+                                    find_new_basis_replacement_leg_specs,
+                                    get_truncation_projector)
 
 class BUG(TTNTimeEvolution):
     """
@@ -40,7 +43,9 @@ class BUG(TTNTimeEvolution):
                      TensorProduct,
                      TreeTensorNetworkOperator
                  ],
-                 config: Union[TTNTimeEvolutionConfig, None] = None) -> None:
+                 config: Union[TTNTimeEvolutionConfig, None] = None,
+                 svd_params: Union[SVDParameters,None] = None
+                 ) -> None:
         super().__init__(initial_state,
                          time_step_size, final_time,
                          operators, config)
@@ -52,6 +57,10 @@ class BUG(TTNTimeEvolution):
         self.tensor_cache = SandwichCache.init_cache_but_one(self.state,
                                                              self.hamiltonian,
                                                              self.state.root_id)
+        if svd_params is None:
+            self.svd_parameters = SVDParameters()
+        else:
+            self.svd_parameters = svd_params
 
     def _ensure_root_orth_center(self):
         """
@@ -200,7 +209,6 @@ class BUG(TTNTimeEvolution):
         current_ttns = deepcopy(self.ttns_dict[parent_id])
         current_ttns.assert_orth_center(parent_id)
         current_ttns.move_orthogonalization_center(node_id)
-        # TODO: We might not need to copy the entire cache
         current_cache = copy(self.cache_dict[parent_id])
         current_cache.state = current_ttns
         current_cache.update_tree_cache(parent_id,node_id)
@@ -279,7 +287,7 @@ class BUG(TTNTimeEvolution):
             node_id (str): The id of the node to update the cache for.
 
         """
-        parent_id = self.state.nodes[node_id].parent
+        parent_id = self.ttns_dict[node_id].nodes[node_id].parent
         basis_change_id = basis_change_tensor_id(node_id)
         self.tensor_cache.update_tree_cache(node_id,
                                             basis_change_id)
@@ -336,6 +344,60 @@ class BUG(TTNTimeEvolution):
         self.update_tensor_cache(node_id)
         # Remove the old TTNS and cache
         self.clean_up(node_id)
+
+    def truncate_node(self, node_id: str):
+        """
+        Truncates the node with the given id.
+
+        Args:
+            node_id (str): The id of the node to truncate.
+
+        """
+        node = self.state.nodes[node_id]
+        if not node.is_root():
+            self.state.contract_nodes(node_id, node.parent,
+                                      new_identifier=node_id)
+        for child_id in copy(node.children):
+            projector = get_truncation_projector(node,
+                                                 self.state.tensors[node_id],
+                                                 child_id,
+                                                 self.svd_parameters)
+            child_dim = node.neighbour_dim(child_id)
+            identity = eye(child_dim)
+            node_legs = LegSpecification(node.parent,
+                                         [c_id for c_id in node.children if c_id != child_id],
+                                         node.open_legs,
+                                         is_root = node.is_root())
+            id_legs = LegSpecification(None,[child_id],[])
+            # Check tensor leg order
+            self.state.split_node_replace(node_id,
+                                          self.state.tensors[node_id],
+                                          identity,
+                                          node_id,
+                                          f"{node_id}_{child_id}_identity",
+                                          node_legs,
+                                          id_legs)
+            proj_star_legs = LegSpecification(node_id,[],[])
+            proj_legs = LegSpecification(None,[child_id],[])
+            self.state.split_node_replace(f"{node_id}_{child_id}_identity",
+                                          projector.conj().T,
+                                          projector,
+                                          f"{node_id}_{child_id}_projector_star",
+                                          f"{node_id}_{child_id}_projector",
+                                          proj_star_legs,
+                                          proj_legs
+                                          )
+        self.state.contract_all_children(node_id)
+        for child_id in copy(node.children):
+            self.truncate_node(child_id)
+
+    def truncation(self):
+        """
+        Truncates the tree after the time evolution.
+
+        """
+        root_id = self.state.root_id
+        self.truncate_node(root_id)
 
     def run_one_time_step(self, **kwargs):
         """
