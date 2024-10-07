@@ -412,6 +412,10 @@ class BUG(TTNTimeEvolution):
         """
         root_id = self.state.root_id
         self.truncate_node(root_id)
+        # Now the tree is truncated and the cache has to be renewed
+        self.tensor_cache = SandwichCache.init_cache_but_one(self.state,
+                                                             self.hamiltonian,
+                                                             self.state.root_id)
 
     def run_one_time_step(self, **kwargs):
         """

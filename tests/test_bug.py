@@ -110,7 +110,10 @@ class TestBUGComplicated(unittest.TestCase):
         self.bug.truncation()
 
     def test_one_time_step(self):
-        print("-"*80)
+        self.bug.run_one_time_step()
+
+    def test_two_time_steps(self):
+        self.bug.run_one_time_step()
         self.bug.run_one_time_step()
 
 if __name__ == "__main__":
