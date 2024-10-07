@@ -49,6 +49,8 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
         tensor, order = self.completely_contract_tree(to_copy=True)
         permutation = list(range(0,tensor.ndim,2)) + list(range(1,tensor.ndim,2))
         tensor = np.transpose(tensor, permutation)
+        dim = np.prod(tensor.shape[:int(tensor.ndim/2)])
+        tensor = tensor.reshape(dim, dim)
         return tensor, order
 
     @classmethod
