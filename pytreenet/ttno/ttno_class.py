@@ -2,7 +2,7 @@
 Provides the class to represent a Tree Tensor Network Operator (TTNO).
 """
 from __future__ import annotations
-from typing import Dict
+from typing import Dict, Tuple, List
 from enum import Enum
 import numpy as np
 
@@ -39,6 +39,17 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
     node has two open legs (input and output). The legs can be trivial, i.e.,
     of dimension 1, but have the same dimension.
     """
+
+    def as_matrix(self) -> Tuple[np.ndarray, List[str]]:
+        """
+        Contracts the matrix equivalent to the TTNO.
+
+        The new order of the dimension is also returned.
+        """
+        tensor, order = self.completely_contract_tree(to_copy=True)
+        permutation = list(range(0,tensor.ndim,2)) + list(range(1,tensor.ndim,2))
+        tensor = np.transpose(tensor, permutation)
+        return tensor, order
 
     @classmethod
     def from_hamiltonian(cls,hamiltonian: Hamiltonian,
