@@ -367,8 +367,8 @@ class BUG(TTNTimeEvolution):
         proj_star_legs = LegSpecification(node_id,[],[])
         proj_legs = LegSpecification(None,[child_id],[])
         self.state.split_node_replace(id_identity,
-                                        projector.conj().T,
-                                        projector,
+                                        projector.conj(),
+                                        projector.T,
                                         projector_identifier(node_id, child_id, True),
                                         projector_identifier(node_id, child_id, False),
                                         proj_star_legs,
@@ -424,4 +424,5 @@ class BUG(TTNTimeEvolution):
             kwargs: Additional keyword arguments for the time step.
 
         """
-        raise NotImplementedError("Not yet implemented!")
+        self.tree_update()
+        self.truncation()

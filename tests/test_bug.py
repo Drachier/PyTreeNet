@@ -109,5 +109,9 @@ class TestBUGComplicated(unittest.TestCase):
     def test_truncation(self):
         self.bug.truncation()
 
+    def test_one_time_step(self):
+        print("-"*80)
+        self.bug.run_one_time_step()
+
 if __name__ == "__main__":
     unittest.main()
