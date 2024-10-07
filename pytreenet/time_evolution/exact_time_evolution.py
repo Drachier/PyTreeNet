@@ -2,7 +2,7 @@
 An exact time evolution.
 """
 from __future__ import annotations
-from typing import Any, List, Union
+from typing import Any, List, Union, Dict
 
 import numpy as np
 from scipy.linalg import expm
@@ -23,7 +23,7 @@ class ExactTimeEvolution(TimeEvolution):
 
     def __init__(self, initial_state: np.ndarray, hamiltonian: np.ndarray,
                  time_step_size: float, final_time: float,
-                 operators: Union[List[np.ndarray], np.ndarray]):
+                 operators: Union[List[np.ndarray], Dict[str,np.ndarray],np.ndarray]):
         """
         An exact time evolution for a given Hamiltonian.
 
