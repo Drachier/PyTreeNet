@@ -65,7 +65,7 @@ References
    | *The Tensor Networks Anthology: Simulation techniques for many-body quantum lattice systems*
    | `SciPost Phys. Lect. Notes, 8 (2019) <https://doi.org/10.21468/SciPostPhysLectNotes.8>`_ (`arxiv:1710.03733 <https://arxiv.org/abs/1710.03733>`_)
 4. | G. Ceruti, C. Lubich, D. Sulz,
-    | *Rank-adaptive time integration of tree tensor networks*
-    | `SIAM JNA, Vol. 6, Iss. 1, 194 - 222 (2023) <https://doi.org/10.1137/22M1473790>`_ (`arXiv:2201.10291 <https://arxiv.org/abs/2201.10291>`_)
+   | *Rank-adaptive time integration of tree tensor networks*
+   | `SIAM JNA, Vol. 6, Iss. 1, 194 - 222 (2023) <https://doi.org/10.1137/22M1473790>`_ (`arXiv:2201.10291 <https://arxiv.org/abs/2201.10291>`_)
 
 .. doc-inclusion-marker2-end
