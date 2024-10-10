@@ -45,6 +45,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
                  hamiltonian: TTNO,
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
+                 connections: List,
                  config: Union[TTNTimeEvolutionConfig,None] = None) -> None:
         """
         Initilises an instance of a TDVP algorithm.
@@ -65,6 +66,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
         super().__init__(initial_state,
                          time_step_size, final_time,
                          operators,
+                         connections,
                          config)
         self.update_path = self._finds_update_path()
         self.orthogonalization_path = self._find_tdvp_orthogonalization_path(self.update_path)

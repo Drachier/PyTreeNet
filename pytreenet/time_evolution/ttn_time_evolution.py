@@ -8,6 +8,9 @@ from .time_evolution import TimeEvolution
 from ..ttns import TreeTensorNetworkState
 from ..ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
+import numpy as np
+from ..Lindblad.util import expectation_value_Lindblad
+
 
 @dataclass
 class TTNTimeEvolutionConfig:
@@ -39,6 +42,7 @@ class TTNTimeEvolution(TimeEvolution):
                                   Dict[str, Union[TensorProduct, TTNO]],
                                   TensorProduct,
                                   TTNO],
+                 connections: List,                 
                  config: Union[TTNTimeEvolutionConfig,None] = None) -> None:
         """
         A time evolution for a tree tensor network state.
@@ -57,6 +61,7 @@ class TTNTimeEvolution(TimeEvolution):
                 time evolution. Defaults to None.
         """
         super().__init__(initial_state, time_step_size, final_time, operators)
+        self.connections = connections
         self._initial_state: TreeTensorNetworkState
         self.state: TreeTensorNetworkState
 
@@ -132,3 +137,17 @@ class TTNTimeEvolution(TimeEvolution):
                 the current state.
         """
         return self.state.operator_expectation_value(operator)
+    
+    def evaluate_operators_Lindblad(self) -> ndarray:
+        """
+        Evaluates the operator including the recording of bond dimensions.
+        """
+        current_results = np.zeros(len(self.operators), dtype=complex)
+        for i, operator in enumerate(self.operators):
+            exp_val = self.evaluate_operator_Lindblad(operator)
+            current_results[i] = exp_val
+        self.record_bond_dimensions()
+        return current_results
+
+    def evaluate_operator_Lindblad(self, operator: Union[TensorProduct,TTNO]) -> complex:
+        return expectation_value_Lindblad(self.state, self.connections , operator)     

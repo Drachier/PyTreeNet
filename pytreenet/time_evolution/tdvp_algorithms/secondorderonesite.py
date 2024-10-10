@@ -5,7 +5,9 @@ from ...operators.tensorproduct import TensorProduct
 from ...ttno.ttno_class import TTNO
 from ...ttns import TreeTensorNetworkState
 from ..ttn_time_evolution import TTNTimeEvolutionConfig
-
+from tqdm import tqdm
+from copy import deepcopy
+from ...Lindblad.util import adjust_ttn1_structure_to_ttn2 , adjust_bra_to_ket
 from .onesitetdvp import OneSiteTDVP
 
 class SecondOrderOneSiteTDVP(OneSiteTDVP):
@@ -27,6 +29,7 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
     def __init__(self, initial_state: TreeTensorNetworkState,
                  hamiltonian: TTNO, time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
+                 connections: List,
                  config: Union[TTNTimeEvolutionConfig,None] = None) -> None:
         """
         Initialize the second order one site TDVP algorithm.
@@ -43,7 +46,7 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
                 evolution configuration. Defaults to None.
         """
         super().__init__(initial_state, hamiltonian,
-                         time_step_size, final_time, operators,
+                         time_step_size, final_time, operators, connections,
                          config)
         self.backwards_update_path = self._init_second_order_update_path()
         self.backwards_orth_path = self._init_second_order_orth_path()
@@ -177,3 +180,48 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
         self.forward_sweep()
         self._final_forward_update()
         self.backward_sweep()
+
+    def run_Lindblad(self, evaluation_time: Union[int,"inf"] = 1, filepath: str = "",
+            pgbar: bool = True,):
+        """
+        Runs this time evolution algorithm for the given parameters.
+
+        The desired operator expectation values are evaluated and saved.
+
+        Args:
+            evaluation_time (int, optional): The difference in time steps after which
+                to evaluate the operator expectation values, e.g. for a value of 10
+                the operators are evaluated at time steps 0,10,20,... If it is set to
+                "inf", the operators are only evaluated at the end of the time.
+                Defaults to 1.
+            filepath (str, optional): If results are to be saved in an external file,
+                the path to that file can be specified here. Defaults to "".
+            pgbar (bool, optional): Toggles the progress bar. Defaults to True.
+        """
+        self._init_results(evaluation_time)
+        assert self._results is not None
+        self.state = adjust_bra_to_ket(self.state)
+        vectorized_pho_structure = deepcopy(self.state)
+        for i in tqdm(range(self.num_time_steps + 1), disable=not pgbar):
+            if i != 0:  # We also measure the initial expectation_values                
+                self.run_one_time_step()
+                self.state = adjust_ttn1_structure_to_ttn2(self.state, vectorized_pho_structure)
+            if evaluation_time != "inf" and i % evaluation_time == 0 and len(self._results) > 0:
+                index = i // evaluation_time
+                current_results = self.evaluate_operators_Lindblad()
+                print(current_results[0])
+                self._results[0:-1, index] = current_results
+                # Save current time
+                self._results[-1, index] = i*self.time_step_size
+        if evaluation_time == "inf":
+            current_results = self.evaluate_operators_Lindblad()
+            self._results[0:-1, 0] = current_results
+            self._results[-1, 0] = i*self.time_step_size
+        if filepath != "":
+            self.save_results_to_file(filepath)
+
+    def reset_to_initial_state(self):
+        """
+        Resets the current state to the intial state
+        """
+        self.state = deepcopy(self._intital_state)   
