@@ -27,7 +27,6 @@ def lanczos_iteration(Afunc, vstart, numiter):
 
     alpha = np.zeros(numiter)
     beta  = np.zeros(numiter-1)
-
     V = np.zeros((numiter, len(vstart)), dtype=complex)
     V[0] = vstart
 
