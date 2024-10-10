@@ -187,14 +187,14 @@ def expectation_value_Lindblad(vectorized_pho: TreeTensorNetworkState,
                                connections: list,
                                operator: TTNO) -> complex:
     ket , bra = devectorize_pho(vectorized_pho ,connections)
-
+    bra = bra.conjugate()
     # update "Vertex(0,0)_R" according to the new bond dimension
     new_dim = ket.tensors[ket.root_id + "_R"].shape[-1]
     op_tensor = np.eye(new_dim).reshape((1, new_dim, new_dim))
     operator.tensors[operator.root_id + "_R"] = op_tensor
     operator.nodes[operator.root_id + "_R"].link_tensor(op_tensor)
     # compute normalization factor 
-    norm = contract_two_ttns(bra, ket)
+    norm = contract_two_ttns(ket , bra)
 
     op_ket = contract_ttno_with_ttn(operator, ket)
-    return complex(contract_two_ttns(bra, op_ket)) / norm
+    return complex(contract_two_ttns(op_ket , bra)) / norm

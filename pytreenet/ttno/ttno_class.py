@@ -10,6 +10,7 @@ from ..core.ttn import TreeTensorNetwork
 from ..core.tree_structure import TreeStructure
 from ..core.node import Node
 from ..operators.hamiltonian import Hamiltonian
+from ..operators.tensorproduct import TensorProduct
 from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      tensor_svd,
                                      truncated_tensor_svd,
@@ -52,6 +53,31 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
         dim = np.prod(tensor.shape[:int(tensor.ndim/2)])
         tensor = tensor.reshape(dim, dim)
         return tensor, order
+
+    @classmethod
+    def Identity(cls, reference_tree: TreeTensorNetwork) -> TTNO:
+        """
+        Creates a TTNO representing the identity operator.
+
+        Args:
+        reference_tree (TreeTensorNetworkState): The tree structure which the TTNO
+                                                 should respect.
+        Returns:
+        new_TTNO: TTNO
+
+        """
+        tp_dict = {}
+        for node_id , node in list(reference_tree.nodes.items()):
+            tp_dict[node.identifier] = node.identifier
+        tp = TensorProduct(tp_dict)
+
+        con_dict = {}
+        for node_id , node in list(reference_tree.nodes.items()):
+            con_dict[node.identifier] = np.eye(node.shape[-1])
+
+        H = Hamiltonian(tp, con_dict)
+        return cls.from_hamiltonian( H, reference_tree)
+
 
     @classmethod
     def from_hamiltonian(cls,hamiltonian: Hamiltonian,
