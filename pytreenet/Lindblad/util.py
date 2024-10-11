@@ -3,7 +3,7 @@ from ..contractions.state_state_contraction import contract_two_ttns
 from ..ttno import TTNO
 from copy import deepcopy
 from ..util.tensor_util import tensor_matricization
-from ..util.tensor_splitting import _determine_tensor_shape
+from ..util.tensor_splitting import _determine_tensor_shape , SplitMode
 from ..ttns import TreeTensorNetworkState
 import numpy as np
 
@@ -183,6 +183,23 @@ def contract_tensors_ttno_with_ttn(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     C = C.reshape(new_shape)   
     return C
 
+
+def normalize_ttn_Lindblad(vectorized_pho , orth_center_id, connections): 
+    pho_normalized_str = deepcopy(vectorized_pho)
+    pho_normalized = deepcopy(vectorized_pho)
+    pho_normalized.canonical_form(orth_center_id, mode = SplitMode.REDUCED) 
+    pho_normalized = adjust_ttn1_structure_to_ttn2(pho_normalized , pho_normalized_str)
+    
+    ket , bra = devectorize_pho(vectorized_pho ,connections)
+    bra = bra.conjugate()
+    norm = contract_two_ttns(bra , ket)
+    print(norm , np.abs(norm))
+    T = pho_normalized.tensors[orth_center_id].astype(complex)
+    T /= norm
+    pho_normalized.tensors[orth_center_id] = T
+    pho_normalized.nodes[orth_center_id].link_tensor(T)
+    return pho_normalized
+
 def expectation_value_Lindblad(vectorized_pho: TreeTensorNetworkState,
                                connections: list,
                                operator: TTNO) -> complex:
@@ -194,7 +211,6 @@ def expectation_value_Lindblad(vectorized_pho: TreeTensorNetworkState,
     operator.tensors[operator.root_id + "_R"] = op_tensor
     operator.nodes[operator.root_id + "_R"].link_tensor(op_tensor)
     # compute normalization factor 
-    norm = contract_two_ttns(ket , bra)
 
     op_ket = contract_ttno_with_ttn(operator, ket)
-    return complex(contract_two_ttns(op_ket , bra)) / norm
+    return contract_two_ttns(bra , op_ket)
