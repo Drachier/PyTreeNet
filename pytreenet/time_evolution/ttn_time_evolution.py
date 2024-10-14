@@ -9,9 +9,8 @@ from ..ttns import TreeTensorNetworkState
 from ..ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
 import numpy as np
-from ..Lindblad.util import expectation_value_Lindblad
-
-
+from ..contractions.state_operator_contraction import expectation_value
+from ..Lindblad.util import expectation_value_Lindblad_2
 @dataclass
 class TTNTimeEvolutionConfig:
     """
@@ -150,4 +149,6 @@ class TTNTimeEvolution(TimeEvolution):
         return current_results
 
     def evaluate_operator_Lindblad(self, operator: Union[TensorProduct,TTNO]) -> complex:
-        return expectation_value_Lindblad(self.state, self.connections , operator)     
+        return expectation_value_Lindblad_2(self.state, self.connections , operator)     
+    #def evaluate_operator_Lindblad(self, operator: Union[TensorProduct,TTNO]) -> complex:
+    #    return expectation_value(self.state , operator)     

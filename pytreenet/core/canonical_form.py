@@ -48,6 +48,44 @@ def canonical_form(ttn: TreeTensorNetwork,
                                              mode=mode)
     ttn.orthogonality_center_id = orthogonality_center_id
 
+
+def canonical_form_twosite(ttn: TreeTensorNetwork,
+                   orthogonality_center_1: str,
+                   orthogonality_center_2: str,
+                   mode: SplitMode = SplitMode.REDUCED):
+    """
+    Modifies a TreeTensorNetwork into canonical form.
+
+    Args:
+        ttn (TreeTensorNetwork): The TTN for which to be transformed into
+            canonical form.
+        orthogonality_center_id (str): The identifier of the tensor node which
+            is the orthogonality center for the canonical form.
+        mode: The mode to be used for the QR decomposition. For details refe
+            to `tensor_util.tensor_qr_decomposition`.
+    """
+    distance_dict = ttn.distance_to_node(
+        orthogonality_center_1)
+    maximum_distance = max(distance_dict.values())
+    # Perform QR-decomposition on all TensorNodes but the orthogonality center
+    for distance in reversed(range(1, maximum_distance+1)):
+        # Perform QR on nodes furthest away first.
+        node_id_with_distance = [node_id for node_id in distance_dict.keys()
+                                 if distance_dict[node_id] == distance]
+        for node_id in node_id_with_distance:
+            if node_id == orthogonality_center_2:
+               continue        
+            node = ttn.nodes[node_id]
+            minimum_distance_neighbour_id = _find_smallest_distance_neighbour(node,
+                                                                              distance_dict)
+            
+            split_qr_contract_r_to_neighbour(ttn,
+                                        node_id,
+                                        minimum_distance_neighbour_id,
+                                        mode=mode)
+
+    ttn.orthogonality_center_id = None  
+
 def _find_smallest_distance_neighbour(node: Node,
                                       distance_dict: dict[str, int]) -> str:
     """

@@ -7,8 +7,15 @@ from ...ttns import TreeTensorNetworkState
 from ..ttn_time_evolution import TTNTimeEvolutionConfig
 from tqdm import tqdm
 from copy import deepcopy
-from ...Lindblad.util import adjust_ttn1_structure_to_ttn2 , adjust_bra_to_ket
+from ...Lindblad.util import (adjust_ttn1_structure_to_ttn2,
+                             normalize_ttn_Lindblad_X,
+                             normalize_ttn_Lindblad_XX,
+                             normalize_ttn_Lindblad_2,
+                             normalize_ttn_Lindblad_11)
 from .onesitetdvp import OneSiteTDVP
+import copy
+import numpy as np
+import pytreenet as ptn
 
 class SecondOrderOneSiteTDVP(OneSiteTDVP):
     """
@@ -177,9 +184,48 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
         This mean we run a full forward and a full backward sweep through the
         tree.
         """
+        self._orthogonalize_init()
+        self.adjust_to_initial_structure()
+        self.partial_tree_cache = self._init_partial_tree_cache() 
+
         self.forward_sweep()
         self._final_forward_update()
         self.backward_sweep()
+        self.adjust_to_initial_structure()
+
+        orth_center_id_1 = self.state.root_id
+        orth_center_id_2 = orth_center_id_1.replace('Site', 'Node')
+        #self.state = normalize_ttn_Lindblad_XX(self.state , orth_center_id_1,orth_center_id_2)
+        #self.state = normalize_ttn_Lindblad_1(self.state , orth_center_id_1 , orth_center_id_2, self.connections)
+        #self.state = normalize_ttn_Lindblad_2(self.state ,  self.connections)
+        self.adjust_to_initial_structure()
+
+    def create_temp_copy(self):
+        """
+        Creates a temporary copy of the object with deep copies of state and cache.
+        """
+        temp_self = copy.copy(self)
+        temp_self.state = copy.deepcopy(self.state)
+        return temp_self
+
+    def run_one_time_step_copy(self):
+        # remove self._orthogonalize_init() and self.partial_tree_cache in TDVPAlgorithm
+        temp_self = self.create_temp_copy()
+        temp_self._orthogonalize_init()
+        temp_self.adjust_to_initial_structure()
+        temp_self.partial_tree_cache = temp_self._init_partial_tree_cache()
+
+        temp_self.forward_sweep()
+        temp_self._final_forward_update()
+        temp_self.backward_sweep()
+        temp_self.adjust_to_initial_structure()
+        #orth_center_id_1 = self.state.root_id
+        #orth_center_id_2 = orth_center_id_1.replace('Site', 'Node')
+        #temp_self.state = normalize_ttn_Lindblad_X(temp_self.state , orth_center_id_1)
+        #temp_self.state = normalize_ttn_Lindblad_XX(temp_self.state , orth_center_id_1 , orth_center_id_2)
+        #temp_self.state = normalize_ttn_Lindblad_11(temp_self.state , temp_self.connections)
+        self.state = temp_self.state
+        self.adjust_to_initial_structure()
 
     def run_Lindblad(self, evaluation_time: Union[int,"inf"] = 1, filepath: str = "",
             pgbar: bool = True,):
@@ -200,15 +246,16 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
         """
         self._init_results(evaluation_time)
         assert self._results is not None
-        self.state = adjust_bra_to_ket(self.state)
-        vectorized_pho_structure = deepcopy(self.state)
+        ket , bra = ptn.devectorize_pho(self.state ,self.connections)
+        I = ptn.TTNO.Identity(ket)        
         for i in tqdm(range(self.num_time_steps + 1), disable=not pgbar):
-            if i != 0:  # We also measure the initial expectation_values                
-                self.run_one_time_step()
-                self.state = adjust_ttn1_structure_to_ttn2(self.state, vectorized_pho_structure)
+            if i != 0:  # We also measure the initial expectation_values  
+                self.run_one_time_step_copy()
             if evaluation_time != "inf" and i % evaluation_time == 0 and len(self._results) > 0:
                 index = i // evaluation_time
+                norm = ptn.expectation_value_Lindblad_2(self.state , self.connections , I) 
                 current_results = self.evaluate_operators_Lindblad()
+                
                 print(current_results[0])
                 self._results[0:-1, index] = current_results
                 # Save current time

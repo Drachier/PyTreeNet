@@ -8,3 +8,4 @@ from .ttns.ttns import *
 from .operators import *
 from .Lindblad import *
 from .random import *
+from .util import *

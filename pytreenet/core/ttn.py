@@ -60,7 +60,7 @@ from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      SplitMode,
                                      SVDParameters)
 from .leg_specification import LegSpecification
-from .canonical_form import (canonical_form,
+from .canonical_form import (canonical_form,canonical_form_twosite,
                              split_qr_contract_r_to_neighbour)
 from ..contractions.tree_contraction import completely_contract_tree
 from ..util.ttn_exceptions import NotCompatibleException
@@ -1141,6 +1141,12 @@ class TreeTensorNetwork(TreeStructure):
                 refer to `tensor_util.tensor_qr_decomposition`.
         """
         canonical_form(self, orthogonality_center_id, mode=mode)
+
+    def canonical_form_twosite(self, orthogonality_center_1: str,
+                               orthogonality_center_2: str,
+                               mode: SplitMode = SplitMode.REDUCED):
+        canonical_form_twosite(self, orthogonality_center_1,
+                               orthogonality_center_2, mode)
 
     def orthogonalize(self, orthogonality_center_id: str,
                       mode: SplitMode = SplitMode.REDUCED):

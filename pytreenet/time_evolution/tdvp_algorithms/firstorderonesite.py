@@ -3,6 +3,8 @@ Implementation of the first order one site TDVP algorithm.
 """
 from ...util.tensor_splitting import SplitMode
 from .onesitetdvp import OneSiteTDVP
+from ...Lindblad.util import adjust_ttn1_structure_to_ttn2
+import copy
 
 class FirstOrderOneSiteTDVP(OneSiteTDVP):
     """
@@ -87,7 +89,7 @@ class FirstOrderOneSiteTDVP(OneSiteTDVP):
         if len(self.state.nodes) > 2: # Not for the special case of two nodes
             self._assert_leaf_node(node_id) # The final site to be updated should be a leaf node
         self._update_site(node_id)
-        self._reset_for_next_time_step()
+        # self._reset_for_next_time_step()
 
     def run_one_time_step(self):
         """
@@ -102,3 +104,34 @@ class FirstOrderOneSiteTDVP(OneSiteTDVP):
                 self._first_update(node_id)
             else:
                 self._normal_update(node_id, i)
+
+    def create_temp_copy(self):
+        """
+        Creates a temporary copy of the object with deep copies of state and cache.
+        """
+        temp_self = copy.copy(self)
+        temp_self.state = copy.deepcopy(self.state)
+        return temp_self
+
+    def run_one_time_step_copy(self):
+        # remove self._orthogonalize_init() and self.partial_tree_cache in TDVPAlgorithm
+        # remove self._reset_for_next_time_step() in self._final_update(node_id)
+        # TODO : remove extra adjust_ttn1_structure_to_ttn2
+        temp_self = self.create_temp_copy()
+        vectorized_pho_structure = copy.deepcopy(self.state)
+        temp_self._orthogonalize_init()
+        temp_self.partial_tree_cache = temp_self._init_partial_tree_cache()
+
+        for i, node_id in enumerate(self.update_path):
+            if i == len(self.update_path)-1:
+                temp_self._final_update(node_id)
+            elif i == 0:
+                temp_self._first_update(node_id)
+            else:
+                temp_self._normal_update(node_id, i) 
+
+        orth_center_id_1 = self.state.root_id
+        orth_center_id_2 = orth_center_id_1.replace('Site', 'Node')
+        # temp_self.state = normalize_ttn_Lindblad_1(temp_self.state , orth_center_id_1 , orth_center_id_2, temp_self.connections)
+        self.state = temp_self.state
+        self.state = adjust_ttn1_structure_to_ttn2(self.state, vectorized_pho_structure)
