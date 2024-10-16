@@ -20,6 +20,9 @@ from ...operators.tensorproduct import TensorProduct
 from ...contractions.sandwich_caching import SandwichCache
 from ...contractions.effective_hamiltonians import get_effective_single_site_hamiltonian
 from ..time_evo_util.update_path import TDVPUpdatePathFinder
+from copy import deepcopy
+from ...Lindblad.util import (adjust_ttn1_structure_to_ttn2,
+                              adjust_ttno_structure_to_ttn)
 
 class TDVPAlgorithm(TTNTimeEvolution):
     """
@@ -74,6 +77,11 @@ class TDVPAlgorithm(TTNTimeEvolution):
 
         # Caching for speed up
         self.partial_tree_cache = self._init_partial_tree_cache()
+
+    def adjust_to_initial_structure(self):
+        ttn_structure = deepcopy(self.initial_state)
+        self.hamiltonian = adjust_ttno_structure_to_ttn(self.hamiltonian, ttn_structure)
+        self.state = adjust_ttn1_structure_to_ttn2(self.state, ttn_structure)
 
     def _orthogonalize_init(self, force_new: bool=False):
         """

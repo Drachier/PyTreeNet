@@ -7,11 +7,9 @@ from ...ttns import TreeTensorNetworkState
 from ..ttn_time_evolution import TTNTimeEvolutionConfig
 from tqdm import tqdm
 from copy import deepcopy
-from ...Lindblad.util import (adjust_ttn1_structure_to_ttn2 , 
-                              adjust_bra_to_ket , 
-                              normalize_ttn_Lindblad)
+from ...Lindblad.util import adjust_ttn1_structure_to_ttn2
 from .onesitetdvp import OneSiteTDVP
-from ...contractions.tree_cach_dict import PartialTreeCachDict
+import copy
 import numpy as np
 
 class SecondOrderOneSiteTDVP(OneSiteTDVP):
@@ -174,7 +172,7 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
             self._normal_backward_update(node_id, i+1)
         self._final_backward_update()
 
-    def run_one_time_step(self):
+    def run_one_time_step_Lindblad(self):
         """
         Run a single second order time step.
         
@@ -184,6 +182,7 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
         self.forward_sweep()
         self._final_forward_update()
         self.backward_sweep()
+        self.adjust_to_initial_structure()
 
     def run_Lindblad(self, evaluation_time: Union[int,"inf"] = 1, filepath: str = "",
             pgbar: bool = True,):
@@ -201,27 +200,20 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
             filepath (str, optional): If results are to be saved in an external file,
                 the path to that file can be specified here. Defaults to "".
             pgbar (bool, optional): Toggles the progress bar. Defaults to True.
-        """
+        """     
         self._init_results(evaluation_time)
         assert self._results is not None
-        self.state = adjust_bra_to_ket(self.state)
-        vectorized_pho_structure = deepcopy(self.state)
         for i in tqdm(range(self.num_time_steps + 1), disable=not pgbar):
-            self.state = normalize_ttn_Lindblad(self.state , self.update_path[0], self.connections) 
-            if i != 0:  # We also measure the initial expectation_values  
-                self._orthogonalize_init(force_new=True)
-                self.partial_tree_cache = self._init_partial_tree_cache()                
-                self.run_one_time_step()
-                self.state = adjust_ttn1_structure_to_ttn2(self.state, vectorized_pho_structure)
+            if i != 0:  # We also measure the initial expectation_values
+                self.run_one_time_step_Lindblad()
             if evaluation_time != "inf" and i % evaluation_time == 0 and len(self._results) > 0:
                 index = i // evaluation_time
                 current_results = self.evaluate_operators_Lindblad()
-                #print(current_results[0] , np.abs(current_results[0]))
                 self._results[0:-1, index] = current_results
                 # Save current time
                 self._results[-1, index] = i*self.time_step_size
         if evaluation_time == "inf":
-            current_results = self.evaluate_operators_Lindblad()
+            current_results = self.evaluate_operators()
             self._results[0:-1, 0] = current_results
             self._results[-1, 0] = i*self.time_step_size
         if filepath != "":
@@ -231,4 +223,4 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
         """
         Resets the current state to the intial state
         """
-        self.state = deepcopy(self._intital_state)   
+        self.state = deepcopy(self._initial_state)        

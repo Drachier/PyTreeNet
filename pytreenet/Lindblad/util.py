@@ -6,6 +6,15 @@ from ..util.tensor_util import tensor_matricization
 from ..util.tensor_splitting import _determine_tensor_shape , SplitMode
 from ..ttns import TreeTensorNetworkState
 import numpy as np
+from ..contractions.contraction_util import (get_equivalent_legs, 
+                                             contract_all_but_one_neighbour_block_to_ket,
+                                             contract_all_neighbour_blocks_to_ket)
+from ..contractions.tree_cach_dict import PartialTreeCachDict
+from ..contractions.state_operator_contraction import (_node_operator_input_leg,
+                                                       _node_operator_output_leg,
+                                                       _node_state_phys_leg,
+                                                       contract_operator_tensor_ignoring_one_leg,
+                                                       contract_bra_tensor_ignore_one_leg)
 
 
 def transpose_node_with_neighbouring_nodes(state, ket_id, neighbours):
@@ -39,31 +48,52 @@ def convert_sites_and_nodes(input_list):
         converted_list.append(converted_item)      
     return converted_list
 
+def cehck_two_ttn_compatibility(ttn1, ttn2):
+    for nodes in ttn1.nodes:
+        legs = get_equivalent_legs(ttn1.nodes[nodes], ttn2.nodes[nodes])
+        assert legs[0] == legs[1]
+
 def adjust_ttn1_structure_to_ttn2(ttn1, ttn2):
-    """
-    Adjusts the structure of ttn1 to match the structure of ttn2.
+    try:
+        cehck_two_ttn_compatibility(ttn1, ttn2)
+        return ttn1
+    except AssertionError:    
+        ttn3 = deepcopy(ttn2)
+        orth_center = ttn1.orthogonality_center_id
+        for node_id in ttn3.nodes:
+            ttn1_neighbours = ttn1.nodes[node_id].neighbouring_nodes()
+            element_map = {elem: i for i, elem in enumerate(ttn1_neighbours)}
+            ttn1_neighbours = ttn2.nodes[node_id].neighbouring_nodes()
+            permutation = tuple(element_map[elem] for elem in ttn1_neighbours)
+            nneighbours = ttn2.nodes[node_id].nneighbours()
+            ttn1_tensor = ttn1.tensors[node_id].transpose(permutation + (nneighbours,))
+            
+            ttn3.tensors[node_id] = ttn1_tensor
+            ttn3.nodes[node_id].link_tensor(ttn1_tensor)
+            ttn3.orthogonality_center_id = orth_center    
+        return ttn3       
 
-    Args:
-        ttn1 (TTN): The original Tensor Train Network.
-        ttn2 (TTN): The target Tensor Train Network.
-
-    Returns:
-        ttn3 (TTN): The adjusted ttn1 with the structure of ttn2.
-    """
-    ttn3 = deepcopy(ttn2)
-    orth_center = ttn1.orthogonality_center_id
-    for node_id in ttn3.nodes:
-        ttn1_neighbours = ttn1.nodes[node_id].neighbouring_nodes()
-        element_map = {elem: i for i, elem in enumerate(ttn1_neighbours)}
-        ttn1_neighbours = ttn2.nodes[node_id].neighbouring_nodes()
-        permutation = tuple(element_map[elem] for elem in ttn1_neighbours)
-        nneighbours = ttn2.nodes[node_id].nneighbours()
-        ttn1_tensor = ttn1.tensors[node_id].transpose(permutation + (nneighbours,))
-        
-        ttn3.tensors[node_id] = ttn1_tensor
-        ttn3.nodes[node_id].link_tensor(ttn1_tensor)
-    ttn3.orthogonality_center_id = orth_center    
-    return ttn3       
+def adjust_ttno_structure_to_ttn(ttno, ttn):
+    try: 
+        cehck_two_ttn_compatibility(ttno, ttn)
+        return ttno
+    except AssertionError:    
+        ttno_copy = deepcopy(ttno)
+        for node_id in ttno_copy.nodes:
+            ttno_neighbours = ttno.nodes[node_id].neighbouring_nodes()
+            element_map = {elem: i for i, elem in enumerate(ttno_neighbours)}
+            ttn1_neighbours = ttn.nodes[node_id].neighbouring_nodes()
+            permutation = tuple(element_map[elem] for elem in ttn1_neighbours)
+            nneighbours = ttn.nodes[node_id].nneighbours()
+            ttno_tensor = ttno.tensors[node_id].transpose(permutation + (nneighbours,) + (nneighbours + 1,))
+            ttno_copy.tensors[node_id] = ttno_tensor
+            ttno_copy.nodes[node_id].link_tensor(ttno_tensor)
+            ttn_neighbours = ttn.nodes[node_id].neighbouring_nodes()
+            if ttno_copy.nodes[node_id].is_root():
+                ttno_copy.nodes[node_id].children = ttn_neighbours
+            else:
+                ttno_copy.nodes[node_id].children = ttn_neighbours[1:] 
+        return ttno_copy       
 
 def adjust_bra_to_ket(vectorized_pho):
     vectorized_pho_copy = deepcopy(vectorized_pho)
@@ -117,6 +147,9 @@ def split_root_qr(psi):
 def devectorize_pho(vectorized_pho , connections): 
     vectorized_pho_copy = deepcopy(vectorized_pho)
     vectorized_pho_copy = adjust_bra_to_ket(vectorized_pho_copy)   
+    #print(vectorized_pho_copy.nodes["Site(0,0)"].neighbouring_nodes() , vectorized_pho_copy.tensors["Site(0,0)"].shape)
+    #print(vectorized_pho_copy.nodes["Node(0,0)"].neighbouring_nodes() , vectorized_pho_copy.tensors["Node(0,0)"].shape)
+
         
     sites = {
         (i, j): (Node(   tensor = vectorized_pho_copy.tensors[f"Site({i},{j})"], 
@@ -167,6 +200,13 @@ def contract_ttno_with_ttn(ttno: TTNO, ttn: TreeTensorNetworkState) -> TreeTenso
         contracted_ttn.nodes[node_id].link_tensor(T)        
     return contracted_ttn     
 
+def bra_ket(vectorized_pho: TreeTensorNetworkState,
+            connections: list) -> complex:  
+    ket , bra = devectorize_pho(vectorized_pho ,connections)
+    #bra = adjust_ttn1_structure_to_ttn2(bra, ket)
+    bra = bra.conjugate()
+    return complex(contract_two_ttns(bra , ket))
+
 def contract_tensors_ttno_with_ttn(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     C = np.tensordot( B, A, axes=((-1,), (A.ndim-1,)))
     perm = []
@@ -183,21 +223,28 @@ def contract_tensors_ttno_with_ttn(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     C = C.reshape(new_shape)   
     return C
 
-
+import cmath
 def normalize_ttn_Lindblad(vectorized_pho , orth_center_id, connections): 
     pho_normalized_str = deepcopy(vectorized_pho)
-    pho_normalized = deepcopy(vectorized_pho)
-    pho_normalized.canonical_form(orth_center_id, mode = SplitMode.REDUCED) 
-    pho_normalized = adjust_ttn1_structure_to_ttn2(pho_normalized , pho_normalized_str)
-    
+    pho_normalized = deepcopy(vectorized_pho)    
     ket , bra = devectorize_pho(vectorized_pho ,connections)
     bra = bra.conjugate()
     norm = contract_two_ttns(bra , ket)
-    print(norm , np.abs(norm))
+
+    pho_normalized.canonical_form(orth_center_id, mode = SplitMode.REDUCED) 
+    pho_normalized = adjust_ttn1_structure_to_ttn2(pho_normalized , pho_normalized_str)
+
     T = pho_normalized.tensors[orth_center_id].astype(complex)
     T /= norm
     pho_normalized.tensors[orth_center_id] = T
     pho_normalized.nodes[orth_center_id].link_tensor(T)
+
+    orth_center_id_2 = orth_center_id.replace("Node", "Site")
+    T = pho_normalized.tensors[orth_center_id_2].astype(complex)
+    T /= np.exp(1j * cmath.phase(norm))
+    pho_normalized.tensors[orth_center_id_2] = T
+    pho_normalized.nodes[orth_center_id_2].link_tensor(T)
+
     return pho_normalized
 
 def expectation_value_Lindblad(vectorized_pho: TreeTensorNetworkState,
@@ -213,4 +260,6 @@ def expectation_value_Lindblad(vectorized_pho: TreeTensorNetworkState,
     # compute normalization factor 
 
     op_ket = contract_ttno_with_ttn(operator, ket)
+    #op_ket.canonical_form('Vertex(1,1)', mode = SplitMode.REDUCED)
+    #op_ket = adjust_ttn1_structure_to_ttn2(op_ket, bra)
     return contract_two_ttns(bra , op_ket)
