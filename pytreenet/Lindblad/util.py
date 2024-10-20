@@ -221,7 +221,7 @@ def normalize_ttn_Lindblad_1(vectorized_pho , orth_center_id_1, orth_center_id_2
     pho_normalized.nodes[orth_center_id_1].link_tensor(T)
 
     T = pho_normalized.tensors[orth_center_id_2].astype(complex)
-    T /= norm.conj()
+    T /= norm
     pho_normalized.tensors[orth_center_id_2] = T
     pho_normalized.nodes[orth_center_id_2].link_tensor(T)
     return pho_normalized
@@ -260,7 +260,7 @@ def expectation_value_Lindblad_1(vectorized_pho: TreeTensorNetworkState,
     #ket , bra = devectorize_pho_1d(vectorized_pho ,connections , 5)
 
     bra = adjust_ttn1_structure_to_ttn2(bra, ket)
-    bra = bra.conjugate()
+    #bra = bra.conjugate()
 
     ## update "Vertex(0,0)_R" according to the new bond dimension ##
     new_dim = ket.tensors[ket.root_id + "_R"].shape[-1]
@@ -278,7 +278,7 @@ def bra_ket(vectorized_pho: TreeTensorNetworkState,
     #ket , bra = devectorize_pho_1d(vectorized_pho ,connections , 5)
     
     bra = adjust_ttn1_structure_to_ttn2(bra, ket)
-    bra = bra.conjugate()
+    #bra = bra.conjugate()
     return complex(contract_two_ttns(bra , ket))
 
 import cmath
@@ -309,7 +309,7 @@ def expectation_value_Lindblad_2(vectorized_pho: TreeTensorNetworkState,
 
     ket , bra = ptn.devectorize_pho(vectorized_pho , connections)
     #ket , bra = devectorize_pho_1d(vectorized_pho ,connections , 5)
-    bra = bra.conjugate()
+    #bra = bra.conjugate()
 
     ## update "Vertex(0,0)_R" according to the new bond dimension ##
     new_dim = ket.tensors[ket.root_id + "_R"].shape[-1]
@@ -342,7 +342,6 @@ def expectation_value_Lindblad_2(vectorized_pho: TreeTensorNetworkState,
             dictionary.delete_entry(child_id,node_id)
     # Now everything remaining is contracted into the root tensor.
     bra = adjust_ttn1_structure_to_ttn2(bra, ket)
-    #norm_factor = np.array(1)
     return complex(contract_node_with_environment_Lindblad(ket.root_id,
                                                            bra,
                                                            ket,
@@ -438,7 +437,7 @@ def contract_leaf_Lindblad(node_id: str,
     ket_node, ket_tensor = ket[node_id]
     _ , bra_tensor = bra[node_id]
     ket_tensor = ket_tensor * norm_factor
-    bra_tensor = bra_tensor * norm_factor.conj()
+    bra_tensor = bra_tensor * norm_factor
     ham_node, ham_tensor = operator[node_id]
     bra_ham = np.tensordot(ham_tensor, bra_tensor,
                            axes=(_node_operator_output_leg(ham_node),
@@ -505,7 +504,7 @@ def contract_subtrees_using_dictionary_Lindblad(node_id: str,
                                                        op_node,
                                                        ignored_node_id)
     _ , bra_tensor = bra[node_id]
-    bra_tensor = bra_tensor * norm_factor.conj()
+    bra_tensor = bra_tensor * norm_factor
     return contract_bra_tensor_ignore_one_leg(bra_tensor,
                                               tensor,
                                               ket_node,
@@ -567,7 +566,7 @@ def contract_node_with_environment_Lindblad(node_id: str,
     kethamblock = np.tensordot(ket_neigh_block, op_tensor,
                                axes=(block_legs, ham_legs))
     _ , bra_tensor = bra[node_id]
-    bra_tensor = bra_tensor * norm_factor.conj()
+    bra_tensor = bra_tensor * norm_factor
     state_legs.append(len(state_legs))
     return np.tensordot(bra_tensor, kethamblock,
                         axes=(state_legs,state_legs))
@@ -635,7 +634,7 @@ def normalize_ttn_Lindblad_A(vectorized_pho , connections) :
         pho_normalized.nodes[ket_id].link_tensor(T)
 
         T = pho_normalized.tensors[bra_id].astype(complex)
-        T /= norm.conj()
+        T /= norm
         pho_normalized.tensors[bra_id] = T
         pho_normalized.nodes[bra_id].link_tensor(T)
 
@@ -666,7 +665,7 @@ def normalize_ttn_Lindblad_XX(vectorized_pho , orth_center_id_1 , orth_center_id
     pho_normalized.nodes[orth_center_id_1].link_tensor(T)
 
     T = pho_normalized.tensors[orth_center_id_2].astype(complex)
-    T /= np.sqrt(norm).conj()
+    T /= np.sqrt(norm)
     pho_normalized.tensors[orth_center_id_2] = T
     pho_normalized.nodes[orth_center_id_2].link_tensor(T)
     return pho_normalized
