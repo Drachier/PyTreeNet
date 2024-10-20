@@ -149,6 +149,6 @@ class TTNTimeEvolution(TimeEvolution):
         return current_results
 
     def evaluate_operator_Lindblad(self, operator: Union[TensorProduct,TTNO]) -> complex:
-        return expectation_value_Lindblad_2(self.state, self.connections , operator)     
+        return expectation_value_Lindblad_2(self.state, self.connections , operator)    
     #def evaluate_operator_Lindblad(self, operator: Union[TensorProduct,TTNO]) -> complex:
     #    return expectation_value(self.state , operator)     

@@ -10,7 +10,7 @@ from copy import deepcopy
 from ...Lindblad.util import (adjust_ttn1_structure_to_ttn2,
                              normalize_ttn_Lindblad_X,
                              normalize_ttn_Lindblad_XX,
-                             normalize_ttn_Lindblad_2,
+                             normalize_ttn_Lindblad_A,
                              normalize_ttn_Lindblad_11)
 from .onesitetdvp import OneSiteTDVP
 import copy
@@ -211,6 +211,7 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
     def run_one_time_step_copy(self):
         # remove self._orthogonalize_init() and self.partial_tree_cache in TDVPAlgorithm
         temp_self = self.create_temp_copy()
+
         temp_self._orthogonalize_init()
         temp_self.adjust_to_initial_structure()
         temp_self.partial_tree_cache = temp_self._init_partial_tree_cache()
@@ -219,41 +220,32 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
         temp_self._final_forward_update()
         temp_self.backward_sweep()
         temp_self.adjust_to_initial_structure()
+
         #orth_center_id_1 = self.state.root_id
         #orth_center_id_2 = orth_center_id_1.replace('Site', 'Node')
         #temp_self.state = normalize_ttn_Lindblad_X(temp_self.state , orth_center_id_1)
         #temp_self.state = normalize_ttn_Lindblad_XX(temp_self.state , orth_center_id_1 , orth_center_id_2)
-        #temp_self.state = normalize_ttn_Lindblad_11(temp_self.state , temp_self.connections)
+        #temp_self.state = ptn.normalize_ttn_Lindblad_2(temp_self.state , temp_self.connections)
         self.state = temp_self.state
         self.adjust_to_initial_structure()
 
     def run_Lindblad(self, evaluation_time: Union[int,"inf"] = 1, filepath: str = "",
             pgbar: bool = True,):
-        """
-        Runs this time evolution algorithm for the given parameters.
-
-        The desired operator expectation values are evaluated and saved.
-
-        Args:
-            evaluation_time (int, optional): The difference in time steps after which
-                to evaluate the operator expectation values, e.g. for a value of 10
-                the operators are evaluated at time steps 0,10,20,... If it is set to
-                "inf", the operators are only evaluated at the end of the time.
-                Defaults to 1.
-            filepath (str, optional): If results are to be saved in an external file,
-                the path to that file can be specified here. Defaults to "".
-            pgbar (bool, optional): Toggles the progress bar. Defaults to True.
-        """
+        self._orthogonalize_init()
+        self.partial_tree_cache = self._init_partial_tree_cache()
         self._init_results(evaluation_time)
         assert self._results is not None
         ket , bra = ptn.devectorize_pho(self.state ,self.connections)
+        #ket , bra =  ptn.devectorize_pho_1d(self.state , self.connections , 5) 
+
         I = ptn.TTNO.Identity(ket)        
         for i in tqdm(range(self.num_time_steps + 1), disable=not pgbar):
-            if i != 0:  # We also measure the initial expectation_values  
+            if i != 0:  # We also measure the initial expectation_values 
                 self.run_one_time_step_copy()
             if evaluation_time != "inf" and i % evaluation_time == 0 and len(self._results) > 0:
                 index = i // evaluation_time
-                norm = ptn.expectation_value_Lindblad_2(self.state , self.connections , I) 
+                bra_ket = ptn.bra_ket(self.state , self.connections)
+                print("BRAKET" , bra_ket)
                 current_results = self.evaluate_operators_Lindblad()
                 
                 print(current_results[0])

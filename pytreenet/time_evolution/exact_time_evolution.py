@@ -51,7 +51,7 @@ class ExactTimeEvolution(TimeEvolution):
             np.ndarray: The time evolution operator.
                 e^(-itH)
         """
-        return expm(-1j * self._time_step_size * self.hamiltonian)
+        return expm(self._time_step_size * self.hamiltonian)
 
     def evaluate_operator(self, operator: Any) -> complex:
         """
