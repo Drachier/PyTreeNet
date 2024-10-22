@@ -21,21 +21,30 @@ class TreeTensorNetworkState(TreeTensorNetwork):
     has exactly one physical leg. That leg can be trivial, i.e. of dimension 1.
     """
 
-    def scalar_product(self) -> complex:
+    def scalar_product(self,
+                       other: Union[TreeTensorNetworkState,None] = None
+                       ) -> complex:
         """
         Computes the scalar product of this TTNS.
 
+        Args:
+            other (Union[TreeTensorNetworkState,None], optional): The other
+                TTNS to compute the scalar product with. If None, the scalar
+                product is computed with itself. Defaults to None.
+
         Returns:
-            complex: The resulting scalar product <TTNS|TTNS>
+            complex: The resulting scalar product <TTNS|Other>
+
         """
-        if self.orthogonality_center_id is not None:
-            tensor = self.tensors[self.orthogonality_center_id]
-            tensor_conj = tensor.conj()
-            legs = tuple(range(tensor.ndim))
-            return complex(np.tensordot(tensor, tensor_conj, axes=(legs,legs)))
-        # Very inefficient, fix later without copy
-        ttn = deepcopy(self)
-        return contract_two_ttns(ttn, ttn.conjugate())
+        if other is None:
+            if self.orthogonality_center_id is not None:
+                tensor = self.tensors[self.orthogonality_center_id]
+                tensor_conj = tensor.conj()
+                legs = tuple(range(tensor.ndim))
+                return complex(np.tensordot(tensor, tensor_conj, axes=(legs,legs)))
+            # Very inefficient, fix later without copy
+            other = deepcopy(self)
+        return contract_two_ttns(self, other.conjugate())
 
     def single_site_operator_expectation_value(self, node_id: str,
                                                operator: np.ndarray) -> complex:
