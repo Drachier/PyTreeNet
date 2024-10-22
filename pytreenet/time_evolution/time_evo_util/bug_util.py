@@ -7,9 +7,7 @@ from numpy import ndarray, concatenate
 from ...core.node import Node
 from ...core.leg_specification import LegSpecification
 from ...util.tensor_util import make_last_leg_first
-from ...util.tensor_splitting import (tensor_qr_decomposition,
-                                      SVDParameters,
-                                      truncated_tensor_svd)
+from ...util.tensor_splitting import tensor_qr_decomposition
 from ...contractions.tree_cach_dict import PartialTreeCachDict
 from ...contractions.state_state_contraction import contract_any_nodes
 
@@ -173,64 +171,3 @@ def find_new_basis_replacement_leg_specs(node: Node
     legs_basis_change = LegSpecification(node.parent,[],[])
     leg_new_basis = LegSpecification(None,node.children,node.open_legs)
     return legs_basis_change, leg_new_basis
-
-def get_truncation_projector(node: Node,
-                             node_tensor: ndarray,
-                             child_id: str,
-                             svd_parameters: SVDParameters) -> ndarray:
-    """
-    Finds the projector that truncates a node for a given leg.
-
-    This corresponds to finding P_i for child=i in the reference.
-
-    Args:
-        node (GraphNode): The node to truncate.
-        node_tensor (ndarray): The tensor of the node.
-        child_id (str): The identifier of the child for which to truncate.
-        svd_parameters (SVDParameters): The parameters for the SVD.
-    
-    Returns:
-        ndarray: The projector that truncates the node for the given child.
-            Has the leg order (child_leg,new_leg).
-    
-    """
-    other_legs = list(range(node.nlegs()))
-    child_index = node.neighbour_index(child_id)
-    other_legs.pop(child_index)
-    projector, _, _ = truncated_tensor_svd(node_tensor,
-                                        (child_index, ),
-                                        tuple(other_legs),
-                                        svd_parameters)
-    return projector
-
-def identity_id(child_id: str, node_id: str) -> str:
-    """
-    Returns the identifier for the identity tensor.
-
-    Args:
-        child_id (str): The identifier of the child node.
-        node_id (str): The identifier of the node.
-    
-    Returns:
-        str: The identifier for the identity tensor.
-
-    """
-    return f"{child_id}_identity_{node_id}"
-
-def projector_identifier(child_id: str, node_id: str,
-                         star: bool) -> str:
-    """
-    Returns the identifier for the projector tensor.
-
-    Args:
-        child_id (str): The identifier of the child node.
-        node_id (str): The identifier of the node.
-        star (bool): Whether the projector is the conjugated or not.
-    
-    Returns:
-        str: The identifier for the projector tensor.
-
-    """
-    if star:
-        return f"{child_id}_projectorstar_{node_id}"
-    return f"{child_id}_projector_{node_id}"

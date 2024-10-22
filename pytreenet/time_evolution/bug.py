@@ -2,13 +2,13 @@
 from typing import Dict, List, Union, Tuple
 from copy import deepcopy, copy
 
-from numpy import ndarray, eye
+from numpy import ndarray
 
 from .ttn_time_evolution import TTNTimeEvolution, TTNTimeEvolutionConfig
 from ..operators.tensorproduct import TensorProduct
 from ..core.ttn import (pull_tensor_from_different_ttn,
                         get_tensor_from_different_ttn)
-from ..core.leg_specification import LegSpecification
+from ..core.truncation.recursive_truncation import recursive_truncation
 from ..ttns.ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TreeTensorNetworkOperator
 from ..contractions.effective_hamiltonians import get_effective_single_site_hamiltonian
@@ -20,10 +20,7 @@ from .time_evo_util.bug_util import (basis_change_tensor_id,
                                      reverse_basis_change_tensor_id,
                                     compute_basis_change_tensor,
                                     compute_new_basis_tensor,
-                                    find_new_basis_replacement_leg_specs,
-                                    get_truncation_projector,
-                                    identity_id,
-                                    projector_identifier)
+                                    find_new_basis_replacement_leg_specs)
 
 class BUG(TTNTimeEvolution):
     """
@@ -347,71 +344,13 @@ class BUG(TTNTimeEvolution):
         # Remove the old TTNS and cache
         self.clean_up(node_id)
 
-    def insert_projection_operator_and_conjugate(self,
-                                                 child_id: str,
-                                                 node_id: str,
-                                                 projector: ndarray
-                                                 ):
-        """
-        Inserts the projector and its conjugate between two nodes.
-
-        Args:
-            child_id (str): The id of the child node.
-            node_id (str): The id of the parent node.
-            projector (ndarray): The projector to insert.
-
-        """
-        id_identity = identity_id(child_id, node_id)
-        self.state.insert_identity(child_id, node_id,
-                                    new_identifier=id_identity)
-        proj_star_legs = LegSpecification(node_id,[],[])
-        proj_legs = LegSpecification(None,[child_id],[])
-        self.state.split_node_replace(id_identity,
-                                        projector.conj(),
-                                        projector.T,
-                                        projector_identifier(node_id, child_id, True),
-                                        projector_identifier(node_id, child_id, False),
-                                        proj_star_legs,
-                                        proj_legs
-                                        )
-
-    def truncate_node(self, node_id: str):
-        """
-        Truncates the node with the given id.
-
-        Args:
-            node_id (str): The id of the node to truncate.
-
-        """
-        node = self.state.nodes[node_id]
-        orig_children = copy(node.children)
-        for child_id in orig_children:
-            projector = get_truncation_projector(node,
-                                                 self.state.tensors[node_id],
-                                                 child_id,
-                                                 self.svd_parameters)
-            self.insert_projection_operator_and_conjugate(child_id,
-                                                          node_id,
-                                                          projector)
-        self.state.contract_all_children(node_id)
-        # Now we contract all the projectors into the former children
-        for child_id in copy(self.state.nodes[node_id].children):
-            child_node = self.state.nodes[child_id]
-            assert len(child_node.children) == 1, "Projector node has more than one child!"
-            orig_child_id = child_node.children[0]
-            self.state.contract_all_children(child_id,
-                                             new_identifier=orig_child_id)
-        # This makes the former children, the new children
-        for child_id in orig_children:
-            self.truncate_node(child_id)
-
     def truncation(self):
         """
         Truncates the tree after the time evolution.
 
         """
-        root_id = self.state.root_id
-        self.truncate_node(root_id)
+        recursive_truncation(self.state,
+                             self.svd_parameters)
         # Now the tree is truncated and the cache has to be renewed
         self.tensor_cache = SandwichCache.init_cache_but_one(self.state,
                                                              self.hamiltonian,
