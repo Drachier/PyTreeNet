@@ -150,3 +150,4 @@ def recursive_truncation(tree: TreeTensorNetwork,
     """
     root_id = tree.root_id
     truncate_node(root_id, tree, svd_params)
+    return tree
