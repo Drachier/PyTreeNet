@@ -149,5 +149,7 @@ def recursive_truncation(tree: TreeTensorNetwork,
         TreeTensorNetwork: The modified truncated tree tensor network.
     """
     root_id = tree.root_id
+    if root_id != tree.orthogonality_center_id or tree.orthogonality_center_id is None:
+        tree.canonical_form(root_id)
     truncate_node(root_id, tree, svd_params)
     return tree
