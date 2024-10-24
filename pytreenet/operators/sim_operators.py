@@ -39,5 +39,5 @@ def single_site_operator_all_sites(operator: Union[str,ndarray],
     """
     Associate a single site operator to every site of a TTNS.
     """
-    node_identifiers = [identifier for identifier in ttns.nodes.keys()]
+    node_identifiers = list(ttns.nodes.keys())
     return single_site_operators(operator, node_identifiers)
