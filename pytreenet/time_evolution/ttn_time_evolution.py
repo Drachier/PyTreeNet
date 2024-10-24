@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import List, Union, Dict, Tuple
 from dataclasses import dataclass
 
-from numpy import ndarray, asarray, max
+from numpy import ndarray, asarray, max as arrmax
 
 from .time_evolution import TimeEvolution
 from ..ttns import TreeTensorNetworkState
@@ -91,7 +91,7 @@ class TTNTimeEvolution(TimeEvolution):
         """
         Obtain the maximum bond dimension over time.
         """
-        return max(self.bond_dim_matrix(),axis=0)
+        return arrmax(self.bond_dim_matrix(),axis=0)
 
     def record_bond_dimensions(self):
         """
