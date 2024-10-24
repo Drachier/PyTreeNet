@@ -1,12 +1,14 @@
 
-from typing import Union
+from typing import Union, Self
 
-from numpy import ndarray
+from numpy import ndarray, zeros
 
 from ..core.ttn import TreeTensorNetwork
 from ..core.node import Node
 from ..ttns.ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TreeTensorNetworkOperator
+from ..util.ttn_exceptions import non_negativity_check
+from .util import check_product_state_parameters
 
 class StarTreeTensorNetwork(TreeTensorNetwork):
     """
@@ -157,6 +159,48 @@ class StarTreeTensorState(StarTreeTensorNetwork,TreeTensorNetworkState):
 
         """
         super().__init__(central_node_identifier,non_center_prefix)
+
+    @classmethod
+    def constant_product_state(cls,
+                               state_value: int,
+                               dimension: int,
+                               chain_length: int,
+                               num_chains: int,
+                               node_prefix: str = "site",
+                               ) -> Self:
+        """
+        Generates a STTS that corresponds to a product state with the same
+        value on all sites.
+
+        Args:
+            state_value (int): The value of the state.
+            dimension (int): The dimension of the state.
+            chain_length (int): The length of the chains.
+            num_chains (int): The number of chains.
+            node_prefix (str): The prefix of the node identifiers.
+                Defaults to "site".
+        
+        Returns:
+            StarTreeTensorState: The product state.
+
+        """
+        check_product_state_parameters(state_value,dimension)
+        non_negativity_check(num_chains,"number of chains")
+        non_negativity_check(chain_length,"chain length")
+        state = cls(non_center_prefix=node_prefix)
+        local_state = zeros(dimension, dtype=complex)
+        local_state[state_value] = 1
+        shape = tuple([1]*num_chains+[dimension])
+        center_tensor = local_state.reshape(shape)
+        state.add_center_node(center_tensor)
+        for i in range(num_chains):
+            for j in range(chain_length):
+                if j == chain_length - 1:
+                    tensor = local_state.reshape(1,2)
+                else:
+                    tensor = local_state.reshape((1,1,2))
+                state.add_chain_node(tensor,i)
+        return state
 
 class StarTreeOperator(StarTreeTensorNetwork,TreeTensorNetworkOperator):
     """
