@@ -95,4 +95,10 @@ def projector(dimension: int, index: int) -> np.ndarray:
     matrix[index, index] = 1
     return matrix
 
-
+def ket_0(dimension: int) -> np.ndarray:
+    """
+    Generates the ket_0 state for the given dimension
+    """
+    ket0 = np.zeros(dimension, dtype=complex)
+    ket0[0] = 1
+    return ket0
