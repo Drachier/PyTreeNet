@@ -6,6 +6,7 @@ from typing import Union
 from copy import deepcopy
 
 import numpy as np
+from numpy import sqrt
 
 from ..core.ttn import TreeTensorNetwork
 from ..ttno import TTNO
@@ -49,6 +50,20 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             # Very inefficient, fix later without copy
             other = deepcopy(self)
         return contract_two_ttns(self, other.conjugate())
+
+    def normalise(self) -> float:
+        """
+        Normalises the MPS in place.
+
+        Returns:
+            float: The norm of the state before normalisation.
+        """
+        norm = sqrt(self.scalar_product())
+        if self.orthogonality_center_id is not None:
+            self.tensors[self.orthogonality_center_id] /= norm
+        else:
+            self.tensors[self.root_id] /= norm
+        return norm
 
     def single_site_operator_expectation_value(self, node_id: str,
                                                operator: np.ndarray) -> complex:
