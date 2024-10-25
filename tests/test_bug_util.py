@@ -36,51 +36,9 @@ class Test_identifier_functions(unittest.TestCase):
         Test the reverse basis change tensor identifier function.
         """
         node_id = "node"
-        full_node_id = node_id + "_basis_change_tensor"
+        full_node_id = basis_change_tensor_id(node_id)
         found = reverse_basis_change_tensor_id(full_node_id)
         self.assertEqual(found, node_id)
-
-class TestNewBasisTensorQRLegs(unittest.TestCase):
-
-    def test_leaf(self):
-        """
-        Test the QR leg finding of a leaf tensor.
-        """
-        node, _ = random_tensor_node((3,2))
-        node.add_parent("parent")
-        q_legs, r_legs = new_basis_tensor_qr_legs(node)
-        self.assertEqual(q_legs, [1])
-        self.assertEqual(r_legs, [0])
-
-    def test_two_children(self):
-        """
-        Test the QR leg finding of a tensor with two children.
-        """
-        node, _ = random_tensor_node((5,4,3,2))
-        node.add_parent("parent")
-        node.add_children(["child1","child2"])
-        q_legs, r_legs = new_basis_tensor_qr_legs(node)
-        self.assertEqual(q_legs, [1,2,3])
-        self.assertEqual(r_legs, [0])
-
-    def test_no_phys_leg(self):
-        """
-        Test the QR leg finding of a tensor with no physical legs.
-        """
-        node, _ = random_tensor_node((4,3,2))
-        node.add_parent("parent")
-        node.add_children(["child1","child2"])
-        q_legs, r_legs = new_basis_tensor_qr_legs(node)
-        self.assertEqual(q_legs, [1,2])
-        self.assertEqual(r_legs, [0])
-
-    def test_root(self):
-        """
-        Test the QR leg finding of a root tensor.
-        """
-        node, _ = random_tensor_node((4,3,2))
-        node.add_children(["child1","child2"])
-        self.assertRaises(AssertionError, new_basis_tensor_qr_legs, node)
 
 class Test_concat_along_parent_leg(unittest.TestCase):
 
@@ -138,6 +96,48 @@ class Test_concat_along_parent_leg(unittest.TestCase):
         expected_tensor[:old_shape[0],:,:] = old_tensor
         expected_tensor[old_shape[0]:,:,:] = new_tensor
         self.assertTrue(allclose(concat_tensor, expected_tensor))
+
+class TestNewBasisTensorQRLegs(unittest.TestCase):
+
+    def test_leaf(self):
+        """
+        Test the QR leg finding of a leaf tensor.
+        """
+        node, _ = random_tensor_node((3,2))
+        node.add_parent("parent")
+        q_legs, r_legs = new_basis_tensor_qr_legs(node)
+        self.assertEqual(q_legs, [1])
+        self.assertEqual(r_legs, [0])
+
+    def test_two_children(self):
+        """
+        Test the QR leg finding of a tensor with two children.
+        """
+        node, _ = random_tensor_node((5,4,3,2))
+        node.add_parent("parent")
+        node.add_children(["child1","child2"])
+        q_legs, r_legs = new_basis_tensor_qr_legs(node)
+        self.assertEqual(q_legs, [1,2,3])
+        self.assertEqual(r_legs, [0])
+
+    def test_no_phys_leg(self):
+        """
+        Test the QR leg finding of a tensor with no physical legs.
+        """
+        node, _ = random_tensor_node((4,3,2))
+        node.add_parent("parent")
+        node.add_children(["child1","child2"])
+        q_legs, r_legs = new_basis_tensor_qr_legs(node)
+        self.assertEqual(q_legs, [1,2])
+        self.assertEqual(r_legs, [0])
+
+    def test_root(self):
+        """
+        Test the QR leg finding of a root tensor.
+        """
+        node, _ = random_tensor_node((4,3,2))
+        node.add_children(["child1","child2"])
+        self.assertRaises(AssertionError, new_basis_tensor_qr_legs, node)
 
 class Test_compute_new_basis_qr(unittest.TestCase):
     """
