@@ -22,7 +22,8 @@ class TreeTensorNetworkState(TreeTensorNetwork):
     """
 
     def scalar_product(self,
-                       other: Union[TreeTensorNetworkState,None] = None
+                       other: Union[TreeTensorNetworkState,None] = None,
+                       use_orthogonal_center: bool = True
                        ) -> complex:
         """
         Computes the scalar product of this TTNS.
@@ -31,13 +32,16 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             other (Union[TreeTensorNetworkState,None], optional): The other
                 TTNS to compute the scalar product with. If None, the scalar
                 product is computed with itself. Defaults to None.
+            use_orthogonal_center (bool, optional): Whether to use the current
+                orthogonalization center to compute  the norm. This usually
+                speeds up the computation. Defaults to True.
 
         Returns:
             complex: The resulting scalar product <TTNS|Other>
 
         """
         if other is None:
-            if self.orthogonality_center_id is not None:
+            if self.orthogonality_center_id is not None and use_orthogonal_center:
                 tensor = self.tensors[self.orthogonality_center_id]
                 tensor_conj = tensor.conj()
                 legs = tuple(range(tensor.ndim))
@@ -123,7 +127,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         if node_id is None:
             # I.e. no orth. center exists -> no canon. form
             return False
-        total_contraction = self.scalar_product()
+        total_contraction = self.scalar_product(use_orthogonal_center=False)
         local_tensor = self.tensors[node_id]
         legs = range(local_tensor.ndim)
         local_contraction = complex(np.tensordot(local_tensor, local_tensor.conj(),
