@@ -1,14 +1,14 @@
 from __future__ import annotations
-from typing import Union, List, Tuple, Dict
+from typing import List, Tuple, Dict
 
 import numpy as np
 
 from ..util.tensor_util import tensor_matricisation_half
 from ..util.tensor_splitting import SplitMode, SVDParameters
+from ..util.ttn_exceptions import NotCompatibleException
 from ..ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TTNO
 from ..time_evolution.time_evo_util.update_path import TDVPUpdatePathFinder
-from ..operators.tensorproduct import TensorProduct
 from ..contractions.tree_cach_dict import PartialTreeCachDict
 from ..contractions.state_operator_contraction import contract_any
 from ..contractions.contraction_util import contract_all_but_one_neighbour_block_to_hamiltonian
@@ -17,26 +17,11 @@ from .krylov import eigh_krylov
 class DMRGAlgorithm():
     """
     The general abstract class of a DMRG algorithm.
-    
-    Attributes:
-        initial_state (TreeTensorNetworkState): The initial state of the system.
-        hamiltonian (TTNO): The Hamiltonian under which to time-evolve the system.
-        num_sweeps (int): The number of sweeps to perform.
-        max_bond_dim (int): The maximum bond dimension.
-        tol (float): The tolerance for the SVD.
-        max_iter (int): The maximum number of iterations.
-        update_path (List[str]): The order in which the nodes are updated.
-        orthogonalisation_path (List[List[str]]): The path along which the
-            TTNS has to be orthogonalised between each node update.
-        partial_tree_cache (PartialTreeCacheDict): A dictionary to hold
-            already contracted subtrees of the TTNS.
     """
 
     def __init__(self, initial_state: TreeTensorNetworkState,
                  hamiltonian: TTNO,
                  num_sweeps: int,
-                 max_bond_dim: int,
-                 tol: float,
                  max_iter: int,
                  svd_params: SVDParameters,
                  site: str):
@@ -49,17 +34,14 @@ class DMRGAlgorithm():
             hamiltonian (TTNO): The Hamiltonian in TTNO form under which to
                 time-evolve the system.
             num_sweeps (int): The number of sweeps to perform.
-            max_bond_dim (int): The maximum bond dimension.
-            tol (float): The tolerance for the SVD.
             max_iter (int): The maximum number of iterations.
+            svd_params (SVDParameters): The parameters for the SVD.
             site (str): one site or two site dmrg.
         """
         assert len(initial_state.nodes) == len(hamiltonian.nodes)
         self.state = initial_state
         self.hamiltonian = hamiltonian
         self.num_sweeps = num_sweeps
-        self.max_bond_dim = max_bond_dim
-        self.tol = tol
         self.max_iter = max_iter
         self.site = site
         if svd_params is None:
@@ -490,6 +472,45 @@ class DMRGAlgorithm():
         
         return eig_vals
     
+    def _update_two_site_state_averaged(self, target_node_id: str, next_node_id: str, state_averaged: int) -> np.ndarray:
+        """
+        Finds the lowest eigenpairs of the effective site Hamiltonian using
+        a Krylov subspace method.
+
+        Args:
+            target_node_id (str): The current node in the effective Hamiltonian
+            next_node_id (str): The next node in the effective Hamiltonian
+            state_averaged (int): The number of states 
+        Returns:
+            np.ndarray: The lowest eigenvalues
+        """
+        if state_averaged >1:
+            assert self.state.nodes[target_node_id].nopen_legs() == state_averaged, 'Number of open legs is not equal to the number of states to average over'
+            
+        u_legs, v_legs = self.state.legs_before_combination(target_node_id,
+                                                            next_node_id)
+        
+        new_id = self.create_two_site_id(target_node_id, next_node_id)
+        self.state.contract_nodes(target_node_id, next_node_id,
+                                  new_identifier=new_id)
+        shape = self.state.nodes[new_id].shape
+        
+        hamiltonian_eff_site = tensor_matricisation_half(self._contract_all_except_two_nodes(target_node_id, next_node_id))
+        Afunc = lambda x: hamiltonian_eff_site@x
+        
+        eig_vals, eig_vecs = eigh_krylov(Afunc, self.state.tensors[new_id].reshape(-1),
+                                         self.max_iter, 1)
+        self.state.tensors[new_id] = eig_vecs.reshape(shape)
+        
+        self.state.split_node_svd(new_id, u_legs, v_legs,
+                                  u_identifier=target_node_id,
+                                  v_identifier=next_node_id,
+                                  svd_params=self.svd_params)
+        self.state.orthogonality_center_id = next_node_id
+        self.update_tree_cache(target_node_id, next_node_id)
+        
+        return eig_vals
+        
     @staticmethod
     def create_two_site_id(node_id: str, next_node_id: str) -> str:
         """
@@ -529,14 +550,13 @@ class DMRGAlgorithm():
             for j,this_node_id in enumerate(self.orthogonalization_path[i][:-1]):
                 next_node_id = self.orthogonalization_path[i][j+1]
                 self._update_two_site(this_node_id, next_node_id)
-                
+                            
         for i,node_id in enumerate(self.update_path[::-1][:-1]):
             assert node_id == self.orthogonalization_path[::-1][i][-1], 'node is wrong'
             
             for j, this_node_id in enumerate(self.orthogonalization_path[::-1][i][::-1][:-1]):
                 next_node_id = self.orthogonalization_path[::-1][i][::-1][j+1]
                 eig_vals = self._update_two_site(this_node_id, next_node_id)
-                                
         return eig_vals[0]
     
     def sweep(self):
