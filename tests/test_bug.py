@@ -2,7 +2,7 @@ import unittest
 
 from copy import deepcopy, copy
 
-from numpy import allclose
+from numpy import allclose, savez, load
 from scipy.linalg import expm
 
 from pytreenet.time_evolution.bug import BUG
@@ -109,8 +109,48 @@ class TestBUGComplicated(unittest.TestCase):
     def test_truncation(self):
         self.bug.truncation()
 
-    def test_one_time_step(self):
-        self.bug.run_one_time_step()
+    # def test_one_time_step(self):
+    #     import os
+    #     filepath = os.path.dirname(os.path.abspath(__file__))
+    #     filepath += "\\wrong"
+    #     tensors = load(filepath+"state.npz")
+    #     for node_id, tensor in tensors.items():
+    #         node_id = "site" + node_id[4:]
+    #         # Call to insure correctness of tensors
+    #         _ = self.bug.state.tensors[node_id]
+    #         self.bug.state.tensors[node_id] = tensor
+    #     tensors_ttno = load(filepath+"ham.npz")
+    #     for node_id, tensor in tensors_ttno.items():
+    #         node_id = "site" + node_id[4:]
+    #         # Call to insure correctness of tensors
+    #         _ = self.bug.hamiltonian.tensors[node_id]
+    #         self.bug.hamiltonian.tensors[node_id] = tensor
+    #     self.bug.state.normalise()
+    #     bug = BUG(self.bug.state, self.bug.hamiltonian,
+    #               self.bug.time_step_size, self.bug.final_time,
+    #               self.bug.operators,
+    #               svd_params=self.bug.svd_parameters)
+    #     tensors_ttno.close()
+    #     tensors.close()
+    #     bug.run_one_time_step()
+    #     root_id = bug.state.root_id
+    #     canon_correct = bug.state.is_in_canonical_form(node_id=root_id)
+    #     print(canon_correct)
+    #     print(bug.state.orthogonality_center_id)
+
+    #     test_tensor = bug.state.tensors["site4"]
+    #     print(test_tensor @ test_tensor.conj().T)
+
+    #     # self.bug.run_one_time_step()
+    #     # root_id = self.bug.state.root_id
+    #     # canon_correct = self.bug.state.is_in_canonical_form(node_id=root_id)
+    #     # print(canon_correct)
+    #     # print(self.bug.state.orthogonality_center_id)
+    #     # if not canon_correct:
+    #     #     print("Saving: ", filepath)
+    #     #     savez(filepath + "state", **self.bug.initial_state.tensors)
+    #     #     savez(filepath + "ham", **self.bug.hamiltonian.tensors)
+    #     self.assertTrue(False)
 
     def test_two_time_steps(self):
         self.bug.run_one_time_step()
