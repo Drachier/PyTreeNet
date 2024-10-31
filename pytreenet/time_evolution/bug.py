@@ -1,5 +1,5 @@
 
-from typing import Dict, List, Union, Tuple
+from typing import Dict, List, Union, Tuple, FrozenSet, Self
 from copy import deepcopy, copy
 
 from numpy import ndarray
@@ -8,10 +8,11 @@ from .ttn_time_evolution import TTNTimeEvolution, TTNTimeEvolutionConfig
 from ..operators.tensorproduct import TensorProduct
 from ..core.ttn import (pull_tensor_from_different_ttn,
                         get_tensor_from_different_ttn)
+from ..core.graph_node import GraphNode
 from ..core.truncation.recursive_truncation import recursive_truncation
 from ..ttns.ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TreeTensorNetworkOperator
-from ..contractions.effective_hamiltonians import get_effective_single_site_hamiltonian
+from ..contractions.effective_hamiltonians import get_effective_single_site_hamiltonian_nodes
 from ..contractions.sandwich_caching import SandwichCache
 from ..contractions.tree_cach_dict import PartialTreeCachDict
 from ..util.tensor_splitting import SVDParameters
@@ -61,6 +62,47 @@ class BUG(TTNTimeEvolution):
         else:
             self.svd_parameters = svd_params
 
+    def close_to(self, other: Self) -> bool:
+        """
+        Compares two BUG objects for closeness.
+
+        Args:
+            other (BUG): The other BUG object to compare to.
+
+        Returns:
+            bool: True if the two BUG objects are close, False otherwise.
+
+        """
+        if self.state != other.state:
+            return False
+        if self.hamiltonian != other.hamiltonian:
+            return False
+        if self.time_step_size != other.time_step_size:
+            return False
+        if self.final_time != other.final_time:
+            return False
+        if self.operators != other.operators:
+            return False
+        if self.svd_parameters != other.svd_parameters:
+            return False
+        if self.ttns_dict != other.ttns_dict:
+            return False
+        if len(self.cache_dict) != len(other.cache_dict):
+            return False
+        for key, cache in self.cache_dict.items():
+            if key not in other.cache_dict:
+                return False
+            if not cache.close_to(other.cache_dict[key]):
+                return False
+        if len(self.basis_change_cache) != len(other.basis_change_cache):
+            return False
+        for key, cache in self.basis_change_cache.items():
+            if key not in other.basis_change_cache:
+                return False
+            if not cache.close_to(other.basis_change_cache[key]):
+                return False
+        return True
+
     def _ensure_root_orth_center(self):
         """
         Ensures that the root of the initial state is the ortogonality center.
@@ -76,7 +118,10 @@ class BUG(TTNTimeEvolution):
         # Otherwise an external reset might take the uncanonicalised state
         self._initial_state = deepcopy(self.state)
 
-    def time_evolve_node(self, node_id: str) -> ndarray:
+    def time_evolve_node(self,
+                         initial: Tuple[GraphNode,ndarray],
+                         hamiltonian: Tuple[GraphNode,ndarray],
+                         current_cache: PartialTreeCachDict) -> ndarray:
         """
         Time evolves the node with the given id.
 
@@ -85,17 +130,22 @@ class BUG(TTNTimeEvolution):
         of any parent tensor and the updated sandwich tensors of the children.
 
         Args:
-            node_id (str): The id of the node to time evolve.
+            initial (Tuple[GraphNode,ndarray]): The initial node and tensor.
+            hamiltonian (Tuple[GraphNode,ndarray]): The Hamiltonian node and
+                tensor.
+            current_cache (PartialTreeCachDict): The cache with all the
+                necessary envrionment tensors.
         
         Returns:
             ndarray: The updated tensor
         """
-        current_cache = self.cache_dict[node_id]
-        h_eff = get_effective_single_site_hamiltonian(node_id,
-                                                      self.state,
-                                                      self.hamiltonian,
-                                                      current_cache)
-        updated_tensor = time_evolve(self.state.tensors[node_id],
+        initial_node, initial_tensor = initial
+        hamiltonian_node, hamiltonian_tensor = hamiltonian
+        h_eff = get_effective_single_site_hamiltonian_nodes(initial_node,
+                                                            hamiltonian_node,
+                                                            hamiltonian_tensor,
+                                                            current_cache)
+        updated_tensor = time_evolve(initial_tensor,
                                      h_eff,
                                      self.time_step_size,
                                      forward=True)
@@ -142,6 +192,22 @@ class BUG(TTNTimeEvolution):
                                        mod_fct=reverse_basis_change_tensor_id)
         self.state.contract_all_children(node_id)
 
+    def get_current_node_and_tensor(self, node_id: str) -> Tuple[GraphNode,ndarray]:
+        """
+        Returns the current node and tensor for the given node.
+
+        Args:
+            node_id (str): The id of the node to get the current node and tensor
+                for.
+
+        Returns:
+            Tuple[GraphNode,ndarray]: The current node and tensor.
+
+        """
+        self.prepare_state_for_update(node_id)
+        current_node, current_tensor = self.state[node_id]
+        return current_node, current_tensor
+
     def prepare_current_cache_for_update(self,
                                          node_id: str
                                          ) -> SandwichCache:
@@ -165,32 +231,147 @@ class BUG(TTNTimeEvolution):
                                     tensor)
         return current_cache
 
+    def prepare_root_state(self) -> TreeTensorNetworkState:
+        """
+        Prepare the root state, which is just the old state.
+        """
+        assert len(self.ttns_dict) == 0, "TTNS dict not empty!"
+        root_ttns = deepcopy(self.state)
+        self.ttns_dict[root_ttns.root_id] = root_ttns
+        return root_ttns
+
+    def prepare_root_cache(self) -> SandwichCache:
+        """
+        Prepares the cache for the root node.
+        """
+        # We must first prepare the root state
+        root_ttns = self.prepare_root_state()
+        root_id = self.state.root_id
+        assert len(self.cache_dict) == 0, "Cache dict not empty!"
+        # Due to truncation, the cache has to be renewed
+        current_cache =  SandwichCache.init_cache_but_one(root_ttns,
+                                                            self.hamiltonian,
+                                                            self.state.root_id)
+        self.cache_dict[root_id] = current_cache
+        return current_cache
+
+    def prepare_root_for_child_update(self):
+        """
+        Does all the necessary preparation for the root before updating its
+        children.
+        """
+        root_id = self.state.root_id
+        self.state.assert_orth_center(root_id)
+        self.prepare_root_cache()
+
+    def get_children_ids_to_update(self, node_id: str) -> FrozenSet[str]:
+        """
+        Returns the children ids of the given node to update.
+
+        Args:
+            node_id (str): The id of the node to get the children of.
+
+        Returns:
+            Tuple[str]: The identifiers of the children to be updated.
+
+        """
+        node = self.state.nodes[node_id]
+        return frozenset(node.children)
+
+    def update_children(self, node_id: str):
+        """
+        Update the children of this node.
+        """
+        for child_id in self.get_children_ids_to_update(node_id):
+            self.subtree_update(child_id)
+
+    def reset_main_cache(self) -> SandwichCache:
+        """
+        Resets and empties the main cache and uses the main state.
+        """
+        self.tensor_cache = SandwichCache(self.state,
+                                          self.hamiltonian)
+        return self.tensor_cache
+
+    def reset_basis_change_cache(self) -> PartialTreeCachDict:
+        """
+        Resets the basis change cache.
+        """
+        self.basis_change_cache = PartialTreeCachDict()
+        return self.basis_change_cache
+
     def tree_update(self):
         """
         Starts the recursive update of the tree.
         
         """
-        root_id = self.state.root_id
-        self.state.assert_orth_center(root_id)
-        root_ttns = deepcopy(self.state)
-        self.ttns_dict[root_id] = root_ttns
-        current_cache = self.tensor_cache
-        self.tensor_cache = SandwichCache(self.state,
-                                          self.hamiltonian)
-        current_cache.state = root_ttns
-        self.cache_dict[root_id] = current_cache
-        for child_id in root_ttns.nodes[root_id].children:
-            self.subtree_update(child_id)
+        self.prepare_root_for_child_update()
+        self.update_children(self.state.root_id)
         # Now the children in the state are the basis change tensors
         # and the children sandwich tensors and the children basis change
         # tensors are in their resepctive caches.
+        root_id = self.state.root_id
         self.prepare_state_for_update(root_id)
         self.prepare_current_cache_for_update(root_id)
-        updated_tensor = self.time_evolve_node(root_id)
+        current = self.get_current_node_and_tensor(root_id)
+        ham_data = self.hamiltonian[root_id]
+        current_cache = self.cache_dict[root_id]
+        updated_tensor = self.time_evolve_node(current,
+                                               ham_data,
+                                               current_cache)
         self.state.replace_tensor(root_id,updated_tensor)
         del self.ttns_dict[root_id]
         del self.cache_dict[root_id]
-        self.basis_change_cache = PartialTreeCachDict()
+        self.reset_main_cache()
+        self.reset_basis_change_cache()
+
+    def prepare_node_state(self,
+                           node_id: str
+                           ) -> TreeTensorNetworkState:
+        """
+        Prepares the state for the given node.
+
+        This is the parent state with the current node being the orthogonality
+        center. The state is added to the TTNS dict.
+
+        Args:
+            node_id (str): The id of the node to prepare the state for.
+
+        Returns:
+            TreeTensorNetworkState: The prepared state.
+
+        """
+        parent_id = self.state.nodes[node_id].parent
+        current_ttns = deepcopy(self.ttns_dict[parent_id])
+        current_ttns.assert_orth_center(parent_id)
+        current_ttns.move_orthogonalization_center(node_id)
+        self.ttns_dict[node_id] = current_ttns
+        return current_ttns
+
+    def prepare_node_cache(self,
+                            node_id: str
+                            ) -> SandwichCache:
+        """
+        Prepares the cache for the given node.
+
+        The cache contains all Sandwich nodes pointing towards the current node.
+        The cache is added to the cache dict.
+
+        Args:
+            node_id (str): The id of the node to prepare the cache for.
+
+        Returns:
+            SandwichCache: The prepared cache.
+
+        """
+        current_state = self.prepare_node_state(node_id)
+        parent_id = self.state.nodes[node_id].parent
+        current_cache = copy(self.cache_dict[parent_id])
+        current_cache.state = current_state
+        current_cache.update_tree_cache(parent_id,node_id)
+        current_cache.delete_entry(node_id, parent_id)
+        self.cache_dict[node_id] = current_cache
+        return current_cache
 
     def create_ttns_and_cache(self,
                                node_id: str
@@ -204,15 +385,8 @@ class BUG(TTNTimeEvolution):
         being the orthogonality center are stored in the respective
         dictionaries.
         """
-        parent_id = self.state.nodes[node_id].parent
-        current_ttns = deepcopy(self.ttns_dict[parent_id])
-        current_ttns.assert_orth_center(parent_id)
-        current_ttns.move_orthogonalization_center(node_id)
-        current_cache = copy(self.cache_dict[parent_id])
-        current_cache.state = current_ttns
-        current_cache.update_tree_cache(parent_id,node_id)
-        self.ttns_dict[node_id] = current_ttns
-        self.cache_dict[node_id] = current_cache
+        current_cache = self.prepare_node_cache(node_id)
+        current_ttns = self.ttns_dict[node_id]
         return current_ttns, current_cache
 
     def compute_new_basis_tensor(self,
@@ -317,15 +491,18 @@ class BUG(TTNTimeEvolution):
 
         """
         self.create_ttns_and_cache(node_id)
-        node = self.state.nodes[node_id]
-        for child_id in copy(node.children):
-            self.subtree_update(child_id)
+        self.update_children(node_id)
         # Now the children in the state are the basis change tensors
         # and the children sandwich tensors and the children basis change
         # tensors are in their resepctive caches.
         self.prepare_state_for_update(node_id)
         self.prepare_current_cache_for_update(node_id)
-        updated_tensor = self.time_evolve_node(node_id)
+        current = self.get_current_node_and_tensor(node_id)
+        ham_data = self.hamiltonian[node_id]
+        current_cache = self.cache_dict[node_id]
+        updated_tensor = self.time_evolve_node(current,
+                                               ham_data,
+                                               current_cache)
         new_basis_tensor = self.compute_new_basis_tensor(node_id,
                                                          updated_tensor)
         # All the children's basis change tensors are already contracted
@@ -351,10 +528,6 @@ class BUG(TTNTimeEvolution):
         """
         recursive_truncation(self.state,
                              self.svd_parameters)
-        # Now the tree is truncated and the cache has to be renewed
-        self.tensor_cache = SandwichCache.init_cache_but_one(self.state,
-                                                             self.hamiltonian,
-                                                             self.state.root_id)
 
     def run_one_time_step(self, **kwargs):
         """
