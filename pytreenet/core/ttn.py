@@ -256,8 +256,7 @@ class TreeTensorNetwork(TreeStructure):
              to each other.
         """
         if other_node_id is None:
-            other_node, test_tensor = other[node_id]
-            test_node = other_node
+            test_node, test_tensor = other[node_id]
         else:
             other_node, test_tensor = other[other_node_id]
             test_node = other_node.copy_with_new_id(node_id)
