@@ -19,5 +19,5 @@ def run_time_dependt(time_evolution: TimeEvolution,
     for i in time_evolution.create_run_tqdm(pgbar):
         if i != 0:  # We also measure the initial expectation_values
             time_evolution.run_one_time_step()
-            time_evolution.hamiltonian.update(i*time_evolution.time_step_size)
+            time_evolution.hamiltonian.update(time_evolution.time_step_size)
         time_evolution.evaluate_and_save_results(evaluation_time, i)
