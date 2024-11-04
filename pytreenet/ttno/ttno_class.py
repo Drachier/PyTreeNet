@@ -14,6 +14,7 @@ from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      tensor_svd,
                                      truncated_tensor_svd,
                                      SVDParameters)
+from ..operators.tensorproduct import TensorProduct
 from .state_diagram import StateDiagram, TTNOFinder
 
 __all__ = ["Decomposition", "TTNO", "TreeTensorNetworkOperator"]
@@ -74,6 +75,29 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
                                                       reference_tree, method)
         return cls.from_state_diagram(state_diagram,
                                       hamiltonian.conversion_dictionary)
+    @classmethod
+    def Identity(cls, reference_tree: TreeTensorNetwork) -> TTNO:
+        """
+        Creates a TTNO representing the identity operator.
+
+        Args:
+        reference_tree (TreeTensorNetworkState): The tree structure which the TTNO
+                                                 should respect.
+        Returns:
+        new_TTNO: TTNO
+
+        """
+        tp_dict = {}
+        for node_id , node in list(reference_tree.nodes.items()):
+            tp_dict[node.identifier] = node.identifier
+        tp = TensorProduct(tp_dict)
+
+        con_dict = {}
+        for node_id , node in list(reference_tree.nodes.items()):
+            con_dict[node.identifier] = np.eye(node.shape[-1])
+
+        H = Hamiltonian(tp, con_dict)
+        return cls.from_hamiltonian( H, reference_tree)
 
     @classmethod
     def from_state_diagram(cls, state_diagram: StateDiagram,

@@ -357,4 +357,4 @@ def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
     sign = -2 * forward + 1  # forward=True -> -1; forward=False -> +1
     exponent = sign * 1.0j * hamiltonian * time_difference
     return np.reshape(fast_exp_action(exponent, psi.flatten(), mode="fastest"),
-                      shape=psi.shape)
+                      newshape=psi.shape)

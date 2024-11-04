@@ -58,7 +58,8 @@ from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      contr_truncated_svd_splitting,
                                      idiots_splitting,
                                      SplitMode,
-                                     SVDParameters)
+                                     SVDParameters,
+                                     ContractionMode)
 from .leg_specification import LegSpecification
 from .canonical_form import (canonical_form,
                              split_qr_contract_r_to_neighbour)
@@ -396,6 +397,9 @@ class TreeTensorNetwork(TreeStructure):
             neighbour_id = node.parent
         return node.shape[node.neighbour_index(neighbour_id)]
 
+    def total_bond_dim(self):
+        return sum(self.bond_dims().values())
+
     def max_bond_dim(self) -> int:
         """
         Find the maximum virtual bond dimension in this TTN.
@@ -538,6 +542,28 @@ class TreeTensorNetwork(TreeStructure):
         """
         self.tensors[new_node_id] = self._tensors.pop(old_node_id)
         super().change_node_identifier(new_node_id, old_node_id)
+
+    def update_children_and_leg_permutation(self, node_id: str, original_children: List[str]):
+        """
+        Updates the shape and leg permutation of a node.
+
+        Args:
+            node_id (str): The identifier of the node to be updated.
+        """
+        
+        node , tensor = self[node_id]
+        node = self._nodes[node_id]
+        
+        element_map = {elem: i for i, elem in enumerate(node.children)}
+        permutation = tuple(element_map[elem] for elem in original_children)
+        node.children = original_children
+        if node.is_root():
+           tensor_perm = permutation + (len(permutation) , )
+        else:
+           tensor_perm = (0,) + tuple(x + 1 for x in permutation) + (len(permutation) + 1,)
+
+        #print(node.identifier , node.shape)     
+        self._nodes[node_id].update_leg_permutation(tensor_perm , tensor.shape) 
 
     def replace_tensor(self,
                        node_id: str,
@@ -1015,7 +1041,8 @@ class TreeTensorNetwork(TreeStructure):
     def split_node_svd(self, node_id: str,
                        u_legs: LegSpecification, v_legs: LegSpecification,
                        u_identifier: str = "", v_identifier: str = "",
-                       svd_params: SVDParameters = SVDParameters()):
+                       svd_params: SVDParameters = SVDParameters(),
+                       contr_mode: ContractionMode = ContractionMode.VCONTR):
         """
         Splits a node in two using singular value decomposition.
         
@@ -1032,7 +1059,8 @@ class TreeTensorNetwork(TreeStructure):
                 Defaults to "".
         """
         self.split_nodes(node_id, u_legs, v_legs, contr_truncated_svd_splitting,
-                         out_identifier=u_identifier, in_identifier=v_identifier,
+                         out_identifier=u_identifier, in_identifier=v_identifier, 
+                         contr_mode = contr_mode,
                          svd_params=svd_params)
 
     def split_node_replace(self, node_id: str,
@@ -1129,7 +1157,8 @@ class TreeTensorNetwork(TreeStructure):
     # general case.
 
     def canonical_form(self, orthogonality_center_id: str,
-                       mode: SplitMode = SplitMode.REDUCED):
+                       mode: SplitMode = SplitMode.REDUCED,
+                       contr_mode: ContractionMode = ContractionMode.VCONTR ):
         """
         Brings the TTN in canonical form with respect to a given orthogonality
          center.
@@ -1140,7 +1169,7 @@ class TreeTensorNetwork(TreeStructure):
             mode: The mode to be used for the QR decomposition. For details
                 refer to `tensor_util.tensor_qr_decomposition`.
         """
-        canonical_form(self, orthogonality_center_id, mode=mode)
+        canonical_form(self, orthogonality_center_id, mode, contr_mode)
 
     def orthogonalize(self, orthogonality_center_id: str,
                       mode: SplitMode = SplitMode.REDUCED):
@@ -1173,6 +1202,18 @@ class TreeTensorNetwork(TreeStructure):
                 contracted. The latter is very useful for debugging.
         """
         return completely_contract_tree(self, to_copy=to_copy)
+    
+    
+    def multiply_const(self, const: float):
+        """
+        Multiplies all tensors in the TTN with a constant.
+
+        Args:
+            const (float): The constant to multiply the tensors with.
+        """
+        for node_id in self.nodes:
+            self.tensors[node_id] *= const
+
 
 TTN = TreeTensorNetwork
 

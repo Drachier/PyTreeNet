@@ -14,11 +14,13 @@ from copy import copy
 
 from .leg_specification import LegSpecification
 from .node import Node
-from ..util.tensor_splitting import SplitMode
+from ..util.tensor_splitting import (SplitMode , SVDParameters , ContractionMode)
+from copy import deepcopy
 
 def canonical_form(ttn: TreeTensorNetwork,
                    orthogonality_center_id: str,
-                   mode: SplitMode = SplitMode.REDUCED):
+                   mode: SplitMode = SplitMode.REDUCED,
+                   contr_mode: ContractionMode = ContractionMode.VCONTR):
     """
     Modifies a TreeTensorNetwork into canonical form.
 
@@ -42,10 +44,17 @@ def canonical_form(ttn: TreeTensorNetwork,
             node = ttn.nodes[node_id]
             minimum_distance_neighbour_id = _find_smallest_distance_neighbour(node,
                                                                               distance_dict)
-            split_qr_contract_r_to_neighbour(ttn,
+            if isinstance(mode,SplitMode):  
+                split_qr_contract_r_to_neighbour(ttn,
                                              node_id,
                                              minimum_distance_neighbour_id,
                                              mode=mode)
+            elif isinstance(mode,SVDParameters):
+                split_svd_contract_sv_to_neighbour(ttn = ttn,
+                                                  node_id = node_id,
+                                                  neighbour_id = minimum_distance_neighbour_id,
+                                                  SVDParameters = mode,
+                                                  contr_mode = contr_mode)               
     ttn.orthogonality_center_id = orthogonality_center_id
 
 def _find_smallest_distance_neighbour(node: Node,
@@ -102,6 +111,69 @@ def split_qr_contract_r_to_neighbour(ttn: TreeTensorNetwork,
                         mode=mode)
     ttn.contract_nodes(neighbour_id, r_tensor_id,
                         new_identifier=neighbour_id)
+
+def split_qr_contract_r_to_neighbour(ttn: TreeTensorNetwork,
+                                     node_id: str,
+                                     neighbour_id: str,
+                                     mode: SplitMode = SplitMode.REDUCED):
+    """
+    Takes a node an splits of the virtual leg to a neighbours via QR
+     decomposition. The resulting R tensor is contracted with the neighbour.::
+
+         __|__      __|__        __|__      __      __|__
+      __|  N1 |____|  N2 | ---> | N1' |____|__|____|  N2 |
+        |_____|    |_____|      |_____|            |_____|
+
+                __|__      __|__ 
+      --->   __| N1' |____| N2' |
+               |_____|    |_____|
+
+    Args:
+        ttn (TreeTensorNetwork): The tree tensor network in which to perform
+            this action.
+        node_id (str): The identifier of the node to be split.
+        neighbour_id (str): The identifier of the neigbour to which to split.
+        mode: The mode to be used for the QR decomposition. For details refer to
+            `tensor_util.tensor_qr_decomposition`.
+    """
+    children_dict = {node_id      : deepcopy(ttn.nodes[node_id].children)}
+    children_dict[neighbour_id] = deepcopy(ttn.nodes[neighbour_id].children)
+
+    node = ttn.nodes[node_id]
+    q_legs, r_legs = _build_qr_leg_specs(node, neighbour_id)
+    r_tensor_id = str(uuid1()) # Avoid identifier duplication
+    ttn.split_node_qr(node_id, q_legs, r_legs,
+                        q_identifier=node_id,
+                        r_identifier=r_tensor_id,
+                        mode=mode)
+    ttn.contract_nodes(neighbour_id, r_tensor_id,
+                        new_identifier=neighbour_id)
+    
+    ttn.update_children_and_leg_permutation(node_id, children_dict[node_id])
+    ttn.update_children_and_leg_permutation(neighbour_id, children_dict[neighbour_id])    
+
+
+def split_svd_contract_sv_to_neighbour(ttn: TreeTensorNetwork,
+                                     node_id: str,
+                                     neighbour_id: str,
+                                     SVDParameters,
+                                     contr_mode):
+    children_dict = {node_id      : deepcopy(ttn.nodes[node_id].children)}
+    children_dict[neighbour_id] = deepcopy(ttn.nodes[neighbour_id].children)
+
+    node = ttn.nodes[node_id]
+    u_legs, v_legs = _build_qr_leg_specs(node, neighbour_id)
+    r_tensor_id = str(uuid1()) # Avoid identifier duplication
+    ttn.split_node_svd(node_id , svd_params = SVDParameters,
+                        u_legs = u_legs,
+                        v_legs = v_legs,
+                       u_identifier = node_id, v_identifier = r_tensor_id,
+                       contr_mode = contr_mode)
+    ttn.contract_nodes(neighbour_id, r_tensor_id,
+                        new_identifier=neighbour_id)
+    
+    ttn.update_children_and_leg_permutation(node_id, children_dict[node_id])
+    ttn.update_children_and_leg_permutation(neighbour_id, children_dict[neighbour_id]) 
 
 def _build_qr_leg_specs(node: Node,
                         min_neighbour_id: str) -> Tuple[LegSpecification,LegSpecification]:

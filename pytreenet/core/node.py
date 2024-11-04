@@ -142,6 +142,18 @@ class Node(GraphNode):
         self._shape = self.shape
         self._leg_permutation = list(range(len(self._leg_permutation)))
 
+    def update_leg_permutation(self, 
+                               permutation: List[int],
+                               shape):
+        """
+        Updates the leg permutation of the node.
+
+        Args:
+            permutation (List[int]): The new permutation of the legs.
+        """
+        self._leg_permutation = permutation
+        self._shape = shape
+
     def replace_tensor(self,
                        tensor: ndarray,
                        permutation: Union[None,Tuple[int]] = None):
