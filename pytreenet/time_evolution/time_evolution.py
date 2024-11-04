@@ -2,7 +2,7 @@
 This module provides the abstract TimeEvolution class
 """
 from __future__ import annotations
-from typing import List, Union, Any, Dict
+from typing import List, Union, Any, Dict, Iterable
 
 from copy import deepcopy
 from math import modf
@@ -257,6 +257,8 @@ class TimeEvolution:
         Args:
             filepath (str): The path of the file.
         """
+        if filepath == "":
+            return # No filepath given, no need to save anything
         if filepath is None:
             print("No filepath given. Data wasn't saved.")
             return
@@ -268,7 +270,7 @@ class TimeEvolution:
         kwarg_dict["time"] = self.results[-1]
         np.savez(filepath, **kwarg_dict)
 
-    def _init_results(self, evaluation_time: Union[int,"inf"] = 1):
+    def init_results(self, evaluation_time: Union[int,"inf"] = 1):
         """
         Initialises an appropriately sized zero valued numpy array for storage.
 
@@ -290,9 +292,107 @@ class TimeEvolution:
         else:
             self._results = np.zeros((len(self.operators) + 1, 1),
                                     dtype=complex)
+        assert self._results is not None
+
+    def save_operator_results(self,
+                              results: np.ndarray,
+                              index: int):
+        """
+        Saves the results of an operator evaluation at a given time index.
+
+        Args:
+            results (np.ndarray): The results of the operator evaluation.
+            index (int): The index at which to save the results.
+        
+        """
+        self._results[0:-1, index] = results
+
+    def save_time(self, time_step: int, index: int):
+        """
+        Saves the current time at a given index.
+
+        Args:
+            time_step (int): The current time step.
+            index (int): The index at which to save the time.
+
+        """
+        self._results[-1, index] = time_step*self.time_step_size
+
+    def result_index(self,
+                     evalutation_time: Union[int,"inf"],
+                     time_step: int) -> int:
+        """
+        Returns the time index at which to save the results.
+
+        Args:
+            evalutation_time (Union[int,"inf"]): The difference in time steps
+                after which to evaluate the operator expectation values.
+            time_step (int): The current time step.
+        
+        Returns:
+            int: The index at which to save the results.
+
+        """
+        if evalutation_time == "inf":
+            return 0
+        return time_step // evalutation_time
+
+    def should_evaluate(self,
+                        evaluation_time: Union[int,"inf"],
+                        time_step: int
+                        ) -> bool:
+        """
+        Returns if the operators should be evaluated at the current time step.
+
+        Args:
+            evaluation_time (Union[int,"inf"]): The difference in time steps after which
+                to evaluate the operator expectation values.
+            time_step (int): The current time step.
+        
+        Returns:
+            bool: If the operators should be evaluated at the current time step.
+        
+        """
+        some_time_step = evaluation_time != "inf" and time_step % evaluation_time == 0
+        end_time = evaluation_time == "inf" and time_step == self.num_time_steps
+        return some_time_step or end_time
+
+    def evaluate_and_save_results(self,
+                                  evaluation_time: Union[int,"inf"],
+                                  time_step: int):
+        """
+        Evaluates and saves the operator results at a given time step.
+
+        Args:
+            evaluation_time (Union[int,"inf"]): The difference in time steps after which
+                to evaluate the operator expectation values, e.g. for a value of 10
+                the operators are evaluated at time steps 0,10,20,... If it is set to
+                "inf", the operators are only evaluated at the end of the time.
+            time_step (int): The current time step.
+
+        """
+        if self.should_evaluate(evaluation_time, time_step):
+            index = self.result_index(evaluation_time, time_step)
+            current_results = self.evaluate_operators()
+            self.save_operator_results(current_results, index)
+            self.save_time(time_step, index)
+
+    def create_run_tqdm(self, pgbar: bool = True) -> Iterable:
+        """
+        Creates the decorated iterator for the progress bar.
+
+        Args:
+            pgbar (bool, optional): If True, a progress bar is shown. 
+                Defaults to True.
+        
+        Returns:
+            Iterable: The decorated iterator.
+
+        """
+        return tqdm(range(self.num_time_steps + 1), disable=not pgbar)
 
     def run(self, evaluation_time: Union[int,"inf"] = 1, filepath: str = "",
-            pgbar: bool = True,):
+            pgbar: bool = True):
         """
         Runs this time evolution algorithm for the given parameters.
 
@@ -308,23 +408,12 @@ class TimeEvolution:
                 the path to that file can be specified here. Defaults to "".
             pgbar (bool, optional): Toggles the progress bar. Defaults to True.
         """
-        self._init_results(evaluation_time)
-        assert self._results is not None
-        for i in tqdm(range(self.num_time_steps + 1), disable=not pgbar):
+        self.init_results(evaluation_time)
+        for i in self.create_run_tqdm(pgbar):
             if i != 0:  # We also measure the initial expectation_values
                 self.run_one_time_step()
-            if evaluation_time != "inf" and i % evaluation_time == 0 and len(self._results) > 0:
-                index = i // evaluation_time
-                current_results = self.evaluate_operators()
-                self._results[0:-1, index] = current_results
-                # Save current time
-                self._results[-1, index] = i*self.time_step_size
-        if evaluation_time == "inf":
-            current_results = self.evaluate_operators()
-            self._results[0:-1, 0] = current_results
-            self._results[-1, 0] = i*self.time_step_size
-        if filepath != "":
-            self.save_results_to_file(filepath)
+            self.evaluate_and_save_results(evaluation_time, i)
+        self.save_results_to_file(filepath)
 
     def reset_to_initial_state(self):
         """
