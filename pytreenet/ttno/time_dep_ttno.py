@@ -6,7 +6,10 @@ constructed from a symbolic expression.
 from typing import List
 from copy import deepcopy
 
+from numpy import ndarray
+
 from .ttno_class import TreeTensorNetworkOperator
+from .hyperedge import HyperEdge
 
 class TimeDependentTTNO(TreeTensorNetworkOperator):
     """
@@ -60,9 +63,9 @@ class TimeDependentTTNO(TreeTensorNetworkOperator):
         """
         Resets the tensors of the TTNO.
 
-        This will reset subparts of the tensors to the original values saved
-        in the updatables. If two updateables have the same node_id and
-        indices, the last one will overwrite the previous one.
+        This will reset subparts of the tensors to the values the tensor would
+        have, if the updatable didn't appear. If two updateables have the same
+        node_id and indices, the last one will overwrite the previous one.
 
         """
         for updateable in self.updatables:
@@ -85,3 +88,106 @@ class TimeDependentTTNO(TreeTensorNetworkOperator):
             node_id = updateable.node_id
             indices = updateable.get_indices()
             self._tensors[node_id][indices] += current_values
+
+class FactorUpdatable:
+    """
+    An updatable object whose values are updated merely by updating a scalar
+    factor.
+
+    For example
+
+    .. math::
+
+        A_{ij}(t+dt) = f(t+dt) A_{ij}(t)
+
+    
+    """
+
+    def __init__(self,
+                 node_id: int,
+                 indices: tuple,
+                 original_values: ndarray,
+                 inital_values: ndarray,
+                 factor_function: callable):
+        """
+        Initializes a FactorUpdatable object.
+
+        Args:
+            node_id: The id of the node that the tensor belongs to.
+            indices: The indices of the tensor, that this operator fits into.
+            original_values: The values of the TTNO tensor without this
+                operator.
+            inital_values: The values of the tensor at the initial time.
+            factor_function: A function that takes a time as input and returns
+                a scalar factor.
+        
+        """
+        self.node_id = node_id
+        self.indices = indices
+        self.original_values = original_values
+        self.current_values = inital_values
+        self.factor_function = factor_function
+        self.current_time = 0
+
+    def update_current_time(self, time_step_size: float):
+        """
+        Updates the current time.
+
+        Args:
+            time_step_size: The size of the time step.
+
+        """
+        self.current_time += time_step_size
+
+    def update(self, time_step_size: float):
+        """
+        Updates the values of the tensor.
+
+        Args:
+            time_step_size: The size of the time step.
+
+        """
+        self.update_current_time(time_step_size)
+        factor = self.factor_function(self.current_time)
+        self.current_values = factor * self.original_values
+
+    def get_zero_time_values(self):
+        """
+        Returns the values of the tensor at time t=0.
+
+        Returns:
+            The values of the tensor at time t=0.
+
+        """
+        return self.original_values
+
+    def get_current_values(self):
+        """
+        Returns the current values of the tensor.
+
+        Returns:
+            The current values of the tensor.
+
+        """
+        return self.current_values
+
+    def get_indices(self):
+        """
+        Returns the indices of the tensor.
+
+        Returns:
+            The indices of the tensor.
+
+        """
+        return self.indices
+
+def updatable_from_hyperedge(hyperedge: HyperEdge,
+                             ttno: TreeTensorNetworkOperator):
+    """
+    Obtain all the information needed to create a updatable object from
+    a HyperEdge object.
+    """
+    node_id = hyperedge.corr_node_id
+    indices = hyperedge.find_tensor_position()
+    original_values = ttno.tensors[node_id][indices]
+    return node_id, indices, original_values
