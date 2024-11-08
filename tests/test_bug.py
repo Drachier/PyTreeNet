@@ -1,17 +1,16 @@
-import unittest
+from unittest import TestCase, main as unit_main
 
 from copy import deepcopy, copy
 
-from numpy import allclose, savez, load
+from numpy import allclose, eye
 from scipy.linalg import expm
-import unittest.test
 
 from pytreenet.time_evolution.bug import BUG
-from pytreenet.time_evolution.time_evo_util.bug_util import (basis_change_tensor_id,
-                                                            reverse_basis_change_tensor_id)
+from pytreenet.time_evolution.time_evo_util.bug_util import (compute_new_basis_tensor)
 from pytreenet.random.random_ttns_and_ttno import (small_ttns_and_ttno,
                                                    big_ttns_and_ttno)
 from pytreenet.random.random_ttns import RandomTTNSMode
+from pytreenet.random.random_matrices import crandn_like, crandn
 from pytreenet.time_evolution.time_evolution import time_evolve
 
 from pytreenet.contractions.sandwich_caching import SandwichCache
@@ -30,11 +29,11 @@ def init_simple_bug() -> BUG:
                 [])
     return bug
 
-def init_complicated_bug() -> BUG:
+def init_complicated_bug(mode=RandomTTNSMode.DIFFVIRT) -> BUG:
     """
     Initialise a complicated BUG instance.
     """
-    ttns, ttno = big_ttns_and_ttno(mode=RandomTTNSMode.DIFFVIRT)
+    ttns, ttno = big_ttns_and_ttno(mode=mode)
     time_step_size = 0.1
     final_time = 1.0
     bug = BUG(ttns, ttno,
@@ -42,7 +41,7 @@ def init_complicated_bug() -> BUG:
                 [])
     return bug
 
-class TestBugInitSimple(unittest.TestCase):
+class TestBugInitSimple(TestCase):
 
     def build_ref_cache(self, ref_ttns, ref_ttno) -> SandwichCache:
         """
@@ -108,7 +107,7 @@ class TestBugInitSimple(unittest.TestCase):
         self.assertEqual(bug.cache_dict, {})
         self.assertEqual(bug.basis_change_cache, PartialTreeCachDict())
 
-class TestPrepareRootStateMethod(unittest.TestCase):
+class TestPrepareRootStateMethod(TestCase):
     """
     Test the prepare_root_state method of the BUG class.
     """
@@ -147,7 +146,7 @@ class TestPrepareRootStateMethod(unittest.TestCase):
         self.assertIn(root_id, bug.ttns_dict)
         self.assertEqual(id(root_state), id(bug.ttns_dict[root_id]))
 
-class TestPrepareRootCacheMethod(unittest.TestCase):
+class TestPrepareRootCacheMethod(TestCase):
     """
     Test the prepare_root_cache method of the BUG class.
     """
@@ -190,7 +189,7 @@ class TestPrepareRootCacheMethod(unittest.TestCase):
         self.assertIn(root_id, bug.cache_dict)
         self.assertEqual(id(root_cache), id(bug.cache_dict[root_id]))
 
-class TestPrepareRootForChildUpdateMethhod(unittest.TestCase):
+class TestPrepareRootForChildUpdateMethhod(TestCase):
     """
     Test the prepare_root_for_child_update method of the BUG class.
 
@@ -238,7 +237,7 @@ class TestPrepareRootForChildUpdateMethhod(unittest.TestCase):
         # Check Cache Dict
         self.assertTrue(ref_cache_bug.tensor_cache.close_to(bug.tensor_cache))
 
-class TestGetChildrenIdsToUpdateMethod(unittest.TestCase):
+class TestGetChildrenIdsToUpdateMethod(TestCase):
     """
     This method should return an frozenset of the children ids.
     """
@@ -370,7 +369,7 @@ class TestGetChildrenIdsToUpdateMethod(unittest.TestCase):
         self.assertEqual(children_ids, frozenset())
 
 
-class TestPrepareNodeStateMethod(unittest.TestCase):
+class TestPrepareNodeStateMethod(TestCase):
     """
     Tests the prepare_node_state method of the BUG class.
     """
@@ -533,7 +532,7 @@ class TestPrepareNodeStateMethod(unittest.TestCase):
         self.assertIn(node_id, bug.ttns_dict)
         self.assertEqual(id(found_state), id(bug.ttns_dict[node_id]))
 
-class TestPrepareNodeCacheMethod(unittest.TestCase):
+class TestPrepareNodeCacheMethod(TestCase):
     """
     Tests the prepare_node_cache method of the BUG class.
     """
@@ -725,7 +724,7 @@ class TestPrepareNodeCacheMethod(unittest.TestCase):
         self.assertIn(node_id, bug.cache_dict)
         self.assertEqual(id(found_cache), id(bug.cache_dict[node_id]))
 
-class TestCreateTTNSAndCacheMethod(unittest.TestCase):
+class TestCreateTTNSAndCacheMethod(TestCase):
     """
     Tests the create_ttns_and_cache method of the BUG class.
 
@@ -912,7 +911,7 @@ class TestCreateTTNSAndCacheMethod(unittest.TestCase):
         self.assertEqual(ref_state, bug.ttns_dict[node_id])
         self.assertTrue(found_cache.close_to(bug.cache_dict[node_id]))
 
-class TestUpdateChildren(unittest.TestCase):
+class TestUpdateChildren(TestCase):
     """
     Test, if the children are updated correctly.
     """
@@ -998,7 +997,7 @@ class TestUpdateChildren(unittest.TestCase):
 
     # TODO: Write test for remaining nodes, once all required methods are adapted
 
-class TestPrepareStateForUpdateMethod(unittest.TestCase):
+class TestPrepareStateForUpdateMethod(TestCase):
     """
     Tests the preparing of the main state for the update of a given node.
     """
@@ -1022,14 +1021,836 @@ class TestPrepareStateForUpdateMethod(unittest.TestCase):
         self.assertEqual(ref_node, found_node)
         self.assertTrue(allclose(ref_tensor, found_tensor))
         for key in bug.state.nodes:
-            print(key)
-            print(bug.state.nodes[key])
-            print(ref_state.nodes[key])
-            print(allclose(bug.state.tensors[key], ref_state.tensors[key]))
             if key != node_id:
-                self.assertTrue(ref_state.nodes_equal(node_id,bug.state))
+                self.assertTrue(ref_state.nodes_equal(key,bug.state))
+
+    def test_simple_c2(self):
+        """
+        Test the method for the node c2 of the simple case.
+        """
+        node_id = "c2"
+        bug = init_simple_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache(node_id)
+        # Prepare reference
+        ref_node = deepcopy(bug.state.nodes[node_id])
+        ref_tensor = deepcopy(bug.ttns_dict[node_id].tensors[node_id])
+        ref_state = deepcopy(bug.state)
+        # Test
+        bug.prepare_state_for_update(node_id)
+        found_node, found_tensor = bug.state[node_id]
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        # Other nodes haven't changed
+        for key in bug.state.nodes:
+            if key != node_id:
+                self.assertTrue(ref_state.nodes_equal(key,bug.state))
+
+    def test_complicated_site2(self):
+        """
+        Test the method for the node site2 of the complicated case.
+        """
+        node_id = "site2"
+        bug = init_complicated_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache(node_id)
+        # Prepare reference
+        ref_node = deepcopy(bug.state.nodes[node_id])
+        ref_tensor = deepcopy(bug.ttns_dict[node_id].tensors[node_id])
+        ref_state = deepcopy(bug.state)
+        # Test
+        bug.prepare_state_for_update(node_id)
+        found_node, found_tensor = bug.state[node_id]
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        for key in bug.state.nodes:
+            if key != node_id:
+                self.assertTrue(ref_state.nodes_equal(key,bug.state))
+
+    def test_complicated_site7(self):
+        """
+        Test the method for the node site7 of the complicated case.
+        """
+        node_id = "site7"
+        bug = init_complicated_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site6")
+        bug.create_ttns_and_cache(node_id)
+        # Prepare reference
+        ref_node = deepcopy(bug.state.nodes[node_id])
+        ref_tensor = deepcopy(bug.ttns_dict[node_id].tensors[node_id])
+        ref_state = deepcopy(bug.state)
+        # Test
+        bug.prepare_state_for_update(node_id)
+        found_node, found_tensor = bug.state[node_id]
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        for key in bug.state.nodes:
+            if key != node_id:
+                self.assertTrue(ref_state.nodes_equal(key,bug.state))
+
+    def test_complicated_site4(self):
+        """
+        Test the method for the node site4 of the complicated case.
+        """
+        node_id = "site4"
+        bug = init_complicated_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache("site3")
+        bug.create_ttns_and_cache(node_id)
+        # Prepare reference
+        ref_node = deepcopy(bug.state.nodes[node_id])
+        ref_tensor = deepcopy(bug.ttns_dict[node_id].tensors[node_id])
+        ref_state = deepcopy(bug.state)
+        # Test
+        bug.prepare_state_for_update(node_id)
+        found_node, found_tensor = bug.state[node_id]
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        for key in bug.state.nodes:
+            if key != node_id:
+                self.assertTrue(ref_state.nodes_equal(key,bug.state))
+
+    def test_complicated_site5(self):
+        """
+        Test the method for the node site5 of the complicated case.
+        """
+        node_id = "site5"
+        bug = init_complicated_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache("site3")
+        bug.create_ttns_and_cache(node_id)
+        # Prepare reference
+        ref_node = deepcopy(bug.state.nodes[node_id])
+        ref_tensor = deepcopy(bug.ttns_dict[node_id].tensors[node_id])
+        ref_state = deepcopy(bug.state)
+        # Test
+        bug.prepare_state_for_update(node_id)
+        found_node, found_tensor = bug.state[node_id]
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        for key in bug.state.nodes:
+            if key != node_id:
+                self.assertTrue(ref_state.nodes_equal(key,bug.state))
+
+        # TODO: When write tests for the other nodes, once all required methods are refactored
+
+class TestPrepareCacheForUpdate(TestCase):
+    """
+    Tests if the cache of the node 
+    """
+
+    # Test for leafs
+    # The cache should not change for leafs.
+    def test_simple_c1(self):
+        """
+        Tests the function for the node c1 in the simple tree.
+        """
+        node_id = "c1"
+        bug = init_simple_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache(node_id)
+        ref_cache = deepcopy(bug.cache_dict[node_id])
+        found_cache = bug.prepare_cache_for_update(node_id)
+        self.assertIn(node_id,bug.cache_dict)
+        self.assertEqual(id(found_cache), id(bug.cache_dict[node_id]))
+        self.assertTrue(ref_cache.close_to(found_cache))
+
+    def test_simple_c2(self):
+        """
+        Tests the function for the node c2 in the simple tree.
+        """
+        node_id = "c2"
+        bug = init_simple_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache(node_id)
+        ref_cache = deepcopy(bug.cache_dict[node_id])
+        found_cache = bug.prepare_cache_for_update(node_id)
+        self.assertIn(node_id,bug.cache_dict)
+        self.assertEqual(id(found_cache), id(bug.cache_dict[node_id]))
+        self.assertTrue(ref_cache.close_to(found_cache))
+
+    def test_complicated_site2(self):
+        """
+        Tests the function for the node site2 in the complicated tree.
+        """
+        node_id = "site2"
+        bug = init_complicated_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache(node_id)
+        ref_cache = deepcopy(bug.cache_dict[node_id])
+        found_cache = bug.prepare_cache_for_update(node_id)
+        self.assertIn(node_id,bug.cache_dict)
+        self.assertEqual(id(found_cache), id(bug.cache_dict[node_id]))
+        self.assertTrue(ref_cache.close_to(found_cache))
+
+    def test_complicated_site7(self):
+        """
+        Tests the function for the node site7 in the complicated tree.
+        """
+        node_id = "site7"
+        bug = init_complicated_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site6")
+        bug.create_ttns_and_cache(node_id)
+        ref_cache = deepcopy(bug.cache_dict[node_id])
+        found_cache = bug.prepare_cache_for_update(node_id)
+        self.assertIn(node_id,bug.cache_dict)
+        self.assertEqual(id(found_cache), id(bug.cache_dict[node_id]))
+        self.assertTrue(ref_cache.close_to(found_cache))
+
+    def test_complicated_site4(self):
+        """
+        Tests the function for the node site4 in the complicated tree.
+        """
+        node_id = "site4"
+        bug = init_complicated_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache("site3")
+        bug.create_ttns_and_cache(node_id)
+        ref_cache = deepcopy(bug.cache_dict[node_id])
+        found_cache = bug.prepare_cache_for_update(node_id)
+        self.assertIn(node_id,bug.cache_dict)
+        self.assertEqual(id(found_cache), id(bug.cache_dict[node_id]))
+        self.assertTrue(ref_cache.close_to(found_cache))
+
+    def test_complicated_site5(self):
+        """
+        Tests the function for the node site4 in the complicated tree.
+        """
+        node_id = "site5"
+        bug = init_complicated_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache("site3")
+        bug.create_ttns_and_cache(node_id)
+        ref_cache = deepcopy(bug.cache_dict[node_id])
+        found_cache = bug.prepare_cache_for_update(node_id)
+        self.assertIn(node_id,bug.cache_dict)
+        self.assertEqual(id(found_cache), id(bug.cache_dict[node_id]))
+        self.assertTrue(ref_cache.close_to(found_cache))
+
+        # TODO: When write tests for the other nodes, once all required methods are refactored
+
+class TestPrepareForNodeUpdate(TestCase):
+    """
+    Tests that the caches and states are correctly prepared before a node is
+    updated.
+    """
+
+    # Test for leafs
+    def test_simple_c1(self):
+        """
+        Tests the method for the node c1 in the simple tree.
+        """
+        node_id = "c1"
+        bug = init_simple_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache(node_id)
+        # Prepare reference
+        ref_node = deepcopy(bug.state.nodes[node_id])
+        ref_tensor = deepcopy(bug.ttns_dict[node_id].tensors[node_id])
+        ref_state = deepcopy(bug.state)
+        ref_cache = deepcopy(bug.cache_dict[node_id])
+        # Test
+        found_state, found_cache = bug.prepare_for_node_update(node_id)
+        self.assertIn(node_id,bug.cache_dict)
+        self.assertEqual(id(found_cache), id(bug.cache_dict[node_id]))
+        self.assertTrue(ref_cache.close_to(found_cache))
+        found_node, found_tensor = found_state[node_id]
+        self.assertEqual(id(found_state),id(bug.state))
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        # Other nodes haven't changed
+        for key in bug.state.nodes:
+            if key != node_id:
+                self.assertTrue(ref_state.nodes_equal(key,found_state))
+
+    def test_simple_c2(self):
+        """
+        Tests the method for the node c2 in the simple tree.
+        """
+        node_id = "c2"
+        bug = init_simple_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache(node_id)
+        # Prepare reference
+        ref_node = deepcopy(bug.state.nodes[node_id])
+        ref_tensor = deepcopy(bug.ttns_dict[node_id].tensors[node_id])
+        ref_state = deepcopy(bug.state)
+        ref_cache = deepcopy(bug.cache_dict[node_id])
+        # Test
+        found_state, found_cache = bug.prepare_for_node_update(node_id)
+        self.assertIn(node_id,bug.cache_dict)
+        self.assertEqual(id(found_cache), id(bug.cache_dict[node_id]))
+        self.assertTrue(ref_cache.close_to(found_cache))
+        found_node, found_tensor = found_state[node_id]
+        self.assertEqual(id(found_state),id(bug.state))
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        # Other nodes haven't changed
+        for key in bug.state.nodes:
+            if key != node_id:
+                self.assertTrue(ref_state.nodes_equal(key,found_state))
+
+    def test_complicated_site2(self):
+        """
+        Tests the method for the node site2 in the complicated tree.
+        """
+        node_id = "site2"
+        bug = init_complicated_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache(node_id)
+        # Prepare reference
+        ref_node = deepcopy(bug.state.nodes[node_id])
+        ref_tensor = deepcopy(bug.ttns_dict[node_id].tensors[node_id])
+        ref_state = deepcopy(bug.state)
+        ref_cache = deepcopy(bug.cache_dict[node_id])
+        # Test
+        found_state, found_cache = bug.prepare_for_node_update(node_id)
+        self.assertIn(node_id,bug.cache_dict)
+        self.assertEqual(id(found_cache), id(bug.cache_dict[node_id]))
+        self.assertTrue(ref_cache.close_to(found_cache))
+        found_node, found_tensor = found_state[node_id]
+        self.assertEqual(id(found_state),id(bug.state))
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        # Other nodes haven't changed
+        for key in bug.state.nodes:
+            if key != node_id:
+                self.assertTrue(ref_state.nodes_equal(key,found_state))
+
+    def test_complicated_site7(self):
+        """
+        Tests the method for the node site7 in the complicated tree.
+        """
+        node_id = "site7"
+        bug = init_complicated_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site6")
+        bug.create_ttns_and_cache(node_id)
+        # Prepare reference
+        ref_node = deepcopy(bug.state.nodes[node_id])
+        ref_tensor = deepcopy(bug.ttns_dict[node_id].tensors[node_id])
+        ref_state = deepcopy(bug.state)
+        ref_cache = deepcopy(bug.cache_dict[node_id])
+        # Test
+        found_state, found_cache = bug.prepare_for_node_update(node_id)
+        self.assertIn(node_id,bug.cache_dict)
+        self.assertEqual(id(found_cache), id(bug.cache_dict[node_id]))
+        self.assertTrue(ref_cache.close_to(found_cache))
+        found_node, found_tensor = found_state[node_id]
+        self.assertEqual(id(found_state),id(bug.state))
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        # Other nodes haven't changed
+        for key in bug.state.nodes:
+            if key != node_id:
+                self.assertTrue(ref_state.nodes_equal(key,found_state))
+
+    def test_complicated_site4(self):
+        """
+        Tests the method for the node site4 in the complicated tree.
+        """
+        node_id = "site4"
+        bug = init_complicated_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache("site3")
+        bug.create_ttns_and_cache(node_id)
+        # Prepare reference
+        ref_node = deepcopy(bug.state.nodes[node_id])
+        ref_tensor = deepcopy(bug.ttns_dict[node_id].tensors[node_id])
+        ref_state = deepcopy(bug.state)
+        ref_cache = deepcopy(bug.cache_dict[node_id])
+        # Test
+        found_state, found_cache = bug.prepare_for_node_update(node_id)
+        self.assertIn(node_id,bug.cache_dict)
+        self.assertEqual(id(found_cache), id(bug.cache_dict[node_id]))
+        self.assertTrue(ref_cache.close_to(found_cache))
+        found_node, found_tensor = found_state[node_id]
+        self.assertEqual(id(found_state),id(bug.state))
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        # Other nodes haven't changed
+        for key in bug.state.nodes:
+            if key != node_id:
+                self.assertTrue(ref_state.nodes_equal(key,found_state))
+
+    def test_complicated_site5(self):
+        """
+        Tests the method for the node site5 in the complicated tree.
+        """
+        node_id = "site5"
+        bug = init_complicated_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache("site3")
+        bug.create_ttns_and_cache(node_id)
+        # Prepare reference
+        ref_node = deepcopy(bug.state.nodes[node_id])
+        ref_tensor = deepcopy(bug.ttns_dict[node_id].tensors[node_id])
+        ref_state = deepcopy(bug.state)
+        ref_cache = deepcopy(bug.cache_dict[node_id])
+        # Test
+        found_state, found_cache = bug.prepare_for_node_update(node_id)
+        self.assertIn(node_id,bug.cache_dict)
+        self.assertEqual(id(found_cache), id(bug.cache_dict[node_id]))
+        self.assertTrue(ref_cache.close_to(found_cache))
+        found_node, found_tensor = found_state[node_id]
+        self.assertEqual(id(found_state),id(bug.state))
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        # Other nodes haven't changed
+        for key in bug.state.nodes:
+            if key != node_id:
+                self.assertTrue(ref_state.nodes_equal(key,found_state))
+
+class TestGetOldTensorForNewBasisTensor(TestCase):
+    """
+    Tests if the correct tensor and node are pulled for the computation of 
+    the new basis tensor.
+    """
+
+    # Test for leafs
+    def test_simple_c1(self):
+        """
+        Tests the method for the node c1 in the simple tree.
+        """
+        node_id = "c1"
+        bug = init_simple_bug()
+        ref_state = deepcopy(bug.state)
+        ref_node, ref_tensor = ref_state[node_id]
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        # Test
+        found_node, found_tensor = bug._get_old_tensor_for_new_basis_tensor(node_id)
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        self.assertEqual(found_node.shape, found_tensor.shape)
+        dim = found_node.shape[1]
+        identity = eye(dim)
+        self.assertTrue(allclose(identity,
+                                 found_tensor.T.conj() @ found_tensor))
 
 
+    def test_simple_c2(self):
+        """
+        Tests the method for the node c2 in the simple tree.
+        """
+        node_id = "c2"
+        bug = init_simple_bug()
+        ref_state = deepcopy(bug.state)
+        ref_node, ref_tensor = ref_state[node_id]
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        # Test
+        found_node, found_tensor = bug._get_old_tensor_for_new_basis_tensor(node_id)
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        self.assertEqual(found_node.shape, found_tensor.shape)
+        dim = found_node.shape[1]
+        identity = eye(dim)
+        self.assertTrue(allclose(identity,
+                                 found_tensor.T.conj() @ found_tensor))
+
+    def test_complicated_site2(self):
+        """
+        Tests the method for the node site2 in the complicated tree.
+        """
+        node_id = "site2"
+        bug = init_complicated_bug()
+        ref_state = deepcopy(bug.state)
+        ref_node, ref_tensor = ref_state[node_id]
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        # Test
+        found_node, found_tensor = bug._get_old_tensor_for_new_basis_tensor(node_id)
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        self.assertEqual(found_node.shape, found_tensor.shape)
+        dim = found_node.shape[1]
+        identity = eye(dim)
+        self.assertTrue(allclose(identity,
+                                 found_tensor.T.conj() @ found_tensor))
+
+    def test_complicated_site7(self):
+        """
+        Tests the method for the node site7 in the complicated tree.
+        """
+        node_id = "site7"
+        bug = init_complicated_bug()
+        ref_state = deepcopy(bug.state)
+        ref_node, ref_tensor = ref_state[node_id]
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site6")
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        # Test
+        found_node, found_tensor = bug._get_old_tensor_for_new_basis_tensor(node_id)
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        self.assertEqual(found_node.shape, found_tensor.shape)
+        dim = found_node.shape[1]
+        identity = eye(dim)
+        self.assertTrue(allclose(identity,
+                                 found_tensor.T.conj() @ found_tensor))
+
+    def test_complicated_site4(self):
+        """
+        Tests the method for the node site4 in the complicated tree.
+        """
+        node_id = "site4"
+        bug = init_complicated_bug()
+        ref_state = deepcopy(bug.state)
+        ref_node, ref_tensor = ref_state[node_id]
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache("site3")
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        # Test
+        found_node, found_tensor = bug._get_old_tensor_for_new_basis_tensor(node_id)
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        self.assertEqual(found_node.shape, found_tensor.shape)
+        dim = found_node.shape[1]
+        identity = eye(dim)
+        self.assertTrue(allclose(identity,
+                                 found_tensor.T.conj() @ found_tensor))
+
+    def test_complicated_site5(self):
+        """
+        Tests the method for the node site5 in the complicated tree.
+        """
+        node_id = "site5"
+        bug = init_complicated_bug()
+        ref_state = deepcopy(bug.state)
+        ref_node, ref_tensor = ref_state[node_id]
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache("site3")
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        # Test
+        found_node, found_tensor = bug._get_old_tensor_for_new_basis_tensor(node_id)
+        self.assertEqual(ref_node, found_node)
+        self.assertTrue(allclose(ref_tensor, found_tensor))
+        self.assertEqual(found_node.shape, found_tensor.shape)
+        dim = found_node.shape[1]
+        identity = eye(dim)
+        self.assertTrue(allclose(identity,
+                                 found_tensor.T.conj() @ found_tensor))
+
+    # TODO: Write tests for the other nodes, once all required methods are adapted
+
+class TestComputeNewBasisTensor(TestCase):
+
+    # Test for leafs with random updated tensor
+    def test_simple_c1(self):
+        """
+        Tests the method for the node c1 in the simple tree.
+        """
+        node_id = "c1"
+        bug = init_simple_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        _, tensor = bug._get_old_tensor_for_new_basis_tensor(node_id)
+        rand_updated_tensor = crandn_like(tensor) # shape (3,3)
+        # Test
+        new_tensor = bug.compute_new_basis_tensor(node_id, rand_updated_tensor)
+        self.assertEqual(tensor.shape, new_tensor.shape)
+        self.assertTrue(allclose(new_tensor.T.conj() @ new_tensor,
+                                 eye(tensor.shape[1])))
+
+    def test_simple_c2(self):
+        """
+        Tests the method for the node c2 in the simple tree.
+        """
+        node_id = "c2"
+        bug = init_simple_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        _, tensor = bug._get_old_tensor_for_new_basis_tensor(node_id)
+        rand_updated_tensor = crandn_like(tensor)
+        # Test
+        new_tensor = bug.compute_new_basis_tensor(node_id, rand_updated_tensor)
+        self.assertEqual(tensor.shape, new_tensor.shape)
+        self.assertTrue(allclose(new_tensor.T.conj() @ new_tensor,
+                                 eye(tensor.shape[1])))
+
+    def test_complicated_site2(self):
+        """
+        Tests the method for the node site2 in the complicated tree.
+        """
+        node_id = "site2"
+        bug = init_complicated_bug(mode=RandomTTNSMode.TRIVIALVIRTUAL)
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        _, tensor = bug._get_old_tensor_for_new_basis_tensor(node_id)
+        rand_updated_tensor = crandn_like(tensor)
+        # Test
+        new_tensor = bug.compute_new_basis_tensor(node_id, rand_updated_tensor)
+        self.assertEqual(2*tensor.shape[0], new_tensor.shape[0])
+        self.assertEqual(tensor.shape[1], new_tensor.shape[1])
+        self.assertTrue(allclose(new_tensor.T.conj() @ new_tensor,
+                                 eye(tensor.shape[1])))
+
+    def test_complicated_site7(self):
+        """
+        Tests the method for the node site7 in the complicated tree.
+        """
+        node_id = "site7"
+        bug = init_complicated_bug(mode=RandomTTNSMode.TRIVIALVIRTUAL)
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site6")
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        _, tensor = bug._get_old_tensor_for_new_basis_tensor(node_id)
+        rand_updated_tensor = crandn_like(tensor)
+        # Test
+        new_tensor = bug.compute_new_basis_tensor(node_id, rand_updated_tensor)
+        self.assertEqual(2*tensor.shape[0], new_tensor.shape[0])
+        self.assertEqual(tensor.shape[1], new_tensor.shape[1])
+        self.assertTrue(allclose(new_tensor.T.conj() @ new_tensor,
+                                 eye(tensor.shape[1])))
+
+    def test_complicated_site4(self):
+        """
+        Tests the method for the node site4 in the complicated tree.
+        """
+        node_id = "site4"
+        bug = init_complicated_bug(mode=RandomTTNSMode.TRIVIALVIRTUAL)
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache("site3")
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        _, tensor = bug._get_old_tensor_for_new_basis_tensor(node_id)
+        rand_updated_tensor = crandn_like(tensor)
+        # Test
+        new_tensor = bug.compute_new_basis_tensor(node_id, rand_updated_tensor)
+        self.assertEqual(2*tensor.shape[0], new_tensor.shape[0])
+        self.assertEqual(tensor.shape[1], new_tensor.shape[1])
+        self.assertTrue(allclose(new_tensor.T.conj() @ new_tensor,
+                                 eye(tensor.shape[1])))
+
+    def test_complicated_site5(self):
+        """
+        Tests the method for the node site5 in the complicated tree.
+        """
+        node_id = "site5"
+        bug = init_complicated_bug(mode=RandomTTNSMode.TRIVIALVIRTUAL)
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache("site3")
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        _, tensor = bug._get_old_tensor_for_new_basis_tensor(node_id)
+        rand_updated_tensor = crandn_like(tensor)
+        # Test
+        new_tensor = bug.compute_new_basis_tensor(node_id, rand_updated_tensor)
+        self.assertEqual(2*tensor.shape[0], new_tensor.shape[0])
+        self.assertEqual(tensor.shape[1], new_tensor.shape[1])
+        self.assertTrue(allclose(new_tensor.T.conj() @ new_tensor,
+                                 eye(tensor.shape[1])))
+
+    # TODO: Write tests for the other nodes, once all required methods are adapted
+
+class TestGetNodeAndTensorForComputingBasisChangeTensor(TestCase):
+    """
+    Tests if the correct node and tensor are used for the computation of the
+    basis change tensor.
+    """
+
+    def test_simple_c1(self):
+        """
+        Tests the method for node c1 in the simple tree.
+        """
+        node_id = "c1"
+        parent_id = "root"
+        bug = init_simple_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        # Reference
+        ref_bug = deepcopy(bug)
+        correct_node = ref_bug.state.nodes[node_id]
+        correct_tensor = ref_bug.ttns_dict[parent_id].tensors[node_id]
+        # Test
+        found_node, found_tensor = bug._get_node_and_tensor_for_basis_change_comp(node_id)
+        self.assertEqual(correct_node,found_node)
+        self.assertTrue(allclose(correct_tensor,found_tensor))
+
+    def test_simple_c2(self):
+        """
+        Tests the method for node c2 in the simple tree.
+        """
+        node_id = "c2"
+        parent_id = "root"
+        bug = init_simple_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        # Reference
+        ref_bug = deepcopy(bug)
+        correct_node = ref_bug.state.nodes[node_id]
+        correct_tensor = ref_bug.ttns_dict[parent_id].tensors[node_id]
+        # Test
+        found_node, found_tensor = bug._get_node_and_tensor_for_basis_change_comp(node_id)
+        self.assertEqual(correct_node,found_node)
+        self.assertTrue(allclose(correct_tensor,found_tensor))
+
+class TestComputeBasisChangeTensor(TestCase):
+    """
+    Tests, if the basis change tensor is computed correctly.
+    """
+
+    def test_simple_c1(self):
+        """
+        Tests the method for node c1 in the simple tree.
+        """
+        node_id = "c1"
+        parent_id = "root"
+        bug = init_simple_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        random_new_basis_tensor = crandn(8,3)
+        # Reference
+        ref_bug = deepcopy(bug)
+        ref_state_tensor = ref_bug.ttns_dict[parent_id].tensors[node_id]
+        correct_tensor = (random_new_basis_tensor.conj() @ ref_state_tensor.T).T
+        # Test
+        found_tensor = bug.compute_basis_change_tensor(node_id,
+                                                       random_new_basis_tensor)
+        self.assertTrue(found_tensor.shape, (3,8))
+        self.assertTrue(allclose(correct_tensor, found_tensor))
+
+    def test_simple_c2(self):
+        """
+        Tests the method for node c2 in the simple tree.
+        """
+        node_id = "c2"
+        parent_id = "root"
+        bug = init_simple_bug()
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        random_new_basis_tensor = crandn(8,4)
+        # Reference
+        ref_bug = deepcopy(bug)
+        ref_state_tensor = ref_bug.ttns_dict[parent_id].tensors[node_id]
+        correct_tensor = (random_new_basis_tensor.conj() @ ref_state_tensor.T).T
+        # Test
+        found_tensor = bug.compute_basis_change_tensor(node_id,
+                                                       random_new_basis_tensor)
+        self.assertTrue(found_tensor.shape, (4,8))
+        self.assertTrue(allclose(correct_tensor, found_tensor))
+
+    def test_complicated_site2(self):
+        """
+        Tests the method for node site2 in the complicated tree.
+        """
+        node_id = "site2"
+        parent_id = "site1"
+        bug = init_complicated_bug(mode=RandomTTNSMode.TRIVIALVIRTUAL)
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache(parent_id)
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        random_new_basis_tensor = crandn(3,2)
+        # Prepare Reference
+        ref_bug = deepcopy(bug)
+        ref_state_tensor = ref_bug.ttns_dict[parent_id].tensors[node_id]
+        correct_tensor = (random_new_basis_tensor.conj() @ ref_state_tensor.T).T
+        # Test
+        found_tensor = bug.compute_basis_change_tensor(node_id,
+                                                       random_new_basis_tensor)
+        self.assertTrue(found_tensor.shape, (1,3))
+        self.assertTrue(allclose(correct_tensor, found_tensor))
+
+    def test_complicated_site7(self):
+        """
+        Tests the method for node site7 in the complicated tree.
+        """
+        node_id = "site7"
+        parent_id = "site6"
+        bug = init_complicated_bug(mode=RandomTTNSMode.TRIVIALVIRTUAL)
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache(parent_id)
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        random_new_basis_tensor = crandn(3,2)
+        # Prepare Reference
+        ref_bug = deepcopy(bug)
+        ref_state_tensor = ref_bug.ttns_dict[parent_id].tensors[node_id]
+        correct_tensor = (random_new_basis_tensor.conj() @ ref_state_tensor.T).T
+        # Test
+        found_tensor = bug.compute_basis_change_tensor(node_id,
+                                                       random_new_basis_tensor)
+        self.assertTrue(found_tensor.shape, (1,3))
+        self.assertTrue(allclose(correct_tensor, found_tensor))
+
+    def test_complicated_site4(self):
+        """
+        Tests the method for node site4 in the complicated tree.
+        """
+        node_id = "site4"
+        parent_id = "site3"
+        bug = init_complicated_bug(mode=RandomTTNSMode.TRIVIALVIRTUAL)
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache(parent_id)
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        random_new_basis_tensor = crandn(3,2)
+        # Prepare Reference
+        ref_bug = deepcopy(bug)
+        ref_state_tensor = ref_bug.ttns_dict[parent_id].tensors[node_id]
+        correct_tensor = (random_new_basis_tensor.conj() @ ref_state_tensor.T).T
+        # Test
+        found_tensor = bug.compute_basis_change_tensor(node_id,
+                                                       random_new_basis_tensor)
+        self.assertTrue(found_tensor.shape, (1,3))
+        self.assertTrue(allclose(correct_tensor, found_tensor))
+
+    def test_complicated_site5(self):
+        """
+        Tests the method for node site5 in the complicated tree.
+        """
+        node_id = "site5"
+        parent_id = "site3"
+        bug = init_complicated_bug(mode=RandomTTNSMode.TRIVIALVIRTUAL)
+        bug.prepare_root_for_child_update()
+        bug.create_ttns_and_cache("site1")
+        bug.create_ttns_and_cache(parent_id)
+        bug.create_ttns_and_cache(node_id)
+        bug.prepare_for_node_update(node_id)
+        random_new_basis_tensor = crandn(3,2)
+        # Prepare Reference
+        ref_bug = deepcopy(bug)
+        ref_state_tensor = ref_bug.ttns_dict[parent_id].tensors[node_id]
+        correct_tensor = (random_new_basis_tensor.conj() @ ref_state_tensor.T).T
+        # Test
+        found_tensor = bug.compute_basis_change_tensor(node_id,
+                                                       random_new_basis_tensor)
+        self.assertTrue(found_tensor.shape, (1,3))
+        self.assertTrue(allclose(correct_tensor, found_tensor))
 
 if __name__ == "__main__":
-    unittest.main()
+    unit_main()

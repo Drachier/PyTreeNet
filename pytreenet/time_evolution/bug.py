@@ -9,6 +9,7 @@ from ..operators.tensorproduct import TensorProduct
 from ..core.ttn import (pull_tensor_from_different_ttn,
                         get_tensor_from_different_ttn)
 from ..core.graph_node import GraphNode
+from ..core.node import Node
 from ..core.truncation.recursive_truncation import recursive_truncation
 from ..ttns.ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TreeTensorNetworkOperator
@@ -174,7 +175,9 @@ class BUG(TTNTimeEvolution):
                                       leg_specs[0],
                                       leg_specs[1])
 
-    def prepare_state_for_update(self, node_id: str):
+    def prepare_state_for_update(self,
+                                    node_id: str
+                                    ) -> TreeTensorNetworkState:
         """
         Prepares the new state for the update.
 
@@ -185,12 +188,16 @@ class BUG(TTNTimeEvolution):
         Args:
             node_id (str): The id of the node to prepare.
 
+        Returns:
+            TreeTensorNetworkState: The state with the new tensor.
+
         """
         current_ttns = self.ttns_dict[node_id]
         pull_tensor_from_different_ttn(current_ttns, self.state,
                                        node_id,
                                        mod_fct=reverse_basis_change_tensor_id)
         self.state.contract_all_children(node_id)
+        return self.state
 
     def get_current_node_and_tensor(self, node_id: str) -> Tuple[GraphNode,ndarray]:
         """
@@ -204,13 +211,42 @@ class BUG(TTNTimeEvolution):
             Tuple[GraphNode,ndarray]: The current node and tensor.
 
         """
-        self.prepare_state_for_update(node_id)
         current_node, current_tensor = self.state[node_id]
         return current_node, current_tensor
 
-    def prepare_current_cache_for_update(self,
-                                         node_id: str
-                                         ) -> SandwichCache:
+    def get_updated_cache_tensor(self,
+                                 child_id: str,
+                                 node_id: str
+                                 ) -> ndarray:
+        """
+        Obtains the updated cached environment tensor.
+
+        The tensor is the contracted subtree starting at the child and its
+        open legs point towards the node. Notably this is after the child
+        node was updated.
+
+        Args:
+            child_id (str): The identifier of the node that is the root of the
+                subtree that has been contracted as the environment tensot.
+                Should be a child of the main node.
+            node_id (str): The identifier of the node to which the open legs
+                should point.
+        
+        Returns:
+            ndarray: The environment/sandwich tensor of the updated subtree.
+
+        """
+        try:
+            return self.tensor_cache.get_entry(child_id,
+                                                node_id)
+        except KeyError as e:
+            errstr = "The updated subtree tensor is not available!"
+            errstr += f"Nodes: {child_id} -> {node_id}"
+            raise KeyError(errstr) from e
+
+    def prepare_cache_for_update(self,
+                                    node_id: str
+                                    ) -> SandwichCache:
         """
         Prepares the current cache for the update.
 
@@ -223,13 +259,37 @@ class BUG(TTNTimeEvolution):
         Returns:
             SandwichCache: The updated cache.
         """
-        node = self.state.nodes[node_id]
         current_cache = self.cache_dict[node_id]
-        for child_id in copy(node.children):
-            tensor = self.tensor_cache.get_entry(child_id, node_id)
+        for child_id in self.get_children_ids_to_update(node_id):
+            tensor = self.get_updated_cache_tensor(child_id,
+                                                    node_id)
             current_cache.add_entry(child_id, node_id,
                                     tensor)
         return current_cache
+
+    def prepare_for_node_update(self,
+                                node_id: str
+                                ) -> Tuple[TreeTensorNetworkState,SandwichCache]:
+        """
+        Prepares everything to update a node.
+
+        This means, that the main state now has the tensor to be updated
+        associated to it and that the cache of the node to be updated contains
+        the contracted subtrees of the node's children.
+
+        Args:
+            node_id (str): The identifier of the node that is to be updated.
+            
+        Returns:
+            TreeTensorNetworkState: The state containing the node and tensor to
+                be updated.
+            SandwichCache: The cache associated to the node containing the
+                updated children environments.
+
+        """
+        state = self.prepare_state_for_update(node_id)
+        cache = self.prepare_cache_for_update(node_id)
+        return state, cache
 
     def prepare_root_state(self) -> TreeTensorNetworkState:
         """
@@ -311,11 +371,9 @@ class BUG(TTNTimeEvolution):
         # and the children sandwich tensors and the children basis change
         # tensors are in their resepctive caches.
         root_id = self.state.root_id
-        self.prepare_state_for_update(root_id)
-        self.prepare_current_cache_for_update(root_id)
+        _, current_cache = self.prepare_for_node_update(root_id)
         current = self.get_current_node_and_tensor(root_id)
         ham_data = self.hamiltonian[root_id]
-        current_cache = self.cache_dict[root_id]
         updated_tensor = self.time_evolve_node(current,
                                                ham_data,
                                                current_cache)
@@ -389,6 +447,35 @@ class BUG(TTNTimeEvolution):
         current_ttns = self.ttns_dict[node_id]
         return current_ttns, current_cache
 
+    def _get_old_tensor_for_new_basis_tensor(self,
+                                             node_id: str
+                                                ) -> Tuple[GraphNode,ndarray]:
+        """
+        Finds the old tensor and node required to compute the new basis tensor.
+
+        Args:
+            node_id (str): The id of the node to find the old tensor for.
+        
+        Returns:
+            GraphNode: The node in the state corresponding to the old tensor.
+            ndarray: The old tensor.
+        
+        """
+        new_node = self.state.nodes[node_id]
+        if new_node.is_leaf():
+            # For a leaf the old tensor is the tensor with which the node
+            # is in canonical form towards its parent.
+            parent_id = new_node.parent
+            ttns = self.ttns_dict[parent_id]
+            old_tensor = get_tensor_from_different_ttn(ttns,
+                                                        self.state,
+                                                        node_id)
+        else:
+            # Otherwise we just use the tensor with updated basis legs
+            # This is C_hat in the reference
+            old_tensor = self.state.tensors[node_id]
+        return new_node, old_tensor
+
     def compute_new_basis_tensor(self,
                                  node_id: str,
                                  updated_tensor: ndarray
@@ -405,22 +492,36 @@ class BUG(TTNTimeEvolution):
         Returns:
             ndarray: The new basis tensor.
         """
-        new_node = self.state.nodes[node_id]
-        if new_node.is_leaf():
-            # For a leaf the old tensor is the tensor with which the node
-            # is in canonical form towards its parent.
-            parent_id = new_node.parent
-            ttns = self.ttns_dict[parent_id]
-            old_tensor = get_tensor_from_different_ttn(ttns,
-                                                        self.state,
-                                                        node_id)
-        else:
-            # Otherwise we just use the tensor with updated basis legs
-            # This is C_hat in the reference
-            old_tensor = self.state.tensors[node_id]
+        new_node, old_tensor = self._get_old_tensor_for_new_basis_tensor(node_id)
         return compute_new_basis_tensor(new_node,
                                         old_tensor,
                                         updated_tensor)
+
+    def _get_node_and_tensor_for_basis_change_comp(self,
+                                                   node_id: str
+                                                   ) -> Tuple[Node,ndarray]:
+        """
+        Get the node and tensor of the current node required to compute the
+        basis change tensor.
+
+        Args:
+            node_id: The identifier of the ucrrent node to be updated.
+
+        Return:
+            Node: The node in the new state corresponding to the identifier.
+            ndarray: The isometric tensor that was associated to the node_id
+                while one of the ancestor nodes was the orthogonality center.
+
+        """
+        node_new = self.state.nodes[node_id]
+        # These have to be taken from the state, where the node is in caonical
+        # form towards its parent
+        parent_id = node_new.parent
+        parent_ttns = self.ttns_dict[parent_id]
+        old_tensor = get_tensor_from_different_ttn(parent_ttns,
+                                                    self.state,
+                                                    node_id)
+        return node_new, old_tensor
 
     def compute_basis_change_tensor(self,
                                     node_id: str,
@@ -441,12 +542,14 @@ class BUG(TTNTimeEvolution):
 
         """
         node_new = self.state.nodes[node_id]
-        parent_id = node_new.parent
         # These have to be taken from the state, where the node is in caonical
         # form towards its parent
+        parent_id = node_new.parent
         parent_ttns = self.ttns_dict[parent_id]
-        old_node, old_tensor = parent_ttns[node_id]
-        return compute_basis_change_tensor(old_node,
+        old_tensor = get_tensor_from_different_ttn(parent_ttns,
+                                                    self.state,
+                                                    node_id)
+        return compute_basis_change_tensor(node_new,
                                             node_new,
                                             old_tensor,
                                             new_basis_tensor,
@@ -495,11 +598,9 @@ class BUG(TTNTimeEvolution):
         # Now the children in the state are the basis change tensors
         # and the children sandwich tensors and the children basis change
         # tensors are in their resepctive caches.
-        self.prepare_state_for_update(node_id)
-        self.prepare_current_cache_for_update(node_id)
+        _, current_cache = self.prepare_for_node_update(node_id)
         current = self.get_current_node_and_tensor(node_id)
         ham_data = self.hamiltonian[node_id]
-        current_cache = self.cache_dict[node_id]
         updated_tensor = self.time_evolve_node(current,
                                                ham_data,
                                                current_cache)
@@ -508,7 +609,7 @@ class BUG(TTNTimeEvolution):
         # All the children's basis change tensors are already contracted
         basis_change_tensor = self.compute_basis_change_tensor(node_id,
                                                                new_basis_tensor)
-        parent_id = node.parent
+        parent_id = self.state.nodes[node_id].parent
         self.basis_change_cache.add_entry(node_id, parent_id,
                                           basis_change_tensor)
         # Adds the new basis tensor and the basis change tensor to the new
