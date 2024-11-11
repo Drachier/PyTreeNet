@@ -52,6 +52,8 @@ import numpy as np
 from numpy import eye, ndarray
 from uuid import uuid1
 
+from pytreenet.core.graph_node import GraphNode
+
 from .tree_structure import TreeStructure
 from .node import Node, relative_leg_permutation
 from ..util.tensor_splitting import (tensor_qr_decomposition,
@@ -217,6 +219,22 @@ class TreeTensorNetwork(TreeStructure):
             else:
                 return False # Some node_id is not the same
         return True
+
+    def __contains__(self, identifier: str | Node) -> bool:
+        """
+        Checks if a node is in the TTN.
+
+        Args:
+            identifier (str | Node): The identifier of the node or the node
+                itself to be checked.
+        
+        Returns:
+            bool: If the node is in the TTN.
+        
+        """
+        if isinstance(identifier, Node):
+            identifier = identifier.identifier
+        return super().__contains__(identifier) and identifier in self.tensors
 
     def num_nodes(self) -> int:
         """
