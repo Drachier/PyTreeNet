@@ -84,7 +84,7 @@ def random_symbolic_tensor_product(identifiers: List[str],
         errstr = "There cannot be more non-trivial operators than identifiers!"
         raise ValueError(errstr)
     rng = default_rng(seed)
-    random_identifiers = rng.choice(possible_operators, size=num_operators,
+    random_identifiers = rng.choice(identifiers, size=num_operators,
                                     replace=False)
     random_operators = rng.choice(possible_operators, size=num_operators)
     return TensorProduct(dict(zip(random_identifiers, random_operators)))
