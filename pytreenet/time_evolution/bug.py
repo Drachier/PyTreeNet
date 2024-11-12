@@ -378,8 +378,7 @@ class BUG(TTNTimeEvolution):
                                                ham_data,
                                                current_cache)
         self.state.replace_tensor(root_id,updated_tensor)
-        del self.ttns_dict[root_id]
-        del self.cache_dict[root_id]
+        self.clean_up(root_id)
         self.reset_main_cache()
         self.reset_basis_change_cache()
 
@@ -555,12 +554,41 @@ class BUG(TTNTimeEvolution):
                                             new_basis_tensor,
                                             self.basis_change_cache)
 
-    def update_tensor_cache(self, node_id: str):
+    def find_new_tensors(self, node_id: str) -> Tuple[ndarray,ndarray]:
+        """
+        Finds the new basis tensor and the basis change tensor for the node.
+
+        This will also change the state and cache to be ready to update this node.
+
+        Args:
+            node_id (str): The id of the node to find the new tensors for.
+
+        Returns:
+            Tuple[ndarray,ndarray]: The new basis tensor and the basis change
+                tensor.
+
+        """
+        _, current_cache = self.prepare_for_node_update(node_id)
+        current = self.get_current_node_and_tensor(node_id)
+        ham_data = self.hamiltonian[node_id]
+        updated_tensor = self.time_evolve_node(current,
+                                               ham_data,
+                                               current_cache)
+        new_basis_tensor = self.compute_new_basis_tensor(node_id,
+                                                         updated_tensor)
+        basis_change_tensor = self.compute_basis_change_tensor(node_id,
+                                                               new_basis_tensor)
+        return new_basis_tensor, basis_change_tensor
+
+    def update_tensor_cache(self, node_id: str) -> SandwichCache:
         """
         After successfully updating the node, the tensor cache must be updated.
 
         Args:
             node_id (str): The id of the node to update the cache for.
+
+        Returns:
+            SandwichCache: The updated total cache.
 
         """
         parent_id = self.ttns_dict[node_id].nodes[node_id].parent
@@ -573,6 +601,26 @@ class BUG(TTNTimeEvolution):
         self.tensor_cache.change_next_id_for_entry(node_id,
                                                    basis_change_id,
                                                    parent_id)
+        return self.tensor_cache
+
+    def update_basis_change_cache(self,
+                                  node_id: str,
+                                  basis_change_tensor: ndarray
+                                  ) -> PartialTreeCachDict:
+        """
+        After successfully updating the node, the basis change cache must be updated.
+
+        Args:
+            node_id (str): The id of the node to update the cache for.
+            basis_change_tensor (ndarray): The basis change tensor.
+
+        Returns:
+            PartialTreeCachDict: The updated basis change cache.
+
+        """
+        parent_id = self.state.nodes[node_id].parent
+        self.basis_change_cache.add_entry(node_id, parent_id,
+                                          basis_change_tensor)
 
     def clean_up(self, node_id: str):
         """
@@ -598,27 +646,16 @@ class BUG(TTNTimeEvolution):
         # Now the children in the state are the basis change tensors
         # and the children sandwich tensors and the children basis change
         # tensors are in their resepctive caches.
-        _, current_cache = self.prepare_for_node_update(node_id)
-        current = self.get_current_node_and_tensor(node_id)
-        ham_data = self.hamiltonian[node_id]
-        updated_tensor = self.time_evolve_node(current,
-                                               ham_data,
-                                               current_cache)
-        new_basis_tensor = self.compute_new_basis_tensor(node_id,
-                                                         updated_tensor)
-        # All the children's basis change tensors are already contracted
-        basis_change_tensor = self.compute_basis_change_tensor(node_id,
-                                                               new_basis_tensor)
-        parent_id = self.state.nodes[node_id].parent
-        self.basis_change_cache.add_entry(node_id, parent_id,
-                                          basis_change_tensor)
+        new_basis_tensor, basis_change_tensor = self.find_new_tensors(node_id)
         # Adds the new basis tensor and the basis change tensor to the new
         # state instead of the old node
         self.replace_node_with_updated_basis(node_id,
                                              new_basis_tensor,
                                              basis_change_tensor)
-        # Update the cache with the new sandwich tensors
+        # Update the caches
         self.update_tensor_cache(node_id)
+        self.update_basis_change_cache(node_id,
+                                       basis_change_tensor)
         # Remove the old TTNS and cache
         self.clean_up(node_id)
 
