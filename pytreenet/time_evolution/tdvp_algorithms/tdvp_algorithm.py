@@ -181,7 +181,9 @@ class TDVPAlgorithm(TTNTimeEvolution):
         self.state.tensors[node_id] = time_evolve(psi,
                                                   hamiltonian_eff_site,
                                                   self.time_step_size * time_step_factor,
-                                                  forward=True)
+                                                  forward =True,
+                                                  Lanczos = self.config.Lanczos_evolution,
+                                                  lanczos_params = self.config.Lanczos_params)
 
     def _move_orth_and_update_cache_for_path(self, path: List[str]):
         """

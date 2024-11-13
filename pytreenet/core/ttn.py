@@ -557,11 +557,11 @@ class TreeTensorNetwork(TreeStructure):
         permutation = tuple(element_map[elem] for elem in original_children)
         node.children = original_children
         if node.is_root():
+           # root has no parent leg
            tensor_perm = permutation + (len(permutation) , )
         else:
            tensor_perm = (0,) + tuple(x + 1 for x in permutation) + (len(permutation) + 1,)
 
-        #print(node.identifier , node.shape)     
         self._nodes[node_id].update_leg_permutation(tensor_perm , tensor.shape) 
 
     def replace_tensor(self,

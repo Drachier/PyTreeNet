@@ -1,10 +1,18 @@
-from copy import deepcopy
+from typing import Tuple, Any, Dict, List
+from enum import Enum
+
+import copy
 import math
 import random
 import numpy as np
-
+from copy import deepcopy
 from ...operators.common_operators import bosonic_operators , pauli_matrices
 from ...operators import Hamiltonian, TensorProduct
+from ...random.random_matrices import crandn
+from ...core.leg_specification import LegSpecification
+from ...util.tensor_splitting import SVDParameters , ContractionMode , SplitMode
+from ...ttns import TreeTensorNetworkState
+from ...ttno.ttno_class import TTNO
 
 
 def get_neighbors_with_distance_HV(Lx, Ly, distance):
@@ -62,6 +70,93 @@ def get_neighbors_with_distance_HDV(Lx, Ly, distance):
 
   return current_sites, neighbor_sites
 
+
+# T3N <-> TTN CONVERSIONS
+class T3NMode(Enum):
+      QR = "QR"
+      SVD = "SVD"
+
+def ttn_to_t3n(ttn, 
+               T3N_dict = None, 
+               T3N_mode = T3NMode.QR, 
+               T3N_contr_mode = ContractionMode.EQUAL): 
+    nodes = deepcopy(ttn.nodes)
+    ttn_copy = deepcopy(ttn)
+    dict = {}
+    for node_id in nodes:
+        node = ttn_copy.nodes[node_id]
+        if node.nneighbours() > 2:
+            if T3N_dict is not None:
+                neighbour_id = T3N_dict[node_id]
+            else: 
+                children = [child for child in node.children]
+                neighbour_id = np.random.choice(children)
+            main_legs, next_legs = build_leg_specs(node, neighbour_id)
+            if T3N_mode == T3NMode.SVD:
+                ttn_copy.split_node_svd(node_id, main_legs, next_legs,
+                    u_identifier= "3_" + node_id,
+                    v_identifier=node_id,
+                    svd_params = SVDParameters(max_bond_dim = np.inf , rel_tol= -np.inf , total_tol = -np.inf),
+                    contr_mode = T3N_contr_mode)
+            elif T3N_mode == T3NMode.QR:
+                ttn_copy.split_node_qr(node_id, main_legs, next_legs,
+                                       q_identifier= "3_" + node_id,
+                                       r_identifier= node_id)  
+                 
+            shape = ttn_copy.tensors["3_" + node_id].shape
+            if isinstance(ttn_copy , TreeTensorNetworkState):
+                T = ttn_copy.tensors["3_" + node_id].reshape(shape + (1,))
+                ttn_copy.tensors["3_" + node_id] = T 
+                ttn_copy.nodes["3_" + node_id].link_tensor(T)
+            elif isinstance(ttn_copy , TTNO):    
+                T = ttn_copy.tensors["3_" + node_id].reshape(shape + (1,1))
+                ttn_copy.tensors["3_" + node_id] = T 
+                ttn_copy.nodes["3_" + node_id].link_tensor(T)
+            dict[node_id] = neighbour_id
+    return ttn_copy , dict
+
+def t3n_to_ttn(state, node_map):
+    ttn = deepcopy(state)
+    for node_id in node_map:
+        if isinstance(ttn , TreeTensorNetworkState):
+           T = ttn.tensors["3_"+node_id].reshape(ttn.tensors["3_"+node_id].shape[:-1]) 
+        elif isinstance(ttn , TTNO):
+           T = ttn.tensors["3_"+node_id].reshape(ttn.tensors["3_"+node_id].shape[:-2])   
+        ttn.tensors["3_"+node_id] = T
+        ttn.nodes["3_"+node_id].link_tensor(T)
+        ttn.contract_nodes("3_"+node_id, node_id, node_id)
+    return ttn
+
+def build_leg_specs(node ,
+                        min_neighbour_id: str) -> Tuple[LegSpecification,LegSpecification]:
+    """
+    Construct the leg specifications required for the qr decompositions during
+     canonicalisation.
+
+    Args:
+        node (Node): The node which is to be split.
+        min_neighbour_id (str): The identifier of the neighbour of the node
+         which is closest to the orthogonality center.
+
+    Returns:
+        Tuple[LegSpecification,LegSpecification]: 
+            The leg specifications for the legs of the Q-tensor, i.e. what
+            remains as the node, and the R-tensor, i.e. what will be absorbed
+            into the node defined by `min_neighbour_id`.
+    """
+    main_legs = LegSpecification(None, copy.copy(node.children), [])
+    if node.is_child_of(min_neighbour_id):
+        next_legs = LegSpecification(min_neighbour_id, [], node.open_legs)
+    else:
+        main_legs.parent_leg = node.parent
+        main_legs.child_legs.remove(min_neighbour_id)
+        next_legs = LegSpecification(None, [min_neighbour_id], node.open_legs)
+    if node.is_root():
+        main_legs.is_root = True
+    return main_legs, next_legs
+
+
+# INITIAL STATES
 def get_checkerboard_pattern(Lx, Ly):
     black_sites = []
     white_sites = []
@@ -109,9 +204,14 @@ def alternating_product_state(ttn,
                               white_state,
                               bond_dim = 2, 
                               pattern = "checkerboard",
-                              seed = None): 
-    Lx = len(ttn.nodes.keys()) // 3 
-    Ly = Lx
+                              seed = None,
+                              lattice_dim = 2): 
+    if lattice_dim == 2:
+        Lx = int(np.sqrt(len(ttn.nodes.keys())))
+        Ly = Lx
+    elif lattice_dim == 1:
+        Lx = 1
+        Ly = len(ttn.nodes.keys())   
     product_state = deepcopy(ttn)
     if pattern == "checkerboard":
        black_sites , white_sites = get_checkerboard_pattern(Lx,Ly)
@@ -135,6 +235,8 @@ def alternating_product_state(ttn,
 
     return product_state
 
+
+# HAMILTONIANS
 def BoseHubbard_ham(t, U, m, Lx, Ly , d):
     creation_op, annihilation_op, number_op = bosonic_operators(dimension=d)
     
@@ -231,7 +333,7 @@ def Anisotropic_Heisenberg_ham(J_x, J_y, J_z, h_z, Lx, Ly , boundary_condition =
                     terms.append(TensorProduct({current_site: "X", right_neighbor: "J_x * X"}))
                     terms.append(TensorProduct({current_site: "Y", right_neighbor: "J_y * Y"}))
                     terms.append(TensorProduct({current_site: "Z", right_neighbor: "J_z * Z"})) 
-                    
+
                 # Vertical connections
                 if y < Ly - 1:
                     up_neighbor = f"Site({x},{y+1})"
@@ -247,3 +349,97 @@ def Anisotropic_Heisenberg_ham(J_x, J_y, J_z, h_z, Lx, Ly , boundary_condition =
             terms.append(TensorProduct({current_site: "h_z * Z"}))
     
     return Hamiltonian(terms, conversion_dict)
+
+
+# OPERATORS (ptn.Hamiltonian)
+def spatial_correlation_function(Lx, Ly, dist, dim, mode = "HV"):
+    # <b^†_i * b_j> - not normalized
+    if mode == "HV":
+        current_sites, neighbor_sites = get_neighbors_with_distance_HV(Lx, Ly, dist)
+    elif mode == "HDV":
+        current_sites, neighbor_sites = get_neighbors_with_distance_HDV(Lx, Ly, dist)
+
+    # Define operators
+    creation_op, annihilation_op, number_op = bosonic_operators(dim)
+    conversion_dict = {
+        "b^dagger": creation_op / len(current_sites),
+        "b": annihilation_op,
+        f"I{dim}": np.eye(dim)
+    }
+
+    # Step 3: Create correlation terms for each pair
+    terms = []
+    for site1, site2 in zip(current_sites, neighbor_sites):
+        node_id1 = f"Site({site1[0]},{site1[1]})"
+        node_id2 = f"Site({site2[0]},{site2[1]})"
+        # Add b^†_i b_j term
+        terms.append(TensorProduct({node_id1: "b^dagger", node_id2: "b"}))
+
+
+    return Hamiltonian(terms, conversion_dict)
+
+def density_density_correlation_function(Lx, Ly, dist, dim, mode="HV"):
+    # <n_i * n_j> , 
+    # <n_i> and <n_j> are not condidered
+    if mode == "HV":
+        current_sites, neighbor_sites = get_neighbors_with_distance_HV(Lx, Ly, dist)
+    elif mode == "HDV":
+        current_sites, neighbor_sites = get_neighbors_with_distance_HDV(Lx, Ly, dist)
+
+    # Define operators
+    _, _, number_op = bosonic_operators(dim)  # Only need number_op for density correlation
+    conversion_dict = {
+        "n": number_op,
+        f"I{dim}": np.eye(dim)
+    }
+
+    # Create correlation terms for each pair of sites
+    terms = []
+    for site1, site2 in zip(current_sites, neighbor_sites):
+        node_id1 = f"Site({site1[0]},{site1[1]})"
+        node_id2 = f"Site({site2[0]},{site2[1]})"
+        # Add n_i * n_j term
+        terms.append(TensorProduct({node_id1: "n", node_id2: "n"}))
+
+    return Hamiltonian(terms, conversion_dict)
+
+def Number_op_total(Lx, Ly, dim=2):
+    number_op = bosonic_operators(dim)[2]
+    conversion_dict = {"n": number_op , f"I{dim}": np.eye(dim)}
+
+    terms = []
+    for x in range(Lx):
+        for y in range(Ly):
+            current_site = f"Site({x},{y})"
+            terms.append(TensorProduct({current_site: "n"}))
+    return Hamiltonian(terms, conversion_dict)
+ 
+def Number_op_local(node_id, dim=2):
+    number_op = bosonic_operators(dim)[2]
+    conversion_dict = {"n": number_op , f"I{dim}": np.eye(dim)}
+    term = TensorProduct({node_id: "n"})
+    return Hamiltonian(term, conversion_dict)       
+
+def Correlation_function(node_id1, node_id2, dim=2):
+    creation_op, annihilation_op, number_op = bosonic_operators(dim)
+    conversion_dict = {
+        "b^dagger": creation_op,
+        "b": annihilation_op,
+        f"I{dim}": np.eye(dim)
+    }
+    
+    terms = []
+    terms.append(TensorProduct({node_id1: "b^dagger", node_id2: "b"}))
+    return Hamiltonian(terms, conversion_dict)
+
+def Random_op(ttn, Lx, Ly, dim , seed = 0):
+    np.random.seed(seed)
+    possible_operators = [crandn((dim,dim)) for _ in range(len(ttn.nodes.keys()))] 
+    conversion_dict = {f"I{dim}": np.eye(dim)}
+    for i, node_id in enumerate(ttn.nodes.keys()):
+        conversion_dict[node_id] = possible_operators[i]    
+
+    terms = [TensorProduct({f"Site({x},{y})": f"Site({x},{y})" 
+                                for x in range(Lx) for y in range(Ly)})]
+    return Hamiltonian(terms, conversion_dict)   
+

@@ -15,72 +15,49 @@ from ..core.leg_specification import LegSpecification
 from copy import copy
 from enum import Enum
 
+class KrylovBasisMode(Enum):
+    apply_ham = "apply_ham"
+    apply_1st_order_expansion = "apply_1st_order_expansion"
 
 def Krylov_basis(ttn: TreeTensorNetworkState, 
                  ttno: TTNO, 
                  num_vecs: int, 
                  tau: float, 
-                 SVDParameters : SVDParameters):
+                 SVDParameters : SVDParameters,
+                 mode: KrylovBasisMode):
    ttn_copy = deepcopy(ttn)
-   ttn_structure = deepcopy(ttn)
    ttno_copy = deepcopy(ttno)
 
-   I = TTNO.Identity(ttno_copy)
-   ttno_copy.multiply_const(-1j*tau) 
-   ttno_copy = sum_two_ttns(I, ttno_copy)
-   
+   if mode == KrylovBasisMode.apply_1st_order_expansion:
+        I = TTNO.Identity(ttno_copy)
+        ttno_copy.multiply_const(-1j*tau)
+        ttno_copy = sum_two_ttns(I, ttno_copy)
    if ttn_copy.orthogonality_center_id is not TDVPUpdatePathFinder(ttn_copy).find_path()[0]:
         ttn_copy.canonical_form(TDVPUpdatePathFinder(ttn_copy).find_path()[0] , SplitMode.REDUCED) 
    basis_list = [ttn_copy]
    for _ in range(num_vecs):
-      #ttno_copy = adjust_ttno_structure_to_ttn(ttno_copy,ttn_copy)
       ttn_copy = contract_ttno_with_ttn(ttno_copy,ttn_copy)
       ttn_copy.canonical_form(TDVPUpdatePathFinder(ttn_copy).find_path()[0] , SVDParameters)  
       # ttn_copy.normalize_ttn()
       basis_list.append(ttn_copy)
    return basis_list
 
-
-class KrylovBasisMode(Enum):
-    apply_ham = "apply_ham"
-    apply_1st_order_expansion = "apply_1st_order_expansion"
-
-def Krylov_basis2(ttn: TreeTensorNetworkState, 
-                 ttno: TTNO, 
-                 num_vecs: int, 
-                 SVDParameters : SVDParameters):
-    ttn_copy = deepcopy(ttn)
-    ttno_copy = deepcopy(ttno)
-    ttn_structure = deepcopy(ttn_copy)
-    ttn_copy.canonical_form(TDVPUpdatePathFinder(ttn_copy).find_path()[0], SplitMode.KEEP)
-
-    basis_list = [ttn_copy]
-    for _ in range(num_vecs):
-        ttn_copy = contract_ttno_with_ttn(ttno_copy,ttn_copy)
-        ttn_structure = deepcopy(ttn_copy)
-        ttn_copy.canonical_form(TDVPUpdatePathFinder(ttn_copy).find_path()[0],SVDParameters)
-        ttn_copy.normalize_ttn() 
-        basis_list.append(ttn_copy)
-    return basis_list
-
 def expand_subspace(ttn: TreeTensorNetworkState, 
                     ttno: TTNO,
-                    num_vecs: int,
-                    tau: float,
-                    SVDParameters : SVDParameters,
-                    tol,
-                    mode: KrylovBasisMode ):
-    if mode == KrylovBasisMode.apply_ham:
-        basis = Krylov_basis2(ttn,ttno,num_vecs,SVDParameters)    
-    elif mode == KrylovBasisMode.apply_1st_order_expansion:
-        basis = Krylov_basis(ttn, ttno, num_vecs, tau, SVDParameters)
-
+                    expansion_params: Dict[str, Any]):
+    basis = Krylov_basis(ttn,
+                         ttno,
+                         expansion_params["num_vecs"],
+                         expansion_params["tau"],
+                         expansion_params["SVDParameters"],
+                         expansion_params["KrylovBasisMode"] )
     ttn_copy = deepcopy(basis[0])
     for i in range(len(basis)-1):
-        ttn_copy = enlarge_ttn1_bond_with_ttn2(ttn_copy, basis[i+1], tol)
+        ttn_copy = enlarge_ttn1_bond_with_ttn2(ttn_copy, basis[i+1], expansion_params["tol"])
         #ttn_copy.normalize_ttn()
-    #ttn_copy = original_form(ttn_copy , dict1)    
     return ttn_copy
+
+from pytreenet.contractions.contraction_util import get_equivalent_legs
 
 def enlarge_ttn1_bond_with_ttn2(ttn1, ttn2, tol):
    ttn1_copy = deepcopy(ttn1)
@@ -95,15 +72,19 @@ def enlarge_ttn1_bond_with_ttn2(ttn1, ttn2, tol):
         pho_A = compute_transfer_tensor(ttn1_copy.tensors[node_id],(index,))
         pho_B = compute_transfer_tensor(ttn2.tensors[node_id],(index,))
         pho = pho_A + pho_B
-
         v = compute_v(pho, index, tol)
-
+        
         ttn3.tensors[node_id] = v
         ttn3.nodes[node_id].link_tensor(v)
-
+        
+        legs = get_equivalent_legs(ttn1_copy.nodes[node_id], ttn2.nodes[node_id])
+        if legs[0] != legs[1]:
+            print(node_id , legs)
+        
         v_legs = list(range(0,v.ndim))
         v_legs.remove(index)
-        # print( ttn1_copy.tensors[node_id].shape , np.conjugate(v).shape , v_legs)
+        #print(node_id , next_node_id)
+        #print( ttn1_copy.tensors[node_id].shape , np.conjugate(v).shape , v_legs)
         CVd = np.tensordot(ttn1_copy.tensors[node_id] , np.conjugate(v) , (v_legs,v_legs))
         ttn1_copy.tensors[next_node_id] = absorb_matrix_into_tensor(CVd, ttn1_copy.tensors[next_node_id], (0,index_prime))
         CVd = np.tensordot(ttn2.tensors[node_id] , np.conjugate(v) , (v_legs,v_legs))
@@ -121,6 +102,10 @@ def enlarge_ttn1_bond_with_ttn2(ttn1, ttn2, tol):
 
                 ttn2_structure = deepcopy(ttn2)
                 ttn2.move_orthogonalization_center(path_next[i][-1])
+
+        legs = get_equivalent_legs(ttn1_copy.nodes[node_id], ttn2.nodes[node_id])
+        if legs[0] != legs[1]:
+            print(node_id , legs)                
 
    last_node_id = path_main[-1]
    ttn3.tensors[last_node_id] = ttn1_copy.tensors[last_node_id]
@@ -141,8 +126,7 @@ def compute_v(pho, index, tol):
     v = v.reshape( (v.shape[0],) + shape[len(shape)//2:])
 
     perm = list(range(0,v.ndim))
-    perm.remove(index)
-    perm = [index] + perm
+    perm = perm[1:index+1] + [perm[0]] + perm[index+1:]
     v = v.transpose(perm)
     return v
 
@@ -231,13 +215,13 @@ def eig_Lanczos(pho, tol, Lanczos_threshold , k_fraction, validity_fraction, inc
     else:
         return eig(pho, tol)
 
-
+import scipy
 def eig(pho, tol):
     # Check if pho is an empty matrix
-    #print(f"pho matrix shape: {pho.shape}")
-        
-    w, v = np.linalg.eig(pho)
-        
+    #num_nevs = pho.shape[0] - 1 
+    #w, v = scipy.sparse.linalg.eigsh(pho , k = num_nevs, which='LM')
+    w , v = np.linalg.eigh(pho)
+
     magnitudes = np.abs(w)
     sorted_indices = np.argsort(magnitudes)[::-1]
         
@@ -251,6 +235,128 @@ def eig(pho, tol):
     #print(f"Eigenvectors : {v.shape}")
     return v
 
+import numpy as np
+import warnings
+import logging
+import tenpy
+from tenpy.linalg.np_conserved import Array, LegCharge, ChargeInfo
+from tenpy.linalg.sparse import NpcLinearOperator
+from tenpy.tools.params import asConfig
+from tenpy.linalg.krylov_based import Arnoldi
+
+# Configure logger
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+def generate_trivial_legcharges(tensor_shape):
+    """
+    Generates a list of trivial LegCharge objects for each leg in the tensor.
+    
+    Parameters
+    ----------
+    tensor_shape : tuple
+        Shape of the tensor (e.g., eff_H or psi).
+        
+    Returns
+    -------
+    list of LegCharge
+        A list of LegCharge objects with trivial charges for each leg of the tensor.
+    """
+    charge_info = ChargeInfo(mod=[])  # Empty mod implies no charge conservation
+    return [LegCharge.from_trivial(ind_len=dim, chargeinfo=charge_info) for dim in tensor_shape]
+
+def eig_tenpy(pho, tol):
+    """
+    Computes significant eigenvectors of a Hermitian matrix using the Arnoldi algorithm via TenPy.
+    
+    Parameters
+    ----------
+    pho : np.ndarray
+        A square Hermitian matrix.
+    tol : float
+        Tolerance for determining significant eigenvalues. The algorithm stops if the energy difference per step
+        is below this tolerance.
+    num_eigvals : int, optional
+        Number of eigenvalues and corresponding eigenvectors to compute. Defaults to 1 (ground state).
+    max_iterations : int, optional
+        Maximum number of Arnoldi iterations. Defaults to 100.
+    reortho : bool, optional
+        Whether to re-orthogonalize the Krylov basis to maintain numerical stability. Defaults to False.
+    
+    Returns
+    -------
+    eigenvalues : np.ndarray
+        Array of computed eigenvalues.
+    eigenvectors : np.ndarray
+        Matrix whose columns are the corresponding eigenvectors.
+    """
+    
+    num_eigvals = pho.shape[0] - 1  
+    
+    # Define the linear operator H using TenPy's NpcLinearOperator
+    class DenseLinearOperator(NpcLinearOperator):
+        def __init__(self, matrix, legcharges):
+            super().__init__()
+            self.matrix = matrix
+            self.legcharges = legcharges
+
+        def matvec(self, x):
+            # x is an Array object; extract the ndarray data
+            x_ndarray = x.to_ndarray()
+            result = np.dot(self.matrix, x_ndarray)
+            # Convert result back to TenPy's Array with the same leg charges
+            return Array.from_ndarray(result, self.legcharges, dtype=self.matrix.dtype)
+    
+    # Initialize the starting vector psi0 as a normalized random vector
+    np.random.seed(42)  # For reproducibility
+    random_vector = np.random.randn(pho.shape[0]) + 1j * np.random.randn(pho.shape[0])
+    psi0_numpy = random_vector.astype(pho.dtype)
+    psi0_norm = np.linalg.norm(psi0_numpy)
+    if psi0_norm == 0:
+        raise ValueError("Initial vector 'psi0' has zero norm.")
+    psi0_numpy /= psi0_norm
+    
+    # Generate trivial legcharges for psi0
+    legcharges_psi0 = generate_trivial_legcharges(psi0_numpy.shape)
+    
+    # Convert NumPy array to TenPy's Array with proper legs using Array.from_ndarray
+    psi0 = Array.from_ndarray(psi0_numpy, legcharges_psi0, dtype=pho.dtype)
+    
+    # Initialize the linear operator with the initial matrix and legcharges
+    H_operator = DenseLinearOperator(pho, legcharges_psi0)
+    
+    # Define options for the Arnoldi method
+    options = {
+        'E_tol': np.inf,
+        'which': 'LM',             # 'LM' for Largest Magnitude
+        'num_ev': num_eigvals,     # Number of desired eigenvalues
+        'N_min': 2,                # Minimum number of iterations before checking convergence
+        'N_max': 100,   # Maximum number of iterations
+        'N_max': num_eigvals +1 ,   # Maximum number of iterations
+        'P_tol': 1e-14,            # Projection tolerance
+        'reortho': True            # Reorthogonalize the Krylov basis
+    }
+    
+    
+    # Convert options to TenPy's Config
+    options = asConfig(options, 'Arnoldi')
+    
+    # Initialize Arnoldi
+    arnoldi = Arnoldi(H_operator, psi0, options)
+    
+    # Run the Arnoldi algorithm
+    w, v, N = arnoldi.run()
+
+    magnitudes = np.abs(w)
+    sorted_indices = np.argsort(magnitudes)[::-1]
+    w = w[sorted_indices]
+    v = [v.to_ndarray() for v in v] 
+    v = np.zeros((pho.shape[0], len(sorted_indices)+ 1), dtype=complex)
+    for i, idx in enumerate(sorted_indices):
+        v[:, i] = v[idx]
+    k = np.sum(magnitudes > tol)
+    v = v[:, :k]  
+    return v 
 
 
 
@@ -280,7 +386,6 @@ def sum_two_ttns(ttn1: TreeTensorNetworkState, ttn2: TreeTensorNetworkState):
         TreeTensorNetworkState: The resulting tree tensor network.
     """
     path = TDVPUpdatePathFinder(ttn1).find_path()
-
     ttn3 = deepcopy(ttn1)
     for node_id in path :
         if isinstance(ttn1, TreeTensorNetworkState) and isinstance(ttn2, TreeTensorNetworkState):
@@ -291,8 +396,8 @@ def sum_two_ttns(ttn1: TreeTensorNetworkState, ttn2: TreeTensorNetworkState):
             nneighbours = ttn1.nodes[node_id].nneighbours()
             ttn2_tensor = ttn2.tensors[node_id].transpose(permutation +(nneighbours,))           
             T = sum_tensors_ttn(ttn1.tensors[node_id], ttn2_tensor)
-        if isinstance(ttn1, TTNO) and isinstance(ttn2, TTNO):
-           T = sum_tensors_ttno(ttn1.tensors[node_id], ttn2.tensors[node_id])   
+        elif isinstance(ttn1, TTNO) and isinstance(ttn2, TTNO):
+            T = sum_tensors_ttno(ttn1.tensors[node_id], ttn2.tensors[node_id])   
         ttn3.tensors[node_id] = T
         ttn3.nodes[node_id].link_tensor(T)        
     return ttn3 
@@ -337,8 +442,8 @@ def sum_tensors_ttno(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     return K
 
 def contract_ttno_with_ttno(ttno1: TTNO, ttno2: TTNO) -> TTNO:
-    if not isinstance(ttno1, TTNO) or not isinstance(ttno2, TTNO):
-        raise TypeError("The arguments must be TTNOs.")
+    #if not isinstance(ttno1, TTNO) or not isinstance(ttno2, TTNO):
+    #    raise TypeError("The arguments must be TTNOs.")
     expanded_ttno = deepcopy(ttno1)
     path = TDVPUpdatePathFinder(ttno1).find_path()
     for node_id in path :
@@ -482,99 +587,6 @@ def direct_sum_ttn1_with_ttn2(ttn1 , ttn2):
         ttn3.nodes[node_id].link_tensor(M)
     return ttn3 
 
-def max_two_neighbour_form(ttn , node_order = None): 
-    state = deepcopy(ttn)
-    nodes = deepcopy(state.nodes)
-    dict = {}
-    for node_id in nodes:
-        node = state.nodes[node_id]
-        
-        if node_order is None:
-            node_order = random_order_generator(state)
-
-        if node.nneighbours() > 2:
-            neighbour_id = node_order[node_id]
-            u_legs, v_legs = build_qr_leg_specs2(node, neighbour_id)
-            state.split_node_svd(node_id,svd_params = SVDParameters(max_bond_dim= np.inf, rel_tol= -np.inf, total_tol= -np.inf),
-                                 u_legs = u_legs, v_legs = v_legs,
-                                    u_identifier=  node_id + "_u",
-                                    v_identifier=node_id,
-                                    contr_mode = ContractionMode.VCONTR)
-            shape = state.tensors[ node_id + "_u"].shape
-            if isinstance(state , TreeTensorNetworkState):
-                T = state.tensors[ node_id + "_u"].reshape(shape + (1,))
-                state.tensors[ node_id + "_u"] = T 
-                state.nodes[ node_id + "_u"].link_tensor(T)
-            elif isinstance(state , TTNO):    
-                T = state.tensors[ node_id + "_u"].reshape(shape + (1,1))
-                state.tensors[ node_id + "_u"] = T 
-                state.nodes[ node_id + "_u"].link_tensor(T)
-            dict[node_id] = neighbour_id
-    state.orthogonality_center_id = None        
-    return state , dict
-
-def random_order_generator(ttn):
-    exclude_element = "Node(0,0)"
-    result_dict = {}
-    for ket_node in [node for node in ttn.nodes.values() if str(node.identifier).startswith("S")]:
-        if ket_node.nneighbours() > 2:
-            # Filter out the specific element from ket_node.children
-            filtered_children = [child for child in ket_node.children if child != exclude_element and child.startswith('S')]
-            if filtered_children:  # Ensure there are still children left to choose from
-                result_dict[ket_node.identifier] = np.random.choice(filtered_children)
-                result_dict[ket_node.identifier.replace("Site", "Node")] = result_dict[ket_node.identifier].replace("Site", "Node")
-    return result_dict
-
-def random_order_generator2(ttn):
-    exclude_element = "Node(0,0)"
-    result_dict = {}
-    for node in ttn.nodes.values():
-        if node.nneighbours() > 2:
-            # Filter out the specific element from node.children
-            filtered_children = [child for child in node.children if child != exclude_element]
-            if filtered_children:  # Ensure there are still children left to choose from
-                result_dict[node.identifier] = np.random.choice(filtered_children)
-    return result_dict
-
-def original_form(state, dict):
-    ttn = deepcopy(state)
-    for node_id in dict:
-        if isinstance(ttn , TreeTensorNetworkState):
-           T = ttn.tensors[node_id + "_u"].reshape(ttn.tensors[node_id + "_u"].shape[:-1]) 
-        elif isinstance(ttn , TTNO):
-           T = ttn.tensors[node_id + "_u"].reshape(ttn.tensors[node_id + "_u"].shape[:-2])   
-        ttn.tensors[node_id + "_u"] = T
-        ttn.nodes[node_id + "_u"].link_tensor(T)
-        ttn.contract_nodes(node_id + "_u", node_id, node_id)
-    return ttn
-
-def build_qr_leg_specs2(node ,
-                        min_neighbour_id: str) -> Tuple[LegSpecification,LegSpecification]:
-    """
-    Construct the leg specifications required for the qr decompositions during
-     canonicalisation.
-
-    Args:
-        node (Node): The node which is to be split.
-        min_neighbour_id (str): The identifier of the neighbour of the node
-         which is closest to the orthogonality center.
-
-    Returns:
-        Tuple[LegSpecification,LegSpecification]: 
-            The leg specifications for the legs of the Q-tensor, i.e. what
-            remains as the node, and the R-tensor, i.e. what will be absorbed
-            into the node defined by `min_neighbour_id`.
-    """
-    q_legs = LegSpecification(None, copy(node.children), [])
-    if node.is_child_of(min_neighbour_id):
-        r_legs = LegSpecification(min_neighbour_id, [], node.open_legs)
-    else:
-        q_legs.parent_leg = node.parent
-        q_legs.child_legs.remove(min_neighbour_id)
-        r_legs = LegSpecification(None, [min_neighbour_id], node.open_legs)
-    if node.is_root():
-        q_legs.is_root = True
-    return q_legs, r_legs
 
 def reduced_density_matrix(ttn, node_id: str, next_id : str ) -> np.ndarray: 
     working_ttn = deepcopy(ttn)

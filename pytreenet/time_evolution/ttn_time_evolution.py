@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import List, Union, Dict, Tuple
-from dataclasses import dataclass
 
 from numpy import ndarray, asarray, max as arrmax
 
@@ -8,18 +7,7 @@ from .time_evolution import TimeEvolution
 from ..ttns import TreeTensorNetworkState
 from ..ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
-
-@dataclass
-class TTNTimeEvolutionConfig:
-    """
-    Configuration for the TTN time evolution.
-
-    In this configuration class additional parameters for the time evolution
-    of a tree tensor network can be specified and entered. This allows for the
-    same extendability as `**kwargs` but with the added benefit of type hints
-    and better documentation.
-    """
-    record_bond_dim: bool = False
+from .time_evolution import TTNTimeEvolutionConfig
 
 class TTNTimeEvolution(TimeEvolution):
     """
@@ -57,7 +45,7 @@ class TTNTimeEvolution(TimeEvolution):
             config (Union[TTNTimeEvolutionConfig,None]): The configuration of
                 time evolution. Defaults to None.
         """
-        super().__init__(initial_state, time_step_size, final_time, operators)
+        super().__init__(initial_state, time_step_size, final_time, operators, config)
         self._initial_state: TreeTensorNetworkState
         self.state: TreeTensorNetworkState
 
@@ -100,9 +88,13 @@ class TTNTimeEvolution(TimeEvolution):
         if self.records_bond_dim:
             if len(self.bond_dims) == 0:
                 self.bond_dims = {key: [value] for key, value in self.obtain_bond_dims().items()}
+                self.max_bond_dim = [self.state.max_bond_dim()]
+                self.total_bond_dim = [self.state.total_bond_dim()]
             else:
                 for key, value in self.obtain_bond_dims().items():
                     self.bond_dims[key].append(value)
+                self.max_bond_dim.append(self.state.max_bond_dim())
+                self.total_bond_dim.append(self.state.total_bond_dim())
 
     def operator_result(self,
                         operator_id: str | int,

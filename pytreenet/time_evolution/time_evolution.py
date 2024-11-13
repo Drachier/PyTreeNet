@@ -2,16 +2,87 @@
 This module provides the abstract TimeEvolution class
 """
 from __future__ import annotations
-from typing import List, Union, Any, Dict, Iterable
+from typing import List, Union, Any, Dict, Iterable, Optional
 
 from copy import deepcopy
 from math import modf
 
 import numpy as np
 from tqdm import tqdm
+from dataclasses import dataclass , field
 
 from ..util.ttn_exceptions import positivity_check, non_negativity_check
 from ..util import fast_exp_action
+from ..util.tensor_splitting import SVDParameters , ContractionMode , SplitMode
+from .Subspace_expansion import KrylovBasisMode
+from .Lattice_simulation.util import T3NMode
+
+import tenpy 
+from tenpy.algorithms.tdvp import LanczosEvolution
+from tenpy.linalg.np_conserved import Array, LegCharge, ChargeInfo
+
+import logging
+logging.getLogger('tenpy').setLevel(logging.WARNING)
+
+from enum import Enum
+
+class ExpansionMode(Enum):
+      No_expansion = "No_expansion"
+      TTN = "TTN"
+      Partial_T3N = "Partial_T3N"
+      Full_T3N = "Full_T3N"
+
+def merge_with_defaults(custom_params, default_params):
+    """Helper function to merge custom parameters with default parameters."""
+    merged = default_params.copy()  # Start with default values
+    merged.update(custom_params)    # Override with any custom values
+    return merged
+
+@dataclass
+class TTNTimeEvolutionConfig:
+    """
+    Configuration for the TTN time evolution.
+
+    This configuration class specifies additional parameters for the time evolution
+    of a tree tensor network, providing type hints and better documentation.
+    """
+    # Default values as class-level constants
+    DEFAULT_LANCZOS_PARAMS = {
+        'N_min':  5,
+        'N_max':  20,
+        'P_tol':  1e-14,
+        'reortho': False,
+    }
+
+    DEFAULT_EXPANSION_PARAMS = {
+        "ExpansionMode": ExpansionMode.No_expansion,
+        "KrylovBasisMode": KrylovBasisMode.apply_1st_order_expansion,
+        "num_vecs": 3,
+        "tau": 1e-2,
+        "SVDParameters": SVDParameters(max_bond_dim=np.inf, rel_tol=-np.inf, total_tol=-np.inf),
+        "expansion_steps": 10,
+        "tol": 1e-20,
+        "tol_step": 1e1,
+        "num_second_trial" : 10,
+        "max_bond": 200,
+        "rel_tot_bond": 20,
+        "T3N_dict": None,
+        "T3NMode": T3NMode.QR,
+        "T3N_contr_mode" : ContractionMode.EQUAL}
+
+    record_bond_dim: bool = False
+    Lanczos_evolution: Optional[bool] = False
+    Lanczos_params: Optional[Dict[str, Any]] = field(default_factory=lambda: TTNTimeEvolutionConfig.DEFAULT_LANCZOS_PARAMS)
+    Expansion_params: Optional[Dict[str, Any]] = field(default_factory=lambda: TTNTimeEvolutionConfig.DEFAULT_EXPANSION_PARAMS)
+
+    def __post_init__(self):
+        # Merge user-provided Expansion_params with the default values
+        if self.Expansion_params is not None:
+            self.Expansion_params = merge_with_defaults(self.Expansion_params, TTNTimeEvolutionConfig.DEFAULT_EXPANSION_PARAMS)
+        
+        # Merge user-provided Lanczos_params with the default values
+        if self.Lanczos_params is not None:
+            self.Lanczos_params = merge_with_defaults(self.Lanczos_params, TTNTimeEvolutionConfig.DEFAULT_LANCZOS_PARAMS)
 
 class TimeEvolution:
     """
@@ -33,7 +104,8 @@ class TimeEvolution:
     """
 
     def __init__(self, initial_state: Any, time_step_size: float,
-                 final_time: float, operators: Union[List[Any], Dict[str, Any], Any]):
+                 final_time: float, operators: Union[List[Any], Dict[str, Any], Any],
+                 config: Union[TTNTimeEvolutionConfig,None] = None):
         """
         Initialises a TimeEvoluion object.
         
@@ -62,6 +134,7 @@ class TimeEvolution:
             # A single operator was provided
             self.operators = [operators]
         self._results = None
+        self.config = config
 
     def _compute_num_time_steps(self) -> int:
         """
@@ -422,8 +495,10 @@ class TimeEvolution:
         self.state = deepcopy(self._initial_state)
 
 def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
-                time_difference: float,
-                forward: bool = True) -> np.ndarray:
+                      time_difference: float,
+                      forward: bool = True,
+                      Lanczos = False,
+                      lanczos_params = None) -> np.ndarray:
     """
     Time evolves a state psi via a Hamiltonian.
      
@@ -443,7 +518,49 @@ def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
     Returns:
         np.ndarray: The time evolved state
     """
-    sign = -2 * forward + 1  # forward=True -> -1; forward=False -> +1
-    exponent = sign * 1.0j * hamiltonian * time_difference
-    return np.reshape(fast_exp_action(exponent, psi.flatten(), mode="fastest"),
-                      newshape=psi.shape)
+    sign = -2 * forward + 1  # forward=True -> -1; forward=False -> +1    
+    if Lanczos:
+        
+        psi_shape = psi.shape
+        psi = psi.flatten()
+        exponent = hamiltonian
+
+        # Generate trivial legcharges lists for eff_H and psi
+        legcharges_exponent = generate_trivial_legcharges(exponent.shape)
+        legcharges_psi = generate_trivial_legcharges(psi.shape)
+
+        # Convert data to `Array` instances with trivial legcharges
+        exponent = Array.from_ndarray(exponent, legcharges_exponent, dtype=exponent.dtype)
+        psi = Array.from_ndarray(psi, legcharges_psi, dtype=psi.dtype)
+          
+        lanczos_evolver = LanczosEvolution(exponent, psi, lanczos_params)
+        dt = sign * 1.0j * time_difference
+        psi_evolved, N = lanczos_evolver.run(dt)
+
+        if N >= lanczos_params['N_max']:
+           print(f"Warning: Reached maximum iterations ({N}")
+
+        return np.reshape(psi_evolved.to_ndarray() , psi_shape)
+    
+    else:
+        exponent = sign * 1.0j * hamiltonian * time_difference
+        return np.reshape(fast_exp_action(exponent, psi.flatten(), mode="fastest"),
+                        newshape=psi.shape)        
+
+# Define a function to generate trivial legcharges for each leg of a tensor
+def generate_trivial_legcharges(tensor_shape):
+    """
+    Generates a list of trivial LegCharge objects for each leg in the tensor.
+    
+    Parameters
+    ----------
+    tensor_shape : tuple
+        Shape of the tensor (e.g., eff_H or psi).
+        
+    Returns
+    -------
+    list of LegCharge
+        A list of LegCharge objects with trivial charges for each leg of the tensor.
+    """
+    charge_info = ChargeInfo(mod=[])  # Empty mod implies no charge conservation
+    return [LegCharge.from_trivial(ind_len=dim, chargeinfo=charge_info) for dim in tensor_shape]

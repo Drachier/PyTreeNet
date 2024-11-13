@@ -45,7 +45,7 @@ pytreenet.time\_evolution.tebd module
 pytreenet.time\_evolution.time\_evolution module
 ------------------------------------------------
 
-.. automodule:: pytreenet.time_evolution.time_evolution
+.. automodule:: pytreenet.time_evolution.time_evo
    :members:
    :undoc-members:
    :show-inheritance:

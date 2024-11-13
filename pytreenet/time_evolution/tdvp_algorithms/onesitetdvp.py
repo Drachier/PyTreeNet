@@ -16,39 +16,9 @@ from ...util.tensor_splitting import SplitMode
 from ...core.leg_specification import LegSpecification
 from ...util.ttn_exceptions import NoConnectionException
 from ...contractions.state_operator_contraction import contract_any
-from ...util.tensor_splitting import (SplitMode,SVDParameters)
-from ...operators.tensorproduct import TensorProduct
-from ...ttno.ttno_class import TTNO
-from ...ttns import TreeTensorNetworkState
-from ..ttn_time_evolution import TTNTimeEvolutionConfig
-from ..Subspace_expansion import KrylovBasisMode 
+from ...util.tensor_splitting import (SplitMode)
 
 class OneSiteTDVP(TDVPAlgorithm):
-
-    def __init__(self, initial_state: TreeTensorNetworkState,
-                 hamiltonian: TTNO,
-                 time_step_size: float, final_time: float,
-                 operators: Union[TensorProduct, List[TensorProduct]],
-                 num_vecs: int , 
-                 tau: float , 
-                 SVDParameters : SVDParameters,
-                 expansion_steps: int = 10,
-                 initial_tol: float = 1e-5,
-                 tol_step: float = 1,
-                 KrylovBasisMode : KrylovBasisMode = KrylovBasisMode.apply_ham,                
-                 config: Union[TTNTimeEvolutionConfig,None] = None) -> None:
-        
-        super().__init__(initial_state, hamiltonian,
-                         time_step_size, final_time,
-                         operators,
-                         config)
-        self.num_vecs = num_vecs
-        self.tau = tau
-        self.SVDParameters = SVDParameters
-        self.expansion_steps = expansion_steps   
-        self.initial_tol = initial_tol
-        self.tol_step = tol_step 
-        self.KrylovBasisMode = KrylovBasisMode    
     """
     The mother class for all One-Site TDVP algorithms.
 
@@ -133,7 +103,9 @@ class OneSiteTDVP(TDVPAlgorithm):
         self.state.tensors[link_id] = time_evolve(link_tensor,
                                                   hamiltonian_eff_link,
                                                   self.time_step_size * time_step_factor,
-                                                  forward=False)
+                                                  forward=False, 
+                                                  Lanczos= self.config.Lanczos_evolution,
+                                                  lanczos_params = self.config.Lanczos_params)
 
     def _update_cache_after_split(self, node_id: str, next_node_id: str):
         """
