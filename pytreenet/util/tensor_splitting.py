@@ -201,7 +201,7 @@ class SVDParameters:
     max_bond_dim: int = 100
     rel_tol: float = 0.01
     total_tol: float = 1e-15
-    renorm: bool = True
+    renorm: bool = False
 
     def __post_init__(self):
         """

@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Union, Dict, Tuple
 
 import numpy as np
+from numpy import allclose
 
 class PartialTreeCachDict(dict):
     """
@@ -100,3 +101,22 @@ class PartialTreeCachDict(dict):
             next_node_id (str): The identifier to which the open legs point.
         """
         del self[node_id, next_node_id]
+
+    def close_to(self, other: PartialTreeCachDict) -> bool:
+        """
+        Checks if the other cache is close to this cache.
+
+        Args:
+            other (SandwichCache): The other cache to compare with.
+
+        Returns:
+            bool: True if the other cache is close to this cache.
+        """
+        if len(self) != len(other):
+            return False
+        for key in self:
+            if key not in other:
+                return False
+            if not allclose(self[key], other[key]):
+                return False
+        return True

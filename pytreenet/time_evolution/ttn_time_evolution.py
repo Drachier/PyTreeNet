@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import List, Union, Dict, Tuple
 from dataclasses import dataclass
 
-from numpy import ndarray
+from numpy import ndarray, asarray, max as arrmax
 
 from .time_evolution import TimeEvolution
 from ..ttns import TreeTensorNetworkState
@@ -32,6 +32,7 @@ class TTNTimeEvolution(TimeEvolution):
         bond_dims (Union[None,Dict[str,int]]): If a recording of the bond
             dimension is intended, they are recorded here.
     """
+    bond_dim_id = "bond_dim"
 
     def __init__(self, initial_state: TreeTensorNetworkState,
                  time_step_size: float, final_time: float,
@@ -78,6 +79,20 @@ class TTNTimeEvolution(TimeEvolution):
         """
         return self.state.bond_dims()
 
+    def bond_dim_matrix(self) -> ndarray:
+        """
+        Obtain the bond dimensions as a matrix.
+        """
+        bond_dims = self.operator_result(self.bond_dim_id)
+        matrix = asarray(list(bond_dims.values()))
+        return matrix
+
+    def max_bond_dim(self) -> ndarray:
+        """
+        Obtain the maximum bond dimension over time.
+        """
+        return arrmax(self.bond_dim_matrix(),axis=0)
+
     def record_bond_dimensions(self):
         """
         Records the bond dimensions of the current state, if desired to do so.
@@ -104,7 +119,7 @@ class TTNTimeEvolution(TimeEvolution):
         Returns:
             ndarray: The expectation value results over time.
         """
-        if isinstance(operator_id, str) and operator_id == "bond_dim":
+        if isinstance(operator_id, str) and operator_id == self.bond_dim_id:
             if self.records_bond_dim is not None:
                 return self.bond_dims
             errstr = "Bond dimensions are not being recorded."

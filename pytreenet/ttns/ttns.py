@@ -6,6 +6,7 @@ from typing import Union
 from copy import deepcopy
 
 import numpy as np
+from numpy import sqrt
 
 from ..core.ttn import TreeTensorNetwork
 from ..ttno import TTNO
@@ -21,21 +22,49 @@ class TreeTensorNetworkState(TreeTensorNetwork):
     has exactly one physical leg. That leg can be trivial, i.e. of dimension 1.
     """
 
-    def scalar_product(self) -> complex:
+    def scalar_product(self,
+                       other: Union[TreeTensorNetworkState,None] = None,
+                       use_orthogonal_center: bool = True
+                       ) -> complex:
         """
         Computes the scalar product of this TTNS.
 
+        Args:
+            other (Union[TreeTensorNetworkState,None], optional): The other
+                TTNS to compute the scalar product with. If None, the scalar
+                product is computed with itself. Defaults to None.
+            use_orthogonal_center (bool, optional): Whether to use the current
+                orthogonalization center to compute  the norm. This usually
+                speeds up the computation. Defaults to True.
+
         Returns:
-            complex: The resulting scalar product <TTNS|TTNS>
+            complex: The resulting scalar product <TTNS|Other>
+
         """
+        if other is None:
+            if self.orthogonality_center_id is not None and use_orthogonal_center:
+                tensor = self.tensors[self.orthogonality_center_id]
+                tensor_conj = tensor.conj()
+                legs = tuple(range(tensor.ndim))
+                return complex(np.tensordot(tensor, tensor_conj, axes=(legs,legs)))
+            # Very inefficient, fix later without copy
+            other = self
+        other_conj = other.conjugate()
+        return contract_two_ttns(self, other_conj)
+
+    def normalise(self) -> float:
+        """
+        Normalises the MPS in place.
+
+        Returns:
+            float: The norm of the state before normalisation.
+        """
+        norm = sqrt(self.scalar_product())
         if self.orthogonality_center_id is not None:
-            tensor = self.tensors[self.orthogonality_center_id]
-            tensor_conj = tensor.conj()
-            legs = tuple(range(tensor.ndim))
-            return complex(np.tensordot(tensor, tensor_conj, axes=(legs,legs)))
-        # Very inefficient, fix later without copy
-        ttn = deepcopy(self)
-        return contract_two_ttns(ttn, ttn.conjugate())
+            self.tensors[self.orthogonality_center_id] /= norm
+        else:
+            self.tensors[self.root_id] /= norm
+        return norm
 
     def single_site_operator_expectation_value(self, node_id: str,
                                                operator: np.ndarray) -> complex:
@@ -114,7 +143,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         if node_id is None:
             # I.e. no orth. center exists -> no canon. form
             return False
-        total_contraction = self.scalar_product()
+        total_contraction = self.scalar_product(use_orthogonal_center=False)
         local_tensor = self.tensors[node_id]
         legs = range(local_tensor.ndim)
         local_contraction = complex(np.tensordot(local_tensor, local_tensor.conj(),

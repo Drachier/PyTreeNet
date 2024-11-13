@@ -51,17 +51,10 @@ class SandwichCache(PartialTreeCachDict):
         Returns:
             bool: True if the other cache is close to this cache.
         """
-        if len(self) != len(other):
-            return False
-        for key in self:
-            if key not in other:
-                return False
-            if not allclose(self[key], other[key]):
-                return False
-        # At this point the dictionaries are the same
+        dict_same = super().close_to(other)
         states_close = self.state == other.state
         hamiltonians_close = self.hamiltonian == other.hamiltonian
-        return states_close and hamiltonians_close
+        return states_close and hamiltonians_close and dict_same
 
     def shapes(self) -> Dict[Tuple[str,str],Tuple[int]]:
         """

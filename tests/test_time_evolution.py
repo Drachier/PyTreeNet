@@ -110,7 +110,7 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         """
         Initialising the results with standard evaluation_time.
         """
-        self.time_evol._init_results()
+        self.time_evol.init_results()
         results = self.time_evol._results
         correct_shape = (4,11)
         self.assertEqual(correct_shape, results.shape)
@@ -122,7 +122,7 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         Initialising the results with custom evaluation_time.
         """
         evaluation_time = 2
-        self.time_evol._init_results(evaluation_time=evaluation_time)
+        self.time_evol.init_results(evaluation_time=evaluation_time)
         results = self.time_evol._results
         correct_shape = (4,6)
         self.assertEqual(correct_shape, results.shape)
@@ -135,7 +135,7 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         Thus only the last result is saved.
         """
         evaluation_time = "inf"
-        self.time_evol._init_results(evaluation_time=evaluation_time)
+        self.time_evol.init_results(evaluation_time=evaluation_time)
         results = self.time_evol._results
         correct_shape = (4,1)
         self.assertEqual(correct_shape, results.shape)
@@ -158,14 +158,14 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         """
         # As the time-evolution is an abstract method, we run the method
         # _init_results before calling check_result_exists
-        self.time_evol._init_results()
+        self.time_evol.init_results()
         self.time_evol.check_result_exists()
 
     def test_results_real_true(self):
         """
         Should be True for real results.
         """
-        self.time_evol._init_results()
+        self.time_evol.init_results()
         test_results = np.real(crandn(self.time_evol.results.shape))
         self.time_evol._results = test_results
         self.assertTrue(self.time_evol.results_real())
@@ -174,7 +174,7 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         """
         Should be False for complex results.
         """
-        self.time_evol._init_results()
+        self.time_evol.init_results()
         test_results = crandn(self.time_evol.results.shape)
         self.time_evol._results = test_results
         self.assertFalse(self.time_evol.results_real())
@@ -184,7 +184,7 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         Should return the times at which the operators were evaluated.
         They are always assumed to be real.
         """
-        self.time_evol._init_results()
+        self.time_evol.init_results()
         times = crandn((11, ))
         self.time_evol._results[-1] = times
         self.assertFalse(np.allclose(times, self.time_evol.times()))
@@ -195,7 +195,7 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         """
         Should return the operator results without realising them.
         """
-        self.time_evol._init_results()
+        self.time_evol.init_results()
         results = crandn(self.time_evol.results.shape)
         self.time_evol._results = results
         self.assertTrue(np.allclose(results[0:-1], self.time_evol.operator_results()))
@@ -204,7 +204,7 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         """
         Should return the operator results and realise them.
         """
-        self.time_evol._init_results()
+        self.time_evol.init_results()
         results = crandn(self.time_evol.results.shape)
         self.time_evol._results = results
         self.assertTrue(np.allclose(np.real(results[0:-1]), self.time_evol.operator_results(realise=True)))

@@ -312,7 +312,8 @@ class TestSingularValueDecompositions(unittest.TestCase):
         svd_params = SVDParameters(6,0,0)
         found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
                                                             svd_params)
-        correct_s = self.s_values[:6] * self.sum_s / sum_np(self.s_values[:6])
+        correct_s = self.s_values[:6]
+        print("hi",correct_s,found_s)
         self.assertTrue(allclose(correct_s, found_s))
         self.assertTrue(allclose(array([0.1,0.01]),truncated_s))
 
@@ -325,7 +326,7 @@ class TestSingularValueDecompositions(unittest.TestCase):
         svd_params = SVDParameters(10,0,abs_tol)
         found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
                                                             svd_params)
-        correct_s = self.s_values[:5] * self.sum_s / sum_np(self.s_values[:5])
+        correct_s = self.s_values[:5]
         self.assertTrue(allclose(correct_s,found_s))
         correct_trunc = self.s_values[5:]
         self.assertTrue(allclose(correct_trunc,truncated_s))
@@ -339,7 +340,7 @@ class TestSingularValueDecompositions(unittest.TestCase):
         svd_params = SVDParameters(10,rel_tol,0)
         found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
                                                             svd_params)
-        correct_s = self.s_values[:3]* self.sum_s / sum_np(self.s_values[:3])
+        correct_s = self.s_values[:3]
         self.assertTrue(allclose(correct_s,found_s))
         correct_trunc = self.s_values[3:]
         self.assertTrue(allclose(correct_trunc,truncated_s))
@@ -353,7 +354,7 @@ class TestSingularValueDecompositions(unittest.TestCase):
         found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
                                                             svd_params)
         print("TEST SPEAKING: This warning is intended to be shown!")
-        correct_s = array([self.s_values[0]]) * self.sum_s / self.s_values[0]
+        correct_s = array([self.s_values[0]])
         self.assertTrue(allclose(correct_s,found_s))
         self.assertTrue(allclose(self.s_values[1:],truncated_s))
         self.assertWarns(UserWarning,truncate_singular_values,
@@ -370,7 +371,7 @@ class TestSingularValueDecompositions(unittest.TestCase):
         u_ref, s_ref, vh_ref = tensor_svd(self.tensor,self.u_legs,self.v_legs,
                                               mode=SplitMode.FULL)
         u_ref = u_ref[:,:,:6]
-        s_ref = s_ref[:6] * sum_np(s_ref) / sum_np(s_ref[:6])
+        s_ref = s_ref[:6]
         vh_ref = vh_ref[:6,:,:]
         self.assertTrue(allclose(u_ref,u))
         self.assertTrue(allclose(s_ref,s))
@@ -387,7 +388,7 @@ class TestSingularValueDecompositions(unittest.TestCase):
                                                   svd_params=svd_params)
         u_ref, s_ref, vh_ref = tensor_svd(self.tensor,self.u_legs,self.v_legs)
         u_ref = u_ref[:,:,:6]
-        s_ref = s_ref[:6] * sum_np(s_ref) / sum_np(s_ref[:6])
+        s_ref = s_ref[:6]
         vh_ref = vh_ref[:6,:,:]
         vh_ref = tensordot(diag(s_ref),vh_ref,axes=(1,0))
         self.assertTrue(allclose(u_ref,u))
@@ -405,7 +406,7 @@ class TestSingularValueDecompositions(unittest.TestCase):
                                                   svd_params=svd_params)
         u_ref, s_ref, vh_ref = tensor_svd(self.tensor,self.u_legs,self.v_legs)
         u_ref = u_ref[:,:,:6]
-        s_ref = s_ref[:6] * sum_np(s_ref) / sum_np(s_ref[:6])
+        s_ref = s_ref[:6]
         vh_ref = vh_ref[:6,:,:]
         u_ref = tensordot(u_ref,diag(s_ref),axes=(-1,0))
         self.assertTrue(allclose(u_ref,u))
@@ -423,7 +424,7 @@ class TestSingularValueDecompositions(unittest.TestCase):
                                                   svd_params=svd_params)
         u_ref, s_ref, vh_ref = tensor_svd(self.tensor,self.u_legs,self.v_legs)
         u_ref = u_ref[:,:,:6]
-        s_ref = s_ref[:6] * sum_np(s_ref) / sum_np(s_ref[:6])
+        s_ref = s_ref[:6]
         vh_ref = vh_ref[:6,:,:]
         s_ref = sqrt(s_ref)
         u_ref = tensordot(u_ref,diag(s_ref),axes=(-1,0))

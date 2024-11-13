@@ -16,7 +16,8 @@ from ..core.ttn import TreeTensorNetwork
 from ..ttns import TreeTensorNetworkState
 from ..core.node import Node
 from ..ttno.ttno_class import TTNO
-from ..util.ttn_exceptions import non_negativity_check, positivity_check
+from ..util.ttn_exceptions import non_negativity_check
+from .util import check_product_state_parameters
 
 class MatrixProductTree(TreeTensorNetwork):
     """
@@ -211,11 +212,7 @@ class MatrixProductState(MatrixProductTree, TreeTensorNetworkState):
             MatrixProductState: MPS representing a product state of the form
                 |psi> = |value> otimes |value> otimes ... |value>
         """
-        positivity_check(dimension, "dimension")
-        if state_value >= dimension:
-            errstr = "State value cannot be larger than the state's dimension!"
-            raise ValueError(errstr)
-        non_negativity_check(state_value, "state value")
+        check_product_state_parameters(state_value,dimension)
         non_negativity_check(num_sites, "number of sites")
         single_site_tensor = np.zeros(dimension)
         single_site_tensor[state_value] = 1

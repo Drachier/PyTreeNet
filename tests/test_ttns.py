@@ -31,6 +31,18 @@ class TestTreeTensorNetworkStateSimple(unittest.TestCase):
 
         self.assertAlmostEqual(reference_result, found_result)
 
+    def test_scalar_product_other(self):
+        other = random_small_ttns()
+        found_result = self.initial_state.scalar_product(other)
+
+        state_vector = self.initial_state.completely_contract_tree(to_copy=True)[0]
+        state_vector = state_vector.reshape(24)
+        other_vector = other.completely_contract_tree(to_copy=True)[0]
+        other_vector = other_vector.reshape(24)
+        reference_result = other_vector.conj().T @ state_vector
+
+        self.assertAlmostEqual(reference_result, found_result)
+
     def test_single_site_expectation_value_does_not_change_state(self):
         ref_ttns = deepcopy(self.initial_state)
         _ = self.initial_state.single_site_operator_expectation_value("root",

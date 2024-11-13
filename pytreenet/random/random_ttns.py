@@ -27,6 +27,7 @@ class RandomTTNSMode(Enum):
     SAME = "same_dimension"
     DIFFVIRT = "different_virt_dimensions"
     SAMEPHYS = "same_phys_dim"
+    TRIVIALVIRTUAL = "trivial_virtual"
 
 def random_small_ttns(mode: RandomTTNSMode = RandomTTNSMode.DIFFVIRT) -> TreeTensorNetworkState:
     """
@@ -161,6 +162,9 @@ def random_big_ttns_two_root_children(mode: Union[RandomTTNSMode,List[Tuple[int]
     elif mode == RandomTTNSMode.DIFFVIRT:
         shapes = [(7,6,2),(7,4,5,2),(4,2),(5,2,3,2),
                   (2,2),(3,2),(6,3,2),(3,2)]
+    elif mode == RandomTTNSMode.TRIVIALVIRTUAL:
+        shapes = [(1,1,2),(1,1,1,2),(1,2),(1,1,1,2),
+                  (1,2),(1,2),(1,1,2),(1,2)]
     elif isinstance(mode, list):
         assert len(mode) == 8, "The list must have 8 elements!"
         shapes = mode
