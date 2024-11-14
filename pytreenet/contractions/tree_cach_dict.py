@@ -102,6 +102,12 @@ class PartialTreeCachDict(dict):
         """
         del self[node_id, next_node_id]
 
+    def contains(self, node_id: str, next_node_id: str) -> bool:
+        """
+        Checks if the dictionary contains a given entry.
+        """
+        return super().__contains__((node_id, next_node_id))
+
     def close_to(self, other: PartialTreeCachDict) -> bool:
         """
         Checks if the other cache is close to this cache.
