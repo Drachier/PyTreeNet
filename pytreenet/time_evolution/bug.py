@@ -618,7 +618,8 @@ class BUG(TTNTimeEvolution):
             PartialTreeCachDict: The updated basis change cache.
 
         """
-        parent_id = self.state.nodes[node_id].parent
+        # In the main state the parent is currently the basis change node
+        parent_id = self.ttns_dict[node_id].nodes[node_id].parent
         self.basis_change_cache.add_entry(node_id, parent_id,
                                           basis_change_tensor)
 
@@ -645,7 +646,7 @@ class BUG(TTNTimeEvolution):
         self.update_children(node_id)
         # Now the children in the state are the basis change tensors
         # and the children sandwich tensors and the children basis change
-        # tensors are in their resepctive caches.
+        # tensors are in their resepective caches.
         new_basis_tensor, basis_change_tensor = self.find_new_tensors(node_id)
         # Adds the new basis tensor and the basis change tensor to the new
         # state instead of the old node
