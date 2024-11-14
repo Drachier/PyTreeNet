@@ -171,11 +171,11 @@ class TimeEvolution:
         """
         return np.allclose(np.imag(self.results), np.zeros_like(self._results))
 
-    def times(self) -> np.ndarray:
+    def times(self, offset: float = 0.0) -> np.ndarray:
         """
         Returns the times at which the operators were evaluated.
         """
-        return np.real(self.results[-1])
+        return np.real(self.results[-1]) + offset
 
     def operator_result(self, operator_id: Union[str, int],
                         realise: bool = False) -> np.ndarray:
