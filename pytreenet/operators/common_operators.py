@@ -95,10 +95,32 @@ def projector(dimension: int, index: int) -> np.ndarray:
     matrix[index, index] = 1
     return matrix
 
-def ket_0(dimension: int) -> np.ndarray:
+def ket_i(value: int, dimension: int) -> np.ndarray:
     """
-    Generates the ket_0 state for the given dimension
+    Generates the ith computational basis state for a system of a given dimension.
+
+    Args:
+        value (int): The index of the state.
+        dimension (int): The dimension of the system.
+
+    Returns:
+        np.ndarray: The ith computational basis state.
+
     """
-    ket0 = np.zeros(dimension, dtype=complex)
-    ket0[0] = 1
-    return ket0
+    matrix = np.zeros((dimension), dtype=complex)
+    matrix[value] = 1
+    return matrix
+
+def superposition(rel_phase: float = 0) -> np.ndarray:
+    """
+    Generates a superposition state with equal weights.
+
+    Args:
+        rel_phase (float, optional): The relative phase of the superposition.
+            Defaults to 0.
+
+    Returns:
+        np.ndarray: The superposition state.
+
+    """
+    return np.array([1, np.exp(1j*rel_phase)], dtype=complex) / np.sqrt(2)
