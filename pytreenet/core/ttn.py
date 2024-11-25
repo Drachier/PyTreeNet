@@ -51,6 +51,8 @@ from collections import UserDict
 import numpy as np
 from numpy import eye, ndarray
 from uuid import uuid1
+import json
+import os
 
 from pytreenet.core.graph_node import GraphNode
 
@@ -1190,6 +1192,93 @@ class TreeTensorNetwork(TreeStructure):
                 contracted. The latter is very useful for debugging.
         """
         return completely_contract_tree(self, to_copy=to_copy)
+
+    def save(self, filepath: str):
+        """
+        Saves the TreeTensorNetwork to files.
+
+        This creates two files:
+        1. {filepath}.npz - Contains all tensors
+        2. {filepath}.json - Contains the network structure and other attributes
+
+        Args:
+            filepath (str): Path where to save the files (without extension)
+        """
+        # Save tensors
+        tensor_dict = {node_id: tensor for node_id, tensor in self.tensors.items()}
+        np.savez(f"{filepath}.npz", **tensor_dict)
+
+        # Prepare structure data
+        structure_data = {
+            "root_id": self.root_id,
+            "orthogonality_center_id": self.orthogonality_center_id,
+            "nodes": {
+                node_id: {
+                    "identifier": node.identifier,
+                    "parent": node.parent,
+                    "children": list(node.children),
+                    "leg_permutation": node.leg_permutation if node.leg_permutation is not None else None,
+                    "shape": node.shape if hasattr(node, 'shape') else None
+                }
+                for node_id, node in self.nodes.items()
+            }
+        }
+
+        # Save structure
+        with open(f"{filepath}.json", 'w') as f:
+            json.dump(structure_data, f, indent=2)
+
+    @classmethod
+    def load(cls, filepath: str) -> 'TreeTensorNetwork':
+        """
+        Loads a TreeTensorNetwork from files.
+
+        Args:
+            filepath (str): Path to the files (without extension)
+
+        Returns:
+            TreeTensorNetwork: The loaded network
+
+        Raises:
+            FileNotFoundError: If either the .npz or .json file is missing
+        """
+        # Check if files exist
+        if not (os.path.exists(f"{filepath}.npz") and os.path.exists(f"{filepath}.json")):
+            raise FileNotFoundError(f"Could not find required files at {filepath}")
+
+        # Create new instance
+        ttn = cls()
+
+        # Load structure
+        with open(f"{filepath}.json", 'r') as f:
+            structure_data = json.load(f)
+
+        # Load tensors
+        tensors = np.load(f"{filepath}.npz")
+
+        # Reconstruct nodes
+        for node_id, node_data in structure_data["nodes"].items():
+            node = Node(identifier=node_data["identifier"])
+            if node_data["leg_permutation"] is not None:
+                node._leg_permutation = node_data["leg_permutation"]
+            ttn._nodes[node_id] = node
+
+        # Set connections
+        for node_id, node_data in structure_data["nodes"].items():
+            node = ttn._nodes[node_id]
+            if node_data["parent"] is not None:
+                node.parent = node_data["parent"]
+            node.children = node_data["children"]
+
+        # Set root and orthogonality center
+        ttn._root_id = structure_data["root_id"]
+        ttn.orthogonality_center_id = structure_data["orthogonality_center_id"]
+
+        # Add tensors
+        for node_id in ttn.nodes:
+            ttn._tensors[node_id] = tensors[node_id]
+
+        return ttn
 
 TTN = TreeTensorNetwork
 

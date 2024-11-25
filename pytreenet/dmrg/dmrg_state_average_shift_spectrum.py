@@ -12,11 +12,12 @@ from ..ttno.ttno_class import TTNO
 from ..time_evolution.time_evo_util.update_path import TDVPUpdatePathFinder
 from ..contractions.tree_cach_dict import PartialTreeCachDict
 from ..contractions.state_operator_contraction import contract_any
+from ..contractions.state_state_contraction import contract_any as contract_any_ttns
 from ..contractions.contraction_util import contract_all_but_one_neighbour_block_to_hamiltonian
 from .herm_band_lanczos import herm_band_lanczos
 from .davidson import davidson
 
-class DMRGAlgorithm4MultiTTNS():
+class DMRGAlgorithm4MultiTTNSSpectrumShift():
     """
     The general abstract class of a DMRG algorithm.
     """
@@ -26,7 +27,9 @@ class DMRGAlgorithm4MultiTTNS():
                  num_sweeps: int,
                  max_iter: int,
                  svd_params: SVDParameters,
-                 site: str):
+                 site: str,
+                 old_eigenstates_path: Union[List[str],None]=None,
+                 old_energies: Union[List[float],None]=None):
         """
         Initilises an instance of a DMRG algorithm.
         
@@ -39,6 +42,8 @@ class DMRGAlgorithm4MultiTTNS():
             max_iter (int): The maximum number of iterations.
             svd_params (SVDParameters): The parameters for the SVD.
             site (str): one site or two site dmrg.
+            old_eigenstates_path (Union[List[str],None]): The path to the old
+                eigenstates.
         """
         assert len(initial_state.nodes) == len(hamiltonian.nodes)
         self.state = initial_state
@@ -46,6 +51,14 @@ class DMRGAlgorithm4MultiTTNS():
         self.num_sweeps = num_sweeps
         self.max_iter = max_iter
         self.site = site
+        if isinstance(old_eigenstates_path, list) and isinstance(old_energies, list):
+            self.old_eigenstates = [TreeTensorNetworkState.load(path) for path in old_eigenstates_path]
+            self.list_partial_tree_cache = [PartialTreeCachDict() for _ in range(len(self.old_eigenstates))] # one cache for each old eigenstates
+            self.old_energies = old_energies
+        else:
+            self.old_eigenstates = None
+            self.list_partial_tree_cache = None
+            self.old_energies = None
         self.num_states = len(initial_state.state_tensors)
         if svd_params is None:
             self.svd_params = SVDParameters()
@@ -168,6 +181,10 @@ class DMRGAlgorithm4MultiTTNS():
         for node_id in rev_update_path[:-1]:
             next_node_id = next_node_id_dict[node_id]
             self.update_tree_cache(node_id, next_node_id)
+            if self.old_eigenstates is not None:    
+                for state_index in range(len(self.old_eigenstates)):
+                    self.update_tree_cache_state_average(node_id, next_node_id, state_index)
+                # TODO: not happy with two for loops, but it works for now
 
     def update_tree_cache(self, node_id: str, next_node_id: str):
         """
@@ -186,8 +203,28 @@ class DMRGAlgorithm4MultiTTNS():
         new_tensor = contract_any(node_id, next_node_id,
                                   self.state, self.hamiltonian,
                                   self.partial_tree_cache)
+        
         self.partial_tree_cache.add_entry(node_id, next_node_id, new_tensor)
+        
+    def update_tree_cache_state_average(self, node_id: str, next_node_id: str, state_index: int):
+        """
+        Contracts two TreeTensorNetworks.
 
+        Args:
+            node_id (str): The identifier of the node to which this cache
+                    corresponds.
+            next_node_id (str): The identifier of the node to which the open
+                    legs of the tensor point.   
+            state_index (int): The index of the state to be updated.
+        """
+        dictionary = self.list_partial_tree_cache[state_index]
+        ttn2 = self.state 
+        ttn1 = self.old_eigenstates[state_index]
+        block = contract_any_ttns(node_id, next_node_id,
+                             ttn1, ttn2,
+                             dictionary)
+        dictionary.add_entry(node_id,next_node_id,block)
+       
     def _find_tensor_leg_permutation(self, node_id: str) -> Tuple[int,...]:
         """
         Find the correct permutation to permute the effective hamiltonian
@@ -263,6 +300,55 @@ class DMRGAlgorithm4MultiTTNS():
         tensor = np.transpose(tensor, axes=axes)
         
         return tensor
+    
+    def _contract_two_ttns_except_node(self,
+                                   node_id: str, state_index: int) -> np.ndarray:
+        """
+        Contracts two TreeTensorNetworks.
+
+        Args:
+            node_id (str): The identifier of the node to exclude from the
+                contraction.
+            state_index (int): The index of the state to be updated.
+
+        Returns:
+            np.ndarray: The resulting tensor. A and B are the tensors in ttn1 and
+                ttn2, respectively, corresponding to the node with the identifier
+                node_id. C aer the tensors in the dictionary corresponding to the
+                subtrees going away from the node::
+
+                 ______                 ______
+                |      |____       ____|      |
+                |      |               |      |  
+                |      |       |       |      |
+                |      |       |       |      |
+                |      |     __|__     |      |
+                |  C1  |____|     |____|  C2  |
+                |      |    |  A  |    |      |
+                |      |    |_____|    |      |
+                |      |       |       |      |
+                |      |       |       |      |
+                |      |____      _____|      |
+                |______|               |______|
+        
+        """
+        ket_node, ket_tensor = self.old_eigenstates[state_index][node_id]
+        neighbours = ket_node.neighbouring_nodes()
+        for neighbour_id in neighbours:
+            cached_tensor = self.list_partial_tree_cache[state_index].get_entry(neighbour_id,
+                                                                node_id)
+            tensor_leg_to_neighbour = ket_node.neighbour_index(neighbour_id)
+            ket_tensor = np.tensordot(cached_tensor, ket_tensor,
+                                  axes=([0],[tensor_leg_to_neighbour]))
+            ket_reshape = list(range(ket_tensor.ndim-1))[::-1] + [ket_tensor.ndim-1]
+        ket_tensor = np.transpose(ket_tensor, axes=ket_reshape)
+        # ket_tensor = np.transpose(ket_tensor, axes=([0,1]))
+        rho_tensor = np.tensordot(ket_tensor, ket_tensor.conj(),0)
+        # Transposing to have correct leg order
+        # axes = self._find_tensor_leg_permutation(node_id)
+        # rho_tensor = np.transpose(rho_tensor, axes=axes)
+        return rho_tensor
+
 
     
     def _update_one_site(self, node_id: str) -> np.ndarray:
@@ -277,7 +363,14 @@ class DMRGAlgorithm4MultiTTNS():
             np.ndarray: The lowest eigenvalues
         """
         assert self.state.orthogonality_center_id == node_id, "Can only update the orthogonality center, not the node " + node_id
-        hamiltonian_eff_site = tensor_matricisation_half(self._contract_all_except_node(node_id));print("hamiltonian_eff_site.shape",hamiltonian_eff_site.shape,node_id)
+        hamiltonian_eff_site = tensor_matricisation_half(self._contract_all_except_node(node_id))
+        rho_tensor_effective = np.zeros(hamiltonian_eff_site.shape,dtype=complex)
+        if self.old_eigenstates is not None:
+            for i in range(len(self.old_eigenstates)):
+                rho_tensor = self._contract_two_ttns_except_node(node_id, i)
+                rho_tensor_effective -= tensor_matricisation_half(rho_tensor)*self.old_energies[i]
+
+            
         multi_states = deepcopy(self.state.state_tensors)
         shape = self.state.tensors[node_id].shape
         multi_states_vec = [tensor.reshape(-1) for tensor in multi_states]
@@ -290,7 +383,7 @@ class DMRGAlgorithm4MultiTTNS():
         # v = np.hsplit(result['V']@v[:,:self.num_states],self.num_states)
         # v_tensor_intermediate = [v_i.reshape(shape) for v_i in v]
         ### solve with Davidson method
-        l,v,_ = davidson(hamiltonian_eff_site, multi_states_vec, len(multi_states_vec),
+        l,v,_ = davidson(hamiltonian_eff_site-rho_tensor_effective, multi_states_vec, len(multi_states_vec),
                          max_iter=self.max_iter)
         ind = np.argsort(l)
         eig_vals = l[ind]
@@ -336,7 +429,7 @@ class DMRGAlgorithm4MultiTTNS():
             raise NotImplementedError('Two-site DMRG is not implemented for MultiTTNS')
             # return self.sweep_two_site()
             
-    def run(self):
+    def run(self, write_state_average_TTNS: Union[str,None]=None):
         """
         Runs the DMRG algorithm.
         """
@@ -349,6 +442,13 @@ class DMRGAlgorithm4MultiTTNS():
             es.append(e)
             max_bond_dims.append(max_bond_dim)
             print(f"Sweep {i} took {t2-t1:.6f} seconds, max_bond_dim {max_bond_dim}, eig_vals {e}")
+        if write_state_average_TTNS is not None:
+            self.state.save(write_state_average_TTNS)
+            node_id = self.state.state_center_id
+            for i in range(self.num_states):
+                self.state.tensors[node_id] = self.state.state_tensors[i]
+                self.state.save(write_state_average_TTNS+f"_state_{i}")
+            self.state.tensors[node_id] = self.state.state_tensors[0]
         return es, max_bond_dims
     
     def _move_orth_and_update_cache_for_path(self, path: List[str]):
@@ -371,3 +471,7 @@ class DMRGAlgorithm4MultiTTNS():
                                                      svd_params=self.svd_params)
             previous_node_id = path[i] # +0, because path starts at 1.
             self.update_tree_cache(previous_node_id, node_id)
+            
+            if self.old_eigenstates is not None:
+                for state_index in range(len(self.old_eigenstates)):
+                    self.update_tree_cache_state_average(previous_node_id, node_id, state_index)
