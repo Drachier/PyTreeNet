@@ -240,13 +240,13 @@ class BUG(TTNTimeEvolution):
             return self.tensor_cache.get_entry(child_id,
                                                 node_id)
         except KeyError as e:
-            errstr = "The updated subtree tensor is not available!"
+            errstr = "The updated subtree tensor is not available!\n"
             errstr += f"Nodes: {child_id} -> {node_id}"
             raise KeyError(errstr) from e
 
     def prepare_cache_for_update(self,
                                     node_id: str
-                                    ) -> SandwichCache:
+                                    ) -> Tuple[TreeTensorNetworkState,SandwichCache]:
         """
         Prepares the current cache for the update.
 
@@ -257,15 +257,17 @@ class BUG(TTNTimeEvolution):
             node_id (str): The id of the node to prepare.
 
         Returns:
+            TreeTensorNetworkState: The state with the tensor to be updated.
             SandwichCache: The updated cache.
         """
+        state = self.prepare_state_for_update(node_id)
         current_cache = self.cache_dict[node_id]
         for child_id in self.get_children_ids_to_update(node_id):
             tensor = self.get_updated_cache_tensor(child_id,
                                                     node_id)
             current_cache.add_entry(child_id, node_id,
                                     tensor)
-        return current_cache
+        return state, current_cache
 
     def prepare_for_node_update(self,
                                 node_id: str
@@ -287,9 +289,7 @@ class BUG(TTNTimeEvolution):
                 updated children environments.
 
         """
-        state = self.prepare_state_for_update(node_id)
-        cache = self.prepare_cache_for_update(node_id)
-        return state, cache
+        return self.prepare_cache_for_update(node_id)
 
     def prepare_root_state(self) -> TreeTensorNetworkState:
         """

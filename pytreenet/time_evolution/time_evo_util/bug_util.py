@@ -149,6 +149,7 @@ def compute_basis_change_tensor(node_old: Node,
 
     """
     parent_id = node_old.parent
+    assert parent_id is not None, "There is no basis change for the root node!"
     basis_change_tensor = contract_any_nodes(parent_id,
                                              node_old, node_new,
                                              tensor_old, tensor_new.conj(),
