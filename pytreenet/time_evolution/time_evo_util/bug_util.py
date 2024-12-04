@@ -1,13 +1,13 @@
 
 from __future__ import annotations
-from typing import List, Tuple
+from typing import Tuple
 
 from numpy import ndarray, concatenate
 
 from ...core.node import Node
 from ...core.leg_specification import LegSpecification
 from ...util.tensor_util import make_last_leg_first
-from ...util.tensor_splitting import tensor_qr_decomposition
+from ...util.tensor_splitting import tensor_qr_decomposition, SplitMode
 from ...contractions.tree_cach_dict import PartialTreeCachDict
 from ...contractions.state_state_contraction import contract_any_nodes
 
@@ -46,7 +46,7 @@ def concat_along_parent_leg(node: Node,
     return concatenate((old_tensor, updated_tensor),
                         axis=node.parent_leg)
 
-def new_basis_tensor_qr_legs(node: Node) -> Tuple[List[int],List[int]]:
+def new_basis_tensor_qr_legs(node: Node) -> Tuple[Tuple[int, ...],Tuple[int, ...]]:
     """
     Returns the leg indices for the QR decomposition to obtain the new basis
     tensor.
@@ -55,17 +55,18 @@ def new_basis_tensor_qr_legs(node: Node) -> Tuple[List[int],List[int]]:
         node (GraphNode): The node for which to perform the QR decomposition.
 
     Returns:
-        Tuple([List[int],List[int]]): (q_legs, r_legs) The legs for the QR
+        Tuple([Tuple[int],Tuple[int]]): (q_legs, r_legs) The legs for the QR
             decomposition.
 
     """
     assert not node.is_root(), "Root node has no parent leg!"
     q_legs = node.children_legs + node.open_legs
     r_legs = [node.parent_leg]
-    return q_legs, r_legs
+    return tuple(q_legs), tuple(r_legs)
 
 def _compute_new_basis_tensor_qr(node: Node,
-                                 combined_tensor: ndarray) -> ndarray:
+                                 combined_tensor: ndarray,
+                                 mode: SplitMode = SplitMode.REDUCED) -> ndarray:
     """
     Computes the new basis tensor from a concatenated tensor.
 
@@ -82,7 +83,38 @@ def _compute_new_basis_tensor_qr(node: Node,
     q_legs, r_legs = new_basis_tensor_qr_legs(node)
     new_basis_tensor, _ = tensor_qr_decomposition(combined_tensor,
                                             q_legs,
-                                            r_legs)
+                                            r_legs,
+                                            mode=mode)
+    return new_basis_tensor
+
+def compute_fixed_size_new_basis_tensor(node: Node,
+                                        updated_tensor: ndarray) -> ndarray:
+    """
+    Computes the updated basis tensor with a fixed size.
+
+    The updated basis tensor is found by performing a QR decomposition of the
+    updated tensor.
+
+    Args:
+        node (GraphNode): The node which is updated.
+        updated_tensor (ndarray): The updated basis tensor obtained by time
+            evolving the old tensor. The leg order is the usual.
+
+    Returns:
+        ndarray: The new basis tensor. The leg order is the usual and equal to
+            the leg order of the updated tensor. Should have the same shape
+            as the updated tensor.
+
+    """
+    # We perform a QR decomposition
+    new_basis_tensor = _compute_new_basis_tensor_qr(node,
+                                                    updated_tensor,
+                                                    mode=SplitMode.KEEP)
+    # We will have to transpose this anyway later on
+    # Currently the parent leg is the last leg
+    new_basis_tensor = make_last_leg_first(new_basis_tensor)
+    assert new_basis_tensor.shape == updated_tensor.shape, \
+        "The new basis tensor has the wrong shape!"
     return new_basis_tensor
 
 def compute_new_basis_tensor(node: Node,
