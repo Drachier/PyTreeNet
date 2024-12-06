@@ -5,7 +5,7 @@ from typing import List, Dict
 
 from numpy import ndarray, kron, eye, zeros, asarray
 
-from .common_operators import pauli_matrices
+from .common_operators import pauli_matrices, ket_i
 
 def exact_ising_hamiltonian(coupling_strength: float,
                             g: float,
@@ -45,6 +45,23 @@ def exact_ising_hamiltonian(coupling_strength: float,
                                           num_sites)
         hamiltonian += term
     return hamiltonian
+
+def exact_local_magnetisation(site_ids: List[str]) -> Dict[str, ndarray]:
+    """
+    Returns the local magnetisation operators for a chain of quantum systems.
+
+    The operators are the Pauli-Z matrices for every site, each extended to the
+    full chain by identities.
+
+    Args:
+        site_ids (List[str]): The site identifiers.
+    
+    Returns:
+        Dict[str,ndarray]: The local magnetisation operators.
+
+    """
+    local_operator = pauli_matrices()[2]
+    return exact_local_operators(site_ids, local_operator)
 
 def exact_local_operators(site_ids: List[str],
                           local_operators: ndarray
@@ -103,3 +120,18 @@ def exact_single_site_operator(local_operator: ndarray,
         else:
             operator = kron(operator, identity)
     return operator
+
+def exact_zero_state(num_sites: int, local_dimension: int) -> ndarray:
+    """
+    Generate the exact zero state for a chain of quantum systems.
+
+    Args:
+        num_sites (int): The number of sites.
+        local_dimension (int): The local dimension.
+
+    Returns:
+        ndarray: The zero state.
+
+    """
+    total_dim = local_dimension**num_sites
+    return ket_i(0, total_dim)
