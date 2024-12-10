@@ -17,6 +17,8 @@ as part of the i-th term of the Hamiltonian.
 from __future__ import annotations
 from typing import Dict, Union, List
 from enum import Enum, auto
+from copy import deepcopy
+
 from numpy import asarray, ndarray
 
 from .operator import NumericOperator
@@ -86,7 +88,13 @@ class Hamiltonian():
         """
         Two Hamiltonians are equal, if all of their terms are equal.
         """
-        return compare_lists_by_value(self.terms, other_hamiltonian.terms)
+        other_terms = deepcopy(other_hamiltonian.terms)
+        for term in self.terms:
+            if term in other_terms:
+                other_terms.remove(term)
+            else:
+                return False
+        return len(other_terms) == 0
 
     def __add__(self, other: Union[TensorProduct, Hamiltonian]) -> Hamiltonian:
         if isinstance(other, TensorProduct):
