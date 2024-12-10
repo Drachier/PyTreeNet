@@ -60,4 +60,5 @@ def ising_model(ref_tree: Union[TreeStructure, List[Tuple[str, str]]],
     ham.add_hamiltonian(single_site_ham)
     ham.add_hamiltonian(nearest_neighbour_ham)
     ham.conversion_dictionary[f"I{local_dim}"] = eye(local_dim)
+    ham.conversion_dictionary["I1"] = eye(1)
     return ham
