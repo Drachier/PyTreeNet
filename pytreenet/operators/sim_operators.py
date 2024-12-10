@@ -1,7 +1,7 @@
 """
 Functions to generate operators commonly used for example simulations.
 """
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Tuple
 
 from numpy import ndarray
 
@@ -10,7 +10,7 @@ from .hamiltonian import Hamiltonian
 from ..core.tree_structure import TreeStructure
 
 def single_site_operators(operator: Union[str,ndarray],
-                          node_identifiers: List[str],
+                          node_identifiers: Union[TreeStructure,List[str]],
                           operator_names: Union[List[str],None]=None
                           ) -> Dict[str,TensorProduct]:
     """
@@ -18,7 +18,9 @@ def single_site_operators(operator: Union[str,ndarray],
 
     Args:
         operator (Union[str,ndarray]): The operator to apply to each node.
-        node_identifiers (List[str]): The node identifiers.
+        node_identifiers (Union[TreeStructure,List[str]]): The node identifiers
+            for which the operators should be created. Can also be pulled from
+            a TreeStructure object.
         operator_names (Union[List[str],None]): The names of the operators.
             If None, the operator names are set to the node identifiers.
         
@@ -26,6 +28,8 @@ def single_site_operators(operator: Union[str,ndarray],
         Dict[str,TensorProduct]: The operators.
 
     """
+    if isinstance(node_identifiers, TreeStructure):
+        node_identifiers = list(node_identifiers.nodes.keys())
     if operator_names is None:
         operator_names = node_identifiers
     else:
@@ -34,16 +38,7 @@ def single_site_operators(operator: Union[str,ndarray],
                  for i in range(len(node_identifiers))}
     return operators
 
-def single_site_operator_all_sites(operator: Union[str,ndarray],
-                                   ttns: TreeStructure
-                                   ) -> Dict[str,TensorProduct]:
-    """
-    Associate a single site operator to every site of a TTNS.
-    """
-    node_identifiers = list(ttns.nodes.keys())
-    return single_site_operators(operator, node_identifiers)
-
-def create_nearest_neighbour_hamiltonian(structure: TreeStructure,
+def create_nearest_neighbour_hamiltonian(structure: Union[TreeStructure,List[Tuple[str,str]]],
                                          local_operator1: Union[ndarray, str],
                                          local_operator2: Union[ndarray, str, None] = None,
                                          conversion_dict: Union[Dict[str,ndarray],None] = None
@@ -55,8 +50,9 @@ def create_nearest_neighbour_hamiltonian(structure: TreeStructure,
      term A_i (x) B_j, where A_i is the local operator at site i.
     
     Args:
-        structure (TreeStructure): The tree structure for which the
-            Hamiltonian should be created.
+        structure (Union[TreeStructure,List[Tuple[str,str]]]): The tree
+            structure for which the Hamiltonian should be created or a list
+            of tuples of nearest neighbours.
         local_operator1 (Union[ndarray, str]): The local operator to be used
             to generate the nearest neighbour interaction, i.e. A. Which is
             equal for all i.
@@ -72,14 +68,15 @@ def create_nearest_neighbour_hamiltonian(structure: TreeStructure,
     """
     if local_operator2 is None:
         local_operator2 = local_operator1
+    if isinstance(structure, TreeStructure):
+        structure = structure.nearest_neighbours()
     terms = []
-    for identifier, node in structure.nodes.items():
-        for child in node.children:
-            terms.append(TensorProduct({identifier: local_operator1,
-                                        child: local_operator2}))
+    for identifier1, identifier2, in structure:
+        terms.append(TensorProduct({identifier1: local_operator1,
+                                    identifier2: local_operator2}))
     return Hamiltonian(terms, conversion_dictionary=conversion_dict)
 
-def create_single_site_hamiltonian(structure: TreeStructure,
+def create_single_site_hamiltonian(structure: Union[TreeStructure,List[str]],
                                    local_operator: Union[str, ndarray],
                                    conversion_dict: Union[Dict[str,ndarray],None] = None
                                    ) -> Hamiltonian:
@@ -88,8 +85,8 @@ def create_single_site_hamiltonian(structure: TreeStructure,
     The Hamiltonian will contain a term A for every site i
     
     Args:
-        structure (TreeStructure): The tree structure for which the
-            Hamiltonian should be created.
+        structure (Union[TreeStructure,List[str]]): The tree structure for
+            which the Hamiltonian should be created.
         local_operator (Union[str, ndarray]): The local operators to be used
             to generate the single site interaction, i.e. A_i for every i.
         conversion_dict (Union[Dict[str,ndarray],None]): A conversion
@@ -98,6 +95,6 @@ def create_single_site_hamiltonian(structure: TreeStructure,
     Returns:
         Hamiltonian: The Hamiltonian for the given structure.
     """
-    terms = single_site_operator_all_sites(local_operator, structure) # dictionary
+    terms = single_site_operators(local_operator, structure) # dictionary
     terms = list(terms.values()) # list of operators
     return Hamiltonian(terms, conversion_dictionary=conversion_dict)
