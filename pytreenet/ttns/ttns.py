@@ -120,7 +120,9 @@ class TreeTensorNetworkState(TreeTensorNetwork):
                 ttn.absorb_into_open_legs(node_id, single_site_operator)
             return contract_two_ttns(ttn, conj_ttn)
         # Operator is a TTNO
-        return expectation_value(self, operator)
+        if isinstance(operator, TTNO):
+            return expectation_value(self, operator)
+        raise ValueError("Operator must be a TensorProduct or a TTNO!")
 
     def is_in_canonical_form(self, node_id: Union[None,str] = None) -> bool:
         """
