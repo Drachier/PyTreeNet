@@ -4,9 +4,9 @@ A module to provide various commonly used models for simulations.
 
 from numpy import eye
 
-from .hamiltonian import (Hamiltonian,
-                          create_single_site_hamiltonian,
-                          create_nearest_neighbour_hamiltonian)
+from .hamiltonian import Hamiltonian
+from .sim_operators import (create_single_site_hamiltonian,
+                            create_nearest_neighbour_hamiltonian)
 from .common_operators import pauli_matrices
 from ..core.tree_structure import TreeStructure
 
