@@ -106,8 +106,8 @@ class TestNewBasisTensorQRLegs(unittest.TestCase):
         node, _ = random_tensor_node((3,2))
         node.add_parent("parent")
         q_legs, r_legs = new_basis_tensor_qr_legs(node)
-        self.assertEqual(q_legs, [1])
-        self.assertEqual(r_legs, [0])
+        self.assertEqual(q_legs, (1, ))
+        self.assertEqual(r_legs, (0, ))
 
     def test_two_children(self):
         """
@@ -117,8 +117,8 @@ class TestNewBasisTensorQRLegs(unittest.TestCase):
         node.add_parent("parent")
         node.add_children(["child1","child2"])
         q_legs, r_legs = new_basis_tensor_qr_legs(node)
-        self.assertEqual(q_legs, [1,2,3])
-        self.assertEqual(r_legs, [0])
+        self.assertEqual(q_legs, (1,2,3))
+        self.assertEqual(r_legs, (0, ))
 
     def test_no_phys_leg(self):
         """
@@ -128,8 +128,8 @@ class TestNewBasisTensorQRLegs(unittest.TestCase):
         node.add_parent("parent")
         node.add_children(["child1","child2"])
         q_legs, r_legs = new_basis_tensor_qr_legs(node)
-        self.assertEqual(q_legs, [1,2])
-        self.assertEqual(r_legs, [0])
+        self.assertEqual(q_legs, (1,2))
+        self.assertEqual(r_legs, (0,))
 
     def test_root(self):
         """
