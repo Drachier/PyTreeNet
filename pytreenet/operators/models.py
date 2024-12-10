@@ -1,13 +1,15 @@
 """
 A module to provide various commonly used models for simulations.
 """
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Dict
 
 from numpy import eye
 
 from .hamiltonian import Hamiltonian
+from .tensorproduct import TensorProduct
 from .sim_operators import (create_single_site_hamiltonian,
-                            create_nearest_neighbour_hamiltonian)
+                            create_nearest_neighbour_hamiltonian,
+                            single_site_operators)
 from .common_operators import pauli_matrices
 from ..core.tree_structure import TreeStructure
 
@@ -62,3 +64,20 @@ def ising_model(ref_tree: Union[TreeStructure, List[Tuple[str, str]]],
     ham.conversion_dictionary[f"I{local_dim}"] = eye(local_dim)
     ham.conversion_dictionary["I1"] = eye(1)
     return ham
+
+def local_magnetisation(structure: Union[TreeStructure,List[str]]
+                        ) -> Dict[str,TensorProduct]:
+    """
+    Generates the local magnetisation operator for a given tree structure.
+
+    Args:
+        structure (Union[TreeStructure,List[str]]): The tree structure for
+            which the local magnetisation operator should be generated. Can
+            also be a list of node identifiers.
+    
+    Returns:
+        Dict[str,TensorProduct]: The local magnetisation operators.
+
+    """
+    sigma_z = pauli_matrices()[2]
+    return single_site_operators(sigma_z, structure)
