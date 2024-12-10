@@ -56,7 +56,9 @@ class FixedBUG(TTNTimeEvolution):
         """
         root_id = self.state.root_id
         assert root_id is not None, "The state has no root node!"
-        if root_id != self.state.orthogonality_center_id:
+        if self.state.orthogonality_center_id is None:
+            self.state.canonical_form(root_id, mode=SplitMode.KEEP)
+        elif root_id != self.state.orthogonality_center_id:
             self.state.move_orthogonalization_center(root_id, mode=SplitMode.KEEP)
 
     def recursive_update(self):
@@ -164,7 +166,7 @@ def update_leaf_node(node_id: str,
                                                 current_cache)
     new_basis_tensor, _ = tensor_qr_decomposition(updated_tensor,
                                                 (1, ),
-                                                (2, ))
+                                                (0, ))
     old_basis_tensor = parent_state.tensors[node_id]
     basis_change_tensor = tensordot(old_basis_tensor,
                                     new_basis_tensor.conj(),
@@ -172,12 +174,12 @@ def update_leaf_node(node_id: str,
     assert not current_state.nodes[node_id].is_root()
     parent_id = current_state.nodes[node_id].parent
     new_state.split_node_replace(node_id,
-                                new_basis_tensor,
-                                basis_change_tensor,
-                                node_id,
-                                basis_change_tensor_id(node_id),
-                                LegSpecification(None, [], [1]),
-                                LegSpecification(parent_id,[],[]))
+                                 basis_change_tensor,
+                                 new_basis_tensor,
+                                 basis_change_tensor_id(node_id),
+                                 node_id,
+                                 LegSpecification(parent_id,[],[]),
+                                 LegSpecification(None, [], [1]))
     block_tensor = contract_leaf(node_id,new_state,hamiltonian)
     return new_state, block_tensor, basis_change_tensor
 
@@ -248,14 +250,14 @@ def update_non_leaf_node(node_id: str,
                                                         child_bc_tensors)
     # Now we need to insert the new tensors into the new state
     new_state.split_node_replace(node_id,
-                                    new_basis_tensor,
-                                    basis_change_tensor,
-                                    node_id,
-                                    basis_change_tensor_id(node_id),
-                                    LegSpecification(None, new_state_node.children, new_state_node.open_legs),
-                                    LegSpecification(new_state_node.parent,[],[]))
+                                 basis_change_tensor,
+                                 new_basis_tensor,
+                                 basis_change_tensor_id(node_id),
+                                 node_id,
+                                 LegSpecification(new_state_node.parent,[],[]),
+                                 LegSpecification(None, new_state_node.children, new_state_node.open_legs))
     block_tensor = contract_any(node_id,
-                                new_state_node.parent,
+                                basis_change_tensor_id(node_id), # This is currently the parent node
                                 new_state,
                                 hamiltonian,
                                 current_cache)
@@ -290,13 +292,14 @@ def update_node(node_id: str,
         ndarray: The basis change tensor.
 
     """
+    parent_id = parent_state.nodes[node_id].parent
+    assert parent_id is not None, "There is no basis change for the root node!"
+    assert parent_id == parent_state.orthogonality_center_id, "The parent is not the orth center!"
     current_state = deepcopy(parent_state)
     current_state.move_orthogonalization_center(node_id, mode=SplitMode.KEEP)
     current_cache = copy(parent_tensor_cache)
     current_cache.state = current_state
     # Since the orth center changed, we need to update that specific neighbour block
-    parent_id = current_state.nodes[node_id].parent
-    assert parent_id is not None, "There is no basis change for the root node!"
     current_cache.update_tree_cache(parent_id, node_id)
     # We can also delete the obsolete neighbour block from the child to the parent
     current_cache.delete_entry(node_id, parent_id)
