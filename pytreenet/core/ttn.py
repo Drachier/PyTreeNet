@@ -447,6 +447,17 @@ class TreeTensorNetwork(TreeStructure):
                 bond_dims[(node.parent, node.identifier)] = parent_bd
         return bond_dims
 
+    def avg_bond_dim(self) -> float:
+        """
+        Returns the average bond dimension of the TTN.
+
+        Returns:
+            float: The average bond dimension of the TTN.
+        
+        """
+        bond_dims = self.bond_dims()
+        return sum(bond_dims.values())/len(bond_dims)
+
     @staticmethod
     def _absorption_warning() -> str:
         errstr = "Only square Matrices can be absorbed!\n"
