@@ -441,16 +441,17 @@ def contr_truncated_svd_splitting(tensor: np.ndarray,
     """
     u, s, vh = truncated_tensor_svd(tensor, u_legs, v_legs, svd_params)
     if contr_mode == ContractionMode.VCONTR:
-        us = u
         svh = np.tensordot(np.diag(s), vh, axes=(1, 0))
-    elif contr_mode == ContractionMode.UCONTR:
+        return u, svh
+    if contr_mode == ContractionMode.UCONTR:
         us = np.tensordot(u,np.diag(s), axes=(-1, 0))
-        svh = vh
-    elif contr_mode == ContractionMode.EQUAL:
+        return us, vh
+    if contr_mode == ContractionMode.EQUAL:
         s_root = np.diag(np.sqrt(s))
         svh = np.tensordot(s_root, vh, axes=(1, 0))
         us = np.tensordot(u,s_root,axes=(-1, 0))
-    return  us, svh
+        return us, svh
+    raise ValueError("Invalid contraction mode!")
 
 def idiots_splitting(tensor: np.ndarray,
                      a_legs: Tuple[int,...],
