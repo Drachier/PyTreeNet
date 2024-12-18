@@ -1133,7 +1133,8 @@ class TreeTensorNetwork(TreeStructure):
                                          mode=mode)
         self.orthogonality_center_id = new_center_id
 
-    def assert_orth_center(self, node_id: str, object_name: str = "node"):
+    def assert_orth_center(self, node_id: str,
+                           object_name: str = "node"):
         """
         Asserts that a given node is the orthogonality center.
 
@@ -1149,6 +1150,55 @@ class TreeTensorNetwork(TreeStructure):
         if self.orthogonality_center_id != node_id:
             errstr = f"The {object_name} {node_id} is not the orthogonality center!"
             raise AssertionError(errstr)
+  
+    def ensure_orth_center(self, node_id: str,
+                           mode: SplitMode = SplitMode.REDUCED
+                           ) -> bool:
+        """
+        Ensures that a given node is the orthogonality center.
+
+        If the node is not the orthogonality center, the center is moved to
+        the node, if there is no orthogonality center yet, the TTN is brought
+        into canonical form.
+
+        Args:
+            node_id (str): The identifier of the node to be checked.
+            mode: The mode to be used for the QR decomposition. For details refer to
+                `tensor_util.tensor_qr_decomposition`.
+        
+        Returns:
+            bool: Wether the node was the orthogonality center or not.
+
+        """
+        self.ensure_existence(node_id)
+        if self.orthogonality_center_id is None:
+            self.canonical_form(node_id, mode = mode)
+            return False
+        if self.orthogonality_center_id != node_id:
+            self.move_orthogonalization_center(node_id, mode=mode)
+            return False
+        return True
+
+    def ensure_root_orth_center(self,
+                               mode: SplitMode = SplitMode.REDUCED
+                               ) -> bool:
+        """
+        Ensures that the root node is the orthogonality center.
+
+        If the root node is not the orthogonality center, the center is moved
+        to the root node. If there is no orthogonality center yet, the TTN is
+        brought into canonical form.
+
+        Args:
+            mode: The mode to be used for the QR decomposition. For details refer to
+                `tensor_util.tensor_qr_decomposition`.
+
+        Returns:
+            bool: Wether the root node was the orthogonality center or not.
+
+        """
+        assert self.root_id is not None, "The TTN has no root node!"
+        return self.ensure_orth_center(self.root_id, mode=mode)
 
     # Functions below this are just wrappers of external functions that are
     # linked tightly to the TTN and its structure. This allows these functions
