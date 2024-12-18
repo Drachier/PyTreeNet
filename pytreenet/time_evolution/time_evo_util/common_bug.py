@@ -281,16 +281,14 @@ def root_update(current_state: TreeTensorNetworkState,
                                                      hamiltonian,
                                                      root_id)
     child_environment_cache = PartialTreeCachDict() # We only need to add entries, so no Sandwich needed
-    child_bc_tensors = PartialTreeCachDict() # Needed to save the basis change tensors of the children
     for child_id in frozenset(current_state.nodes[root_id].children):
-        new_state, child_block, child_bc_tensor = update_node(child_id,
-                                                                new_state,
-                                                                current_state,
-                                                                current_cache,
-                                                                hamiltonian,
-                                                                time_step_size,
-                                                                fixed_rank=fixed_rank)
-        child_bc_tensors.add_entry(child_id, root_id, child_bc_tensor)
+        new_state, child_block, _ = update_node(child_id,
+                                                new_state,
+                                                current_state,
+                                                current_cache,
+                                                hamiltonian,
+                                                time_step_size,
+                                                fixed_rank=fixed_rank)
         child_environment_cache.add_entry(child_id, root_id, child_block)
     # If we update it inside the loop, the cache changed after the first child, but
     # we need the old cache for the other children updates.
