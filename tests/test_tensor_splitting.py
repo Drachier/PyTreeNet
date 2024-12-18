@@ -16,6 +16,8 @@ from pytreenet.util.tensor_splitting import (_determine_tensor_shape,
                                             tensor_qr_decomposition,
                                             tensor_svd,
                                             renormalise_singular_values,
+                                            value_truncation,
+                                            sum_truncation,
                                             truncate_singular_values,
                                             contr_truncated_svd_splitting,
                                             idiots_splitting,
@@ -115,7 +117,7 @@ class TestTensorUtilSimple(unittest.TestCase):
             tensor_shape = self.tensor2.shape
             self.assertEqual(u.shape[0:-1], (tensor_shape[1], tensor_shape[3]))
             self.assertEqual(vh.shape[1:], (tensor_shape[0], tensor_shape[2]))
-            
+     
 class TestTensorQRDecomp(unittest.TestCase):
     def setUp(self):
         self.tensor = crandn((4,5,2))
@@ -209,6 +211,175 @@ class TestTensorQRDecomp(unittest.TestCase):
         self.assertTrue(allclose(ref_q, q))
         self.assertTrue(allclose(ref_r, r))
 
+class TestSingularValueTruncation(unittest.TestCase):
+
+    def setUp(self):
+        self.s_values = array([1.2,1,0.8,0.5,0.2,0.1,0.1,0.01])
+
+    def test_renorm_singular_values(self):
+        """
+        Test the renormalisation of a random tensor of positive values which
+         represent singular values against a truncated vector.
+        """
+        s = rand(10)
+        s = array(list(reversed(sort(s))))
+        s_new = s[:5]
+        norm_old = sum_np(s)
+        norm_new = sum_np(s_new)
+        normed_s = s_new * (norm_old / norm_new)
+        found_s = renormalise_singular_values(s,s_new)
+        self.assertTrue(allclose(normed_s,found_s))
+
+    def test_renorm_singular_value_equal_size(self):
+        """
+        Test the renormalisation of a random tensor of positive values which
+         represent singular values against an equal vector.
+        """
+        s = rand(10)
+        found_s = renormalise_singular_values(deepcopy(s),deepcopy(s))
+        self.assertTrue(allclose(found_s,s))
+
+    def test_value_truncation_no_truncation(self):
+        """
+        Tests the truncation of singular values by threshold value, however
+         no truncation should happen given the parameters.
+        """
+        s = deepcopy(self.s_values)
+        total_tol = 0.001
+        rel_tol = 0.0001
+        found_s = value_truncation(s, total_tol, rel_tol)
+        self.assertTrue(allclose(self.s_values,found_s))
+
+    def test_value_truncation_total_tol(self):
+        """
+        Tests the truncation of singular values by threshold value, where the
+         choice of total tolerances causes the truncation.
+        """
+        total_tol = 0.15
+        rel_tol = 0
+        found_s = value_truncation(deepcopy(self.s_values), total_tol, rel_tol)
+        correct_s = self.s_values[:5]
+        self.assertTrue(allclose(correct_s,found_s))
+
+    def test_value_truncation_rel_tol(self):
+        """
+        Tests the truncation of singular values caused by the relative
+         tolerance given.
+        """
+        rel_tol = 0.5
+        total_tol = 0
+        found_s = value_truncation(deepcopy(self.s_values), total_tol, rel_tol)
+        correct_s = self.s_values[:3]
+        self.assertTrue(allclose(correct_s,found_s))
+
+    def test_value_truncation_all_values_truncated(self):
+        """
+        Tests the truncation of singular values when all singular values are
+         truncated.
+        """
+        rel_tol = 0.5
+        total_tol = 3
+        found_s = value_truncation(deepcopy(self.s_values), total_tol, rel_tol)
+        correct_s = []
+        self.assertTrue(allclose(correct_s,found_s))
+
+    def test_sum_truncation_no_truncation(self):
+        """
+        Tests the truncation of singular values by the sum of the singular
+         values, however no truncation should happen given the parameters.
+        """
+        threshold = 0.001
+        found_s = sum_truncation(deepcopy(self.s_values), threshold)
+        print(found_s)
+        self.assertTrue(allclose(self.s_values,found_s))
+
+    def test_sum_truncation(self):
+        """
+        Tests the truncation of singular values caused by the sum of the
+         singular values.
+        """
+        threshold = 0.1
+        found_s = sum_truncation(deepcopy(self.s_values), threshold)
+        correct_s = self.s_values[:5]
+        self.assertTrue(allclose(correct_s,found_s))
+
+    def test_sum_truncation_all_truncated(self):
+        """
+        Tests the truncation of singular values when all singular values are
+         truncated.
+        """
+        threshold = 3
+        found_s = sum_truncation(deepcopy(self.s_values), threshold)
+        correct_s = []
+        self.assertTrue(allclose(correct_s,found_s))
+
+    def test_truncate_singular_values_no_truncation(self):
+        """
+        Tests the truncation of singular values, however no truncation should
+         happen given the parameters.
+        """
+        svd_params = SVDParameters(10,0,0)
+        found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
+                                                            svd_params)
+        self.assertTrue(allclose(self.s_values,found_s))
+        self.assertTrue(allclose(array([]),truncated_s))
+
+    def test_truncate_singular_values_max_bond_dim(self):
+        """
+        Tests the truncation of singular values caused by the maximum bond
+         dimension given.
+        """
+        svd_params = SVDParameters(6,0,0)
+        found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
+                                                            svd_params)
+        correct_s = self.s_values[:6]
+        self.assertTrue(allclose(correct_s, found_s))
+        self.assertTrue(allclose(array([0.1,0.01]),truncated_s))
+
+    def test_truncate_singular_values_abs_tol(self):
+        """
+        Tests the truncation of singular values caused by the absolute
+         tolerance given.
+        """
+        abs_tol = 0.15
+        svd_params = SVDParameters(10,0,abs_tol)
+        found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
+                                                            svd_params)
+        correct_s = self.s_values[:5]
+        self.assertTrue(allclose(correct_s,found_s))
+        correct_trunc = self.s_values[5:]
+        self.assertTrue(allclose(correct_trunc,truncated_s))
+
+    def test_truncate_singular_values_rel_tol(self):
+        """
+        Tests the truncation of singular values caused by the relative
+         tolerance given.
+        """
+        rel_tol = 0.5
+        svd_params = SVDParameters(10,rel_tol,0)
+        found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
+                                                            svd_params)
+        correct_s = self.s_values[:3]
+        self.assertTrue(allclose(correct_s,found_s))
+        correct_trunc = self.s_values[3:]
+        self.assertTrue(allclose(correct_trunc,truncated_s))
+
+    def test_truncate_singular_values_all_truncated(self):
+        """
+        Tests the truncation of singular values if all singular values were
+            truncated.
+        """
+        svd_params = SVDParameters(10,0,3)
+        found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
+                                                            svd_params)
+        print("TEST SPEAKING: This warning is intended to be shown!")
+        correct_s = array([self.s_values[0]])
+        self.assertTrue(allclose(correct_s,found_s))
+        self.assertTrue(allclose(self.s_values[1:],truncated_s))
+        self.assertWarns(UserWarning,truncate_singular_values,
+                         deepcopy(self.s_values),
+                         svd_params)
+
 class TestSingularValueDecompositions(unittest.TestCase):
     def setUp(self):
         self.tensor = crandn((2,3,4,5))
@@ -269,97 +440,6 @@ class TestSingularValueDecompositions(unittest.TestCase):
         self.assertTrue(allclose(ref_u,u))
         self.assertTrue(allclose(ref_s,s))
         self.assertTrue(allclose(ref_v,vh))
-
-    def test_renorm_singular_values(self):
-        """
-        Test the renormalisation of a random tensor of positive values which
-         represent singular values against a truncated vector.
-        """
-        s = rand(10)
-        s = array(list(reversed(sort(s))))
-        s_new = s[:5]
-        norm_old = sum_np(s)
-        norm_new = sum_np(s_new)
-        normed_s = s_new * (norm_old / norm_new)
-        found_s = renormalise_singular_values(s,s_new)
-        self.assertTrue(allclose(normed_s,found_s))
-
-    def test_renorm_singular_value_equal_size(self):
-        """
-        Test the renormalisation of a random tensor of positive values which
-         represent singular values against an equal vector.
-        """
-        s = rand(10)
-        found_s = renormalise_singular_values(deepcopy(s),deepcopy(s))
-        self.assertTrue(allclose(found_s,s))
-
-    def test_truncate_singular_values_no_truncation(self):
-        """
-        Tests the truncation of singular values, however no truncation should
-         happen given the parameters.
-        """
-        svd_params = SVDParameters(10,0,0)
-        found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
-                                                            svd_params)
-        self.assertTrue(allclose(self.s_values,found_s))
-        self.assertTrue(allclose(array([]),truncated_s))
-
-    def test_truncate_singular_values_max_bond_dim(self):
-        """
-        Tests the truncation of singular values caused by the maximum bond
-         dimension given.
-        """
-        svd_params = SVDParameters(6,0,0)
-        found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
-                                                            svd_params)
-        correct_s = self.s_values[:6]
-        print("hi",correct_s,found_s)
-        self.assertTrue(allclose(correct_s, found_s))
-        self.assertTrue(allclose(array([0.1,0.01]),truncated_s))
-
-    def test_truncate_singular_values_abs_tol(self):
-        """
-        Tests the truncation of singular values caused by the absolute
-         tolerance given.
-        """
-        abs_tol = 0.15
-        svd_params = SVDParameters(10,0,abs_tol)
-        found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
-                                                            svd_params)
-        correct_s = self.s_values[:5]
-        self.assertTrue(allclose(correct_s,found_s))
-        correct_trunc = self.s_values[5:]
-        self.assertTrue(allclose(correct_trunc,truncated_s))
-
-    def test_truncate_singular_values_rel_tol(self):
-        """
-        Tests the truncation of singular values caused by the relative
-         tolerance given.
-        """
-        rel_tol = 0.5
-        svd_params = SVDParameters(10,rel_tol,0)
-        found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
-                                                            svd_params)
-        correct_s = self.s_values[:3]
-        self.assertTrue(allclose(correct_s,found_s))
-        correct_trunc = self.s_values[3:]
-        self.assertTrue(allclose(correct_trunc,truncated_s))
-
-    def test_truncate_singular_values_all_truncated(self):
-        """
-        Tests the truncation of singular values if all singular values were
-            truncated.
-        """
-        svd_params = SVDParameters(10,0,3)
-        found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
-                                                            svd_params)
-        print("TEST SPEAKING: This warning is intended to be shown!")
-        correct_s = array([self.s_values[0]])
-        self.assertTrue(allclose(correct_s,found_s))
-        self.assertTrue(allclose(self.s_values[1:],truncated_s))
-        self.assertWarns(UserWarning,truncate_singular_values,
-                         deepcopy(self.s_values),
-                         svd_params)
 
     def test_truncated_tensor_svd(self):
         """
