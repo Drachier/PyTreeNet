@@ -211,6 +211,7 @@ class SVDParameters:
     total_tol: float = 1e-15
     renorm: bool = False
     sum_trunc: bool = False
+    sum_renorm: bool = True
 
     def __post_init__(self):
         """
@@ -257,7 +258,8 @@ def renormalise_singular_values(s: np.ndarray,
     return new_s
 
 def _sum_truncation_index(s: np.ndarray,
-                          total_tol: float) -> int:
+                          total_tol: float,
+                          norming: bool = True) -> int:
     """
     Determines the index for truncation of the singular values.
 
@@ -270,7 +272,11 @@ def _sum_truncation_index(s: np.ndarray,
 
     Args:
         s (np.ndarray): Vector of singular values sorted in descending order.
-        total_tol (float): Tolarance for the sum of the squared singular values.
+        total_tol (float): Tolarance for the sum of the squared singular
+            values.
+        norming (bool, optional): If True, the sum of the squared singular
+            values is normalised by the squared norm of the vector. Defaults to
+            True.
     
     Returns:
         int: The index K for truncation.
@@ -285,13 +291,19 @@ def _sum_truncation_index(s: np.ndarray,
     for i, s_val in enumerate(reversed(s)):
         # Note that the singular values are sorted in descending order.
         trunc_sum += s_val**2
-        if trunc_sum / normsq > thresh:
+        if norming:
+            comp_val = trunc_sum / normsq
+        else:
+            comp_val = trunc_sum
+        if comp_val > thresh:
             return len(s) - i
     # In this case all singular values are truncated
     return 0
 
 def sum_truncation(s: np.ndarray,
-                   total_tol: float) -> np.ndarray:
+                   total_tol: float,
+                   norming: bool = True
+                   ) -> np.ndarray:
     """
     Truncates the singular values of a tensor given as a vector by according to
 
@@ -302,13 +314,17 @@ def sum_truncation(s: np.ndarray,
 
     Args:
         s (np.ndarray): Vector of singular values sorted in descending order.
-        total_tol (float): Tolarance for the sum of the squared singular values.
+        total_tol (float): Tolarance for the sum of the squared singular
+            values.
+        norming (bool, optional): If True, the truncated singular value vector
+            is scaled to have the same norm as the original vector. Defaults to
+            True.
 
     Returns:
         np.ndarray: The truncated vector of singular values.
     
     """
-    trunc_index = _sum_truncation_index(s, total_tol)
+    trunc_index = _sum_truncation_index(s, total_tol, norming=norming)
     return s[:trunc_index]
 
 def value_truncation(s: np.ndarray,
@@ -353,7 +369,7 @@ def truncate_singular_values(s: np.ndarray,
     if len(s) == 0:
         raise ValueError("No singular values to truncate!")
     if svd_params.sum_trunc:
-        s_temp = sum_truncation(s, svd_params.total_tol)
+        s_temp = sum_truncation(s, svd_params.total_tol, svd_params.sum_renorm)
     else:
         s_temp = value_truncation(s, svd_params.total_tol, svd_params.rel_tol)
     max_bond_dim = svd_params.max_bond_dim

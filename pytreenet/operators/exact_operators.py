@@ -16,31 +16,82 @@ def exact_ising_hamiltonian(coupling_strength: float,
 
     Args:
         coupling_strength (float): The coupling strength.
-        g (float): The magnetic field strength.
-        num_sites (int): The number of sites in the chain.
+        g (float): The magnetic field strength. (Z-term)
+        num_sites (int): The number of sites in the chain. (XX-term)
     
     Returns:
         ndarray: The Hamiltonian as a matrix.
+    
+    """
+    paulis = pauli_matrices()
+    return _exact_abstract_ising_model(coupling_strength,
+                                        g,
+                                        num_sites,
+                                        paulis[2],
+                                        paulis[0])
+
+def flipped_exact_ising_hamiltonian(coupling_strength: float,
+                                    g: float,
+                                    num_sites: int
+                                    ) -> ndarray:
+    """
+    Generate the exact flipped Ising Hamiltonian for a chain of spins.
+
+    Args:
+        coupling_strength (float): The coupling strength.
+        g (float): The magnetic field strength. (X-term)
+        num_sites (int): The number of sites in the chain. (ZZ-term)
+
+    Returns:
+        ndarray: The Hamiltonian as a matrix.
+    
+    """
+    paulis = pauli_matrices()
+    return _exact_abstract_ising_model(coupling_strength,
+                                        g,
+                                        num_sites,
+                                        paulis[0],
+                                        paulis[2])
+
+
+def _exact_abstract_ising_model(coupling_strength: float,
+                                g: float,
+                                num_sites: int,
+                                ext_magn_op: ndarray,
+                                nn_op: ndarray
+                                ) -> ndarray:
+    """
+    Generate the exact Ising Hamiltonian for a chain of spins.
+
+    Args:
+        coupling_strength (float): The coupling strength.
+        g (float): The magnetic field strength.
+        num_sites (int): The number of sites in the chain.
+        ext_magn_op (ndarray): The external magnetic field operator.
+        nn_op (ndarray): The nearest neighbour operator.
+
+    Returns:
+        ndarray: The Hamiltonian as a matrix.
+
     """
     local_dim = 2
     hamiltonian = zeros((local_dim**num_sites, local_dim**num_sites),
                         dtype=complex)
-    sigma_x, _, sigma_z = pauli_matrices()
     identity = eye(local_dim)
     # Two site terms
     for sitei in range(num_sites-1):
         term = 1
         for sitej in range(num_sites):
             if sitej == sitei:
-                term = kron(term, -1 * coupling_strength * sigma_x)
+                term = kron(term, -1 * coupling_strength * nn_op)
             elif sitej == sitei+1:
-                term = kron(term, sigma_x)
+                term = kron(term, nn_op)
             else:
                 term = kron(term, identity)
         hamiltonian += term
     # Single site terms
     for sitei in range(num_sites):
-        term = exact_single_site_operator(-1 * g * sigma_z,
+        term = exact_single_site_operator(-1 * g * ext_magn_op,
                                           sitei,
                                           num_sites)
         hamiltonian += term
