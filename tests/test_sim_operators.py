@@ -6,7 +6,6 @@ from pytreenet.core.tree_structure import TreeStructure
 from pytreenet.operators.hamiltonian import Hamiltonian
 from pytreenet.core.graph_node import GraphNode
 from pytreenet.operators.sim_operators import (single_site_operators,
-                                               single_site_operator_all_sites,
                                                create_nearest_neighbour_hamiltonian,
                                                create_single_site_hamiltonian)
 
@@ -58,7 +57,7 @@ class TestSimOperators(unittest.TestCase):
         tree.add_child_to_parent(GraphNode("C"),"A")
         tree.add_child_to_parent(GraphNode("D"),"B")
         tree.add_child_to_parent(GraphNode("E"),"D")
-        operators = single_site_operator_all_sites(operator, tree)
+        operators = single_site_operators(operator, tree)
         self.assertEqual(len(operators), 5)
         self.assertTrue(all(isinstance(op, TensorProduct)
                             for op in operators.values()))
