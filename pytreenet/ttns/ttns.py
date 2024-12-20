@@ -52,6 +52,17 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         other_conj = other.conjugate()
         return contract_two_ttns(self, other_conj)
 
+    def norm(self) -> float:
+        """
+        Compute the norm of the TTNS.
+
+        Returns:
+            float: The norm of the state.
+        """
+        scal_prod = self.scalar_product()
+        assert scal_prod.imag == 0
+        return sqrt(scal_prod.real)
+
     def normalise(self) -> float:
         """
         Normalises the MPS in place.
@@ -59,8 +70,9 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         Returns:
             float: The norm of the state before normalisation.
         """
-        norm = sqrt(self.scalar_product())
+        norm = self.norm()
         if self.orthogonality_center_id is not None:
+            # Avoids destroying the orthogonality center
             self.tensors[self.orthogonality_center_id] /= norm
         else:
             self.tensors[self.root_id] /= norm
