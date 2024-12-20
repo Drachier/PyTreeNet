@@ -90,10 +90,51 @@ def contract_node_with_environment(node_id: str,
     
     """
     ket_node, ket_tensor = state1[node_id]
+    bra_node, bra_tensor = state2[node_id]
+    return contract_node_with_environment_nodes(ket_node, ket_tensor,
+                                                bra_node, bra_tensor,
+                                                dictionary)
+
+def contract_node_with_environment_nodes(ket_node: Node,
+                                         ket_tensor: np.ndarray,
+                                         bra_node: Node,
+                                         bra_tensor: np.ndarray,
+                                         dictionary: PartialTreeCachDict) -> np.ndarray:
+    """
+    Contracts a node with its environment.
+     
+    It is assumed that all subtrees starting from this node are already
+    contracted.
+
+    Args:
+        ket_node (Node): The ket node.
+        ket_tensor (np.ndarray): The ket tensor.
+        bra_node (Node): The bra node.
+        bra_tensor (np.ndarray): The bra tensor.
+        dictionary (PartialTreeCacheDict): The dictionary containing the
+            already contracted subtrees.
+    
+    Returns:
+        np.ndarray: The resulting tensor. A and B are the tensors in state1 and
+            state2, respectively, corresponding to the node with the identifier
+            node_id. C aer the tensors in the dictionary corresponding to the
+            subtrees going away from the node::
+
+             ______      _____      ______
+            |      |____|     |____|      |
+            |      |    |  B  |    |      |
+            |      |    |_____|    |      |
+            |      |       |       |      |
+            |  C1  |       |       |  C2  |
+            |      |     __|__     |      |
+            |      |____|     |____|      |
+            |      |    |  A  |    |      |
+            |______|    |_____|    |______|
+    
+    """
     ketblock_tensor = contract_all_neighbour_blocks_to_ket(ket_tensor,
                                                            ket_node,
                                                            dictionary)
-    bra_node, bra_tensor = state2[node_id]
     return contract_bra_to_ket_and_blocks(bra_tensor, ketblock_tensor,
                                           bra_node, ket_node)
 
