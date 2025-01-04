@@ -57,15 +57,145 @@ def expand_subspace(ttn: TreeTensorNetworkState,
         #ttn_copy.normalize_ttn()
     return ttn_copy
 
+#from ..time_evolution.time_evolution impor
+from dataclasses import replace
+
+def perform_expansion(state, hamiltonian, tol, config):
+    config.Expansion_params["tol"] = tol
+    state_ex = expand_subspace(state, 
+                               hamiltonian,
+                               config.Expansion_params)
+    after_ex_total_bond = state_ex.total_bond_dim()
+    expanded_dim_tot = after_ex_total_bond - state.total_bond_dim()
+    return state_ex, after_ex_total_bond, expanded_dim_tot
+
+def phase1_increase_tol(state, hamiltonian, tol, expanded_dim_tot , config):
+    max_trials = config.Expansion_params["num_second_trial"]
+    num_trials = 0
+    min_rel_tot_bond, max_rel_tot_bond = config.Expansion_params["rel_tot_bond"]
+    while num_trials < max_trials:
+        #print(f"Phase 1 - Trial {num_trials+1}:")
+        if expanded_dim_tot > max_rel_tot_bond:
+            #print(f"Expanded dim ({expanded_dim_tot}) > rel_tot_bond ({config.Expansion_params['rel_tot_bond']})")
+            # Increase tol to reduce expanded_dim_tot
+            tol *= config.Expansion_params["tol_step_increase"]
+            #print("Increasing tol:", tol)
+            state_ex, _, expanded_dim_tot = perform_expansion(state, hamiltonian, tol, config)
+            num_trials += 1
+            if min_rel_tot_bond < expanded_dim_tot <= max_rel_tot_bond:
+                # Acceptable expansion found
+                #print("Acceptable expansion found in Phase 1:", expanded_dim_tot)
+                return state_ex, tol, expanded_dim_tot, False
+            elif expanded_dim_tot <= min_rel_tot_bond:
+                # Need to switch to Phase 2
+                #print("Expanded dim became negative:", expanded_dim_tot)
+                state_ex = state
+                #print("Switching to Phase 2")
+                return state_ex, tol, expanded_dim_tot, True  # Proceed to Phase 2                
+    # Exceeded max trials
+    #print("Exceeded maximum trials in Phase 1 without acceptable expansion")
+    state_ex = state
+    return state_ex, tol, expanded_dim_tot, False  # Proceed to Phase 2
+
+def phase2_decrease_tol(state, hamiltonian, tol, expanded_dim_tot, config):
+    max_trials = config.Expansion_params["num_second_trial"]
+    num_trials = 0
+    min_rel_tot_bond, max_rel_tot_bond = config.Expansion_params["rel_tot_bond"]
+    while num_trials < max_trials:
+        num_trials += 1
+        #print(f"Phase 2 - Trial {num_trials}:")
+        # Decrease tol to increase expanded_dim_tot
+        tol *= config.Expansion_params["tol_step_decrease"]
+        #print("Decreasing tol:", tol)
+        state_ex, _, expanded_dim_tot = perform_expansion(state, hamiltonian, tol, config)
+        #print("Expanded_dim_tot:", expanded_dim_tot)
+        if min_rel_tot_bond < expanded_dim_tot <= max_rel_tot_bond:
+            # Acceptable expansion found
+            #print("Acceptable expansion found in Phase 2:", expanded_dim_tot)
+            return state_ex, tol, expanded_dim_tot
+        elif expanded_dim_tot > max_rel_tot_bond:
+            # Expanded dimension exceeded rel_tot_bond again
+            #print("Expanded dim exceeded rel_tot_bond again:", expanded_dim_tot)
+            # Reset state_ex to initial state
+            state_ex = state
+            return state_ex, tol, expanded_dim_tot  # Reset and exit
+    # Exceeded max trials
+    #print("Exceeded maximum trials in Phase 2 without acceptable expansion")
+    # Reset state_ex to initial state
+    state_ex = state
+    return state_ex, tol, expanded_dim_tot  # Reset and exit
+
+def adjust_tol_and_expand(state, hamiltonian, tol , config):
+
+    before_ex_total_bond = state.total_bond_dim()
+
+    config.Expansion_params["SVDParameters"] = replace(config.Expansion_params["SVDParameters"],max_bond_dim=state.max_bond_dim())
+    #print("SVD MAX:", state.max_bond_dim())
+    #print("Initial tol:", tol)
+
+    # Initial Expansion Attempt
+    state_ex, after_ex_total_bond, expanded_dim_tot = perform_expansion(state, hamiltonian, tol, config)
+
+    # Unpack the acceptable range
+    min_rel_tot_bond, max_rel_tot_bond = config.Expansion_params["rel_tot_bond"]
+
+    # Check initial expansion
+    if min_rel_tot_bond < expanded_dim_tot <= max_rel_tot_bond:
+        # Acceptable expansion found in initial attempt
+        print("Acceptable expansion found in initial attempt:", expanded_dim_tot)
+    elif expanded_dim_tot > max_rel_tot_bond:
+        # Need to adjust tol in Phase 1
+        state_ex, tol, expanded_dim_tot, switch_to_phase_2 = phase1_increase_tol(state, hamiltonian, tol, expanded_dim_tot, config)
+        if switch_to_phase_2:
+            # Switch to Phase 2
+            state_ex, tol, expanded_dim_tot = phase2_decrease_tol(state, hamiltonian, tol, expanded_dim_tot, config)
+    elif expanded_dim_tot <= min_rel_tot_bond:
+        # Need to adjust tol in Phase 2
+        state_ex, tol, expanded_dim_tot = phase2_decrease_tol(state, hamiltonian, tol, expanded_dim_tot, config)
+
+    after_ex_total_bond = state_ex.total_bond_dim()
+    expanded_dim_total_bond = after_ex_total_bond - before_ex_total_bond
+
+    print("Final expanded_dim:", expanded_dim_total_bond, ":", before_ex_total_bond, "--->", after_ex_total_bond)
+
+    return state_ex, tol
+
+
+
+
 from pytreenet.contractions.contraction_util import get_equivalent_legs
+import random
+
+def random_leaf(state) :
+    leaf_nodes = []
+    for node in state.nodes.values():
+        if node.is_leaf():
+            leaf_nodes.append(node.identifier)
+    return random.choice(leaf_nodes)
+
+def random_update_path(state):
+    TDVPUpdatePath = TDVPUpdatePathFinder(state)
+    TDVPUpdatePath.start = random_leaf(state)
+    TDVPUpdatePath.main_path = TDVPUpdatePath.state.find_path_to_root(TDVPUpdatePath.start)
+    return TDVPUpdatePath.find_path()
+
+
+def enlarge_ttn1_bond_with_ttn222(ttn1, ttn2, tol):
+   ttn1_copy = deepcopy(ttn1)
+   ttn3 = deepcopy(ttn1)
+   update_path = TDVPUpdatePathFinder(ttn1_copy).find_path()
+   path_next = find_tdvp_orthogonalization_path(ttn1_copy,update_path) 
+
 
 def enlarge_ttn1_bond_with_ttn2(ttn1, ttn2, tol):
    ttn1_copy = deepcopy(ttn1)
    ttn3 = deepcopy(ttn1)
-   path_main = TDVPUpdatePathFinder(ttn1_copy).find_path()
-   path_next = find_tdvp_orthogonalization_path(ttn1_copy,path_main) 
-
-   for i,node_id in enumerate(path_main[:-1]): 
+   update_path = random_update_path(ttn1_copy)
+   path_next = find_tdvp_orthogonalization_path(ttn1_copy,update_path) 
+   ttn1_copy.canonical_form(update_path[0])
+   ttn2.canonical_form(update_path[0])   
+   
+   for i,node_id in enumerate(update_path[:-1]): 
         next_node_id = path_next[i][0]
         index = ttn1_copy.nodes[node_id].neighbour_index(next_node_id)
         index_prime = ttn1_copy.nodes[next_node_id].neighbour_index(node_id) 
@@ -73,10 +203,13 @@ def enlarge_ttn1_bond_with_ttn2(ttn1, ttn2, tol):
         pho_B = compute_transfer_tensor(ttn2.tensors[node_id],(index,))
         pho = pho_A + pho_B
         v = compute_v(pho, index, tol)
-        
+
         ttn3.tensors[node_id] = v
         ttn3.nodes[node_id].link_tensor(v)
         
+        ttn1_copy.move_orthogonalization_center(next_node_id)
+        ttn2.move_orthogonalization_center(next_node_id)
+
         legs = get_equivalent_legs(ttn1_copy.nodes[node_id], ttn2.nodes[node_id])
         if legs[0] != legs[1]:
             print(node_id , legs)
@@ -93,26 +226,22 @@ def enlarge_ttn1_bond_with_ttn2(ttn1, ttn2, tol):
         if ttn1_copy.orthogonality_center_id != None:
             if len(path_next[i]) > 1:
                 ttn1_copy.orthogonality_center_id = path_next[i][0]
-
-                ttn1_structure = deepcopy(ttn1_copy)
                 ttn1_copy.move_orthogonalization_center(path_next[i][-1])
         if ttn2.orthogonality_center_id != None:
             if len(path_next[i]) > 1:
                 ttn2.orthogonality_center_id = path_next[i][0]
-
-                ttn2_structure = deepcopy(ttn2)
                 ttn2.move_orthogonalization_center(path_next[i][-1])
 
         legs = get_equivalent_legs(ttn1_copy.nodes[node_id], ttn2.nodes[node_id])
         if legs[0] != legs[1]:
             print(node_id , legs)                
 
-   last_node_id = path_main[-1]
+   last_node_id = update_path[-1]
    ttn3.tensors[last_node_id] = ttn1_copy.tensors[last_node_id]
    ttn3.nodes[last_node_id].link_tensor(ttn1_copy.tensors[last_node_id]) 
    
-   ttn1_structure = deepcopy(ttn1_copy)
-   ttn3.canonical_form(path_main[0], SplitMode.REDUCED) 
+
+   #ttn3.canonical_form(update_path[0], SplitMode.REDUCED) 
 
    return ttn3
 
@@ -216,7 +345,7 @@ def eig_Lanczos(pho, tol, Lanczos_threshold , k_fraction, validity_fraction, inc
         return eig(pho, tol)
 
 import scipy
-def eig(pho, tol):
+def eig_absolute_tol(pho, tol):
     # Check if pho is an empty matrix
     #num_nevs = pho.shape[0] - 1 
     #w, v = scipy.sparse.linalg.eigsh(pho , k = num_nevs, which='LM')
@@ -234,6 +363,37 @@ def eig(pho, tol):
     v = v[:, :k]
     #print(f"Eigenvectors : {v.shape}")
     return v
+
+
+def eig(pho, tol):
+    """
+    Truncates the eigenvectors based on relative tolerance.
+
+    Args:
+        pho (np.ndarray): Input matrix.
+        tol (float): Relative tolerance as a fraction of the largest eigenvalue.
+
+    Returns:
+        np.ndarray: Truncated eigenvectors.
+    """
+    w, v = np.linalg.eigh(pho)  # Compute eigenvalues and eigenvectors
+
+    magnitudes = np.abs(w)  # Get the magnitudes of the eigenvalues
+    sorted_indices = np.argsort(magnitudes)[::-1]  # Sort indices in descending magnitude order
+
+    w = w[sorted_indices]  # Sort eigenvalues in descending order
+    v = v[:, sorted_indices]  # Sort eigenvectors correspondingly
+
+    max_eigenvalue = magnitudes[0]  # Largest eigenvalue
+    rel_cutoff = tol * max_eigenvalue  # Relative tolerance cutoff
+
+    # Keep eigenvalues above the relative cutoff
+    k = np.sum(magnitudes > rel_cutoff)
+    v = v[:, :k]  # Retain eigenvectors corresponding to significant eigenvalues
+
+    return v
+
+
 
 import numpy as np
 import warnings
@@ -295,17 +455,17 @@ def eig_tenpy(pho, tol):
     
     # Define the linear operator H using TenPy's NpcLinearOperator
     class DenseLinearOperator(NpcLinearOperator):
-        def __init__(self, matrix, legcharges):
+        def __init__( matrix, legcharges):
             super().__init__()
-            self.matrix = matrix
-            self.legcharges = legcharges
+            matrix = matrix
+            legcharges = legcharges
 
-        def matvec(self, x):
+        def matvec( x):
             # x is an Array object; extract the ndarray data
             x_ndarray = x.to_ndarray()
-            result = np.dot(self.matrix, x_ndarray)
+            result = np.dot(matrix, x_ndarray)
             # Convert result back to TenPy's Array with the same leg charges
-            return Array.from_ndarray(result, self.legcharges, dtype=self.matrix.dtype)
+            return Array.from_ndarray(result, legcharges, dtype=matrix.dtype)
     
     # Initialize the starting vector psi0 as a normalized random vector
     np.random.seed(42)  # For reproducibility
@@ -379,7 +539,7 @@ def sum_two_ttns(ttn1: TreeTensorNetworkState, ttn2: TreeTensorNetworkState):
     should have the same structure, i.e. the same nodes and edges.
     
     Args:
-        self (TreeTensorNetworkState): The first tree tensor network.
+        (TreeTensorNetworkState): The first tree tensor network.
         ttn2 (TreeTensorNetworkState): The second tree tensor network.
     
     Returns:

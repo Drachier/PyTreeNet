@@ -194,7 +194,8 @@ class BoseHubbard2D_Qutip:
                 corr = abs(qt.expect(self.a_ops[idx1].dag() * self.a_ops[idx2], state))
                 if n1 > 0 and n2 > 0:
                    corr /= np.sqrt(n1 * n2)
-                result += abs(corr)
+                result += corr
+                #result += abs(corr)
         else:
             # Independent of density (Same value for same "degree of coherence")
             # Studying phase transitions / universal behavior
@@ -203,8 +204,9 @@ class BoseHubbard2D_Qutip:
                 idx1 = site1[0] * self.Ly + site1[1]
                 idx2 = site2[0] * self.Ly + site2[1]
 
-                corr = abs(qt.expect(self.a_ops[idx1].dag() * self.a_ops[idx2], state))
-                result += abs(corr)       
+                corr = qt.expect(self.a_ops[idx1].dag() * self.a_ops[idx2], state)
+                result += corr  
+                #result += abs(corr)      
 
         return result / len(current_sites)
     
@@ -288,7 +290,7 @@ class BoseHubbard2D_Qutip:
             if n1 * n2 > 0:  # Avoid division by zero
                 correlation /= np.sqrt(n1 * n2)
 
-        return abs(correlation)
+        return correlation
     
     def calculate_specific_density_density_correlation(self, state, site1, site2, normalize=False):
         """

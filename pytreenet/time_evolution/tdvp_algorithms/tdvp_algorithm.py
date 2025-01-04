@@ -120,7 +120,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
             List[str]: The order in which the nodes in the TTN should be time
                 evolved.
         """
-        return TDVPUpdatePathFinder(self.initial_state).find_path()
+        return TDVPUpdatePathFinder(self.state).find_path()
 
     def _init_partial_tree_cache(self) -> SandwichCache:
         """
@@ -183,7 +183,8 @@ class TDVPAlgorithm(TTNTimeEvolution):
                                                   self.time_step_size * time_step_factor,
                                                   forward =True,
                                                   Lanczos = self.config.Lanczos_evolution,
-                                                  lanczos_params = self.config.Lanczos_params)
+                                                  lanczos_params = self.config.Lanczos_params,
+                                                  lanczos_cutoff = self.config.Expansion_params["lanczos_cutoff"])
 
     def _move_orth_and_update_cache_for_path(self, path: List[str]):
         """

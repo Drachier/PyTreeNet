@@ -194,7 +194,7 @@ def uniform_product_state(ttn,
     for node_id in product_state.nodes.keys():
         n = product_state.tensors[node_id].ndim - 1
         tensor = local_state.reshape((1,) * n + (2,))
-        T = np.pad(tensor, n*((bond_dim, bond_dim),) + ((0, 0),))
+        T = np.pad(tensor, n*((0, bond_dim),) + ((0, 0),))
         product_state.tensors[node_id] = T
         product_state.nodes[node_id].link_tensor(T)  
     return product_state
@@ -283,20 +283,25 @@ def BoseHubbard_ham(t, U, m, Lx, Ly , d):
     return Hamiltonian(terms, conversion_dict)
 
 def get_neighbors_periodic(x, y, Lx, Ly):
-  neighbors = []
-  
-  # Right neighbor (with periodic boundary)
-  right_x = (x + 1) % Lx
-  neighbors.append((f"Site({right_x},{y})"))
-  
-  # Up neighbor (with periodic boundary)
-  up_y = (y + 1) % Ly
-  neighbors.append((f"Site({x},{up_y})"))
+    neighbors = []
+
+    # Right neighbor (with periodic boundary)
+    right_x = (x + 1) % Lx
+    neighbors.append((f"Site({right_x},{y})"))
+
+    # Up neighbor (with periodic boundary)
+    up_y = (y + 1) % Ly
+    neighbors.append((f"Site({x},{up_y})"))
+    return neighbors
+
+
 
 def Anisotropic_Heisenberg_ham(J_x, J_y, J_z, h_z, Lx, Ly , boundary_condition = None):
     # Get the Pauli matrices
     X, Y, Z = pauli_matrices()
-    
+    X = X / 2
+    Y = Y / 2
+    Z = Z / 2
     # Create a conversion dictionary for the operators
     conversion_dict = {
         "X": X,
@@ -337,9 +342,9 @@ def Anisotropic_Heisenberg_ham(J_x, J_y, J_z, h_z, Lx, Ly , boundary_condition =
                 # Vertical connections
                 if y < Ly - 1:
                     up_neighbor = f"Site({x},{y+1})"
-                    terms.append(TensorProduct({current_site: "X", right_neighbor: "J_x * X"}))
-                    terms.append(TensorProduct({current_site: "Y", right_neighbor: "J_y * Y"}))
-                    terms.append(TensorProduct({current_site: "Z", right_neighbor: "J_z * Z"}))                     
+                    terms.append(TensorProduct({current_site: "X", up_neighbor: "J_x * X"}))
+                    terms.append(TensorProduct({current_site: "Y", up_neighbor: "J_y * Y"}))
+                    terms.append(TensorProduct({current_site: "Z", up_neighbor: "J_z * Z"}))                     
 
 
     # On-site magnetic field terms
@@ -352,6 +357,97 @@ def Anisotropic_Heisenberg_ham(J_x, J_y, J_z, h_z, Lx, Ly , boundary_condition =
 
 
 # OPERATORS (ptn.Hamiltonian)
+
+def total_magnetization(Lx, Ly, dim):
+    # Define operators
+    sz = pauli_matrices()[2] / 2
+    conversion_dict = {
+        "sz": sz,
+        f"I{dim}": np.eye(dim)
+    }
+    # Step 3: Create correlation terms for each pair
+    terms = []
+    for x in range(Lx):
+        for y in range(Ly):
+            current_site = f"Site({x},{y})"
+            terms.append(TensorProduct({current_site: "sz"}))
+    return Hamiltonian(terms, conversion_dict)
+
+
+def correlation_function(dim, node_id1, node_id2):
+        sx , sy, sz = pauli_matrices() 
+        conversion_dict = {
+            "sx": sx,
+            "sy": sy,
+            "sz": sz,
+            f"I{dim}": np.eye(dim)
+        }
+
+        # Step 3: Create correlation terms for each pair
+        terms = []
+        terms.append(TensorProduct({node_id1: "sz", node_id2: "sz"}))
+        terms.append(TensorProduct({node_id1: "sx", node_id2: "sx"}))
+        terms.append(TensorProduct({node_id1: "sy", node_id2: "sy"}))
+
+        return Hamiltonian(terms, conversion_dict)
+
+
+
+def spatial_correlation_function(Lx, Ly, dist, dim, mode = "HV"):
+    # <sz^_i * sz_j> - not normalized
+    if mode == "HV":
+        current_sites, neighbor_sites = get_neighbors_with_distance_HV(Lx, Ly, dist)
+    elif mode == "HDV":
+        current_sites, neighbor_sites = get_neighbors_with_distance_HDV(Lx, Ly, dist)
+
+    # Define operators
+    sx , sy, sz = pauli_matrices()
+    conversion_dict = {
+        "sx": sx,
+        "sy": sy,
+        "sz": sz,
+        f"I{dim}": np.eye(dim)
+    }
+
+    # Step 3: Create correlation terms for each pair
+    terms = []
+    for site1, site2 in zip(current_sites, neighbor_sites):
+        node_id1 = f"Site({site1[0]},{site1[1]})"
+        node_id2 = f"Site({site2[0]},{site2[1]})"
+        # Add b^†_i b_j term
+        terms.append(TensorProduct({node_id1: "sz", node_id2: "sz"}))
+        terms.append(TensorProduct({node_id1: "sx", node_id2: "sx"}))
+        terms.append(TensorProduct({node_id1: "sy", node_id2: "sy"}))
+
+
+    return Hamiltonian(terms, conversion_dict)
+
+
+def spatial_correlation_function_sz(Lx, Ly, dist, dim, mode = "HV"):
+    # <sz^_i * sz_j> - not normalized
+    if mode == "HV":
+        current_sites, neighbor_sites = get_neighbors_with_distance_HV(Lx, Ly, dist)
+    elif mode == "HDV":
+        current_sites, neighbor_sites = get_neighbors_with_distance_HDV(Lx, Ly, dist)
+
+    # Define operators
+    sz = pauli_matrices()[2] / 2
+    conversion_dict = {
+        "sz": sz,
+        f"I{dim}": np.eye(dim)
+    }
+
+    # Step 3: Create correlation terms for each pair
+    terms = []
+    for site1, site2 in zip(current_sites, neighbor_sites):
+        node_id1 = f"Site({site1[0]},{site1[1]})"
+        node_id2 = f"Site({site2[0]},{site2[1]})"
+        # Add b^†_i b_j term
+        terms.append(TensorProduct({node_id1: "sz", node_id2: "sz"}))
+
+
+    return Hamiltonian(terms, conversion_dict)
+
 def spatial_correlation_function(Lx, Ly, dist, dim, mode = "HV"):
     # <b^†_i * b_j> - not normalized
     if mode == "HV":

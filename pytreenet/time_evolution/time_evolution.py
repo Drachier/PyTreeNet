@@ -60,12 +60,17 @@ class TTNTimeEvolutionConfig:
         "num_vecs": 3,
         "tau": 1e-2,
         "SVDParameters": SVDParameters(max_bond_dim=np.inf, rel_tol=-np.inf, total_tol=-np.inf),
+        "lanczos_cutoff": 1000,
         "expansion_steps": 10,
+        "InitExpST" : 0.1 , # Init expansion start time
+        "ConvThresh" : 1e-2, # convergence threshold
+        "ConvThreshUP" : 1e-2, # convergence threshold 
         "tol": 1e-20,
-        "tol_step": 1e1,
+        "tol_step_increase": 10,
+        "tol_step_decrease": 0.5,
         "num_second_trial" : 10,
         "max_bond": 200,
-        "rel_tot_bond": 20,
+        "rel_tot_bond": (0, 20),
         "T3N_dict": None,
         "T3NMode": T3NMode.QR,
         "T3N_contr_mode" : ContractionMode.EQUAL}
@@ -498,7 +503,8 @@ def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
                       time_difference: float,
                       forward: bool = True,
                       Lanczos = False,
-                      lanczos_params = None) -> np.ndarray:
+                      lanczos_params = None,
+                      lanczos_cutoff = None) -> np.ndarray:
     """
     Time evolves a state psi via a Hamiltonian.
      
@@ -520,28 +526,31 @@ def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
     """
     sign = -2 * forward + 1  # forward=True -> -1; forward=False -> +1    
     if Lanczos:
-        
-        psi_shape = psi.shape
-        psi = psi.flatten()
-        exponent = hamiltonian
+        if  psi.flatten().shape[0] > lanczos_cutoff:
+            psi_shape = psi.shape
+            psi = psi.flatten()
+            exponent = hamiltonian
 
-        # Generate trivial legcharges lists for eff_H and psi
-        legcharges_exponent = generate_trivial_legcharges(exponent.shape)
-        legcharges_psi = generate_trivial_legcharges(psi.shape)
+            # Generate trivial legcharges lists for eff_H and psi
+            legcharges_exponent = generate_trivial_legcharges(exponent.shape)
+            legcharges_psi = generate_trivial_legcharges(psi.shape)
 
-        # Convert data to `Array` instances with trivial legcharges
-        exponent = Array.from_ndarray(exponent, legcharges_exponent, dtype=exponent.dtype)
-        psi = Array.from_ndarray(psi, legcharges_psi, dtype=psi.dtype)
-          
-        lanczos_evolver = LanczosEvolution(exponent, psi, lanczos_params)
-        dt = sign * 1.0j * time_difference
-        psi_evolved, N = lanczos_evolver.run(dt)
+            # Convert data to `Array` instances with trivial legcharges
+            exponent = Array.from_ndarray(exponent, legcharges_exponent, dtype=exponent.dtype)
+            psi = Array.from_ndarray(psi, legcharges_psi, dtype=psi.dtype)
+            
+            lanczos_evolver = LanczosEvolution(exponent, psi, lanczos_params)
+            dt = sign * 1.0j * time_difference
+            psi_evolved, N = lanczos_evolver.run(dt)
 
-        if N >= lanczos_params['N_max']:
-           print(f"Warning: Reached maximum iterations ({N}")
+            if N >= lanczos_params['N_max']:
+               print(f"Warning: Reached maximum iterations ({N}")
 
-        return np.reshape(psi_evolved.to_ndarray() , psi_shape)
-    
+            return np.reshape(psi_evolved.to_ndarray() , psi_shape)
+        else:
+            exponent = sign * 1.0j * hamiltonian * time_difference
+            return np.reshape(fast_exp_action(exponent, psi.flatten(), mode="fastest"),
+                            newshape=psi.shape)             
     else:
         exponent = sign * 1.0j * hamiltonian * time_difference
         return np.reshape(fast_exp_action(exponent, psi.flatten(), mode="fastest"),
