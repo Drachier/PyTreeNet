@@ -164,7 +164,8 @@ def contract_all_but_one_neighbour_block_to_ket(ket_tensor: np.ndarray,
                                                 next_node_id: str,
                                                 partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
     """
-    Contract all neighbour blocks to the ket tensor.
+    Contract all neighbour blocks to the ket tensor, except for the one
+    specified.
 
     Args:
         ket_tensor (np.ndarray): The tensor of the ket node.

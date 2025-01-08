@@ -10,6 +10,7 @@ Using explicit imports from this module provides utility functions to contract
 subtrees and leaf nodes of two states.
 """
 from __future__ import annotations
+from typing import Union, Callable
 
 import numpy as np
 
@@ -167,7 +168,8 @@ def contract_any(node_id: str, next_node_id: str,
 def contract_any_nodes(next_node_id: str,
                        node1: Node, node2: Node,
                        tensor1: np.ndarray, tensor2: np.ndarray,
-                       dictionary: PartialTreeCachDict) -> np.ndarray:
+                       dictionary: PartialTreeCachDict,
+                       id_trafo: Union[Callable,None] = None) -> np.ndarray:
     """
     Contracts any two nodes using the given tensors.
 
@@ -187,6 +189,10 @@ def contract_any_nodes(next_node_id: str,
         tensor2 (np.ndarray): The tensor corresponding to node2.
         dictionary (PartialTreeCacheDict): The dictionary containing the
             already contracted subtrees.
+        id_trafo (Union[Callable,None], optional): A function to transform the
+            node identifiers of node1 into the node identifiers of node2. If
+            None, it is assumed that the identifiers are the same. Defaults to
+            None.
     
     Returns:
         np.ndarray: The resulting tensor. 
@@ -207,7 +213,8 @@ def contract_any_nodes(next_node_id: str,
     return contract_subtrees_using_dictionary(next_node_id,
                                               node1, node2,
                                               tensor1, tensor2,
-                                              dictionary)
+                                              dictionary,
+                                              id_trafo=id_trafo)
 
 def contract_leafs(node1: Node, node2: Node,
                    tensor1: np.ndarray, tensor2: np.ndarray
@@ -252,7 +259,8 @@ def contract_subtrees_using_dictionary(next_node_id: str,
                                        node1: Node, node2: Node,
                                        tensor1: np.ndarray,
                                        tensor2: np.ndarray,
-                                       dictionary: PartialTreeCachDict
+                                       dictionary: PartialTreeCachDict,
+                                       id_trafo: Union[Callable,None] = None
                                        ) -> np.ndarray:
     """
     Contracts a node with all but one of the subtrees attached to it.
@@ -271,6 +279,10 @@ def contract_subtrees_using_dictionary(next_node_id: str,
         tensor2 (np.ndarray): The tensor corresponding to node2.
         dictionary (PartialTreeCacheDict): The dictionary containing the
             already contracted subtrees.
+        id_trafo (Union[Callable,None], optional): A function to transform the
+            node identifiers of node1 into the node identifiers of node2. If
+            None, it is assumed that the identifiers are the same. Defaults to
+            None.
         
         Returns:
             np.ndarray: The resulting tensor. For example, if the nodes have
@@ -300,7 +312,8 @@ def contract_subtrees_using_dictionary(next_node_id: str,
                                                          ketblock_tensor,
                                                          bra_node,
                                                          ket_node,
-                                                         next_node_id)
+                                                         next_node_id,
+                                                         id_trafo=id_trafo)
 
 def contract_bra_to_ket_and_blocks(bra_tensor: np.ndarray,
                                    ketblock_tensor: np.ndarray,
@@ -349,7 +362,9 @@ def contract_bra_to_ket_and_blocks_ignore_one_leg(bra_tensor: np.ndarray,
                                                   ketblock_tensor: np.ndarray,
                                                   bra_node: Node,
                                                   ket_node: Node,
-                                                  next_node_id: str) -> np.ndarray:
+                                                  next_node_id: str,
+                                                  id_trafo: Union[Callable,None] = None
+                                                  ) -> np.ndarray:
     """
     Contracts the bra tensor with the ket and all but one neighbouring block.
 
@@ -361,6 +376,10 @@ def contract_bra_to_ket_and_blocks_ignore_one_leg(bra_tensor: np.ndarray,
         ket_node (Node): The ket node.
         next_node_id (str): The identifier of the node to which the remaining
             virtual legs point.
+        id_trafo (Union[Callable,None], optional): A function to transform the
+            node identifiers of the ket node into the node identifiers of the
+            the bra node. If None, it is assumed that the identifiers are the
+            same. Defaults to None.
 
     Returns:
         np.ndarray: The resulting tensor::
@@ -380,12 +399,23 @@ def contract_bra_to_ket_and_blocks_ignore_one_leg(bra_tensor: np.ndarray,
     legs_block = []
     legs_bra = []
     next_node_index = ket_node.neighbour_index(next_node_id)
-    for neighbour_id in bra_node.neighbouring_nodes():
+    for neighbour_id in ket_node.neighbouring_nodes():
         if neighbour_id != next_node_id:
+            if id_trafo is None:
+                bra_neighbour_id = neighbour_id
+            else:
+                bra_neighbour_id = id_trafo(neighbour_id)
             ket_index = ket_node.neighbour_index(neighbour_id)
+            # 1 comes from the physical leg and the other one happens exactly
+            # when the current neighbour index is above the ignored index.
+            # This is how the block tensor is constructed.
             legs_block.append(ket_index + 1 + int(next_node_index > ket_index))
-            legs_bra.append(bra_node.neighbour_index(neighbour_id))
+            bra_index = bra_node.neighbour_index(bra_neighbour_id)
+            legs_bra.append(bra_index)
+    # The physical leg of the ket is now leg 1
     legs_block.append(1)
+    # Physical leg of the bra is the last leg
     num_neighbours = bra_node.nneighbours()
     legs_bra.append(num_neighbours)
-    return np.tensordot(ketblock_tensor, bra_tensor, axes=(legs_block, legs_bra))
+    return np.tensordot(ketblock_tensor, bra_tensor,
+                        axes=(legs_block, legs_bra))
