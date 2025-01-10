@@ -4,14 +4,16 @@ Provides a class that represents dennsity operators as a tree tensor network.
 This leads to the concept of a tree tensor network density operator (TTNDO).
 
 """
-from numpy import eye, ndarray
 from re import match
+
+from numpy import eye, ndarray, prod as np_prod
 
 from ..core.node import Node
 from .ttns import TreeTensorNetworkState
 from ..util.ttn_exceptions import positivity_check
+from ..contractions.ttndo_contractions import trace_ttndo
 
-class TreeTensorNetworkDensityOperator(TreeTensorNetworkState):
+class SymmetricTTNDO(TreeTensorNetworkState):
     """
     A class representing a tree tensor network density operator (TTNDO).
 
@@ -65,7 +67,7 @@ class TreeTensorNetworkDensityOperator(TreeTensorNetworkState):
             str: The bra identifier.
         """
         return node_id + self.bra_suffix
-    
+
     def reverse_ket_id(self, ket_id: str) -> str:
         """
         Returns the node identifier for a given ket identifier.
@@ -95,6 +97,32 @@ class TreeTensorNetworkDensityOperator(TreeTensorNetworkState):
         assert match(r".*"+self.bra_suffix, bra_id), \
             "The given identifier is not a bra identifier!"
         return bra_id[:-len(self.bra_suffix)]
+
+    def ket_to_bra_id(self, ket_id: str) -> str:
+        """
+        Returns the bra identifier for a given ket identifier.
+
+        Args:
+            ket_id (str): The ket identifier.
+
+        Returns:
+            str: The bra identifier.
+
+        """
+        return self.bra_id(self.reverse_ket_id(ket_id))
+
+    def bra_to_ket_id(self, bra_id: str) -> str:
+        """
+        Returns the ket identifier for a given bra identifier.
+
+        Args:
+            bra_id (str): The bra identifier.
+
+        Returns:
+            str: The ket identifier.
+
+        """
+        return self.ket_id(self.reverse_bra_id(bra_id))
 
     def add_symmetric_children_to_parent(self,
                                          child_id: str,
@@ -148,3 +176,12 @@ class TreeTensorNetworkDensityOperator(TreeTensorNetworkState):
         bra_node = Node(identifier=self.bra_id(child_id))
         self.add_child_to_parent(bra_node, bra_tensor, child_leg,
                                  parent_bra_id, parent_bra_leg)
+
+    def trace(self):
+        """
+        Returns the trace of the TTNDO.
+
+        Returns:
+            complex: The trace of the TTNDO.
+        """
+        return trace_ttndo(self)

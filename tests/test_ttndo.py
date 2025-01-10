@@ -1,28 +1,28 @@
 from unittest import TestCase, main
 
-from pytreenet.ttns.ttndo import TreeTensorNetworkDensityOperator
+from pytreenet.ttns.ttndo import SymmetricTTNDO
 from pytreenet.random import crandn
 
 class TestTTNDOInit(TestCase):
     """
-    Test the initialisation of the TreeTensorNetworkDensityOperator class.
+    Test the initialisation of the SymmetricTTNDO class.
     """
 
     def test_init_no_keywords(self):
         """
-        Test the initialisation of the TreeTensorNetworkDensityOperator class
+        Test the initialisation of the SymmetricTTNDO class
         without keywords for the suffixes.
         """
-        ttns = TreeTensorNetworkDensityOperator()
+        ttns = SymmetricTTNDO()
         self.assertEqual(ttns.bra_suffix, "_bra")
         self.assertEqual(ttns.ket_suffix, "_ket")
 
     def test_init_with_keywords(self):
         """
-        Test the initialisation of the TreeTensorNetworkDensityOperator class
+        Test the initialisation of the SymmetricTTNDO class
         with keywords for the suffixes.
         """
-        ttns = TreeTensorNetworkDensityOperator(bra_suffix="_bra1", ket_suffix="_ket1")
+        ttns = SymmetricTTNDO(bra_suffix="_bra1", ket_suffix="_ket1")
         self.assertEqual(ttns.bra_suffix, "_bra1")
         self.assertEqual(ttns.ket_suffix, "_ket1")
 
@@ -32,7 +32,7 @@ class TestTTNDOStringMethods(TestCase):
     """
 
     def setUp(self):
-        self.ttndo = TreeTensorNetworkDensityOperator()
+        self.ttndo = SymmetricTTNDO()
 
     def test_ket_id(self):
         """
@@ -46,13 +46,37 @@ class TestTTNDOStringMethods(TestCase):
         """
         self.assertEqual(self.ttndo.bra_id("node"), "node_bra")
 
+    def test_reverse_ket_id(self):
+        """
+        Test the reverse_ket_id method.
+        """
+        self.assertEqual(self.ttndo.reverse_ket_id("node_ket"), "node")
+
+    def test_reverse_bra_id(self):
+        """
+        Test the reverse_bra_id method.
+        """
+        self.assertEqual(self.ttndo.reverse_bra_id("node_bra"), "node")
+
+    def test_ket_to_bra_id(self):
+        """
+        Test the ket_to_bra_id method.
+        """
+        self.assertEqual(self.ttndo.ket_to_bra_id("node_ket"), "node_bra")
+
+    def test_bra_to_ket_id(self):
+        """
+        Test the bra_to_ket_id method.
+        """
+        self.assertEqual(self.ttndo.bra_to_ket_id("node_bra"), "node_ket")
+
 class TestTTNDORootConstructionMethods(TestCase):
     """
     Test the methods that build the nodes of the TTNDO.
     """
 
     def setUp(self):
-        self.ttndo = TreeTensorNetworkDensityOperator()
+        self.ttndo = SymmetricTTNDO()
 
     def test_add_trivial_root_default(self):
         """
@@ -84,7 +108,7 @@ class TestTTNDOChildrenAddingMethod(TestCase):
     """
 
     def setUp(self):
-        self.ttndo = TreeTensorNetworkDensityOperator()
+        self.ttndo = SymmetricTTNDO()
         self.ttndo.add_trivial_root("root")
 
     def test_add_symmetric_children_to_root(self):
@@ -154,7 +178,7 @@ class TestTTNDOChildrenAddingMethod(TestCase):
         self.assertRaises(AssertionError, self.ttndo.add_symmetric_children_to_parent,
                           child_id, ket_tensor, bra_tensor, 0,
                           self.ttndo.root_id, 0, 1)
-        
+
     def test_bra_leg_for_non_root(self):
         # Prepare
         parent_id = "parent"
