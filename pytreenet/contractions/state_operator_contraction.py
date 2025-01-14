@@ -268,7 +268,7 @@ def contract_leaf(state_node: Node,
                            axes=(_node_operator_output_leg(operator_node),
                                  _node_state_phys_leg(bra_node)))
     bra_ham_ket = np.tensordot(state_tensor, bra_ham,
-                               axes=(_node_state_phys_leg(state_tensor),
+                               axes=(_node_state_phys_leg(state_node),
                                      _node_operator_input_leg(operator_node)-1))
     return bra_ham_ket
 

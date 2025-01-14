@@ -42,7 +42,7 @@ def generate_three_child_layers_ttdndo() -> SymmetricTTNDO:
         (bra side)--R
                     \\6   3
                      K0------K13---2
-                2  4/ \\5 
+                5  4/ \\5 
                 --K10   K11
                   /3     |2
                 B20

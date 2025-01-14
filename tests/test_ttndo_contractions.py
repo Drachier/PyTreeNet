@@ -4,11 +4,15 @@ from copy import deepcopy
 from numpy import allclose
 
 from pytreenet.ttns.ttndo import SymmetricTTNDO
+from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
 from pytreenet.random.random_ttndo import (generate_one_child_layer_ttdndo,
                                            generate_three_child_layers_ttdndo)
+from pytreenet.random.random_ttno import (generate_single_site_ttno,
+                                          generate_three_layer_ttno)
 
 from pytreenet.contractions.ttndo_contractions import (ttndo_contraction_order,
-                                                       trace_ttndo)
+                                                       trace_ttndo,
+                                                       ttndo_ttno_expectation_value)
 
 class TestTTNDOContractionOrder(TestCase):
     """
@@ -104,6 +108,56 @@ class TestTraceTTNDO(TestCase):
         # Test
         found_trace = trace_ttndo(ttndo)
         self.assertTrue(allclose(found_trace, ref_trace))
+
+class TestTTNDOExpectationValue(TestCase):
+    """
+    Test the function ttndo_ttno_expectation_value.
+    """
+
+    def test_trivial_case(self):
+        """
+        Tests the case of empty trees.
+        """
+        ttndo = SymmetricTTNDO()
+        ttno = TreeTensorNetworkOperator()
+        self.assertEqual(ttndo_ttno_expectation_value(ttndo, ttno), 0)
+
+    def test_for_one_child_layer(self):
+        """
+        Test the expectation value of a TTNDO with one bra and ket child each.
+        """
+        ttndo = generate_one_child_layer_ttdndo()
+        ttno = generate_single_site_ttno()
+        # Compute Reference
+        ref_ttndo = deepcopy(ttndo)
+        ref_ttno = deepcopy(ttno)
+        density_tensor, _ = ref_ttndo.completely_contract_tree()
+        density_tensor_matrix = density_tensor.reshape((3,3))
+        ttno_tensor = ref_ttno.tensors[ref_ttno.root_id]
+        ref_expectation = (ttno_tensor @ density_tensor_matrix).trace()
+        # Test
+        found_expectation = ttndo_ttno_expectation_value(ttndo, ttno)
+        self.assertTrue(allclose(found_expectation, ref_expectation))
+
+    def test_for_three_child_layers(self):
+        """
+        Test the expectation value of a TTNDO with three child layers.
+        """
+        ttndo = generate_three_child_layers_ttdndo()
+        ttno = generate_three_layer_ttno()
+        # Compute Reference
+        ref_ttndo = deepcopy(ttndo)
+        ref_ttno = deepcopy(ttno)
+        density_tensor, _ = ref_ttndo.completely_contract_tree()
+        density_tensor = density_tensor.transpose((0,1,5,4,2,3,6,10,9,7,8))
+        phys_dim = 2*2*2*5
+        density_matrix = density_tensor.reshape((phys_dim, phys_dim))
+        ttno_tensor, _ = ref_ttno.as_matrix()
+        ref_expectation = (ttno_tensor @ density_matrix).trace()
+        # Test
+        found_expectation = ttndo_ttno_expectation_value(ttndo, ttno)
+        print(found_expectation, ref_expectation)
+        self.assertTrue(allclose(found_expectation, ref_expectation))
 
 if __name__ == "__main__":
     main()

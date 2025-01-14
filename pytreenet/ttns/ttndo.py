@@ -6,12 +6,13 @@ This leads to the concept of a tree tensor network density operator (TTNDO).
 """
 from re import match
 
-from numpy import eye, ndarray, prod as np_prod
+from numpy import eye, ndarray
 
 from ..core.node import Node
 from .ttns import TreeTensorNetworkState
+from ..ttno.ttno_class import TreeTensorNetworkOperator
 from ..util.ttn_exceptions import positivity_check
-from ..contractions.ttndo_contractions import trace_ttndo
+from ..contractions.ttndo_contractions import trace_ttndo, ttndo_ttno_expectation_value
 
 class SymmetricTTNDO(TreeTensorNetworkState):
     """
@@ -167,7 +168,7 @@ class SymmetricTTNDO(TreeTensorNetworkState):
             parent_ket_id = self.ket_id(parent_id)
             parent_bra_id = self.bra_id(parent_id)
         assert bra_tensor.shape == ket_tensor.shape, \
-            "The bra and ket tensor must have the same shape!"
+           "The bra and ket tensor must have the same shape!"
         # Add Ket Node
         ket_node = Node(identifier=self.ket_id(child_id))
         self.add_child_to_parent(ket_node, ket_tensor, child_leg,
@@ -185,3 +186,17 @@ class SymmetricTTNDO(TreeTensorNetworkState):
             complex: The trace of the TTNDO.
         """
         return trace_ttndo(self)
+
+    def ttno_expectation_value(self, ttno: TreeTensorNetworkOperator) -> complex:
+        """
+        Computes the expectation value of the TTNDO with respect to a TTNO.
+
+        Args:
+            ttno (TreeTensorNetworkOperator): The TTNO to compute the expectation
+                value with.
+
+        Returns:
+            complex: The expectation value of the TTNDO with respect to the TTNO.
+
+        """
+        return ttndo_ttno_expectation_value(self, ttno)
