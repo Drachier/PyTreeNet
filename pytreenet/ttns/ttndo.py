@@ -5,6 +5,7 @@ This leads to the concept of a tree tensor network density operator (TTNDO).
 
 """
 from re import match
+from copy import deepcopy
 
 from numpy import eye, ndarray
 
@@ -12,6 +13,7 @@ from ..core.node import Node
 from .ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TreeTensorNetworkOperator
 from ..util.ttn_exceptions import positivity_check
+from ..operators.tensorproduct import TensorProduct
 from ..contractions.ttndo_contractions import trace_ttndo, ttndo_ttno_expectation_value
 
 class SymmetricTTNDO(TreeTensorNetworkState):
@@ -178,7 +180,7 @@ class SymmetricTTNDO(TreeTensorNetworkState):
         self.add_child_to_parent(bra_node, bra_tensor, child_leg,
                                  parent_bra_id, parent_bra_leg)
 
-    def trace(self):
+    def trace(self) -> complex:
         """
         Returns the trace of the TTNDO.
 
@@ -187,7 +189,14 @@ class SymmetricTTNDO(TreeTensorNetworkState):
         """
         return trace_ttndo(self)
 
-    def ttno_expectation_value(self, ttno: TreeTensorNetworkOperator) -> complex:
+    def norm(self) -> complex:
+        """
+        Returns the norm of the TTDNO, which is just the trace
+        """
+        return self.trace()
+
+    def ttno_expectation_value(self,
+                               operator: TreeTensorNetworkOperator) -> complex:
         """
         Computes the expectation value of the TTNDO with respect to a TTNO.
 
@@ -199,4 +208,46 @@ class SymmetricTTNDO(TreeTensorNetworkState):
             complex: The expectation value of the TTNDO with respect to the TTNO.
 
         """
-        return ttndo_ttno_expectation_value(self, ttno)
+        return ttndo_ttno_expectation_value(self, operator)
+
+    def tensor_product_expectation_value(self,
+                                         operator: TensorProduct
+                                         ) -> complex:
+        """
+        Computes the expectation value of a tensor product of operators.
+
+        Args:
+            operator (TensorProduct): The tensor product of operators.
+
+        Returns:
+            complex: The resulting expectation value < TTNS | tensor_product | TTNS>
+
+        """
+        if len(operator) == 0:
+            return self.scalar_product()
+        for node_id, single_site_operator in operator.items():
+            ket_id = self.ket_id(node_id)
+            # Can be improved once shallow copying is possible
+            ttn = deepcopy(self)
+            ttn.absorb_into_open_legs(ket_id, single_site_operator)
+        return ttn.trace()
+
+    def single_site_operator_expectation_value(self, node_id: str,
+                                               operator: ndarray) -> complex:
+        """
+        The expectation value with regards to a single-site operator.
+
+        The single-site operator acts on the specified node.
+
+        Args:
+            node_id (str): The identifier of the node, the operator is applied
+                to.
+            operator (np.ndarray): The operator of which we determine the
+                expectation value. Note that the state will be contracted with
+                axis/leg 1 of this operator.
+
+        Returns:
+            complex: The resulting expectation value < TTNS| Operator| TTN >.
+        """
+        tensor_product = TensorProduct({node_id: operator})
+        return self.operator_expectation_value(tensor_product)
