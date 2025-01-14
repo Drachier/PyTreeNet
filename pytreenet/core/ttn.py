@@ -1218,7 +1218,7 @@ class TreeTensorNetwork(TreeStructure):
                     "parent": node.parent,
                     "children": list(node.children),
                     "leg_permutation": node.leg_permutation if node.leg_permutation is not None else None,
-                    "shape": node.shape if hasattr(node, 'shape') else None
+                    "shape": node._shape if node._shape is not None else None
                 }
                 for node_id, node in self.nodes.items()
             }
@@ -1261,6 +1261,7 @@ class TreeTensorNetwork(TreeStructure):
             node = Node(identifier=node_data["identifier"])
             if node_data["leg_permutation"] is not None:
                 node._leg_permutation = node_data["leg_permutation"]
+            node._shape = node_data["shape"]
             ttn._nodes[node_id] = node
 
         # Set connections

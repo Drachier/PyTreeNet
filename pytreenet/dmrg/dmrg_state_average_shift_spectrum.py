@@ -1,5 +1,7 @@
 from __future__ import annotations
 from typing import List, Tuple, Dict
+from pyscf.lib import davidson as pyscf_davidson
+import logging
 
 import numpy as np
 from copy import deepcopy
@@ -17,6 +19,9 @@ from ..contractions.contraction_util import contract_all_but_one_neighbour_block
 from .herm_band_lanczos import herm_band_lanczos
 from .davidson import davidson
 
+# Setup logging
+logger = logging.getLogger(__name__)
+
 class DMRGAlgorithm4MultiTTNSSpectrumShift():
     """
     The general abstract class of a DMRG algorithm.
@@ -24,12 +29,13 @@ class DMRGAlgorithm4MultiTTNSSpectrumShift():
 
     def __init__(self, initial_state: MultiTreeTensorNetworkState,
                  hamiltonian: TTNO,
-                 num_sweeps: int,
+                 max_sweeps: int,
                  max_iter: int,
                  svd_params: SVDParameters,
                  site: str,
                  old_eigenstates_path: Union[List[str],None]=None,
-                 old_energies: Union[List[float],None]=None):
+                 energy_shifts: Union[int, float, List[int], List[float], None]=None,
+                 threshold: float=1e-6):
         """
         Initilises an instance of a DMRG algorithm.
         
@@ -38,27 +44,38 @@ class DMRGAlgorithm4MultiTTNSSpectrumShift():
                 system.
             hamiltonian (TTNO): The Hamiltonian in TTNO form under which to
                 time-evolve the system.
-            num_sweeps (int): The number of sweeps to perform.
+            max_sweeps (int): The number of sweeps to perform.
             max_iter (int): The maximum number of iterations.
             svd_params (SVDParameters): The parameters for the SVD.
             site (str): one site or two site dmrg.
             old_eigenstates_path (Union[List[str],None]): The path to the old
                 eigenstates.
+            threshold (float): The threshold for the energy convergence.
         """
         assert len(initial_state.nodes) == len(hamiltonian.nodes)
         self.state = initial_state
         self.hamiltonian = hamiltonian
-        self.num_sweeps = num_sweeps
+        self.max_sweeps = max_sweeps
         self.max_iter = max_iter
         self.site = site
-        if isinstance(old_eigenstates_path, list) and isinstance(old_energies, list):
+        self.threshold = threshold
+        if energy_shifts==0: 
+            energy_shifts = None
+        if isinstance(old_eigenstates_path, list):
+            if isinstance(energy_shifts, list):
+                assert len(old_eigenstates_path) == len(energy_shifts), "The number of old eigenstates path and energy shifts must be the same"
+            elif isinstance(energy_shifts, int) or isinstance(energy_shifts, float):
+                energy_shifts = [energy_shifts]*(len(old_eigenstates_path))
+            else:
+                logger.info("old_eigenstates_path is a list, but energy_shifts is none. Therefore, no energy shifts are used.")
             self.old_eigenstates = [TreeTensorNetworkState.load(path) for path in old_eigenstates_path]
             self.list_partial_tree_cache = [PartialTreeCachDict() for _ in range(len(self.old_eigenstates))] # one cache for each old eigenstates
-            self.old_energies = old_energies
+            self.energy_shifts = energy_shifts
+            self._sanity_check()
         else:
             self.old_eigenstates = None
             self.list_partial_tree_cache = None
-            self.old_energies = None
+            self.energy_shifts = None
         self.num_states = len(initial_state.state_tensors)
         if svd_params is None:
             self.svd_params = SVDParameters()
@@ -71,6 +88,22 @@ class DMRGAlgorithm4MultiTTNSSpectrumShift():
         # Caching for speed up
         self.partial_tree_cache = PartialTreeCachDict()
         self._init_partial_tree_cache()
+        
+    def _sanity_check(self):
+        num_old_states = len(self.old_eigenstates)
+        ortho_check = np.zeros((num_old_states, num_old_states), dtype=np.complex128)
+        for i in range(num_old_states):
+            for j in range(i,num_old_states):
+                ovlp = self.old_eigenstates[i].scalar_product(self.old_eigenstates[j])
+                ortho_check[i,j] = ovlp
+                ortho_check[j,i] = ovlp
+        if np.allclose(ortho_check.real, np.eye(num_old_states), atol=1e-4) and np.allclose(ortho_check.imag, np.zeros((num_old_states, num_old_states)), atol=1e-4):
+            logger.info("Orthogonality check passed")
+            return True
+        else:
+            logger.warning("Orthogonality check failed")
+            logger.warning(f"The norm difference is {np.linalg.norm(ortho_check.real - np.eye(num_old_states))}")
+            return False
 
     def _orthogonalize_init(self, force_new: bool=False):
         """
@@ -218,7 +251,7 @@ class DMRGAlgorithm4MultiTTNSSpectrumShift():
             state_index (int): The index of the state to be updated.
         """
         dictionary = self.list_partial_tree_cache[state_index]
-        ttn2 = self.state 
+        ttn2 = self.state.conjugate() 
         ttn1 = self.old_eigenstates[state_index]
         block = contract_any_ttns(node_id, next_node_id,
                              ttn1, ttn2,
@@ -333,23 +366,16 @@ class DMRGAlgorithm4MultiTTNSSpectrumShift():
         
         """
         ket_node, ket_tensor = self.old_eigenstates[state_index][node_id]
-        neighbours = ket_node.neighbouring_nodes()
-        for neighbour_id in neighbours:
-            cached_tensor = self.list_partial_tree_cache[state_index].get_entry(neighbour_id,
-                                                                node_id)
-            tensor_leg_to_neighbour = ket_node.neighbour_index(neighbour_id)
-            ket_tensor = np.tensordot(cached_tensor, ket_tensor,
-                                  axes=([0],[tensor_leg_to_neighbour]))
-            ket_reshape = list(range(ket_tensor.ndim-1))[::-1] + [ket_tensor.ndim-1]
-        ket_tensor = np.transpose(ket_tensor, axes=ket_reshape)
-        # ket_tensor = np.transpose(ket_tensor, axes=([0,1]))
-        rho_tensor = np.tensordot(ket_tensor, ket_tensor.conj(),0)
-        # Transposing to have correct leg order
-        # axes = self._find_tensor_leg_permutation(node_id)
-        # rho_tensor = np.transpose(rho_tensor, axes=axes)
+        ketblock_tensor = ket_tensor
+        for neighbour_id in ket_node.neighbouring_nodes():
+            cached_neighbour_tensor = self.list_partial_tree_cache[state_index].get_entry(neighbour_id,ket_node.identifier)
+        
+            ketblock_tensor = np.tensordot(ketblock_tensor, cached_neighbour_tensor,
+                                axes=([0],[0]))  
+        new_order = list(range(1, ketblock_tensor.ndim)) + [0]
+        ketblock_tensor = np.transpose(ketblock_tensor, axes=new_order)
+        rho_tensor = np.tensordot(ketblock_tensor, ketblock_tensor.conj(),0)
         return rho_tensor
-
-
     
     def _update_one_site(self, node_id: str) -> np.ndarray:
         """
@@ -365,31 +391,30 @@ class DMRGAlgorithm4MultiTTNSSpectrumShift():
         assert self.state.orthogonality_center_id == node_id, "Can only update the orthogonality center, not the node " + node_id
         hamiltonian_eff_site = tensor_matricisation_half(self._contract_all_except_node(node_id))
         rho_tensor_effective = np.zeros(hamiltonian_eff_site.shape,dtype=complex)
-        if self.old_eigenstates is not None:
-            for i in range(len(self.old_eigenstates)):
-                rho_tensor = self._contract_two_ttns_except_node(node_id, i)
-                rho_tensor_effective -= tensor_matricisation_half(rho_tensor)*self.old_energies[i]
-
-            
+        
         multi_states = deepcopy(self.state.state_tensors)
         shape = self.state.tensors[node_id].shape
         multi_states_vec = [tensor.reshape(-1) for tensor in multi_states]
-        ### solve with Hermitian band Lanczos method
-        # multi_states_vec = np.stack(multi_states_vec, axis=-1)
-        # Afunc = lambda x:hamiltonian_eff_site@x
-        # result = herm_band_lanczos(Afunc, multi_states_vec, self.max_iter,sflag=1)
-        # e,v = np.linalg.eig(result['T'])
-        # eig_vals = np.sort(e)
-        # v = np.hsplit(result['V']@v[:,:self.num_states],self.num_states)
-        # v_tensor_intermediate = [v_i.reshape(shape) for v_i in v]
+        
+        if self.old_eigenstates is not None and self.energy_shifts is not None:
+            for i in range(len(self.old_eigenstates)):
+                rho_tensor = self._contract_two_ttns_except_node(node_id, i)  
+                rho_tensor_effective += tensor_matricisation_half(rho_tensor)*self.energy_shifts[i]
+        
         ### solve with Davidson method
-        l,v,_ = davidson(hamiltonian_eff_site-rho_tensor_effective, multi_states_vec, len(multi_states_vec),
-                         max_iter=self.max_iter)
+        # aop = lambda x: hamiltonian_eff_site@x + rho_tensor_effective@x
+        # precond = lambda dx, e, x0: dx/(hamiltonian_eff_site.diagonal()+rho_tensor_effective.diagonal()-e)
+        # l,v = pyscf_davidson(aop, multi_states_vec, precond=precond, nroots=len(multi_states_vec))
+        # v = [v] if isinstance(l,float) else v
+        # l = [l] if isinstance(l,float) else l
+        # l = np.array(l)
+        l,v,_ = davidson(hamiltonian_eff_site+rho_tensor_effective, multi_states_vec, len(multi_states_vec), max_iter=self.max_iter, iprint=False)
         ind = np.argsort(l)
-        eig_vals = l[ind]
-        v_sorted = np.asarray(v)[ind, :]
+        eig_vals = l[ind][:self.num_states]
+        v_sorted = np.asarray(v)[ind, :][:self.num_states,:]
         v_tensor_intermediate = [v_i.reshape(shape) for v_i in v_sorted]
         ### end of Davidson method
+        
         self.state.state_tensors = v_tensor_intermediate
         self.state.tensors[node_id] = v_tensor_intermediate[0]
         # print("eig_vals", eig_vals)
@@ -429,26 +454,39 @@ class DMRGAlgorithm4MultiTTNSSpectrumShift():
             raise NotImplementedError('Two-site DMRG is not implemented for MultiTTNS')
             # return self.sweep_two_site()
             
-    def run(self, write_state_average_TTNS: Union[str,None]=None):
+    def run(self, write_state_average_TTNS: Union[str,None]=None, multittns: bool=False):
         """
         Runs the DMRG algorithm.
         """
         es = []
         max_bond_dims = []
-        for i in range(self.num_sweeps):
+        for i in range(self.max_sweeps):
             t1 = time.time()
             e, max_bond_dim = self.sweep()
             t2 = time.time()
             es.append(e)
             max_bond_dims.append(max_bond_dim)
-            print(f"Sweep {i} took {t2-t1:.6f} seconds, max_bond_dim {max_bond_dim}, eig_vals {e}")
+            logger.info(f"Sweep {i} took {t2-t1:.6f} seconds, max_bond_dim {max_bond_dim}, eig_vals {e}")
+            
+            # Check convergence if we have at least two sweeps
+            if i > 0:
+                # Calculate maximum energy difference between current and last sweep
+                energy_diff = np.max(np.abs(np.array(es[i]) - np.array(es[i-1])))
+                logger.info(f"Maximum energy difference from last sweep: {energy_diff:.2e}")
+                
+                if energy_diff < self.threshold:
+                    logger.info(f"Convergence reached at sweep {i} with energy difference {energy_diff:.2e}")
+                    break
         if write_state_average_TTNS is not None:
-            self.state.save(write_state_average_TTNS)
-            node_id = self.state.state_center_id
-            for i in range(self.num_states):
-                self.state.tensors[node_id] = self.state.state_tensors[i]
-                self.state.save(write_state_average_TTNS+f"_state_{i}")
-            self.state.tensors[node_id] = self.state.state_tensors[0]
+            if multittns:
+                self.state.save_ttns(write_state_average_TTNS)
+            else:
+                # self.state.save(write_state_average_TTNS)
+                node_id = self.state.state_center_id
+                for i in range(self.num_states):
+                    self.state.tensors[node_id] = self.state.state_tensors[i]
+                    self.state.save(write_state_average_TTNS+f"_state_{i}")
+                self.state.tensors[node_id] = self.state.state_tensors[0]
         return es, max_bond_dims
     
     def _move_orth_and_update_cache_for_path(self, path: List[str]):

@@ -18,6 +18,8 @@ from ..contractions.state_state_contraction import contract_two_ttns
 from ..contractions.state_operator_contraction import expectation_value
 from .utils_multittns import (_init_orthogonal_states, _scalar_product_multittn, 
                            )
+import os
+import json
 
 class MultiTreeTensorNetworkState(TreeTensorNetworkState):
     """
@@ -27,8 +29,10 @@ class MultiTreeTensorNetworkState(TreeTensorNetworkState):
     with multiple states at one node. And the multiple state node can be  swept
     through the network. The multi-state node is also the orthogonality center.
     """
-    def __init__(self, weight: Union[List[float], List[int], np.ndarray])-> None:
+    def __init__(self, weight: Union[List[float], List[int], np.ndarray, None])-> None:
         super().__init__()
+        if weight is None:
+            weight = [1.0]
         if isinstance(weight, list):
             weight = np.array(weight)
         self.weight = weight
@@ -311,7 +315,104 @@ class MultiTreeTensorNetworkState(TreeTensorNetworkState):
         new_tensor = np.tensordot(parent_tensor, child_tensor, # This order for leg convention
                                   axes=axes)
         return new_tensor
+    
+    def save_ttns(self, filepath: str):
+        """
+        Saves the TreeTensorNetwork to files.
+
+        This creates two files:
+        1. {filepath}.npz - Contains all tensors
+        2. {filepath}.json - Contains the network structure and other attributes
+        3. {filepath}_state_tensors.npz - Contains the state tensors
+
+        Args:
+            filepath (str): Path where to save the files (without extension)
+        """
+        # Save tensors
+        tensor_dict = {node_id: tensor for node_id, tensor in self.tensors.items()}
+        np.savez(f"{filepath}.npz", **tensor_dict)
         
+        # Save state tensors
+        state_tensors_dict = {f'state_{i}': tensor for i, tensor in enumerate(self.state_tensors)}
+        np.savez(f"{filepath}_state_tensors.npz", **state_tensors_dict)
+
+        # Prepare structure data
+        structure_data = {
+            "root_id": self.root_id,
+            "orthogonality_center_id": self.orthogonality_center_id,
+            "weight": list(self.weight) if isinstance(self.weight, np.ndarray) else self.weight,
+            "nodes": {
+                node_id: {
+                    "identifier": node.identifier,
+                    "parent": node.parent,
+                    "children": list(node.children),
+                    "leg_permutation": node.leg_permutation if node.leg_permutation is not None else None,
+                    "shape": node._shape if node._shape is not None else None
+                }
+                for node_id, node in self.nodes.items()
+            }
+        }
+
+        # Save structure
+        with open(f"{filepath}.json", 'w') as f:
+            json.dump(structure_data, f, indent=2)
+        
+    @classmethod
+    def load_ttns(cls, filepath: str, weight: Union[List[float], List[int], np.ndarray, None] = None) -> 'MultiTreeTensorNetworkState':
+        """
+        Loads a MultiTreeTensorNetworkState from files.
+
+        Args:
+            filepath (str): Path to the files (without extension)
+            weight: Optional weights for the multi-state. If None, defaults to [1.0]
+
+        Returns:
+            MultiTreeTensorNetworkState: The loaded network
+        """
+        # Check if files exist
+        if not (os.path.exists(f"{filepath}.npz") and os.path.exists(f"{filepath}.json")):
+            raise FileNotFoundError(f"Could not find required files at {filepath}")
+
+        # Load structure
+        with open(f"{filepath}.json", 'r') as f:
+            structure_data = json.load(f)
+
+        # Load tensors
+        tensors = np.load(f"{filepath}.npz")
+
+        # Create new instance with weight parameter
+        ttns = cls(weight=weight)
+
+        # Reconstruct nodes
+        for node_id, node_data in structure_data["nodes"].items():
+            node = Node(identifier=node_data["identifier"])
+            node._shape = node_data["shape"]
+            if node_data["leg_permutation"] is not None:
+                node._leg_permutation = node_data["leg_permutation"]
+            ttns._nodes[node_id] = node
+
+        # Set connections
+        for node_id, node_data in structure_data["nodes"].items():
+            node = ttns._nodes[node_id]
+            if node_data["parent"] is not None:
+                node.parent = node_data["parent"]
+            node.children = node_data["children"]
+
+        # Set root and orthogonality center
+        ttns._root_id = structure_data["root_id"]
+        ttns.orthogonality_center_id = structure_data["orthogonality_center_id"]
+        ttns.weight = structure_data["weight"]
+        
+        # Load state tensors
+        state_tensors_npz = np.load(f"{filepath}_state_tensors.npz")
+        ttns.state_tensors = [state_tensors_npz[f'state_{i}'] for i in range(len(state_tensors_npz.files))]
+
+        # Add tensors
+        for node_id in ttns.nodes:
+            ttns._tensors[node_id] = tensors[node_id]
+
+        return ttns
+
 MultiTTNS = MultiTreeTensorNetworkState
 
 def _expectation_value_multittn(ttn: MultiTreeTensorNetworkState, operator: TTNO)-> List[complex]:

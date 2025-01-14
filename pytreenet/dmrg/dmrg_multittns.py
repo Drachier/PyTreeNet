@@ -277,7 +277,7 @@ class DMRGAlgorithm4MultiTTNS():
             np.ndarray: The lowest eigenvalues
         """
         assert self.state.orthogonality_center_id == node_id, "Can only update the orthogonality center, not the node " + node_id
-        hamiltonian_eff_site = tensor_matricisation_half(self._contract_all_except_node(node_id));print("hamiltonian_eff_site.shape",hamiltonian_eff_site.shape,node_id)
+        hamiltonian_eff_site = tensor_matricisation_half(self._contract_all_except_node(node_id))
         multi_states = deepcopy(self.state.state_tensors)
         shape = self.state.tensors[node_id].shape
         multi_states_vec = [tensor.reshape(-1) for tensor in multi_states]

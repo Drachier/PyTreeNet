@@ -50,6 +50,8 @@ def test_init_orthogonal_states():
             if abs(inner_product - expected) > 1e-10:
                 assert False, f"States {i},{j}: {inner_product:.6f} (should be {expected})"
     print("Test init_orthogonal_states passed!")
+    assert np.allclose(list_tensor[0], tensor), "The first state is not the same as the input tensor"
+    print("The first state is the same as the input tensor")
     
 
 def _scalar_product_multittn(state_tensors: List[np.ndarray], weight: np.ndarray)-> complex:
@@ -72,4 +74,3 @@ def test_scalar_product_multittn():
     scalar_product = _scalar_product_multittn(list_tensor, weight)
     assert scalar_product.real - weight.sum() < 1e-10, "Scalar product should be the sum of the weights"
     print("Test scalar_product_multittn passed!")
-    
