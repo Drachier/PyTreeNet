@@ -7,7 +7,7 @@ from .special_ttn import *
 from .ttns.ttns import *
 from .operators import *
 
-# I ADDED THOSE TO TESTING
+# I ADDED THOSE TO TESTING - RECONSIDER
 from .ttno import *
 from .random import *
 
