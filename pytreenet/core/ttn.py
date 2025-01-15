@@ -44,15 +44,13 @@ Example:
 For details and further usage refer to the example notebooks.
 """
 from __future__ import annotations
-from typing import Tuple, Callable, Union, List, Dict
+from typing import Tuple, Callable, Union, List, Dict, Self
 from copy import copy, deepcopy
 from collections import UserDict
 
 import numpy as np
-from numpy import eye, ndarray
+from numpy import eye
 from uuid import uuid1
-
-from pytreenet.core.graph_node import GraphNode
 
 from .tree_structure import TreeStructure
 from .node import Node, relative_leg_permutation
@@ -109,7 +107,7 @@ class TensorDict(UserDict):
         """
         permutation = self.nodes[node_id].leg_permutation
         tensor = super().__getitem__(node_id)
-        transposed_tensor = np.transpose(tensor, permutation)
+        transposed_tensor = tensor.transpose(permutation)
         self.nodes[node_id]._reset_permutation()
         super().__setitem__(node_id, transposed_tensor)
         return transposed_tensor
@@ -141,9 +139,9 @@ class TreeTensorNetwork(TreeStructure):
         Initiates a new TreeTensorNetwork which is initially empty.
         """
         super().__init__()
+        self._nodes: Dict[str,Node]
         self._tensors = TensorDict(self._nodes)
         self.orthogonality_center_id: Union[str,None] = None
-        self._nodes: Dict[str,Node]
 
     @property
     def tensors(self) -> TensorDict[str, np.ndarray]:
@@ -256,7 +254,55 @@ class TreeTensorNetwork(TreeStructure):
         """
         return self.num_nodes()
 
-    def nodes_equal(self, node_id: str, other: TreeTensorNetwork, 
+    def deepcopy_parts(self, copy_ids: List[str]) -> Self:
+        """
+        Creates a new TTN with parts of the data deepcopied.
+
+        This is useful, if one knows one will only work on some part of the TTN
+        and won't change the rest of the TTN. However, if the non-listed nodes
+        of the TTN are changed, the original TTN is also changed.
+
+        Args:
+            List[str]: A list of node identifiers to be deepcopied.
+
+        Returns:
+            Self: A new TTN with the specified nodes deepcopied.
+        
+        """
+        cls = self.__class__
+        new_ttn = cls.__new__(cls)
+        update_dict = {key: value for key, value in self.__dict__.items()
+                       if key not in {"_nodes", "_tensors"}}
+        new_ttn.__dict__.update(update_dict)
+        new_ttn._nodes = {node_id: self._copy_decider(node_id, node, copy_ids)
+                          for node_id, node in self._nodes.items()}
+        new_ttn._tensors = TensorDict(new_ttn._nodes,
+                                      {node_id: self._copy_decider(node_id, tensor, copy_ids)
+                                       for node_id, tensor in self.tensors.items()})
+        return new_ttn
+    
+    def _copy_decider(self,
+                      node_id: str, object: Union[Node,np.ndarray],
+                      copy_ids: List[str]
+                      ) -> Union[Node,np.ndarray]:
+        """
+        Decides whether to deep copy a node or tensor and does so if necessary.
+        
+        Args:
+            node_id (str): The identifier of the node.
+            object (Union[Node,np.ndarray]): The object to be copied.
+            copy_ids (List[str]): A list of node identifiers to be deepcopied.
+
+        Returns:
+            Union[Node,np.ndarray]: The copied object, if it was copied,
+                otherwise the original object.
+
+        """
+        if node_id in copy_ids:
+            return deepcopy(object)
+        return object
+
+    def nodes_equal(self, node_id: str, other: TreeTensorNetwork,
                     other_node_id : Union[None,str] = None) -> bool:
         """
         Compares a node in this tree with a node in a different TTN.
