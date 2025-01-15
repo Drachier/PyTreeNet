@@ -88,7 +88,10 @@ def update_leaf_node(node_id: str,
                                  node_id,
                                  LegSpecification(parent_id,[],[]),
                                  LegSpecification(None, [], [1]))
-    block_tensor = contract_leaf(node_id,new_state,hamiltonian)
+    state_node, state_tensor = new_state[node_id]
+    op_node, op_tensor = hamiltonian[node_id]
+    block_tensor = contract_leaf(state_node, state_tensor,
+                                 op_node, op_tensor)
     return new_state, block_tensor, basis_change_tensor
 
 def update_non_leaf_node(node_id: str,
