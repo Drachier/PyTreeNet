@@ -9,17 +9,15 @@ These products define one operator per subsystem and fully define the
 Hamiltonian.
 
 .. math::
-    H = \sum_i \\bigotimes_j A_{i}^[j]
-
+    H = sum_i \\bigotimes_j A_{i}^[j]
 where :math:`A_{i}^{[j]}` is the operator acting on the j-th subsystem of the
 as part of the i-th term of the Hamiltonian.
 """
 from __future__ import annotations
 from typing import Dict, Union, List
 from enum import Enum, auto
-from copy import deepcopy
-
 from numpy import asarray, ndarray
+from fractions import Fraction
 
 from .operator import NumericOperator
 from .tensorproduct import TensorProduct
@@ -55,7 +53,8 @@ class Hamiltonian():
     """
 
     def __init__(self, terms: Union[List[TensorProduct],TensorProduct,None] = None,
-                 conversion_dictionary: Union[Dict[str, ndarray],None] = None):
+                 conversion_dictionary: Union[Dict[str, ndarray],None] = None,
+                 coeffs: Union[ List[tuple[Fraction, str]] ,None] = None, coeffs_mapping: Union[Dict[str,complex],None] = {"1" : 1}):
         """
         Initialises a Hamiltonian from a number of terms represented by a TensorProduct each:
             H = sum( terms )
@@ -78,23 +77,25 @@ class Hamiltonian():
         else:
             self.conversion_dictionary = conversion_dictionary
 
+        if coeffs is None:
+            self.coeffs = [(Fraction(1), "1" ) for _ in self.terms]
+        else:
+            self.coeffs = coeffs
+
+        self.coeffs_mapping = coeffs_mapping
+
+        
     def __str__(self) -> str:
         """
         Returns a string representation of the Hamiltonian.
         """
-        return str(self.terms)
+        return str(self.terms) + ", " + str(self.coeffs)
 
     def __eq__(self, other_hamiltonian):
         """
         Two Hamiltonians are equal, if all of their terms are equal.
         """
-        other_terms = deepcopy(other_hamiltonian.terms)
-        for term in self.terms:
-            if term in other_terms:
-                other_terms.remove(term)
-            else:
-                return False
-        return len(other_terms) == 0
+        return compare_lists_by_value(self.terms, other_hamiltonian.terms)
 
     def __add__(self, other: Union[TensorProduct, Hamiltonian]) -> Hamiltonian:
         if isinstance(other, TensorProduct):
@@ -111,21 +112,21 @@ class Hamiltonian():
         Adds a term to the Hamiltonian.
 
         Args:
-            term (TensorProduct): The term to be added in the form of a
-                TensorProduct.
+            term (TensorProduct): The term to be added in the form of a TensorProduct
         """
         self.terms.append(term)
+        self.coeffs.append(1)
 
     def add_hamiltonian(self, other: Hamiltonian):
         """
-        Adds one Hamiltonian to this Hamiltonian.
-        
+        Adds one Hamiltonian to this Hamiltonian. The other Hamiltonian will not be modified.
+
         Args:
-            other (Hamiltonian): Hamiltonian to be added. It will not be
-                modified
+            other (Hamiltonian): Hamiltonian to be added.
         """
         self.terms.extend(other.terms)
         self.conversion_dictionary.update(other.conversion_dictionary)
+        self.coeffs.extend(other.coeffs)
 
     def add_multiple_terms(self, terms: list[TensorProduct]):
         """
@@ -135,6 +136,7 @@ class Hamiltonian():
             terms (list[TensorProduct]): Terms to be added.
         """
         self.terms.extend(terms)
+        self.coeffs.extend([1 for _ in terms])
 
     def is_compatible_with(self, ttn: TreeTensorNetwork) -> bool:
         """
@@ -175,8 +177,8 @@ class Hamiltonian():
                 raise NotCompatibleException(errstr)
 
     def pad_with_identities(self, reference_ttn: TreeTensorNetwork,
-                           mode: PadMode = PadMode.safe, 
-                           symbolic: bool = True) -> Hamiltonian:
+                          mode: PadMode = PadMode.safe, 
+                          symbolic: bool = True) -> Hamiltonian:
         """
         Pads a Hamiltonian with identities.
 
@@ -204,7 +206,7 @@ class Hamiltonian():
         for term in self.terms:
             new_term = term.pad_with_identities(reference_ttn, symbolic=symbolic)
             new_terms.append(new_term)
-        return Hamiltonian(new_terms, conversion_dictionary=self.conversion_dictionary)
+        return Hamiltonian(new_terms, conversion_dictionary=self.conversion_dictionary, coeffs=self.coeffs, coeffs_mapping=self.coeffs_mapping)
 
     def to_matrix(self, ref_ttn: TreeTensorNetwork, use_padding: bool = True,
                   mode: PadMode = PadMode.safe) -> NumericOperator:
@@ -240,9 +242,9 @@ class Hamiltonian():
             term_operator = term.into_operator(conversion_dict=self.conversion_dictionary,
                                                order=identifiers)
             if i == 0:
-                full_tensor = term_operator.operator
+                full_tensor = term_operator.operator * float(self.coeffs[i][0]) * self.coeffs_mapping[self.coeffs[i][1]]
             else:
-                full_tensor += term_operator.operator
+                full_tensor = term_operator.operator * float(self.coeffs[i][0]) * self.coeffs_mapping[self.coeffs[i][1]] + full_tensor
         return NumericOperator(full_tensor.T, identifiers)
 
     def to_tensor(self, ref_ttn: TreeTensorNetwork, use_padding: bool = True,
@@ -271,6 +273,8 @@ class Hamiltonian():
         """
         matrix_operator = self.to_matrix(ref_ttn,use_padding=use_padding,mode=mode)
         shape = [node.open_dimension() for node in ref_ttn.nodes.values()]
+        # remove 0 indices
+        #shape = [dim for dim in shape if dim != 0]
         shape *= 2
         tensor_operator = matrix_operator.operator.reshape(shape)
         return NumericOperator(tensor_operator, matrix_operator.node_identifiers)

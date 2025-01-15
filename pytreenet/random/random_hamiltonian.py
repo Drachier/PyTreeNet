@@ -7,6 +7,7 @@ from typing import List, Union, Tuple, Dict
 
 from numpy.random import default_rng, Generator
 from numpy import ndarray, eye
+from fractions import Fraction
 
 from ..core.ttn import TreeStructure
 from ..operators.tensorproduct import TensorProduct
@@ -66,7 +67,8 @@ def random_terms(num_of_terms: int,
                  max_strength: float = 1,
                  min_num_sites: int = 2,
                  max_num_sites: int = 2,
-                 seed: Union[None,int,Generator] = None) -> List[TensorProduct]:
+                 seed: Union[None,int,Generator] = None,
+                 w_coeff: Union[None,bool] = False) -> List[TensorProduct]:
     """
     Generates random interaction terms.
 
@@ -100,7 +102,10 @@ def random_terms(num_of_terms: int,
     """
     if isinstance(possible_operators[0], str):
         return random_symbolic_terms(num_of_terms, possible_operators, sites,
-                                     min_num_sites, max_num_sites, seed)
+                                     min_num_sites, max_num_sites, seed) if not w_coeff else random_symbolic_terms_with_coeffs(
+                                         num_of_terms, possible_operators, 
+                                         sites, min_strength, max_strength, 
+                                         min_num_sites, max_num_sites, seed)
     if isinstance(possible_operators[0], ndarray):
         return random_numeric_terms(num_of_terms, possible_operators, sites,
                                     min_strength, max_strength,
@@ -160,7 +165,7 @@ def random_numeric_term(possible_operators: List[ndarray],
                         max_strength: float = 1,
                         min_num_sites: int = 2,
                         max_num_sites: int = 2,
-                        seed: Union[None,int,Generator] = None) -> TensorProduct:
+                        seed: Union[None,int,Generator] = None ) -> TensorProduct:
     """
     Generate a single random numeric interaction term.
 
@@ -262,6 +267,73 @@ def random_symbolic_term(possible_operators: List[str],
     rand_sites = rng.choice(sites, size=num_sites, replace=False)
     rand_operators = rng.choice(possible_operators, size=num_sites)
     return TensorProduct(dict(zip(rand_sites, rand_operators)))
+
+def random_symbolic_terms_with_coeffs(num_of_terms: int,
+                          possible_operators: List[str],
+                          sites: List[str],
+                          min_coeff: float = -10,
+                          max_coeff: float = 10,
+                          min_num_sites: int = 2,
+                          max_num_sites: int = 2,
+                          seed=None,
+                          random_type: str = "symbolic",
+                          possible_gammas: Union[List[str],None] = None
+                          ) -> List[TensorProduct]:
+    """
+    Creates random symbolic interaction terms with random coefficients.
+
+    Args:
+        num_of_terms (int): The number of random terms to be generated.
+        possible_operators (List[str]): A list of all possible single site
+            operators.
+        sites (List[str]): A list containing the possible identifiers of
+            sites/nodes.
+        min_num_sites (int, optional): The minimum number of sites that can
+            partake in an interaction term, i.e. have one of the possible
+            operators applied to them. Defaults to 2.
+        max_num_sites (int, optional): The maximum number of sites that can
+            partake in an interaction term, i.e. have one of the possible
+            operators applied to them. Defaults to 2.
+        seed (Union[None,int,Generator], optional): A seed for the random
+            number generator or a generator itself. Defaults to None.
+
+    Returns:
+        List[TensorProduct]: A list containing all the random terms.
+    """
+    rterms = []
+    coeffs = []
+    rng = default_rng(seed=seed)
+    for _ in range(num_of_terms):
+        term = random_symbolic_term(possible_operators, sites,
+                                    min_num_sites=min_num_sites,
+                                    max_num_sites=max_num_sites,
+                                    seed=seed)
+        
+        if random_type == "discrete":
+            coeff = rng.choice([*range(-9, -1), *range(2, 9)])
+        elif random_type == "continuous":
+            coeff = rng.uniform(low=min_coeff, high=max_coeff)
+            while abs(coeff) <= 1.5: # To avoid zero coefficients
+                coeff = rng.uniform(low=min_coeff, high=max_coeff)
+        elif random_type == "symbolic":
+            coeff_gamma = rng.choice(list(possible_gammas.keys()))
+            coeff_lambda = Fraction(rng.choice([i for i in range(min_coeff, max_coeff) if i != 0]), rng.integers(1, 4))
+            while abs(possible_gammas[coeff_gamma] * float(coeff_lambda)) <= 1.5 or abs(possible_gammas[coeff_gamma] * float(coeff_lambda)) >= 10:
+                coeff_gamma = rng.choice(list(possible_gammas.keys()))
+                coeff_lambda = Fraction(rng.choice([i for i in range(min_coeff, max_coeff) if i != 0]), rng.integers(1, 4))
+            
+
+            coeff = (coeff_lambda, coeff_gamma)
+            
+        while term in rterms: # To avoid multiples
+            term = random_symbolic_term(possible_operators, sites,
+                                        min_num_sites=min_num_sites,
+                                        max_num_sites=max_num_sites,
+                                        seed=seed)
+            
+        coeffs.append(coeff)
+        rterms.append(term)
+    return rterms, coeffs
 
 def random_hamiltonian_compatible() -> Hamiltonian:
     """

@@ -37,8 +37,12 @@ class HyperEdge():
         self.corr_node_id = corr_node_id
         self.label = label
         self.vertices = vertices
+        self.lambda_coeff = 1
+        self.gamma_coeff = "Free"
 
         self.hash = hashlib.sha256(self.label.encode()).hexdigest()
+        self.v_hash = None
+
         self.identifier = str(uuid.uuid1())
 
     def __repr__(self) -> str:
@@ -47,6 +51,8 @@ class HyperEdge():
         """
         string = f"label = {self.label}; "
         string += f"corr_site = {self.corr_node_id}; "
+        string += "coeff = " + str(self.lambda_coeff) + str(self.gamma_coeff) + "; "
+
 
         string += "connected to "
         for vertex in self.vertices:
