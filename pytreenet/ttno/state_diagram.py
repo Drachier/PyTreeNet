@@ -164,6 +164,7 @@ class StateDiagram():
         """
         state_diagram = None
         
+        # DOES NOT WORK WITH COEFFICIENTS
         if method == TTNOFinder.TREE:
             state_diagram = cls.from_hamiltonian_tree_comparison(hamiltonian,
                                                                  ref_tree)
@@ -328,9 +329,9 @@ class StateDiagram():
             vertices_to_connect_to_new_he = self._find_vertices_connecting_to_he(
                 node_id)
             new_hyperedge = HyperEdge(
-                node_id, desired_label, vertices_to_connect_to_new_he, hyperedges[0].lambda_coeff, hyperedges[0].gamma_coeff)
+                node_id, desired_label, vertices_to_connect_to_new_he, single_term_diagram.hyperedges[node_id].lambda_coeff, single_term_diagram.hyperedges[node_id].gamma_coeff)
 
-        # DOES THIS WORK AS INTENDED?
+        # IS THIS ALWAYS 1?
         elif len(hyperedges) >= 1:
             for hyperedge in hyperedges:
                 vertices_to_connect_to_new_he = copy(hyperedge.vertices)
@@ -391,6 +392,8 @@ class StateDiagram():
         """
         he = self.hyperedge_colls[node_id].contained_hyperedges[0]
         operator_label = he.label
+        if operator_label not in conversion_dict:
+            print(self)
         operator = conversion_dict[operator_label]
         # Should be square operators
         assert operator.shape[0] == operator.shape[1]
@@ -904,16 +907,13 @@ class StateDiagram():
         # Process the current node (parent node is processed after its children)
         return self.hyperedge_colls[node.identifier].contained_hyperedges[0].calculate_hash(children_hash)
 
-    @classmethod
-    
     def _remove_hyperedge_from_diagram(self, element):
         """
         Removes a hyperedge from the state diagram checking its identifier.
         """
         for i in range(len(self.hyperedge_colls[element.corr_node_id].contained_hyperedges)):
             if self.hyperedge_colls[element.corr_node_id].contained_hyperedges[i].identifier == element.identifier:
-                self.hyperedge_colls[element.corr_node_id].contained_hyperedges.pop(
-                    i)
+                self.hyperedge_colls[element.corr_node_id].contained_hyperedges.pop(i)
                 break
 
     @classmethod

@@ -365,7 +365,7 @@ class Node(GraphNode):
         open_dim = [self.shape[leg]
                     for leg in self.open_legs]
         if open_dim == []:
-            return 0
+            return 1
         return reduce(lambda x, y: x * y, open_dim)
 
     def parent_leg_dim(self) -> int:

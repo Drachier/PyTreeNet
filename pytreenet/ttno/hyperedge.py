@@ -54,7 +54,7 @@ class HyperEdge():
         """
         string = f"label = {self.label}; "
         string += f"corr_site = {self.corr_node_id}; "
-        string += "coeff = " + str(self.lambda_coeff) + str(self.gamma_coeff) + "; "
+        string += "coeff = " + str(self.lambda_coeff) + " * " + str(self.gamma_coeff) + "; "
 
 
         string += "connected to "
