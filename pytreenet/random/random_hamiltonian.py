@@ -8,12 +8,22 @@ from typing import List, Union, Tuple, Dict
 from numpy.random import default_rng, Generator
 from numpy import ndarray, eye
 from fractions import Fraction
+from enum import Enum
 
 from ..core.ttn import TreeStructure
 from ..operators.tensorproduct import TensorProduct
 from ..operators.hamiltonian import Hamiltonian
 from .random_matrices import random_hermitian_matrix
 from .random_ttns import random_big_ttns_two_root_children
+
+
+class RandomType(Enum):
+    """
+    Enum class to specify the type of random Hamiltonian to be generated.
+    """
+    DISCRETE = "discrete"
+    CONTINUOUS = "continuous"
+    SYMBOLIC = "symbolic"
 
 def random_hamiltonian(num_of_terms: int,
                        possible_operators: Union[List[str],List[ndarray]],

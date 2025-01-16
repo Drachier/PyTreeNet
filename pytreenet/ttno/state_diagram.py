@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Union
 from copy import copy
 from collections import deque
 from enum import Enum
@@ -207,7 +207,7 @@ class StateDiagram():
 
     @classmethod
     def from_single_term(cls,
-                         term: Dict[str, str],
+                         term: tuple[Fraction,str,Dict[str,str]],
                          reference_tree: TreeStructure):
         """
         Basically a wrap of ``SingleTermDiagram.from_single_term``.
@@ -240,7 +240,7 @@ class StateDiagram():
             state_diagram.vertex_colls[edge_id] = new_vertex_coll
         return state_diagram
 
-    def add_single_term(self, term: Dict[str, str]):
+    def add_single_term(self, term: tuple[Fraction,str,Dict[str,str]]):
         """
         Modifies the state diagram to add a term.
 
@@ -328,8 +328,9 @@ class StateDiagram():
             vertices_to_connect_to_new_he = self._find_vertices_connecting_to_he(
                 node_id)
             new_hyperedge = HyperEdge(
-                node_id, desired_label, vertices_to_connect_to_new_he)
+                node_id, desired_label, vertices_to_connect_to_new_he, hyperedges[0].lambda_coeff, hyperedges[0].gamma_coeff)
 
+        # DOES THIS WORK AS INTENDED?
         elif len(hyperedges) >= 1:
             for hyperedge in hyperedges:
                 vertices_to_connect_to_new_he = copy(hyperedge.vertices)
@@ -338,7 +339,7 @@ class StateDiagram():
                     break
                 else:
                     new_hyperedge = HyperEdge(
-                        node_id, desired_label, vertices_to_connect_to_new_he)
+                        node_id, desired_label, vertices_to_connect_to_new_he, hyperedge.lambda_coeff, hyperedge.gamma_coeff)
 
         # Allows for reset directly instead of after the fact
         # Thus we don't have to run through all vertices of the entire diagram.

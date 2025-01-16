@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import List, Tuple, Union
 import hashlib
 import uuid
+from fractions import Fraction
 
 from ..core.tree_structure import TreeStructure
 
@@ -24,7 +25,9 @@ class HyperEdge():
     def __init__(self,
                  corr_node_id: str,
                  label: str,
-                 vertices: List[Vertex]):
+                 vertices: List[Vertex],
+                 lambda_coeff: Fraction = Fraction(1),
+                 gamma_coeff: str = "Free"):
         """
         Initialises a hyperedge.
 
@@ -37,8 +40,8 @@ class HyperEdge():
         self.corr_node_id = corr_node_id
         self.label = label
         self.vertices = vertices
-        self.lambda_coeff = 1
-        self.gamma_coeff = "Free"
+        self.lambda_coeff = lambda_coeff
+        self.gamma_coeff = gamma_coeff
 
         self.hash = hashlib.sha256(self.label.encode()).hexdigest()
         self.v_hash = None

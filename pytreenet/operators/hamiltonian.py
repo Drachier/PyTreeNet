@@ -52,15 +52,15 @@ class Hamiltonian():
             actual numeric arrays.
     """
 
-    def __init__(self, terms: Union[List[TensorProduct],TensorProduct,None] = None,
+    def __init__(self, terms: Union[List[tuple[Fraction, str, TensorProduct]], List[TensorProduct], TensorProduct, None] = None,
                  conversion_dictionary: Union[Dict[str, ndarray],None] = None,
-                 coeffs: Union[ List[tuple[Fraction, str]] ,None] = None, coeffs_mapping: Union[Dict[str,complex],None] = None):
+                 coeffs_mapping: Union[Dict[str,complex],None] = None):
         """
         Initialises a Hamiltonian from a number of terms represented by a TensorProduct each:
             H = sum( terms )
 
         Args:
-            terms (list[TensorProduct], optional): A list of TensorProduct making up the
+            terms (List[Tuple[Fraction, str, Tensorproduct]], List[Tensorproduct], Tensorproduct, optional): A list of TensorProduct making up the
                 Hamiltonian. Defaults to None.
             conversion_dictionary (dict, optional): A conversion dictionary might be supplied.
                 It is used, if the tensor products are symbolic. Defaults to None.
@@ -68,9 +68,13 @@ class Hamiltonian():
         if terms is None:
             self.terms = []
         elif isinstance(terms, TensorProduct):
-            self.terms = [terms]
+            self.terms = [(Fraction(1),"1",terms)]
         else:
-            self.terms = terms
+            if all([isinstance(term, TensorProduct) for term in terms]):
+                self.terms = [(Fraction(1),"1",term) for term in terms]
+            else:
+                self.terms = terms
+
 
         if coeffs_mapping is None:
             coeffs_mapping = {"1" : 1}
@@ -80,12 +84,6 @@ class Hamiltonian():
         else:
             self.conversion_dictionary = conversion_dictionary
 
-        if coeffs is None:
-            self.coeffs = [(Fraction(1), "1" ) for _ in self.terms]
-        else:
-            self.coeffs = coeffs
-
-
         self.coeffs_mapping = coeffs_mapping
 
         
@@ -93,7 +91,7 @@ class Hamiltonian():
         """
         Returns a string representation of the Hamiltonian.
         """
-        return str(self.terms) + ", " + str(self.coeffs)
+        return str(self.terms)
 
     def __eq__(self, other_hamiltonian):
         """
@@ -111,15 +109,18 @@ class Hamiltonian():
             raise TypeError(errstr)
         return self
 
-    def add_term(self, term: TensorProduct):
+    def add_term(self, term: Union[TensorProduct, tuple[Fraction, str, TensorProduct]]):
         """
         Adds a term to the Hamiltonian.
 
         Args:
             term (TensorProduct): The term to be added in the form of a TensorProduct
         """
-        self.terms.append(term)
-        self.coeffs.append(1)
+        if isinstance(term, tuple):
+            self.terms.append(term)
+        else:
+            self.terms.append((Fraction(1),"1",term))
+        
 
     def add_hamiltonian(self, other: Hamiltonian):
         """
@@ -130,17 +131,19 @@ class Hamiltonian():
         """
         self.terms.extend(other.terms)
         self.conversion_dictionary.update(other.conversion_dictionary)
-        self.coeffs.extend(other.coeffs)
+        self.coeffs_mapping.update(other.coeffs_mapping)
 
-    def add_multiple_terms(self, terms: list[TensorProduct]):
+    def add_multiple_terms(self, terms: Union[list[TensorProduct], list[tuple[Fraction, str, TensorProduct]]]):
         """
         Add multiple terms to this Hamiltonian
 
         Args:
             terms (list[TensorProduct]): Terms to be added.
         """
-        self.terms.extend(terms)
-        self.coeffs.extend([1 for _ in terms])
+        if all([isinstance(term, TensorProduct) for term in terms]):
+            self.terms.extend([(Fraction(1),"1",term) for term in terms])
+        else:
+            self.terms.extend(terms)
 
     def is_compatible_with(self, ttn: TreeTensorNetwork) -> bool:
         """
@@ -155,7 +158,7 @@ class Hamiltonian():
         Returns:
             bool: Whether the two are compatible or not.
         """
-        for term in self.terms:
+        for _,_,term in self.terms:
             for site_id in term:
                 if not site_id in ttn.nodes:
                     return False
@@ -207,10 +210,10 @@ class Hamiltonian():
         """
         self.perform_compatibility_checks(mode=mode, reference_ttn=reference_ttn)
         new_terms = []
-        for term in self.terms:
+        for frac, coeff, term in self.terms:
             new_term = term.pad_with_identities(reference_ttn, symbolic=symbolic)
-            new_terms.append(new_term)
-        return Hamiltonian(new_terms, conversion_dictionary=self.conversion_dictionary, coeffs=self.coeffs, coeffs_mapping=self.coeffs_mapping)
+            new_terms.append((frac, coeff, new_term))
+        return Hamiltonian(new_terms, conversion_dictionary=self.conversion_dictionary, coeffs_mapping=self.coeffs_mapping)
 
     def to_matrix(self, ref_ttn: TreeTensorNetwork, use_padding: bool = True,
                   mode: PadMode = PadMode.safe) -> NumericOperator:
@@ -242,13 +245,13 @@ class Hamiltonian():
             self.pad_with_identities(ref_ttn)
         full_tensor = asarray([0], dtype=complex)
         identifiers = list(ref_ttn.nodes.keys())
-        for i, term in enumerate(self.terms):
+        for i, (frac, coeff, term) in enumerate(self.terms):
             term_operator = term.into_operator(conversion_dict=self.conversion_dictionary,
                                                order=identifiers)
             if i == 0:
-                full_tensor = term_operator.operator * float(self.coeffs[i][0]) * self.coeffs_mapping[self.coeffs[i][1]]
+                full_tensor = term_operator.operator * float(frac) * self.coeffs_mapping[coeff]
             else:
-                full_tensor = term_operator.operator * float(self.coeffs[i][0]) * self.coeffs_mapping[self.coeffs[i][1]] + full_tensor
+                full_tensor = term_operator.operator * float(frac) * self.coeffs_mapping[coeff] + full_tensor
         return NumericOperator(full_tensor.T, identifiers)
 
     def to_tensor(self, ref_ttn: TreeTensorNetwork, use_padding: bool = True,
@@ -292,5 +295,6 @@ class Hamiltonian():
         Returns:
             bool: True if there are duplicates, False otherwise
         """
-        dup = [term for term in self.terms if self.terms.count(term) > 1]
+        terms_comp = [term[2] for term in self.terms]
+        dup = [term for term in terms_comp if terms_comp.count(term) > 1]
         return len(dup) > 0
