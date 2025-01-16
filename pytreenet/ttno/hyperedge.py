@@ -245,3 +245,21 @@ class HyperEdge():
             index_position = reference_tree.nodes[self.corr_node_id].neighbour_index(other_node_id)
             position[index_position] = vertex.index
         return tuple(position)
+    
+    def calculate_v_hash(self, current_node, parent):
+        """
+        Calculates the hash of the hyperedge for combining as v nodes.
+        """
+        hash_text = self.label + len(self.vertices).__str__() 
+
+        vertices = []
+        for v in self.vertices:
+            if not(v.corr_edge == (current_node,parent) or v.corr_edge == (parent,current_node)):
+                vertices.append(v.identifier)
+        
+        vertices.sort()
+        hash_text += "".join(vertices)
+
+        self.v_hash = hashlib.sha256(hash_text.encode()).hexdigest() 
+        return self.v_hash
+    

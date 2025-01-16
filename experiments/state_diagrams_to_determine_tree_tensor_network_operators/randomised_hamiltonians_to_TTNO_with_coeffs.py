@@ -12,9 +12,6 @@ from fractions import Fraction
 import pytreenet as ptn
 import random
 
-N = 8
-
-
 def construct_tree_cayley_1() -> ptn.TreeTensorNetworkState:
     ttns = ptn.TreeTensorNetworkState()
 
@@ -74,11 +71,7 @@ def construct_tree_cayley_3() -> ptn.TreeTensorNetworkState:
     node6, tensor6 = ptn.random_tensor_node((1, 2), identifier="site6")
     node7, tensor7 = ptn.random_tensor_node((1, 2), identifier="site7")
     node8, tensor8 = ptn.random_tensor_node((1, 2), identifier="site8")
-    #node9, tensor9 = ptn.random_tensor_node((1, 2), identifier="site9")
-    #node10, tensor10 = ptn.random_tensor_node((1, 2), identifier="site10")
-    #node11, tensor11 = ptn.random_tensor_node((1, 2), identifier="site11")
-    #node12, tensor12 = ptn.random_tensor_node((1, 2), identifier="site12")
-    #node13, tensor13 = ptn.random_tensor_node((1, 2), identifier="site13")
+    
 
 
     ttns.add_root(node1, tensor1)
@@ -89,12 +82,7 @@ def construct_tree_cayley_3() -> ptn.TreeTensorNetworkState:
     ttns.add_child_to_parent(node6, tensor6, 0, "site2", 2)
     ttns.add_child_to_parent(node7, tensor7, 0, "site2", 3)
     ttns.add_child_to_parent(node8, tensor8, 0, "site3", 1)
-    #ttns.add_child_to_parent(node9, tensor9, 0, "site3", 2)
-    #ttns.add_child_to_parent(node10, tensor10, 0, "site3", 3)
-    #ttns.add_child_to_parent(node11, tensor11, 0, "site4", 1)
-    #ttns.add_child_to_parent(node12, tensor12, 0, "site4", 2)
-    #ttns.add_child_to_parent(node13, tensor13, 0, "site4", 3)
-
+    
     return ttns
 
 
@@ -264,15 +252,13 @@ def main(filename: str,
          leg_dict: Dict[str,int],
          num_runs: int = 500, min_num_terms: int=1,
          max_num_terms: int = 30):
+    
     # Prepare variables
     X, Y, Z = ptn.pauli_matrices()
     conversion_dict = {"X": X, "Y": Y, "Z": Z, "I2": np.eye(2, dtype="complex")}
-    num_bonds = N - 1
+    num_bonds = len(leg_dict) - 1
     seed = 42424242
     rng = default_rng(seed=seed)
-    
-    error_count = 0
-    bond_error = 0
         
     with h5py.File(filename, "w") as file:
         save_metadata(file, seed, max_num_terms, num_runs, conversion_dict,
@@ -286,7 +272,7 @@ def main(filename: str,
             run = 0
             while run < num_runs:
                 
-                #print("num: ", run) if run % 500 == 0 else None
+                print("num: ", run) if run % 1000 == 0 else None
                 hamiltonian = generate_random_hamiltonian(conversion_dict,
                                                             ref_tree,
                                                             rng,
@@ -295,19 +281,6 @@ def main(filename: str,
                     ttno_sge = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree, ptn.state_diagram.method.SGE)
                     ttno_bip = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree, ptn.state_diagram.method.BIPARTITE)
                     ttno_base = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree, ptn.state_diagram.method.BASE)
-                    
-
-                    #permutation = []
-                    #_find_permutation_rec(ttno_sge, leg_dict, ttno_sge.root_id, permutation)
-                    #correct_tensor = original_tensor.transpose(permutation)
-
-                    #contructed_tensor = ttno_sge.completely_contract_tree(to_copy=True)[0]
-
-                    #if not np.allclose(correct_tensor,contructed_tensor):
-                    #    error_count += 1
-                        #print("Error happened!! Total difference: ", error_count)
-                        #print("hamiltonian: ", hamiltonian, "\n")
-                        #print("coefficients: ", hamiltonian.coeffs)
                         
                     original_tensor = hamiltonian.to_tensor(ref_tree).operator            
                     ttno_svd = ptn.TTNO.from_tensor(ref_tree, original_tensor, leg_dict, mode=ptn.Decomposition.tSVD)
@@ -317,23 +290,11 @@ def main(filename: str,
                     dset_bip[run, :] = obtain_bond_dimensions(ttno_bip)
                     dset_base[run, :] = obtain_bond_dimensions(ttno_base)
 
-                    
-                    #if np.any(dset_sge[run, :] > dset_svd[run, :]):
-                        #print("hamiltonian: ", hamiltonian)
-                        #print("Hamiltonian dict: ", hamiltonian.coeffs_mapping)
-                        #print("Difference is: ", dset_ham, " ---- ", dset_svd)
-                        #bond_error += 1
-                        #print("Bond Total difference: ", bond_error)
-                        #print("coefficients: ", hamiltonian.coeffs)
-                        
-
                     run += 1
-
-    #print("Total Number of Hamiltonian errors: ", error_count)
-    #print("Total Number of Bond errors: ", bond_error)
 
 if __name__ == "__main__":
     
+    N = 8
     filepath = "./compare_unique_500.hdf5"
     leg_dict1 = {f"site{i+1}": i for i in range(N)}
     main(filepath, construct_tree_root_at_1(), leg_dict1)

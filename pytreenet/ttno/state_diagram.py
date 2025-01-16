@@ -25,6 +25,10 @@ import hashlib
 class TTNOFinder(Enum):
     """
     An Enum to switch between different construction modes of a state diagram.
+    TREE: The tree comparison method construction of state diagram bottom up.
+    SGE: The Symbolic Gaussian Elimination method with bipartite graph theory to construct TTNO. 
+    BIPARTITE: The Bipartite Graph method. Suboptimal implemented method in Ren et al. 2020.
+    BASE: The base method without any compression. Worst possible construction method.
     """
     TREE = "Tree"
     SGE = "Symbolic Gaussian Elimination"
@@ -521,12 +525,11 @@ class StateDiagram():
         Applies symbolic gaussian elimination and bipartite graph theory depending on the method.
         """
 
-        verbose = False
         hash_dict = {}
         
         # Comparing V nodes and combining them if they are the same
         for element in local_vs:
-            v_hash = self._calculate_v_hash(element, current_node, parent)
+            v_hash = element.calculate_v_hash(current_node, parent)
 
             if v_hash not in hash_dict:
                 hash_dict[v_hash] = []
@@ -544,9 +547,6 @@ class StateDiagram():
                     
             hash_dict[v_hash].append(element)
         
-        if verbose:
-            print("hash_dict: ", hash_dict)
-
 
         u_nodes_enumerated = {item.identifier : i for i, item in enumerate(copy(self.hyperedge_colls[current_node].contained_hyperedges))}
         u_nodes_enumerated_ind = {i : item for i, item in enumerate(copy(self.hyperedge_colls[current_node].contained_hyperedges))}
@@ -569,18 +569,7 @@ class StateDiagram():
 
         # Symbolic Gaussian Elimination
 
-        if verbose:
-            print("--------")
-            print_matrix(Gamma)
-            #print(Gamma)
-
         Op_l, Gamma_u, Op_r = gaussian_elimination(deepcopy(Gamma))
-
-        if verbose:
-            print_matrix(Op_l)
-            print_matrix(Gamma_u)
-            print_matrix(Op_r)
-            pass
 
         # Can check if Op_l . Gamma_u . Op_r = Gamma
 
@@ -645,11 +634,7 @@ class StateDiagram():
             Op_l = [[1 if i == j else 0 for j in range(m)] for i in range(m)]
             Op_r = [[1 if i == j else 0 for j in range(n)] for i in range(n)]
                       
-        if verbose:
-            print("u_cover: ", u_cover)
-            print("v_cover: ", v_cover)
-            print("virtual bond dimension: ", len(u_cover + v_cover))
-
+        
         # Creating Combined U and V lists
         ulist = [[] for _ in range(m)] # [[(u_temp, Op_l[i,j]), .. ] , [] , [] , []]
         vlist = [[] for _ in range(n)]
@@ -661,14 +646,12 @@ class StateDiagram():
             for j in range(len(Op_l[0])):
                 if Op_l[i][j] != 0:
                     if not dupl:
-                        #u_temp.lambda_coeff = Op_l[i][j]
                         ulist[j].append((u_temp, Op_l[i][j]))
 
                         dupl = True
                     else:
 
                         new_h = self._copy_node(u_temp, current_node, parent, current_node)
-                        #new_h.lambda_coeff = Op_l[i][j]
                         ulist[j].append((new_h, Op_l[i][j]))
 
         for j in range(len(Op_r[0])):
@@ -677,13 +660,11 @@ class StateDiagram():
             for i in range(len(Op_r)):
                 if Op_r[i][j] != 0:
                     if not dupl:
-                        #v_temp.lambda_coeff = Op_r[i][j]
                         vlist[i].append((v_temp, Op_r[i][j]))
                         dupl = True
                     else:
                         
                         new_h = self._copy_node(v_temp, current_node, parent, parent)
-                        #new_h.lambda_coeff = Op_r[i][j]
                         vlist[i].append((new_h,Op_r[i][j]))
 
         used_us, used_vs = set(), set()
@@ -791,8 +772,6 @@ class StateDiagram():
                 edges.remove((i, j))
                 used_us.add(i) 
             used_vs.add(j)
-
-        if verbose: print(self)
             
     def combine_subtrees(self, local_hyperedges, parent):
         """
@@ -833,7 +812,6 @@ class StateDiagram():
                 
             else:
                 combined[element2.hash] = element2
-
 
     def erase_subtree(self, start_edge, erased=None):
         """
@@ -944,22 +922,6 @@ class StateDiagram():
         return self.hyperedge_colls[node.identifier].contained_hyperedges[0].calculate_hash(children_hash)
 
     @classmethod
-    def _calculate_v_hash(cls, element, current_node, parent):
-        """
-        Calculates the hash of the hyperedge for combining as v nodes.
-        """
-        hash_text = element.label + len(element.vertices).__str__() 
-
-        vertices = []
-        for v in element.vertices:
-            if not(v.corr_edge == (current_node,parent) or v.corr_edge == (parent,current_node)):
-                vertices.append(v.identifier)
-        
-        vertices.sort()
-        hash_text += "".join(vertices)
-
-        element.v_hash = hashlib.sha256(hash_text.encode()).hexdigest() 
-        return element.v_hash
     
     def _remove_hyperedge_from_diagram(self, element):
         """
@@ -992,7 +954,6 @@ class StateDiagram():
         self.add_hyperedge(new_h)
         return new_h
     
-
     @classmethod
     def _compare_lists_by_identity(cls, list1, list2):
         # Check if the lengths are the same

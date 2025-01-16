@@ -54,7 +54,7 @@ class Hamiltonian():
 
     def __init__(self, terms: Union[List[TensorProduct],TensorProduct,None] = None,
                  conversion_dictionary: Union[Dict[str, ndarray],None] = None,
-                 coeffs: Union[ List[tuple[Fraction, str]] ,None] = None, coeffs_mapping: Union[Dict[str,complex],None] = {"1" : 1}):
+                 coeffs: Union[ List[tuple[Fraction, str]] ,None] = None, coeffs_mapping: Union[Dict[str,complex],None] = None):
         """
         Initialises a Hamiltonian from a number of terms represented by a TensorProduct each:
             H = sum( terms )
@@ -72,6 +72,9 @@ class Hamiltonian():
         else:
             self.terms = terms
 
+        if coeffs_mapping is None:
+            coeffs_mapping = {"1" : 1}
+
         if conversion_dictionary is None:
             self.conversion_dictionary = {}
         else:
@@ -81,6 +84,7 @@ class Hamiltonian():
             self.coeffs = [(Fraction(1), "1" ) for _ in self.terms]
         else:
             self.coeffs = coeffs
+
 
         self.coeffs_mapping = coeffs_mapping
 

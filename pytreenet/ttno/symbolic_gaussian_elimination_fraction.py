@@ -3,33 +3,97 @@ import numpy as np
 from fractions import Fraction
 
 def row_swap(matrix,Op_l, row1, row2):
+    """
+    Swap two rows in a matrix and swaps corresponding columns in the left operator.
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to swap rows in.
+        Op_l (List[List[Union[int, Fraction]]]): The left operator.
+        row1 (int): The first row index to swap.
+        row2 (int): The second row index to swap.
+    Returns:
+        Tuple[List[List[Union[int, Tuple[int, str]]]], List[List[Union[int, Fraction]]]]: The matrix 
+                                                        and left operator with the rows swapped.
+    """
     _row_swap(matrix, row1, row2)
     _col_swap(Op_l, row1, row2)
     return matrix, Op_l
 
 def col_swap(matrix, Op_r, col1, col2):
+    """
+    Swap two columns in a matrix and swaps corresponding rows in the right operator.
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to swap columns in.
+        Op_r (List[List[Union[int, Fraction]]]): The right operator.
+        col1 (int): The first column index to swap.
+        col2 (int): The second column index to swap.
+    Returns:
+        Tuple[List[List[Union[int, Tuple[int, str]]]], List[List[Union[int, Fraction]]]]: The matrix 
+                                                        and right operator with the columns swapped.
+    """
     _col_swap(matrix, col1, col2)
     _row_swap(Op_r, col1, col2)
     return matrix, Op_r
 
 def _row_swap(matrix, row1, row2):
+    """
+    Swap two rows in a matrix.
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to swap rows in.
+        row1 (int): The first row index to swap.
+        row2 (int): The second row index to swap.
+    """
     matrix[row1], matrix[row2] = matrix[row2], matrix[row1]
 
 def _col_swap(matrix, col1, col2):
+    """
+    Swap two columns in a matrix.
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to swap columns in.
+        col1 (int): The first column index to swap.
+        col2 (int): The second column index to swap.
+    """
     for row in matrix:
         row[col1], row[col2] = row[col2], row[col1]
 
 def row_scale(matrix, Op_l, row, factor):
+    """
+    Scale a row in a matrix and scales the corresponding column in the left operator with 1 / factor.
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to scale the row in.
+        Op_l (List[List[Union[int, Fraction]]]): The left operator.
+        row (int): The row index to scale.
+        factor (Union[int, Fraction]): The factor to scale the row by.
+    Returns:
+        Tuple[List[List[Union[int, Tuple[int, str]]]], List[List[Union[int, Fraction]]]: The matrix 
+                                                        and left operator with the row scaled."""
     _row_scale(matrix, row, factor)
     _col_scale(Op_l, row, 1/factor)
     return matrix, Op_l
 
 def col_scale(matrix, Op_r, col, factor):
+    """
+    Scale a column in a matrix and scales the corresponding row in the right operator with 1 / factor.
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to scale the column in.
+        Op_r (List[List[Union[int, Fraction]]]): The right operator.
+        col (int): The column index to scale.
+        factor (Union[int, Fraction]): The factor to scale the column by.
+    Returns:
+        Tuple[List[List[Union[int, Tuple[int, str]]]], List[List[Union[int, Fraction]]]: The matrix
+                                                        and right operator with the column scaled.
+    """
     _col_scale(matrix, col, factor)
     _row_scale(Op_r, col, 1/factor)
     return matrix, Op_r
 
 def _row_scale(matrix, row, factor):
+    """
+    Scale a row in a matrix. Cares if the entry is a tuple (coefficient, variable) and scales it accordingly.
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to scale the row in.
+        row (int): The row index to scale.
+        factor (Union[int, Fraction]): The factor to scale the row by.
+    """
     for i in range(len(matrix[row])):
         entry = matrix[row][i]
         if isinstance(entry, tuple):
@@ -42,6 +106,13 @@ def _row_scale(matrix, row, factor):
             matrix[row][i] *= factor
 
 def _col_scale(matrix, col, factor):
+    """
+    Scale a column in a matrix. Cares if the entry is a tuple (coefficient, variable) and scales it accordingly.
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to scale the column in.
+        col (int): The column index to scale.
+        factor (Union[int, Fraction]): The factor to scale the column by.
+    """
     for row in matrix:
         entry = row[col]
         if isinstance(entry, tuple):
@@ -52,6 +123,18 @@ def _col_scale(matrix, col, factor):
             row[col] *= factor
 
 def row_add(matrix, Op_l, target_row, source_row, factor):
+    """
+    Add a multiple of one row to another row in a matrix and adds the corresponding columns with a minus factor in the left operator.
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to add the row to.
+        Op_l (List[List[Union[int, Fraction]]]): The left operator.
+        target_row (int): The row index to add to.
+        source_row (int): The row index to add.
+        factor (Union[int, Fraction]): The factor to multiply the source row by before adding.
+    Returns:
+        Tuple[List[List[Union[int, Tuple[int, str]]]], List[List[Union[int, Fraction]]]: The matrix
+                                                        and left operator with the row added.
+    """
     if isinstance(factor, Fraction):
         is_zero, success = _row_add(matrix, target_row, source_row, factor)
         if success:
@@ -61,6 +144,18 @@ def row_add(matrix, Op_l, target_row, source_row, factor):
         return matrix, Op_l, False
 
 def col_add(matrix, Op_r, target_col, source_col, factor):
+    """
+    Add a multiple of one column to another column in a matrix and adds the corresponding rows with a minus factor in the right operator.
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to add the column to.
+        Op_r (List[List[Union[int, Fraction]]]): The right operator.
+        target_col (int): The column index to add to.
+        source_col (int): The column index to add.
+        factor (Union[int, Fraction]): The factor to multiply the source column by before adding.
+    Returns:
+        Tuple[List[List[Union[int, Tuple[int, str]]]], List[List[Union[int, Fraction]]]: The matrix
+                                                        and right operator with the column added.
+    """
     if isinstance(factor, Fraction):
         is_zero, success = _col_add(matrix, target_col, source_col, factor)
         if success:
@@ -70,6 +165,18 @@ def col_add(matrix, Op_r, target_col, source_col, factor):
         return matrix, Op_r, False
 
 def _row_add(matrix, target_row, source_row, factor):
+    """
+    Add a multiple of one row to another row in a matrix. Checks if possible to add the rows. Each entry should share the same variable.
+    If a combination of variables is found, the operation is not possible.
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to add the row to.
+        target_row (int): The row index to add to.
+        source_row (int): The row index to add.
+        factor (Fraction): The factor to multiply the source row by before adding.
+    Returns:
+        Tuple[bool, bool]: A tuple of two booleans. The first boolean indicates if the row is zero after the operation.
+                            The second boolean indicates if the operation was successful.
+    """
     new_row = deepcopy(matrix[target_row])
     for i in range(len(matrix[target_row])):
         source_entry = matrix[source_row][i]
@@ -105,11 +212,31 @@ def _row_add(matrix, target_row, source_row, factor):
     return (not any(new_row) , True)
 
 def _row_add_float(matrix, target_row, source_row, factor):
+    """
+    Add a multiple of one row to another row in a matrix without checking for tuples. Works only with numbers.
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to add the row to.
+        target_row (int): The row index to add to.
+        source_row (int): The row index to add.
+        factor (float): The factor to multiply the source row by before adding.
+    """
     for i in range(len(matrix[target_row])):
         source_entry = matrix[source_row][i]
         matrix[target_row][i] += factor * source_entry
     
 def _col_add(matrix, target_col, source_col, factor):
+    """
+    Add a multiple of one column to another column in a matrix. Checks if possible to add the columns. Each entry should share the same variable.
+    If a combination of variables is found, the operation is not possible.
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to add the column to.
+        target_col (int): The column index to add to.
+        source_col (int): The column index to add.
+        factor (Fraction): The factor to multiply the source column by before adding.
+    Returns:
+        Tuple[bool, bool]: A tuple of two booleans. The first boolean indicates if the column is zero after the operation.
+                            The second boolean indicates if the operation was successful.
+    """
     new_col = [row[target_col] for row in matrix]    
     for i,row in enumerate(matrix):
         source_entry = row[source_col]
@@ -145,18 +272,38 @@ def _col_add(matrix, target_col, source_col, factor):
     return (not any(new_col) , True)
 
 def _col_add_float(matrix, target_col, source_col, factor):
+    """
+    Add a multiple of one column to another column in a matrix without checking for tuples. Works only with numbers.
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to add the column to.
+        target_col (int): The column index to add to.   
+        source_col (int): The column index to add.
+        factor (float): The factor to multiply the source column by before adding.
+    """
     for row in matrix:
         source_entry = row[source_col]
         row[target_col] += factor * source_entry
            
 def print_matrix(matrix):
-    """Helper function to print the matrix nicely."""
+    """
+    Helper function to print the matrix nicely.
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to print.
+    """
     for row in matrix:
         print("\t".join([f"{entry[0]}*{entry[1]}" if isinstance(entry, tuple) else str(entry)
                          for entry in row]))
     print()
 
 def gaussian_elimination(matrix):
+    """
+    Perform Gaussian elimination on a matrix. First creates the left and right operator. Deparallelizes the rows and columns.
+    Then performs row and column elimination until the matrix is reduced.
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to perform Gaussian elimination on.
+    Returns:
+        Tuple[List[List[Union[int, Fraction]]], List[List[Union[int, Tuple[int, str]]], List[List[Union[int, Fraction]]]]: The left operator, the reduced matrix and the right operator.
+    """
     n_rows, n_rows_old = len(matrix), 0
     n_cols, n_cols_old = len(matrix[0]), 0
 
@@ -176,6 +323,14 @@ def gaussian_elimination(matrix):
     return  Op_l, matrix,  Op_r                
 
 def deparallelize_rows(Op_l, matrix):
+    """
+    Deparallelize the rows of a matrix. Removes rows that are parallel to each other.
+    Args:
+        Op_l (List[List[Union[int, Fraction]]]): The left operator.
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to deparallelize.
+    Returns:
+        Tuple[List[List[Union[int, Fraction]]], List[List[Union[int, Tuple[int, str]]]]: The left operator and the matrix with the rows deparallelized.
+    """
     zero_rows = []
     for i in range(len(matrix)):
         if i in zero_rows:
@@ -200,38 +355,45 @@ def are_parallel_row(row1, row2):
     """
     Check if two rows are parallel (Fraction multiples of each other).
     Handles fractions and tuples (coefficient, variable).
+    Args:
+        row1 (List[Union[int, Tuple[int, str]]]): The first row to check.
+        row2 (List[Union[int, Tuple[int, str]]]): The second row to check.
+    Returns:
+        Fraction: The factor by which the rows are parallel. 0 if not parallel.
     """
-    ratio = Fraction(0)  # Initialize the scalar ratio to None
+    ratio = Fraction(0)  
 
     for a, b in zip(row1, row2):
-        # Extract the value and variable for each element
         a_coeff, a_var = (a, '') if isinstance(a, Fraction) else a
         b_coeff, b_var = (b, '') if isinstance(b, Fraction) else b
 
-        # If variables don't match, rows are not parallel
         if a_var != b_var:
             return 0
 
-        # If both are zero, continue
         if a_coeff == 0 and b_coeff == 0:
             continue
 
-        # If one is zero and the other isn't, rows are not parallel
         if a_coeff == 0 or b_coeff == 0:
             return 0
 
-        # Calculate the ratio for this pair of elements
         current_ratio = b_coeff / a_coeff
 
-        # Check if the ratio is consistent
         if ratio == 0:
-            ratio = current_ratio  # Set the initial ratio
+            ratio = current_ratio  
         elif current_ratio != ratio:
-            return 0  # Ratios don't match, not parallel
+            return 0 
 
-    return ratio  # All elements are consistent
+    return ratio 
 
 def deparallelize_cols(Op_r, matrix):
+    """
+    Deparallelize the columns of a matrix. Removes columns that are parallel to each other.
+    Args:
+        Op_r (List[List[Union[int, Fraction]]]): The right operator.
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to deparallelize.
+    Returns:
+        Tuple[List[List[Union[int, Fraction]]], List[List[Union[int, Tuple[int, str]]]]: The right operator and the matrix with the columns deparallelized.
+    """
     zero_cols = []
     for i in range(len(matrix[0])):
         if i in zero_cols:
@@ -256,38 +418,45 @@ def are_parallel_col(matrix, col1, col2):
     """
     Check if two columns are parallel (scalar multiples of each other).
     Handles scalars and tuples (coefficient, variable).
+    Args:
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to check the columns in.
+        col1 (int): The first column index to check.
+        col2 (int): The second column index to check.
+    Returns:
+        Fraction: The factor by which the columns are parallel. 0 if not parallel.
     """
-    ratio = Fraction(0)  # Initialize the scalar ratio to None
+    ratio = Fraction(0)
 
     for row in matrix:
-        # Extract the value and variable for each element
         a_coeff, a_var = (row[col1], '') if isinstance(row[col1], Fraction) else row[col1]
         b_coeff, b_var = (row[col2], '') if isinstance(row[col2], Fraction) else row[col2]
 
-        # If variables don't match, columns are not parallel
         if a_var != b_var:
             return 0
 
-        # If both are zero, continue
         if a_coeff == 0 and b_coeff == 0:
             continue
 
-        # If one is zero and the other isn't, columns are not parallel
         if a_coeff == 0 or b_coeff == 0:
             return 0
 
-        # Calculate the ratio for this pair of elements
         current_ratio = b_coeff / a_coeff
 
-        # Check if the ratio is consistent
         if ratio == 0:
-            ratio = current_ratio  # Set the initial ratio
-        elif current_ratio != ratio:  # Allow for floating-point tolerance
-            return 0  # Ratios don't match, not parallel
+            ratio = current_ratio  
+        elif current_ratio != ratio: 
+            return 0  
 
-    return ratio  # All elements are consistent
+    return ratio 
 
 def row_elimination(Op_l, matrix):
+    """
+    Perform row elimination on a matrix. First checks if the diagonal entry is zero and swaps rows if necessary. This is deciding the pivot.
+    Then eliminates the entries below the diagonal entry. Removes rows that are zero after the elimination.
+    Args:
+        Op_l (List[List[Union[int, Fraction]]]): The left operator.
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to perform row elimination on.
+    """
     i = 0  
     while i < min(len(matrix) , len(matrix[0])):
 
@@ -302,10 +471,6 @@ def row_elimination(Op_l, matrix):
         if pivot == 0:
             i += 1
             continue
-
-        #if isinstance(pivot, int) and pivot != 0:
-        #    row_scale(matrix, Op_l, i, 1 / pivot)
-            
         
         j = 0
         zero_rows = []
@@ -332,6 +497,13 @@ def row_elimination(Op_l, matrix):
                 del row[row_0]
 
 def row_elimination_brute(Op_l, matrix):
+    """
+    An outdated version of row elimination. It is not used in the final implementation.
+    Perform row elimination on a matrix. Eliminates the entries below the diagonal entry. Removes rows that are zero after the elimination.
+    Args:
+        Op_l (List[List[Union[int, Fraction]]]): The left operator.
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to perform row elimination on.
+    """
     zero_rows = []
     for j in range(len(matrix[0])):
         for i in range(len(matrix)):
@@ -358,6 +530,13 @@ def row_elimination_brute(Op_l, matrix):
             del row[row_0]
               
 def column_elimination(Op_r, matrix):
+    """
+    Perform column elimination on a matrix. First checks if the diagonal entry is zero and swaps columns if necessary. This is deciding the pivot.
+    Then eliminates the entries to the right of the diagonal entry. Removes columns that are zero after the elimination.
+    Args:
+        Op_r (List[List[Union[int, Fraction]]]): The right operator.
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to perform column elimination on.
+    """
     j = 0
     while j < min(len(matrix) , len(matrix[0])):
         if matrix[j][j] == 0:
@@ -370,9 +549,6 @@ def column_elimination(Op_r, matrix):
         if pivot == 0:
             j += 1
             continue
-
-        #if isinstance(pivot,  (int,float)) and pivot != 0:
-        #    col_scale(matrix, Op_r, j, 1 / pivot)
 
         i = 0
         zero_cols = []
@@ -397,6 +573,14 @@ def column_elimination(Op_r, matrix):
             del Op_r[col_0]
                 
 def column_elimination_brute(Op_r, matrix):
+    """
+    An outdated version of column elimination. It is not used in the final implementation.
+    Perform column elimination on a matrix. Eliminates the entries to the right of the diagonal entry. Removes columns that are zero after the elimination.
+    Args:
+        Op_r (List[List[Union[int, Fraction]]]): The right operator.
+        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to perform column elimination on.
+    """
+    
     zero_cols = []
     for i in range(len(matrix)):
         for j in range(len(matrix[0])):
