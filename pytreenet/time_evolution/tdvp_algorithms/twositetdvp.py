@@ -262,7 +262,8 @@ class TwoSiteTDVP(TDVPAlgorithm):
         updated_two_sites = time_evolve(psi,
                                         h_eff,
                                         self.time_step_size * time_step_factor,
-                                        forward=True)
+                                        forward=True,
+                                        mode=self.config.time_evo_mode)
         self.state.tensors[new_id] = updated_two_sites
         # Split the two-site tensor using SVD
         self.state.split_node_svd(new_id, u_legs, v_legs,

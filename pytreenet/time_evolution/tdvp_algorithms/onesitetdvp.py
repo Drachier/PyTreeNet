@@ -101,7 +101,8 @@ class OneSiteTDVP(TDVPAlgorithm):
         self.state.tensors[link_id] = time_evolve(link_tensor,
                                                   hamiltonian_eff_link,
                                                   self.time_step_size * time_step_factor,
-                                                  forward=False)
+                                                  forward=False,
+                                                  mode=self.config.time_evo_mode)
 
     def _update_cache_after_split(self, node_id: str, next_node_id: str):
         """

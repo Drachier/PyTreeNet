@@ -8,18 +8,29 @@ Reference:
 """
 from __future__ import annotations
 from typing import Union, List
+from dataclasses import dataclass
 
-import numpy as np
-
-from ..time_evolution import time_evolve
+from ..time_evolution import TimeEvoMode
 from ..ttn_time_evolution import TTNTimeEvolution, TTNTimeEvolutionConfig
 from ...util.tensor_splitting import SplitMode
 from ...ttns import TreeTensorNetworkState
 from ...ttno.ttno_class import TTNO
 from ...operators.tensorproduct import TensorProduct
 from ...contractions.sandwich_caching import SandwichCache
-from ...contractions.effective_hamiltonians import get_effective_single_site_hamiltonian
+from ..time_evo_util.effective_time_evolution import single_site_time_evolution
 from ..time_evo_util.update_path import TDVPUpdatePathFinder
+
+@dataclass
+class TDVPConfig(TTNTimeEvolutionConfig):
+    """
+    Configuration class for TDVP algorithms.
+
+    Attributes:
+        update_path (List[str]): The order in which the nodes are updated.
+        orthogonalisation_path (List[List[str]]): The path along which the
+            TTNS has to be orthogonalised between each node update.
+    """
+    time_evo_mode: TimeEvoMode = TimeEvoMode.FASTEST
 
 class TDVPAlgorithm(TTNTimeEvolution):
     """
@@ -40,12 +51,13 @@ class TDVPAlgorithm(TTNTimeEvolution):
         partial_tree_cache (PartialTreeCacheDict): A dictionary to hold
             already contracted subtrees of the TTNS.
     """
+    config_class = TDVPConfig
 
     def __init__(self, initial_state: TreeTensorNetworkState,
                  hamiltonian: TTNO,
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
-                 config: Union[TTNTimeEvolutionConfig,None] = None) -> None:
+                 config: Union[TDVPConfig,None] = None) -> None:
         """
         Initilises an instance of a TDVP algorithm.
 
@@ -66,6 +78,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
                          time_step_size, final_time,
                          operators,
                          config)
+        self.config: TDVPConfig
         self.update_path = self._finds_update_path()
         self.orthogonalization_path = self._find_tdvp_orthogonalization_path(self.update_path)
         self._orthogonalize_init()
@@ -150,22 +163,6 @@ class TDVPAlgorithm(TTNTimeEvolution):
         """
         self.partial_tree_cache.update_tree_cache(node_id, next_node_id)
 
-    def _get_effective_site_hamiltonian(self,
-                                        node_id: str) -> np.ndarray:
-        """
-        Obtains the effective site Hamiltonian as a matrix.
-
-        Args:
-            node_id (str): The node idea centered in the effective Hamiltonian
-
-        Returns:
-            np.ndarray: The effective site Hamiltonian
-        """
-        return get_effective_single_site_hamiltonian(node_id,
-                                                     self.state,
-                                                     self.hamiltonian,
-                                                     self.partial_tree_cache)
-
     def _update_site(self, node_id: str,
                      time_step_factor: float = 1):
         """
@@ -176,12 +173,14 @@ class TDVPAlgorithm(TTNTimeEvolution):
             time_step_factor (float, optional): A factor that should be
                 multiplied with the internal time step size. Defaults to 1.
         """
-        hamiltonian_eff_site = self._get_effective_site_hamiltonian(node_id)
-        psi = self.state.tensors[node_id]
-        self.state.tensors[node_id] = time_evolve(psi,
-                                                  hamiltonian_eff_site,
-                                                  self.time_step_size * time_step_factor,
-                                                  forward=True)
+        updated_tensor = single_site_time_evolution(node_id,
+                                                    self.state,
+                                                    self.hamiltonian,
+                                                    self.time_step_size * time_step_factor,
+                                                    self.partial_tree_cache,
+                                                    forward=True,
+                                                    mode=self.config.time_evo_mode)
+        self.state.tensors[node_id] = updated_tensor
 
     def _move_orth_and_update_cache_for_path(self, path: List[str]):
         """
