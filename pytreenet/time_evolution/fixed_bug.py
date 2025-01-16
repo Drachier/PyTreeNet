@@ -1,17 +1,28 @@
 from typing import Dict, List, Union
+from dataclasses import dataclass
 
-from .ttn_time_evolution import TTNTimeEvolution, TTNTimeEvolutionConfig
+from .ttn_time_evolution import TTNTimeEvolution
 from ..ttns import TreeTensorNetworkState
 from ..ttno import TreeTensorNetworkOperator
 from ..operators.tensorproduct import TensorProduct
 from ..util.tensor_splitting import SplitMode
 
-from .time_evo_util.common_bug import root_update
+from .time_evo_util.common_bug import root_update, CommonBUGConfig
+
+@dataclass
+class FixedBUGConfig(CommonBUGConfig):
+    """
+    Configuration class for the fixed rank BUG method.
+    """
+
+    def __post_init__(self):
+        self.fixed_rank = True
 
 class FixedBUG(TTNTimeEvolution):
     """
     The fixed rank Basis-Update and Galerkin (BUG) time evolution algorithm.
     """
+    config_class = FixedBUGConfig
 
     def __init__(self,
                  initial_state: TreeTensorNetworkState,
@@ -24,7 +35,7 @@ class FixedBUG(TTNTimeEvolution):
                      TensorProduct,
                      TreeTensorNetworkOperator
                  ],
-                 config: Union[TTNTimeEvolutionConfig, None] = None
+                 config: Union[FixedBUGConfig, None] = None
                  ) -> None:
 
         super().__init__(initial_state,
@@ -34,8 +45,9 @@ class FixedBUG(TTNTimeEvolution):
                          config=config)
 
         self.hamiltonian = hamiltonian
-        self.state : TreeTensorNetworkState
+        self.state: TreeTensorNetworkState
         self.state.ensure_root_orth_center(mode=SplitMode.KEEP)
+        self.config: FixedBUGConfig
 
     def recursive_update(self):
         """
@@ -44,7 +56,7 @@ class FixedBUG(TTNTimeEvolution):
         self.state = root_update(self.state,
                                  self.hamiltonian,
                                  self.time_step_size,
-                                 fixed_rank=True)
+                                 bug_config=self.config)
 
     def run_one_time_step(self, **kwargs):
         """

@@ -5,6 +5,7 @@ nodes in a TTNS.
 """
 from typing import Tuple
 from copy import deepcopy, copy
+from dataclasses import dataclass
 
 from numpy import ndarray, concat, tensordot
 
@@ -18,12 +19,28 @@ from ...util.tensor_splitting import tensor_qr_decomposition, SplitMode
 from ...contractions.state_operator_contraction import contract_leaf
 from ...core.leg_specification import LegSpecification
 from ...contractions.state_operator_contraction import contract_any
+from ..ttn_time_evolution import TTNTimeEvolutionConfig
 
 from .bug_util import (basis_change_tensor_id,
                        reverse_basis_change_tensor_id,
                        compute_basis_change_tensor,
                        compute_new_basis_tensor,
                        compute_fixed_size_new_basis_tensor)
+
+@dataclass
+class CommonBUGConfig(TTNTimeEvolutionConfig):
+    """
+    The configuration class for the BUG methods.
+
+    Attributes:
+        deep (bool): Whether to use deepcopies of the TTNS during the update.
+            If False, only the relevant nodes are copied at each point.
+        fixed_rank (bool): Whether to use the fixed rank BUG or the standard
+            BUG.
+
+    """
+    deep: bool = False
+    fixed_rank: bool = False
 
 def update_leaf_node(node_id: str,
                 current_state: TreeTensorNetworkState,
@@ -101,7 +118,7 @@ def update_non_leaf_node(node_id: str,
                          current_cache: SandwichCache,
                          hamiltonian: TreeTensorNetworkOperator,
                          time_step_size: float,
-                         fixed_rank: bool = False
+                         bug_config: CommonBUGConfig
                          ) -> Tuple[TreeTensorNetworkState, ndarray, ndarray]:
     """
     Updates a non-leaf node according to the fixed rank BUG.
@@ -118,9 +135,8 @@ def update_non_leaf_node(node_id: str,
         hamiltonian (TreeTensorNetworkOperator): The Hamiltonian operator of
             model as a TTNO.
         time_step_size (float): The time step size.
-        fixed_rank (bool): Whether to use the fixed rank BUG or the standard
-            BUG.
-    
+        bug_config (CommonBUGConfig): The configuration for the BUG method.
+
     Returns:
         TreeTensorNetworkState: The updated new state.
         ndarray: The neighbour block towards the parent, with the updated
@@ -137,7 +153,7 @@ def update_non_leaf_node(node_id: str,
                                                                 current_cache,
                                                                 hamiltonian,
                                                                 time_step_size,
-                                                                fixed_rank=fixed_rank)
+                                                                bug_config=bug_config)
         child_bc_tensors.add_entry(child_id, node_id, child_bc_tensor)
         child_environment_cache.add_entry(child_id, node_id, child_block)
     # If we update it inside the loop, the cache changed after the first child, but
@@ -159,7 +175,7 @@ def update_non_leaf_node(node_id: str,
                                                 time_step_size,
                                                 current_cache)
     new_state_node = new_state.nodes[node_id]
-    if fixed_rank:
+    if bug_config.fixed_rank:
         new_basis_tensor = compute_fixed_size_new_basis_tensor(new_state_node,
                                                                 updated_tensor)
     else:
@@ -194,7 +210,7 @@ def update_node(node_id: str,
                 parent_tensor_cache: SandwichCache,
                 hamiltonian: TreeTensorNetworkOperator,
                 time_step_size: float,
-                fixed_rank: bool = False
+                bug_config: CommonBUGConfig
                 ) -> Tuple[TreeTensorNetworkState, ndarray, ndarray]:
     """
     Updates a node according to the fixed rank BUG.
@@ -210,8 +226,7 @@ def update_node(node_id: str,
         hamiltonian (TreeTensorNetworkOperator): The Hamiltonian operator of
             model as a TTNO.
         time_step_size (float): The time step size.
-        fixed_rank (bool): Whether to use the fixed rank BUG or the standard
-            BUG.
+        bug_config (CommonBUGConfig): The configuration for the BUG method.
 
     Returns:
         TreeTensorNetworkState: The updated new state.
@@ -223,8 +238,12 @@ def update_node(node_id: str,
     parent_id = parent_state.nodes[node_id].parent
     assert parent_id is not None, "There is no basis change for the root node!"
     assert parent_id == parent_state.orthogonality_center_id, "The parent is not the orth center!"
-    current_state = deepcopy(parent_state)
-    if fixed_rank:
+    if bug_config.deep:
+        current_state = deepcopy(parent_state)
+    else:
+        copy_nodes = [node_id, parent_id]
+        current_state = parent_state.deepcopy_parts(copy_nodes)
+    if bug_config.fixed_rank:
         mode = SplitMode.KEEP
     else:
         mode = SplitMode.REDUCED
@@ -243,7 +262,7 @@ def update_node(node_id: str,
                                 current_cache,
                                 hamiltonian,
                                 time_step_size,
-                                fixed_rank=fixed_rank)
+                                fixed_rank=bug_config.fixed_rank)
     else:
         return update_non_leaf_node(node_id,
                                     current_state,
@@ -252,12 +271,12 @@ def update_node(node_id: str,
                                     current_cache,
                                     hamiltonian,
                                     time_step_size,
-                                    fixed_rank=fixed_rank)
+                                    bug_config=bug_config)
 
 def root_update(current_state: TreeTensorNetworkState,
                 hamiltonian: TreeTensorNetworkOperator,
                 time_step_size: float,
-                fixed_rank: bool = False
+                bug_config: CommonBUGConfig
                 ) -> TreeTensorNetworkState:
     """
     Updates the root node of the state according to the fixed rank BUG.
@@ -268,8 +287,7 @@ def root_update(current_state: TreeTensorNetworkState,
         hamiltonian (TreeTensorNetworkOperator): The Hamiltonian operator of
             model as a TTNO.
         time_step_size (float): The time step size.
-        fixed_rank (bool): Whether to use the fixed rank BUG or the standard
-            BUG.
+        bug_config (CommonBUGConfig): The configuration for the BUG method.
     
     Returns:
         TreeTensorNetworkState: The updated state.
@@ -291,7 +309,7 @@ def root_update(current_state: TreeTensorNetworkState,
                                                 current_cache,
                                                 hamiltonian,
                                                 time_step_size,
-                                                fixed_rank=fixed_rank)
+                                                bug_config=bug_config)
         child_environment_cache.add_entry(child_id, root_id, child_block)
     # If we update it inside the loop, the cache changed after the first child, but
     # we need the old cache for the other children updates.

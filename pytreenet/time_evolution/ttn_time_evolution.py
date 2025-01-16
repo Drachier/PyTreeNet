@@ -33,6 +33,7 @@ class TTNTimeEvolution(TimeEvolution):
             dimension is intended, they are recorded here.
     """
     bond_dim_id = "bond_dim"
+    config_class = TTNTimeEvolutionConfig
 
     def __init__(self, initial_state: TreeTensorNetworkState,
                  time_step_size: float, final_time: float,
@@ -65,6 +66,10 @@ class TTNTimeEvolution(TimeEvolution):
             self.bond_dims = {}
         else:
             self.bond_dims = None
+        if config is None:
+            self.config = self.config_class()
+        else:
+            self.config = config
 
     @property
     def records_bond_dim(self) -> bool:
