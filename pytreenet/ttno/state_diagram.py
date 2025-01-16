@@ -440,13 +440,7 @@ class StateDiagram():
         state_diagrams = cls.get_state_diagrams(hamiltonian,ref_tree)
         compound_state_diagram = cls.get_state_diagram_compound(state_diagrams)
 
-        compound_state_diagram.coeffs = hamiltonian.coeffs
-
         compound_state_diagram.hamiltonian = hamiltonian
-
-        for i, hyperedge in enumerate(compound_state_diagram.hyperedge_colls[ref_tree.root_id].contained_hyperedges):
-            hyperedge.lambda_coeff *= compound_state_diagram.coeffs[i][0]
-            hyperedge.gamma_coeff = compound_state_diagram.coeffs[i][1]
 
         return compound_state_diagram
 
@@ -467,12 +461,8 @@ class StateDiagram():
         # Get individual state diagrams and combine them into a compound state diagram
         state_diagrams = cls.get_state_diagrams(hamiltonian,ref_tree)
         compound_state_diagram = cls.get_state_diagram_compound(state_diagrams)
-
-        compound_state_diagram.coeffs = hamiltonian.coeffs
         
         compound_state_diagram.SGE = method == TTNOFinder.SGE
-
-        coeffs_assigned = False 
 
         compound_state_diagram.hamiltonian = hamiltonian
 
@@ -503,14 +493,6 @@ class StateDiagram():
 
                 # Combining v nodes            
                 local_vs = copy(compound_state_diagram.hyperedge_colls[parent].contained_hyperedges)
-
-                # Initial assign of coefficients to the root hyperedges
-                if not coeffs_assigned:
-                    coeffs_assigned = True
-                    for i, hyperedge in enumerate(local_vs):
-                        
-                        hyperedge.lambda_coeff *= compound_state_diagram.coeffs[i][0]
-                        hyperedge.gamma_coeff = compound_state_diagram.coeffs[i][1]
                         
                 compound_state_diagram.cut_and_optimise(local_vs, current_node, parent)
                 
@@ -563,9 +545,9 @@ class StateDiagram():
             connected_u_nodes = el_vertex.get_hyperedges_for_one_node_id(current_node)
 
             for u_node in connected_u_nodes:
-                Gamma[u_nodes_enumerated[u_node.identifier]][v_nodes_enumerated[element.v_hash]] = Fraction(element.lambda_coeff) if element.gamma_coeff == "Free" else (Fraction(element.lambda_coeff), element.gamma_coeff)     
+                Gamma[u_nodes_enumerated[u_node.identifier]][v_nodes_enumerated[element.v_hash]] = Fraction(element.lambda_coeff) if element.gamma_coeff == "1" else (Fraction(element.lambda_coeff), element.gamma_coeff)     
 
-            element.gamma_coeff = "Free"
+            element.gamma_coeff = "1"
             element.lambda_coeff = 1
 
         # Symbolic Gaussian Elimination
@@ -683,7 +665,7 @@ class StateDiagram():
                         new_v_list = [(self._copy_node(v, current_node, parent, parent),lam) for v,lam in vlist[j]]
                     
                     for u_node,lam in new_u_list:
-                        u_node.gamma_coeff = "Free"
+                        u_node.gamma_coeff = "1"
                         u_node.lambda_coeff = lam
 
                     
@@ -694,7 +676,7 @@ class StateDiagram():
                             v.lambda_coeff = lambda_temp * lam
                         else:
                             v.lambda_coeff = edges_enumerated[(i,j)] * lam
-                            v.gamma_coeff = "Free"
+                            v.gamma_coeff = "1"
 
 
                     vert.add_hyperedges([t[0] for t in new_u_list] + [t[0] for t in new_v_list])
@@ -712,7 +694,7 @@ class StateDiagram():
                             v.lambda_coeff = lambda_temp * lam
                         else:
                             v.lambda_coeff = edges_enumerated[(i,j)] * lam
-                            v.gamma_coeff = "Free"
+                            v.gamma_coeff = "1"
                     vert.add_hyperedges([t[0] for t in new_v_list])
 
 
@@ -738,7 +720,7 @@ class StateDiagram():
                         new_v_list = [(self._copy_node(v, current_node, parent, parent),lam) for v,lam in vlist[j]]
                     
                     for v,lam in new_v_list:
-                        v.gamma_coeff = "Free"
+                        v.gamma_coeff = "1"
                         v.lambda_coeff = lam
 
                     for u, lam in new_u_list:
@@ -748,7 +730,7 @@ class StateDiagram():
                             u.lambda_coeff = lambda_temp * lam
                         else:
                             u.lambda_coeff = edges_enumerated[(i,j)] * lam
-                            u.gamma_coeff = "Free"
+                            u.gamma_coeff = "1"
 
 
                     vert.add_hyperedges([t[0] for t in new_u_list] + [t[0] for t in new_v_list])
@@ -766,7 +748,7 @@ class StateDiagram():
                             u.lambda_coeff = lambda_temp * lam
                         else:
                             u.lambda_coeff = edges_enumerated[(i,j)] * lam
-                            u.gamma_coeff = "Free"
+                            u.gamma_coeff = "1"
                     vert.add_hyperedges([t[0] for t in new_u_list])
 
 

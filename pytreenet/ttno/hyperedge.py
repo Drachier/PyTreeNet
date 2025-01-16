@@ -27,7 +27,7 @@ class HyperEdge():
                  label: str,
                  vertices: List[Vertex],
                  lambda_coeff: Fraction = Fraction(1),
-                 gamma_coeff: str = "Free"):
+                 gamma_coeff: str = "1"):
         """
         Initialises a hyperedge.
 

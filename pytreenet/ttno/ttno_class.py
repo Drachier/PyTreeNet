@@ -111,10 +111,7 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
             position = he.find_tensor_position(reference_tree)
             operator = conversion_dict[he.label].copy()
             
-            if method != method.TREE:
-                operator *= float(he.lambda_coeff)
-                if he.gamma_coeff != "Free":
-                    operator *= coeffs_mapping[he.gamma_coeff]
+            operator *= float(he.lambda_coeff) * coeffs_mapping[he.gamma_coeff]
             
             ttno.tensors[he.corr_node_id][position] += operator
         
