@@ -505,22 +505,17 @@ class StateDiagram():
 
         return compound_state_diagram
 
-    def cut_and_optimise(self, local_vs, current_node, parent):
-        """
-        Cuts the hyperedges at the cut site and optimises the hyperedges.
-        Applies symbolic gaussian elimination and bipartite graph theory depending on the method.
-        """
-
-        hash_dict = {}
+    def _generate_non_redundant_V_dict(self, local_vs, current_node, parent):
+        V_set = {}
         
         # Comparing V nodes and combining them if they are the same
         for element in local_vs:
             v_hash = element.calculate_v_hash(current_node, parent)
 
-            if v_hash not in hash_dict:
-                hash_dict[v_hash] = []
+            if v_hash not in V_set:
+                V_set[v_hash] = []
 
-            for element2 in hash_dict[v_hash]:
+            for element2 in V_set[v_hash]:
                 v1 = element.find_vertex(current_node)
                 v2 = element2.find_vertex(current_node)
 
@@ -528,102 +523,91 @@ class StateDiagram():
                 if (element.lambda_coeff != element2.lambda_coeff or element.gamma_coeff != element2.gamma_coeff) and self._compare_lists_by_identity(v1.get_hyperedges_for_one_node_id(current_node), v2.get_hyperedges_for_one_node_id(current_node)):
                     v_hash = hashlib.sha256((v_hash + str(uuid.uuid1()) ).encode()).hexdigest()
                     element.v_hash = v_hash
-                    hash_dict[v_hash] = []
+                    V_set[v_hash] = []
             
                     
-            hash_dict[v_hash].append(element)
-        
-
+            V_set[v_hash].append(element)
+        return V_set
+    
+    def _setup_gamma_matrix(self, local_vs, current_node, V_set):
+        """
+        Setup the Gamma matrix and node enumerations.
+        """
         u_nodes_enumerated = {item.identifier : i for i, item in enumerate(copy(self.hyperedge_colls[current_node].contained_hyperedges))}
         u_nodes_enumerated_ind = {i : item for i, item in enumerate(copy(self.hyperedge_colls[current_node].contained_hyperedges))}
 
-        v_nodes_enumerated = {item : i for i, item in enumerate(hash_dict.keys())}
-        v_nodes_enumerated_ind = {i : item for i, item in enumerate(hash_dict.keys())}
+        v_nodes_enumerated = {item : i for i, item in enumerate(V_set.keys())}
+        v_nodes_enumerated_ind = {i : item for i, item in enumerate(V_set.keys())}
 
-        # Setting up and filling the Gamma matrix
-        
-        Gamma = [[Fraction(0) for _ in range(len(v_nodes_enumerated))] for _ in range(len(u_nodes_enumerated))]    
+
+        Gamma = [[Fraction(0) for _ in range(len(v_nodes_enumerated))] for _ in range(len(u_nodes_enumerated))]
         for element in local_vs:
             el_vertex = element.find_vertex(current_node)
             connected_u_nodes = el_vertex.get_hyperedges_for_one_node_id(current_node)
-
             for u_node in connected_u_nodes:
-                Gamma[u_nodes_enumerated[u_node.identifier]][v_nodes_enumerated[element.v_hash]] = Fraction(element.lambda_coeff) if element.gamma_coeff == "1" else (Fraction(element.lambda_coeff), element.gamma_coeff)     
+                Gamma[u_nodes_enumerated[u_node.identifier]][v_nodes_enumerated[element.v_hash]] = Fraction(element.lambda_coeff) \
+                    if element.gamma_coeff == "1" else (Fraction(element.lambda_coeff), element.gamma_coeff)
 
             element.gamma_coeff = "1"
             element.lambda_coeff = 1
 
-        # Symbolic Gaussian Elimination
+        return Gamma, u_nodes_enumerated, u_nodes_enumerated_ind, v_nodes_enumerated, v_nodes_enumerated_ind
 
-        Op_l, Gamma_u, Op_r = gaussian_elimination(deepcopy(Gamma))
-
-        # Can check if Op_l . Gamma_u . Op_r = Gamma
-
-        # Bipartite graph algorithm to new Gamma matrix
-
-        m, n = len(Gamma_u), len(Gamma_u[0])
-
+    def _remove_all_vertices_cut_site(self, current_node, parent):
         # Remove all vertices in the cut site
         for u in self.hyperedge_colls[current_node].contained_hyperedges:
             u.vertices.remove(u.find_vertex(parent))
         for v in self.hyperedge_colls[parent].contained_hyperedges:
             v.vertices.remove(v.find_vertex(current_node))
-
         self.vertex_colls[(parent,current_node)].contained_vertices = []
 
-        # Remove duplicated v vertices in the cut size
-
-        for hash_key, elements in hash_dict.items():
+    def _remove_reduntant_v_hyperedges(self, V_set):
+        for hash_key, elements in V_set.items():
             if len(elements) > 1:
                 for element in elements[1:]:
                     self._remove_hyperedge_from_diagram(element)
                     for vert in element.vertices:
                         self._remove_hyperedge_from_vertex(vert, element)
-            hash_dict[hash_key] = elements[0]   
+            V_set[hash_key] = elements[0]  
+
+    def _apply_bipartite_to_gamma(self, Gamma, u_nodes_enumerated, v_nodes_enumerated):
         
-        if self.SGE : 
-            edges_enumerated =  {(i, j) : Gamma_u[i][j] for i in range(m) for j in range(n) if Gamma_u[i][j] != 0}
+        edges_enumerated = {(i, j) : Gamma[i][j] for i in range(len(u_nodes_enumerated)) for j in range(len(v_nodes_enumerated)) if Gamma[i][j] != 0}
+        bigraph  = BipartiteGraph(len(u_nodes_enumerated), len(v_nodes_enumerated), list(edges_enumerated.keys()))
+        u_cover, v_cover = minimum_vertex_cover(bigraph)
+
+        m, n = len(Gamma), len(Gamma[0])
+        Op_l = [[1 if i == j else 0 for j in range(m)] for i in range(m)]
+        Op_r = [[1 if i == j else 0 for j in range(n)] for i in range(n)]
+        return Op_l, Op_r, u_cover, v_cover, edges_enumerated, bigraph, m, n
     
-            edges = list(edges_enumerated.keys())
+    def _apply_bipartite_to_gamma_u(self, Gamma_u, Gamma, u_nodes_enumerated, v_nodes_enumerated):
+        m, n = len(Gamma_u), len(Gamma_u[0])
+        edges_enumerated =  {(i, j) : Gamma_u[i][j] for i in range(m) for j in range(n) if Gamma_u[i][j] != 0}
+        edges = list(edges_enumerated.keys())
 
-            bigraph = BipartiteGraph(m, n, edges)
-            u_cover, v_cover = minimum_vertex_cover(bigraph)
+        bigraph = BipartiteGraph(m, n, edges)
+        u_cover, v_cover = minimum_vertex_cover(bigraph)
 
-            edges_enumerated_old = {(i, j) : Gamma[i][j] for i in range(len(u_nodes_enumerated)) for j in range(len(v_nodes_enumerated)) if Gamma[i][j] != 0}
-            bigraph_old  = BipartiteGraph(len(u_nodes_enumerated), len(v_nodes_enumerated), list(edges_enumerated_old.keys()))
-            u_cover_old, v_cover_old = minimum_vertex_cover(bigraph_old)
+        Op_l_old, Op_r_old, u_cover_old, v_cover_old, edges_enumerated_old, bigraph_old, m_old, n_old = self._apply_bipartite_to_gamma(Gamma, u_nodes_enumerated, v_nodes_enumerated)
 
-            # When Gaussian Elimination result is not better, we revert back to the old state
-            if len(u_cover + v_cover) >= len(u_cover_old + v_cover_old):
-                
-                u_cover = u_cover_old
-                v_cover = v_cover_old
+        # When Gaussian Elimination result is not better, we revert back to the old state
+        if len(u_cover + v_cover) >= len(u_cover_old + v_cover_old):
+            u_cover, v_cover = u_cover_old, v_cover_old
 
-                edges_enumerated = edges_enumerated_old
-                edges = list(edges_enumerated_old)
-                bigraph = bigraph_old
-
-                m, n = len(Gamma), len(Gamma[0])
-    
-                Op_l = [[1 if i == j else 0 for j in range(m)] for i in range(m)]
-                Op_r = [[1 if i == j else 0 for j in range(n)] for i in range(n)]
-
-        # Only Bipartite Graph Algorithm
-        else:
+            edges_enumerated = edges_enumerated_old
+            edges = list(edges_enumerated_old)
             
-            edges_enumerated = {(i, j) : Gamma[i][j] for i in range(len(u_nodes_enumerated)) for j in range(len(v_nodes_enumerated)) if Gamma[i][j] != 0}
-            bigraph  = BipartiteGraph(len(u_nodes_enumerated), len(v_nodes_enumerated), list(edges_enumerated.keys()))
-            u_cover, v_cover = minimum_vertex_cover(bigraph)
-            edges = list(edges_enumerated)
-
-            m, n = len(Gamma), len(Gamma[0])
-            Op_l = [[1 if i == j else 0 for j in range(m)] for i in range(m)]
-            Op_r = [[1 if i == j else 0 for j in range(n)] for i in range(n)]
-                      
+            bigraph = bigraph_old
+            m, n = m_old, n_old
+            Op_l, Op_r = Op_l_old, Op_r_old
         
+        return Op_l, Op_r, u_cover, v_cover, edges_enumerated, bigraph, m, n
+
+    def _create_combined_u_v_lists(self, Op_l, Op_r, V_set, u_nodes_enumerated_ind, v_nodes_enumerated_ind, m, n, current_node, parent):
         # Creating Combined U and V lists
-        ulist = [[] for _ in range(m)] # [[(u_temp, Op_l[i,j]), .. ] , [] , [] , []]
-        vlist = [[] for _ in range(n)]
+        u_list = [[] for _ in range(m)] # [[(u_temp, Op_l[i,j]), .. ] , [] , [] , []]
+        v_list = [[] for _ in range(n)]
 
         for i in range(len(Op_l)):
             u_temp = u_nodes_enumerated_ind[i]
@@ -632,28 +616,33 @@ class StateDiagram():
             for j in range(len(Op_l[0])):
                 if Op_l[i][j] != 0:
                     if not dupl:
-                        ulist[j].append((u_temp, Op_l[i][j]))
+                        u_list[j].append((u_temp, Op_l[i][j]))
 
                         dupl = True
                     else:
 
                         new_h = self._copy_node(u_temp, current_node, parent, current_node)
-                        ulist[j].append((new_h, Op_l[i][j]))
+                        u_list[j].append((new_h, Op_l[i][j]))
 
         for j in range(len(Op_r[0])):
-            v_temp = hash_dict[v_nodes_enumerated_ind[j]]
+            v_temp = V_set[v_nodes_enumerated_ind[j]]
             dupl = False
             for i in range(len(Op_r)):
                 if Op_r[i][j] != 0:
                     if not dupl:
-                        vlist[i].append((v_temp, Op_r[i][j]))
+                        v_list[i].append((v_temp, Op_r[i][j]))
                         dupl = True
                     else:
                         
                         new_h = self._copy_node(v_temp, current_node, parent, parent)
-                        vlist[i].append((new_h,Op_r[i][j]))
+                        v_list[i].append((new_h,Op_r[i][j]))
 
+        return u_list, v_list
+
+    def _reconnect_hyperedges(self, u_cover, v_cover, ulist, vlist, edges_enumerated, bigraph, current_node, parent):
         used_us, used_vs = set(), set()
+        edges = list(edges_enumerated.keys())
+        
         for i in u_cover:
             vert = None
             for j in bigraph.adj_u[i]:
@@ -758,7 +747,32 @@ class StateDiagram():
                 edges.remove((i, j))
                 used_us.add(i) 
             used_vs.add(j)
-            
+         
+
+    def cut_and_optimise(self, local_vs, current_node, parent):
+        """
+        Cuts the hyperedges at the cut site and optimises the hyperedges.
+        Applies symbolic gaussian elimination and bipartite graph theory depending on the method.
+        """
+
+        V_set = self._generate_non_redundant_V_dict(local_vs, current_node, parent)
+        Gamma, u_nodes_enumerated, u_nodes_enumerated_ind, v_nodes_enumerated, v_nodes_enumerated_ind = self._setup_gamma_matrix(local_vs, current_node, V_set)
+    
+        # Symbolic Gaussian Elimination
+        Op_l, Gamma_u, Op_r = gaussian_elimination(deepcopy(Gamma))
+
+        self._remove_all_vertices_cut_site(current_node, parent) 
+        self._remove_reduntant_v_hyperedges(V_set)
+
+        if self.SGE : 
+            Op_l, Op_r, u_cover, v_cover, edges_enumerated, bigraph, m, n = self._apply_bipartite_to_gamma_u(Gamma_u, Gamma, u_nodes_enumerated, v_nodes_enumerated)
+        else:
+            Op_l, Op_r, u_cover, v_cover, edges_enumerated, bigraph, m, n = self._apply_bipartite_to_gamma(Gamma, u_nodes_enumerated, v_nodes_enumerated)
+                      
+        u_list, v_list = self.create_combined_u_v_lists(Op_l, Op_r, V_set, u_nodes_enumerated_ind, v_nodes_enumerated_ind, m, n, current_node, parent)
+        
+        self._reconnect_hyperedges(u_cover, v_cover, u_list, v_list, edges_enumerated, bigraph, current_node, parent)
+           
     def combine_subtrees(self, local_hyperedges, parent):
         """
         Checks if the hyperedges in the local_hyperedges list can be combined 
