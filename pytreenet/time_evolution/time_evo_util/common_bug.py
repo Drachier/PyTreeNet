@@ -20,6 +20,7 @@ from ...contractions.state_operator_contraction import contract_leaf
 from ...core.leg_specification import LegSpecification
 from ...contractions.state_operator_contraction import contract_any
 from ..ttn_time_evolution import TTNTimeEvolutionConfig
+from ..time_evolution import TimeEvoMode
 
 from .bug_util import (basis_change_tensor_id,
                        reverse_basis_change_tensor_id,
@@ -41,6 +42,7 @@ class CommonBUGConfig(TTNTimeEvolutionConfig):
     """
     deep: bool = False
     fixed_rank: bool = False
+    time_evo_mode: TimeEvoMode = TimeEvoMode.FASTEST
 
 def update_leaf_node(node_id: str,
                 current_state: TreeTensorNetworkState,
@@ -49,7 +51,7 @@ def update_leaf_node(node_id: str,
                 current_cache: SandwichCache,
                 hamiltonian: TreeTensorNetworkOperator,
                 time_step_size: float,
-                fixed_rank: bool = False
+                bug_config: CommonBUGConfig
                 ) -> Tuple[TreeTensorNetworkState, ndarray, ndarray]:
     """
     Updates a leaf node according to the fixed rank BUG.
@@ -80,9 +82,10 @@ def update_leaf_node(node_id: str,
                                                 current_state,
                                                 hamiltonian,
                                                 time_step_size,
-                                                current_cache)
+                                                current_cache,
+                                                mode=bug_config.time_evo_mode)
     old_basis_tensor = parent_state.tensors[node_id]
-    if fixed_rank:
+    if bug_config.fixed_rank:
         new_basis_tensor, _ = tensor_qr_decomposition(updated_tensor,
                                                     (1, ),
                                                     (0, ),
@@ -173,7 +176,8 @@ def update_non_leaf_node(node_id: str,
                                                 new_state,
                                                 hamiltonian,
                                                 time_step_size,
-                                                current_cache)
+                                                current_cache,
+                                                mode=bug_config.time_evo_mode)
     new_state_node = new_state.nodes[node_id]
     if bug_config.fixed_rank:
         new_basis_tensor = compute_fixed_size_new_basis_tensor(new_state_node,
@@ -262,7 +266,7 @@ def update_node(node_id: str,
                                 current_cache,
                                 hamiltonian,
                                 time_step_size,
-                                fixed_rank=bug_config.fixed_rank)
+                                bug_config=bug_config)
     else:
         return update_non_leaf_node(node_id,
                                     current_state,
