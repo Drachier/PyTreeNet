@@ -21,9 +21,8 @@ class RandomType(Enum):
     """
     Enum class to specify the type of random Hamiltonian to be generated.
     """
-    DISCRETE = "discrete"
-    CONTINUOUS = "continuous"
-    SYMBOLIC = "symbolic"
+    UNIQUE = "Unique"
+    RANDOM = "Random"
 
 def random_hamiltonian(num_of_terms: int,
                        possible_operators: Union[List[str],List[ndarray]],
@@ -111,11 +110,15 @@ def random_terms(num_of_terms: int,
         List[TensorProduct]: A list containing all the random terms.
     """
     if isinstance(possible_operators[0], str):
-        return random_symbolic_terms(num_of_terms, possible_operators, sites,
-                                     min_num_sites, max_num_sites, seed) if not w_coeff else random_symbolic_terms_with_coeffs(
+        if w_coeff:
+            return random_symbolic_terms_with_coeffs(
                                          num_of_terms, possible_operators, 
                                          sites, min_strength, max_strength, 
                                          min_num_sites, max_num_sites, seed)
+        else:
+            return random_symbolic_terms(num_of_terms, possible_operators, sites,
+                                     min_num_sites, max_num_sites, seed)
+        
     if isinstance(possible_operators[0], ndarray):
         return random_numeric_terms(num_of_terms, possible_operators, sites,
                                     min_strength, max_strength,
@@ -285,8 +288,8 @@ def random_symbolic_terms_with_coeffs(num_of_terms: int,
                           max_coeff: float = 10,
                           min_num_sites: int = 2,
                           max_num_sites: int = 2,
+                          random_type: RandomType = RandomType.UNIQUE,
                           seed=None,
-                          random_type: str = "symbolic",
                           possible_gammas: Union[List[str],None] = None
                           ) -> List[TensorProduct]:
     """
@@ -313,27 +316,21 @@ def random_symbolic_terms_with_coeffs(num_of_terms: int,
     rterms = []
     coeffs = []
     rng = default_rng(seed=seed)
-    for _ in range(num_of_terms):
+    for i in range(num_of_terms):
         term = random_symbolic_term(possible_operators, sites,
                                     min_num_sites=min_num_sites,
                                     max_num_sites=max_num_sites,
                                     seed=seed)
         
-        if random_type == "discrete":
-            coeff = rng.choice([*range(-9, -1), *range(2, 9)])
-        elif random_type == "continuous":
-            coeff = rng.uniform(low=min_coeff, high=max_coeff)
-            while abs(coeff) <= 1.5: # To avoid zero coefficients
-                coeff = rng.uniform(low=min_coeff, high=max_coeff)
-        elif random_type == "symbolic":
+        if random_type == RandomType.UNIQUE:
+            assert len(possible_gammas.keys()) > num_of_terms, "Not enough possible gammas for unique terms"
+            coeff_gamma = possible_gammas.keys()[i]
+        elif random_type == RandomType.RANDOM:
             coeff_gamma = rng.choice(list(possible_gammas.keys()))
-            coeff_lambda = Fraction(rng.choice([i for i in range(min_coeff, max_coeff) if i != 0]), rng.integers(1, 4))
-            while abs(possible_gammas[coeff_gamma] * float(coeff_lambda)) <= 1.5 or abs(possible_gammas[coeff_gamma] * float(coeff_lambda)) >= 10:
-                coeff_gamma = rng.choice(list(possible_gammas.keys()))
-                coeff_lambda = Fraction(rng.choice([i for i in range(min_coeff, max_coeff) if i != 0]), rng.integers(1, 4))
-            
 
-            coeff = (coeff_lambda, coeff_gamma)
+        coeff_lambda = Fraction(rng.choice([i for i in range(min_coeff, max_coeff) if i != 0]), rng.integers(1, 4))
+        while abs(possible_gammas[coeff_gamma] * float(coeff_lambda)) <= 1.5 or abs(possible_gammas[coeff_gamma] * float(coeff_lambda)) >= 10:
+            coeff_lambda = Fraction(rng.choice([i for i in range(min_coeff, max_coeff) if i != 0]), rng.integers(1, 4))
             
         while term in rterms: # To avoid multiples
             term = random_symbolic_term(possible_operators, sites,
@@ -341,9 +338,9 @@ def random_symbolic_terms_with_coeffs(num_of_terms: int,
                                         max_num_sites=max_num_sites,
                                         seed=seed)
             
-        coeffs.append(coeff)
-        rterms.append(term)
-    return rterms, coeffs
+        rterms.append((coeff_lambda,coeff_gamma,term))
+        
+    return rterms
 
 def random_hamiltonian_compatible() -> Hamiltonian:
     """

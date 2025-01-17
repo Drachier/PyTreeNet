@@ -748,7 +748,6 @@ class StateDiagram():
                 used_us.add(i) 
             used_vs.add(j)
          
-
     def cut_and_optimise(self, local_vs, current_node, parent):
         """
         Cuts the hyperedges at the cut site and optimises the hyperedges.
@@ -769,7 +768,7 @@ class StateDiagram():
         else:
             Op_l, Op_r, u_cover, v_cover, edges_enumerated, bigraph, m, n = self._apply_bipartite_to_gamma(Gamma, u_nodes_enumerated, v_nodes_enumerated)
                       
-        u_list, v_list = self.create_combined_u_v_lists(Op_l, Op_r, V_set, u_nodes_enumerated_ind, v_nodes_enumerated_ind, m, n, current_node, parent)
+        u_list, v_list = self._create_combined_u_v_lists(Op_l, Op_r, V_set, u_nodes_enumerated_ind, v_nodes_enumerated_ind, m, n, current_node, parent)
         
         self._reconnect_hyperedges(u_cover, v_cover, u_list, v_list, edges_enumerated, bigraph, current_node, parent)
            

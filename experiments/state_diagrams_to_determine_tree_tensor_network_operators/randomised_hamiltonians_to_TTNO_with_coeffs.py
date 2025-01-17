@@ -163,7 +163,10 @@ def create_bond_dim_data_sets(file: h5py.File,
     dset_base = grp.create_dataset("basic_bond_dim",
                                 shape=(num_runs, num_bonds),
                                 dtype="i")
-    return dset_svd, dset_sge, dset_bip, dset_base
+    dset_tree = grp.create_dataset("tree_bond_dim",
+                                shape=(num_runs, num_bonds),
+                                dtype="i")
+    return dset_svd, dset_sge, dset_bip, dset_base, dset_tree
 
 def save_metadata(file: Any, seed: int, max_num_terms: int, num_runs: int,
                   conversion_dict: Dict[str, np.ndarray],
@@ -224,33 +227,28 @@ def generate_random_hamiltonian(conversion_dict: Dict[str, np.ndarray],
     """
     site_ids = list(ref_tree.nodes.keys())
     possible_operators = list(conversion_dict.keys())
-    #gamma_dict = {str(i): complex(random.uniform(-10, 10), random.uniform(-10, 10)) for i in range(2, 2 + num_terms)}
 
     gamma_dict = {str(i): rng.uniform(2, 10) * rng.choice([1,-1]) for i in range(2, 2 + num_terms)}
     gamma_dict["1"] = 1
     
-
-    possible_gammas = list(gamma_dict.keys())
-    random_terms, random_coeffs = ptn.random_symbolic_terms_with_coeffs(num_terms,
+    random_terms = ptn.random_symbolic_terms_with_coeffs(num_terms,
                                              possible_operators,
                                              site_ids,
                                              min_num_sites=1,
                                              max_num_sites=8,
                                              seed=rng,
-                                             random_type="symbolic",
+                                             random_type = ptn.RandomType.RANDOM,
                                              possible_gammas=gamma_dict)
     
-    unique_coeffs = [(Fraction(rng.choice([i for i in range(-10, 10) if i != 0]), rng.integers(1, 4)),c) for c in gamma_dict.keys()]  
-    
     hamiltonian = ptn.Hamiltonian(random_terms,
-                                  conversion_dictionary=conversion_dict, coeffs=unique_coeffs, coeffs_mapping=gamma_dict)
+                                  conversion_dictionary=conversion_dict, coeffs_mapping=gamma_dict)
     
     return hamiltonian.pad_with_identities(ref_tree)
 
 def main(filename: str,
          ref_tree: ptn.TreeTensorNetworkState,
          leg_dict: Dict[str,int],
-         num_runs: int = 500, min_num_terms: int=1,
+         num_runs: int = 50, min_num_terms: int=1,
          max_num_terms: int = 30):
     
     # Prepare variables
@@ -263,9 +261,9 @@ def main(filename: str,
     with h5py.File(filename, "w") as file:
         save_metadata(file, seed, max_num_terms, num_runs, conversion_dict,
                         leg_dict)
-        error_count = 0
+        
         for num_terms in tqdm(range(min_num_terms, max_num_terms + 1)):
-            dset_svd, dset_sge, dset_bip, dset_base = create_bond_dim_data_sets(file,
+            dset_svd, dset_sge, dset_bip, dset_base, dset_tree = create_bond_dim_data_sets(file,
                                                            num_terms,
                                                            num_bonds,
                                                            num_runs)
@@ -278,9 +276,11 @@ def main(filename: str,
                                                             rng,
                                                             num_terms)
                 if not hamiltonian.contains_duplicates():
-                    ttno_sge = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree, ptn.state_diagram.method.SGE)
-                    ttno_bip = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree, ptn.state_diagram.method.BIPARTITE)
-                    ttno_base = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree, ptn.state_diagram.method.BASE)
+                    ttno_sge = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree, ptn.state_diagram.TTNOFinder.SGE)
+                    ttno_bip = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree, ptn.state_diagram.TTNOFinder.BIPARTITE)
+                    ttno_base = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree, ptn.state_diagram.TTNOFinder.BASE)
+                    ttno_tree = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree, ptn.state_diagram.TTNOFinder.TREE)
+                    
                         
                     original_tensor = hamiltonian.to_tensor(ref_tree).operator            
                     ttno_svd = ptn.TTNO.from_tensor(ref_tree, original_tensor, leg_dict, mode=ptn.Decomposition.tSVD)
@@ -289,12 +289,13 @@ def main(filename: str,
                     dset_svd[run, :] = obtain_bond_dimensions(ttno_svd)
                     dset_bip[run, :] = obtain_bond_dimensions(ttno_bip)
                     dset_base[run, :] = obtain_bond_dimensions(ttno_base)
+                    dset_tree[run, :] = obtain_bond_dimensions(ttno_tree)
 
                     run += 1
 
 if __name__ == "__main__":
     
     N = 8
-    filepath = "./compare_unique_500.hdf5"
+    filepath = "./test.hdf5"
     leg_dict1 = {f"site{i+1}": i for i in range(N)}
     main(filepath, construct_tree_root_at_1(), leg_dict1)
