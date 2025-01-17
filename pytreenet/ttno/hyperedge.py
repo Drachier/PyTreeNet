@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import List, Tuple, Union
 import hashlib
 import uuid
+from fractions import Fraction
 
 from ..core.tree_structure import TreeStructure
 
@@ -24,7 +25,9 @@ class HyperEdge():
     def __init__(self,
                  corr_node_id: str,
                  label: str,
-                 vertices: List[Vertex]):
+                 vertices: List[Vertex],
+                 lambda_coeff: Fraction = Fraction(1),
+                 gamma_coeff: str = "1"):
         """
         Initialises a hyperedge.
 
@@ -37,8 +40,12 @@ class HyperEdge():
         self.corr_node_id = corr_node_id
         self.label = label
         self.vertices = vertices
+        self.lambda_coeff = lambda_coeff
+        self.gamma_coeff = gamma_coeff
 
         self.hash = hashlib.sha256(self.label.encode()).hexdigest()
+        self.v_hash = None
+
         self.identifier = str(uuid.uuid1())
 
     def __repr__(self) -> str:
@@ -47,6 +54,8 @@ class HyperEdge():
         """
         string = f"label = {self.label}; "
         string += f"corr_site = {self.corr_node_id}; "
+        string += "coeff = " + str(self.lambda_coeff) + " * " + str(self.gamma_coeff) + "; "
+
 
         string += "connected to "
         for vertex in self.vertices:
@@ -239,3 +248,21 @@ class HyperEdge():
             index_position = reference_tree.nodes[self.corr_node_id].neighbour_index(other_node_id)
             position[index_position] = vertex.index
         return tuple(position)
+    
+    def calculate_v_hash(self, current_node, parent):
+        """
+        Calculates the hash of the hyperedge for combining as v nodes.
+        """
+        hash_text = self.label + len(self.vertices).__str__() 
+
+        vertices = []
+        for v in self.vertices:
+            if not(v.corr_edge == (current_node,parent) or v.corr_edge == (parent,current_node)):
+                vertices.append(v.identifier)
+        
+        vertices.sort()
+        hash_text += "".join(vertices)
+
+        self.v_hash = hashlib.sha256(hash_text.encode()).hexdigest() 
+        return self.v_hash
+    

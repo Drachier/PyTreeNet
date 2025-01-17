@@ -56,7 +56,7 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
     @classmethod
     def from_hamiltonian(cls,hamiltonian: Hamiltonian,
                              reference_tree: TreeStructure,
-                             method: TTNOFinder = TTNOFinder.CM ) -> TreeTensorNetworkOperator:
+                             method: TTNOFinder = TTNOFinder.SGE ) -> TreeTensorNetworkOperator:
         """
         Generates a TTNO from a Hamiltonian.
 
@@ -73,11 +73,15 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
         state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
                                                       reference_tree, method)
         return cls.from_state_diagram(state_diagram,
-                                      hamiltonian.conversion_dictionary)
+                                      hamiltonian.conversion_dictionary,
+                                      hamiltonian.coeffs_mapping,                                        
+                                      method)
 
     @classmethod
     def from_state_diagram(cls, state_diagram: StateDiagram,
-                           conversion_dict: Dict[str, np.ndarray]
+                           conversion_dict: Dict[str, np.ndarray],
+                           coeffs_mapping: Dict[str, complex],
+                           method: TTNOFinder = TTNOFinder.SGE
                            ) -> TreeTensorNetworkOperator:
         """
         Generates a TTNO from a state diagram.
@@ -101,10 +105,18 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
                                 conversion_dict)
         # Now we have a TTNO filled with zero tensors of the correct shape.
         state_diagram.set_all_vertex_indices() # Fixing index_values
+        state_diagram.set_all_vertex_indices() # Fixing index_values
+
         for he in state_diagram.get_all_hyperedges():
             position = he.find_tensor_position(reference_tree)
-            operator = conversion_dict[he.label]
+            operator = conversion_dict[he.label].copy()
+            
+            operator *= float(he.lambda_coeff) * coeffs_mapping[he.gamma_coeff]
+            
             ttno.tensors[he.corr_node_id][position] += operator
+        
+        
+
         return ttno
 
     def _rec_zero_ttno(self, node_id: str, state_diagram: StateDiagram,
@@ -239,8 +251,9 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
                 Q, S, Vh = tensor_svd(current_tensor, q_legs, r_legs)
                 R = np.tensordot(np.diag(S), Vh, axes=(1, 0))
             elif mode == Decomposition.tSVD:
+                svd_params = SVDParameters(max_bond_dim= float('inf'), rel_tol=1e-10)
                 Q, S, Vh = truncated_tensor_svd(current_tensor, q_legs, r_legs,
-                                                SVDParameters())
+                                                svd_params)
                 R = np.tensordot(np.diag(S), Vh, axes=(1, 0))
             else:
                 raise ValueError(f"{mode} is not a valid keyword for mode.")

@@ -1,7 +1,8 @@
 """
 A state diagram representing a single term Hamiltonian
 """
-from typing import Dict, List
+from typing import Dict, List, Union
+from fractions import Fraction
 
 from ..core import TreeStructure
 from .hyperedge import HyperEdge
@@ -46,7 +47,7 @@ class SingleTermDiagram():
         """
         A human-readable string representation.
         """
-        string = "Hyperedges: " + str({he.corr_node_id: he.label for he in self.hyperedges.values()}) + "\n"
+        string = "Hyperedges: " + str({he.corr_node_id: f"{he.label} ({he.lambda_coeff} * {he.gamma_coeff})" for he in self.hyperedges.values()}) + "\n"
         string += "Vertices: " + str([vert_id for vert_id in self.vertices])
         return string
 
@@ -73,7 +74,7 @@ class SingleTermDiagram():
 
     @classmethod
     def from_single_term(cls,
-                         term: Dict[str,str],
+                         term: Union[tuple[Fraction,str,Dict[str,str]], Dict[str,str]],
                          reference_tree: TreeStructure):
         """
         Creates a state diagram corresponding to a single Hamiltonian term.
@@ -89,12 +90,15 @@ class SingleTermDiagram():
             SingleTermDiagram: The state diagram associated to this single
                 term.
         """
-        assert len(term) == len(reference_tree.nodes), "The term and reference_tree are incompatible!"
+        if isinstance(term, dict):
+            term = (Fraction(1), "1", term)
+        
+        assert len(term[2]) == len(reference_tree.nodes), "The term and reference_tree are incompatible!"
         state_diag = cls(reference_tree)
-        state_diag._from_single_term_rec((None, reference_tree.root_id), term)
+        state_diag._from_single_term_rec((None, reference_tree.root_id), term[2], (term[0], term[1]))
         return state_diag
 
-    def _from_single_term_rec(self, edge_id_tuple, term):
+    def _from_single_term_rec(self, edge_id_tuple, term, coeff_tuple):
         new_node_id = edge_id_tuple[1]  # The old one would be at index 0
         node = self.reference_tree.nodes[new_node_id]
 
@@ -103,7 +107,7 @@ class SingleTermDiagram():
             new_hyperedge = HyperEdge(new_node_id, term[new_node_id], [old_vertex])
             old_vertex.hyperedges.append(new_hyperedge)
         else:  # In this case there is no old vertex
-            new_hyperedge = HyperEdge(new_node_id, term[new_node_id], [])
+            new_hyperedge = HyperEdge(new_node_id, term[new_node_id], [], coeff_tuple[0], coeff_tuple[1])
         self.hyperedges[new_node_id] = new_hyperedge
         if node.is_leaf():  # In this case there is nothing else to do.
             return
@@ -120,4 +124,4 @@ class SingleTermDiagram():
 
         # Continue recursively below all the new vertices
         for vertex in vertices:
-            self._from_single_term_rec(vertex.corr_edge, term)
+            self._from_single_term_rec(vertex.corr_edge, term, coeff_tuple)
