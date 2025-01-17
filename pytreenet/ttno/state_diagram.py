@@ -10,6 +10,7 @@ import numpy as np
 from ..core.tree_structure import TreeStructure
 from ..operators.hamiltonian import Hamiltonian
 from ..util.ttn_exceptions import NoConnectionException, NotCompatibleException
+from ..util.std_utils import compare_lists_by_identity
 from .vertex import Vertex
 from .hyperedge import HyperEdge
 from .collections import VertexColl, HyperEdgeColl
@@ -449,7 +450,9 @@ class StateDiagram():
 
     @classmethod
     def from_hamiltonian_modified(cls, hamiltonian, ref_tree,  method: TTNOFinder = TTNOFinder.SGE ) -> StateDiagram:
-        """Creates optimal state diagram equivalent to a given Hamiltonian
+        """
+        Creates optimal state diagram equivalent to a given Hamiltonian.
+        Depending on the method, the state diagram is constructed using different methods as SGE or Bipartite Graph.
 
         Args:
             hamiltonian (Hamiltonian): Hamiltonian for which the state
@@ -506,6 +509,16 @@ class StateDiagram():
         return compound_state_diagram
 
     def _generate_non_redundant_V_dict(self, local_vs, current_node, parent):
+        """
+        Creates a dictionary of V nodes that are non-redundant. Combines V nodes that are the same in a dictionary.
+        Key is the hash of the V node, value is the V nodes itself in a list.
+        Args:
+            local_vs (List[HyperEdge]): List of V nodes
+            current_node (str): Current node
+            parent (str): Parent node
+        Returns:
+            Dict[str, List[HyperEdge]]: Dictionary of non-redundant V nodes
+        """
         V_set = {}
         
         # Comparing V nodes and combining them if they are the same
@@ -520,7 +533,7 @@ class StateDiagram():
                 v2 = element2.find_vertex(current_node)
 
                 # This is the problematic case that we try to avoid, final implementation does not have this case anymore.
-                if (element.lambda_coeff != element2.lambda_coeff or element.gamma_coeff != element2.gamma_coeff) and self._compare_lists_by_identity(v1.get_hyperedges_for_one_node_id(current_node), v2.get_hyperedges_for_one_node_id(current_node)):
+                if (element.lambda_coeff != element2.lambda_coeff or element.gamma_coeff != element2.gamma_coeff) and compare_lists_by_identity(v1.get_hyperedges_for_one_node_id(current_node), v2.get_hyperedges_for_one_node_id(current_node)):
                     v_hash = hashlib.sha256((v_hash + str(uuid.uuid1()) ).encode()).hexdigest()
                     element.v_hash = v_hash
                     V_set[v_hash] = []
@@ -531,7 +544,16 @@ class StateDiagram():
     
     def _setup_gamma_matrix(self, local_vs, current_node, V_set):
         """
-        Setup the Gamma matrix and node enumerations.
+        Setup the Gamma matrix and node enumerations. Gamma matrix is the matrix that is used in the Gaussian Elimination.
+        It represents connections between U and V nodes.
+        Node enumerations are used to map the nodes to the matrix. We need to know the index of the node in the matrix.
+
+        Args:
+            local_vs (List[HyperEdge]): List of V nodes
+            current_node (str): Current node
+            V_set (Dict[str, List[HyperEdge]]): Dictionary of non-redundant V nodes
+        Returns:
+            Tuple[List[List[Fraction]], Dict[str, int], Dict[int, HyperEdge], Dict[str, int], Dict[int, str]]: Gamma matrix, node enumerations
         """
         u_nodes_enumerated = {item.identifier : i for i, item in enumerate(copy(self.hyperedge_colls[current_node].contained_hyperedges))}
         u_nodes_enumerated_ind = {i : item for i, item in enumerate(copy(self.hyperedge_colls[current_node].contained_hyperedges))}
@@ -554,7 +576,15 @@ class StateDiagram():
         return Gamma, u_nodes_enumerated, u_nodes_enumerated_ind, v_nodes_enumerated, v_nodes_enumerated_ind
 
     def _remove_all_vertices_cut_site(self, current_node, parent):
-        # Remove all vertices in the cut site
+        """
+        Removes all vertices at the cut site.
+
+        Args:
+            current_node (str): Current node
+            parent (str): Parent node
+        """
+
+        
         for u in self.hyperedge_colls[current_node].contained_hyperedges:
             u.vertices.remove(u.find_vertex(parent))
         for v in self.hyperedge_colls[parent].contained_hyperedges:
@@ -562,6 +592,11 @@ class StateDiagram():
         self.vertex_colls[(parent,current_node)].contained_vertices = []
 
     def _remove_reduntant_v_hyperedges(self, V_set):
+        """
+        Removes redundant V nodes from the state diagram and V_set dictionary.
+        Args:
+            V_set (Dict[str, List[HyperEdge]]): Dictionary of non-redundant V nodes
+        """
         for hash_key, elements in V_set.items():
             if len(elements) > 1:
                 for element in elements[1:]:
@@ -571,6 +606,18 @@ class StateDiagram():
             V_set[hash_key] = elements[0]  
 
     def _apply_bipartite_to_gamma(self, Gamma, u_nodes_enumerated, v_nodes_enumerated):
+        """
+        Applies Bipartite Graph theory to the Gamma matrix. Gamma here refers to the unmodified Gamma matrix as Gamma = Op_l * Gamma_u * Op_r.
+        Bipartite Graph theory is used to find the minimum vertex cover. Minimum vertex cover is later used to find the optimal way to combine U and V nodes.
+        Returns identity Op_l and Op_r matrices as for gamma, we do not have virtual nodes
+        Args:
+            Gamma (List[List[Fraction]]): Gamma matrix
+            u_nodes_enumerated (Dict[str, int]): Enumeration of U nodes
+            v_nodes_enumerated (Dict[str, int]): Enumeration of V nodes
+        Returns:
+            Tuple[List[List[Fraction]], List[List[Fraction]], List[int], List[int], Dict[Tuple[int, int], Fraction], BipartiteGraph, int, int]: 
+            Optimal L and R matrices, U and V covers, edges enumerated, BipartiteGraph, m, n
+        """
         
         edges_enumerated = {(i, j) : Gamma[i][j] for i in range(len(u_nodes_enumerated)) for j in range(len(v_nodes_enumerated)) if Gamma[i][j] != 0}
         bigraph  = BipartiteGraph(len(u_nodes_enumerated), len(v_nodes_enumerated), list(edges_enumerated.keys()))
@@ -582,6 +629,19 @@ class StateDiagram():
         return Op_l, Op_r, u_cover, v_cover, edges_enumerated, bigraph, m, n
     
     def _apply_bipartite_to_gamma_u(self, Gamma_u, Gamma, u_nodes_enumerated, v_nodes_enumerated):
+        """
+        Applies Bipartite Graph theory to the Gamma_u matrix. Gamma_u here refers to the modified Gamma matrix as Gamma = Op_l * Gamma_u * Op_r.
+        Compares two results of bipartite theory. If the result of the Gaussian Elimination is not better, we revert back to the old state.
+
+        Args:
+            Gamma_u (List[List[Fraction]]): Unmodified Gamma matrix
+            Gamma (List[List[Fraction]]): Modified Gamma matrix
+            u_nodes_enumerated (Dict[str, int]): Enumeration of U nodes
+            v_nodes_enumerated (Dict[str, int]): Enumeration of V nodes
+        Returns:
+            Tuple[List[List[Fraction]], List[List[Fraction]], List[int], List[int], Dict[Tuple[int, int], Fraction], BipartiteGraph, int, int]: 
+            Optimal L and R matrices, U and V covers, edges enumerated, BipartiteGraph, m, n
+        """
         m, n = len(Gamma_u), len(Gamma_u[0])
         edges_enumerated =  {(i, j) : Gamma_u[i][j] for i in range(m) for j in range(n) if Gamma_u[i][j] != 0}
         edges = list(edges_enumerated.keys())
@@ -605,7 +665,25 @@ class StateDiagram():
         return Op_l, Op_r, u_cover, v_cover, edges_enumerated, bigraph, m, n
 
     def _create_combined_u_v_lists(self, Op_l, Op_r, V_set, u_nodes_enumerated_ind, v_nodes_enumerated_ind, m, n, current_node, parent):
-        # Creating Combined U and V lists
+        """
+        Creates lists of U and V nodes that are combined. U and V nodes are combined based on the Operator matrices.
+        These lists basically represent virtual nodes that are created by the Gaussian Elimination.
+
+        Args:
+            Op_l (List[List[Fraction]]): Operator matrix L
+            Op_r (List[List[Fraction]]): Operator matrix R
+            V_set (Dict[str, HyperEdge]): Dictionary of non-redundant V nodes
+            u_nodes_enumerated_ind (Dict[int, HyperEdge]): Reverse Enumeration of U nodes
+            v_nodes_enumerated_ind (Dict[int, HyperEdge]): Reverse Enumeration of V nodes
+            m (int): Number of U nodes
+            n (int): Number of V nodes
+            current_node (str): Current node
+            parent (str): Parent node
+        Returns:
+            Tuple[List[List[Tuple[HyperEdge, Fraction]]], List[List[Tuple[HyperEdge, Fraction]]]: Combined U and V nodes
+        """
+
+
         u_list = [[] for _ in range(m)] # [[(u_temp, Op_l[i,j]), .. ] , [] , [] , []]
         v_list = [[] for _ in range(n)]
 
@@ -640,6 +718,21 @@ class StateDiagram():
         return u_list, v_list
 
     def _reconnect_hyperedges(self, u_cover, v_cover, ulist, vlist, edges_enumerated, bigraph, current_node, parent):
+        """
+        Reconnects the hyperedges after the Gaussian Elimination. Hyperedges are reconnected based on the U and V covers.
+        First goes through the U cover and then through the V cover.
+        Here we create vertices that are connected to the hyperedges in the cut site.
+
+        Args:
+            u_cover (List[int]): U cover
+            v_cover (List[int]): V cover
+            ulist (List[List[Tuple[HyperEdge, Fraction]]]): Virtual U nodes
+            vlist (List[List[Tuple[HyperEdge, Fraction]]]): Virtual V nodes
+            edges_enumerated (Dict[Tuple[int, int], Fraction]): Enumerated edges
+            bigraph (BipartiteGraph): Bipartite Graph   
+            current_node (str): Current node
+            parent (str): Parent node
+        """
         used_us, used_vs = set(), set()
         edges = list(edges_enumerated.keys())
         
@@ -752,6 +845,10 @@ class StateDiagram():
         """
         Cuts the hyperedges at the cut site and optimises the hyperedges.
         Applies symbolic gaussian elimination and bipartite graph theory depending on the method.
+        Args:
+            local_vs (List[HyperEdge]): List of V nodes
+            current_node (str): Current node
+            parent (str): Parent node
         """
 
         V_set = self._generate_non_redundant_V_dict(local_vs, current_node, parent)
@@ -779,6 +876,10 @@ class StateDiagram():
 
         Combining two hyperedge is basically removing one of the subtree of the hyperedge
         and connecting deleted subtree's vertex to the remaining hyperedge.
+
+        Args:
+            local_hyperedges (List[HyperEdge]): List of hyperedges to be combined
+            parent (str): Parent node
         """
         combined = {}
 
@@ -815,6 +916,9 @@ class StateDiagram():
     def erase_subtree(self, start_edge, erased=None):
         """
         Erases the subtree of a hyperedge from the state diagram recursively.
+        Args:
+            start_edge (HyperEdge): Hyperedge to start the erasing
+            erased (List[Vertex]): List of vertices that are visited to avoid cycles
         """
 
         if erased is None:
@@ -843,6 +947,10 @@ class StateDiagram():
     def get_state_diagram_compound(cls, state_diagrams):
         """
         Forms a compound state diagram from a list of state diagrams.
+        Args:
+            state_diagrams (List[StateDiagram]): List of state diagrams
+        Returns:
+            StateDiagram: Compound state diagram
         """
 
         state_diagram = None
@@ -860,6 +968,12 @@ class StateDiagram():
     def sum_states(cls, s1, s2, ref_tree):
         """
         Combines two state diagrams into a single one and returns it. 
+        Args:
+            s1 (StateDiagram): First state diagram
+            s2 (StateDiagram): Second state diagram
+            ref_tree (TreeTensorNetwork): Reference tree
+        Returns:
+            StateDiagram: Combined state diagram
         """
 
         state_diag = cls(ref_tree)
@@ -891,6 +1005,13 @@ class StateDiagram():
         """
         Creates single term diagrams for each term in the Hamiltonian.
         Calculates hash values for each state diagram.
+        Args:
+            hamiltonian (Hamiltonian): Hamiltonian for which the state
+                diagram is to be found
+            ref_tree (TreeTensorNetwork): Supplies the tree topology which
+                is to be incorporated into the state diagram.
+        Returns:
+            List[StateDiagram]: List of state diagrams
         """
 
         state_diagrams = []
@@ -908,6 +1029,11 @@ class StateDiagram():
         """
         Calculates and returns the hash of all of the hyperedges in the state diagram recursively. 
         Hash is formed by the label of the hyperedge and concatenation of the hashes of its children.
+        Args:
+            node (TreeNode): Node to calculate the hash
+            ref_tree (TreeTensorNetwork): Reference tree
+        Returns:
+            str: Hash of the node
         """
         # Base case: if the node is None, just return
         if node is None:
@@ -923,6 +1049,8 @@ class StateDiagram():
     def _remove_hyperedge_from_diagram(self, element):
         """
         Removes a hyperedge from the state diagram checking its identifier.
+        Args:
+            element (HyperEdge): Hyperedge to be removed
         """
         for i in range(len(self.hyperedge_colls[element.corr_node_id].contained_hyperedges)):
             if self.hyperedge_colls[element.corr_node_id].contained_hyperedges[i].identifier == element.identifier:
@@ -931,12 +1059,29 @@ class StateDiagram():
 
     @classmethod
     def _remove_hyperedge_from_vertex(cls,vert,element):
+        """
+        Removes a hyperedge from the vertex checking its identifier.
+        Args:
+            vert (Vertex): Vertex to be removed from
+            element (HyperEdge): Hyperedge to be removed
+        """
         for i in range(len(vert.hyperedges)):
             if vert.hyperedges[i].identifier == element.identifier:
                 vert.hyperedges.pop(i)
                 break
     
     def _copy_node(self, u_temp, current_node, parent, goal_site):
+        """
+        Copies a hyperedge and returns the copied hyperedge. Do not copies the gamma coefficient as we just want to copy of the label.
+        Gamma coefficient is assigned by the algorithm later. Otherwise it is "1".
+        Args:
+            u_temp (HyperEdge): Hyperedge to be copied
+            current_node (str): Current node
+            parent (str): Parent node
+            goal_site (str): Goal site
+        Returns:
+            HyperEdge: Copied hyperedge
+        """
 
         new_h = HyperEdge(goal_site, u_temp.label, [])
         new_h.set_hash(u_temp.hash)
@@ -948,12 +1093,4 @@ class StateDiagram():
             if not(v.corr_edge == (current_node,parent) or v.corr_edge == (parent,current_node)):
                 new_h.add_vertex(v)
         self.add_hyperedge(new_h)
-        return new_h
-    
-    @classmethod
-    def _compare_lists_by_identity(cls, list1, list2):
-        # Check if the lengths are the same
-        if len(list1) != len(list2):
-            return False
-        # Compare the identity (memory address) of each object in the lists
-        return all(id(obj1) == id(obj2) for obj1, obj2 in zip(list1, list2))
+        return new_h    
