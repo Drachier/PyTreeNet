@@ -5,11 +5,11 @@ PyTreeNet
 
 `PyTreeNet <https://github.com/Drachier/PyTreeNet>`_ is a Python implemention of tree tensor networks with a focus on the simulation of quantum systems admitting a tree topology. It is based on the array implementation of NumPy.
 
-Features
+Main Features
 --------
 - General tree tensor networks, tree tensor networks states and tree tensor network operators
 - Conversion of symbolic Hamiltonians into tree tensor networks
-- Time-evolution algorithms: TEBD, one-site TDVP and two-site TDVP
+- Time-evolution algorithms: TEBD, one-site TDVP and two-site TDVP, BUG
 
 Installation
 ------------
