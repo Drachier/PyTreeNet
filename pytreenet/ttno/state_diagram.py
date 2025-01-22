@@ -628,7 +628,7 @@ class StateDiagram():
         Op_r = [[1 if i == j else 0 for j in range(n)] for i in range(n)]
         return Op_l, Op_r, u_cover, v_cover, edges_enumerated, bigraph, m, n
     
-    def _apply_bipartite_to_gamma_u(self, Gamma_u, Gamma, u_nodes_enumerated, v_nodes_enumerated):
+    def _apply_bipartite_to_gamma_u(self, Gamma_u, Gamma, u_nodes_enumerated, v_nodes_enumerated, Op_l, Op_r):
         """
         Applies Bipartite Graph theory to the Gamma_u matrix. Gamma_u here refers to the modified Gamma matrix as Gamma = Op_l * Gamma_u * Op_r.
         Compares two results of bipartite theory. If the result of the Gaussian Elimination is not better, we revert back to the old state.
@@ -638,6 +638,8 @@ class StateDiagram():
             Gamma (List[List[Fraction]]): Modified Gamma matrix
             u_nodes_enumerated (Dict[str, int]): Enumeration of U nodes
             v_nodes_enumerated (Dict[str, int]): Enumeration of V nodes
+            Op_l (List[List[Fraction]]): Operator matrix L
+            Op_r (List[List[Fraction]]): Operator matrix R
         Returns:
             Tuple[List[List[Fraction]], List[List[Fraction]], List[int], List[int], Dict[Tuple[int, int], Fraction], BipartiteGraph, int, int]: 
             Optimal L and R matrices, U and V covers, edges enumerated, BipartiteGraph, m, n
@@ -861,7 +863,7 @@ class StateDiagram():
         self._remove_reduntant_v_hyperedges(V_set)
 
         if self.SGE : 
-            Op_l, Op_r, u_cover, v_cover, edges_enumerated, bigraph, m, n = self._apply_bipartite_to_gamma_u(Gamma_u, Gamma, u_nodes_enumerated, v_nodes_enumerated)
+            Op_l, Op_r, u_cover, v_cover, edges_enumerated, bigraph, m, n = self._apply_bipartite_to_gamma_u(Gamma_u, Gamma, u_nodes_enumerated, v_nodes_enumerated, Op_l, Op_r)
         else:
             Op_l, Op_r, u_cover, v_cover, edges_enumerated, bigraph, m, n = self._apply_bipartite_to_gamma(Gamma, u_nodes_enumerated, v_nodes_enumerated)
                       
