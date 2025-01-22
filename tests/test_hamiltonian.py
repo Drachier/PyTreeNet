@@ -18,8 +18,8 @@ class TestHamiltonianInitialisation(unittest.TestCase):
         terms = [ptn.TensorProduct({"site1": "X", "site2": "Y"}),
                  ptn.TensorProduct({"site2": "Z", "site3": "Y"})]
         ham = ptn.Hamiltonian(terms=terms)
-        self.assertEqual(terms[0], ham.terms[0])
-        self.assertEqual(terms[1], ham.terms[1])
+        self.assertEqual(terms[0], ham.terms[0][2])
+        self.assertEqual(terms[1], ham.terms[1][2])
         self.assertEqual(0, len(ham.conversion_dictionary))
 
     def test_init_with_conversion_dict(self):
