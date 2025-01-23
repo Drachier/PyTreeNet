@@ -300,9 +300,9 @@ def gaussian_elimination(matrix):
     Perform Gaussian elimination on a matrix. First creates the left and right operator. Deparallelizes the rows and columns.
     Then performs row and column elimination until the matrix is reduced.
     Args:
-        matrix (List[List[Union[int, Tuple[int, str]]]): The matrix to perform Gaussian elimination on.
+        matrix (List[List[Union[Fraction, Tuple[Fraction, str]]]): The matrix to perform Gaussian elimination on.
     Returns:
-        Tuple[List[List[Union[int, Fraction]]], List[List[Union[int, Tuple[int, str]]], List[List[Union[int, Fraction]]]]: The left operator, the reduced matrix and the right operator.
+        Tuple[List[List[Union[Fraction, Fraction]]], List[List[Union[Fraction, Tuple[Fraction, str]]], List[List[Union[int, Fraction]]]]: The left operator, the reduced matrix and the right operator.
     """
     n_rows, n_rows_old = len(matrix), 0
     n_cols, n_cols_old = len(matrix[0]), 0
