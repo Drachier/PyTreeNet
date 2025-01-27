@@ -6,7 +6,7 @@ The functions here are used in mutliple different kinds of contractions.
 # TODO: Refactorise to avoid code duplication for ket and hamiltonian contractions.
 
 from __future__ import annotations
-from typing import List, Union, Tuple
+from typing import List, Union, Tuple, Callable
 
 import numpy as np
 
@@ -38,7 +38,9 @@ def determine_index_with_ignored_leg(node: Node,
 
 def get_equivalent_legs(node1: Node,
                         node2: Node,
-                        ignore_legs: Union[None,List[str],str] = None) -> Tuple[List[int],List[int]]:
+                        ignore_legs: Union[None,List[str],str] = None,
+                        id_trafo: Union[None,Callable] = None,
+                        ) -> Tuple[List[int],List[int]]:
     """
     Get the equivalent legs of two nodes. This is useful when contracting
      two nodes with equal neighbour identifiers, that may potentially be in
@@ -47,12 +49,17 @@ def get_equivalent_legs(node1: Node,
     Args:
         node1 (Node): The first node.
         node2 (Node): The second node.
-        ignore_legs (Union[None,List[str],str]): The legs to ignore.
+        ignore_legs (Union[None,List[str],str]): The legs to ignore as given
+            by the ket identifiers.
+        id_trafo (Union[None,Callable]): A function that transforms the
+            node1's neighbour ids to the neighbour ids of node2. If None,
+            the neighbour ids are assumed to be the same. Default is None.
     
     Returns:
         Tuple[List[int],List[int]]: The equivalent legs of the two nodes. This
             means the indeces of legs to the same neighbour are at the same
             position in each list.
+
     """
     if ignore_legs is None:
         ignore_legs = []
@@ -64,7 +71,11 @@ def get_equivalent_legs(node1: Node,
         if neighbour_id in ignore_legs:
             continue
         legs1.append(node1.neighbour_index(neighbour_id))
-        legs2.append(node2.neighbour_index(neighbour_id))
+        if id_trafo is None:
+            node2_neighbour_id = neighbour_id
+        else:
+            node2_neighbour_id = id_trafo(neighbour_id)
+        legs2.append(node2.neighbour_index(node2_neighbour_id))
     return legs1, legs2
 
 def contract_neighbour_block_to_ket(ket_tensor: np.ndarray,
@@ -164,7 +175,8 @@ def contract_all_but_one_neighbour_block_to_ket(ket_tensor: np.ndarray,
                                                 next_node_id: str,
                                                 partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
     """
-    Contract all neighbour blocks to the ket tensor.
+    Contract all neighbour blocks to the ket tensor, except for the one
+    specified.
 
     Args:
         ket_tensor (np.ndarray): The tensor of the ket node.

@@ -136,13 +136,22 @@ class TestUpdateTreeCache(unittest.TestCase):
         """
         ref_ttns, ref_ttno = small_ttns_and_ttno()
         cache = SandwichCache(ref_ttns, ref_ttno)
-        ref_tensor = contract_leaf("c2", ref_ttns, ref_ttno)
+        node_id = "c2"
+        state_node, state_tensor = ref_ttns[node_id]
+        op_node, op_tensor = ref_ttno[node_id]
+        ref_tensor = contract_leaf(state_node, state_tensor,
+                                   op_node, op_tensor)
         cache.update_tree_cache("c2", "root")
         self.assertTrue(allclose(ref_tensor,
                                  cache.get_entry("c2", "root")))
-        ref_tensor = contract_subtrees_using_dictionary("root", "c1",
-                                                        ref_ttns, ref_ttno,
+        node_id = "root"
+        state_node, state_tensor = ref_ttns[node_id]
+        op_node, op_tensor = ref_ttno[node_id]
+        ref_tensor = contract_subtrees_using_dictionary("c1",
+                                                        state_node, state_tensor,
+                                                        op_node, op_tensor,
                                                         cache)
+
         cache.update_tree_cache("root", "c1")
         self.assertTrue(allclose(ref_tensor,
                                  cache.get_entry("root", "c1")))
@@ -153,38 +162,66 @@ class TestUpdateTreeCache(unittest.TestCase):
         """
         ref_ttns, ref_ttno = big_ttns_and_ttno()
         cache = SandwichCache(ref_ttns, ref_ttno)
-        ref_tensor = contract_leaf("site7", ref_ttns, ref_ttno)
+        node_id = "site7"
+        state_node, state_tensor = ref_ttns[node_id]
+        op_node, op_tensor = ref_ttno[node_id]
+        ref_tensor = contract_leaf(state_node, state_tensor,
+                                   op_node, op_tensor)
         cache.update_tree_cache("site7", "site6")
         self.assertTrue(allclose(ref_tensor,
                                  cache.get_entry("site7", "site6")))
-        ref_tensor = contract_subtrees_using_dictionary("site6", "site0",
-                                                        ref_ttns, ref_ttno,
+        node_id = "site6"
+        state_node, state_tensor = ref_ttns[node_id]
+        op_node, op_tensor = ref_ttno[node_id]
+        ref_tensor = contract_subtrees_using_dictionary("site0",
+                                                        state_node, state_tensor,
+                                                        op_node, op_tensor,
                                                         cache)
         cache.update_tree_cache("site6", "site0")
         self.assertTrue(allclose(ref_tensor,
                                  cache.get_entry("site6", "site0")))
-        ref_tensor = contract_subtrees_using_dictionary("site0", "site1",
-                                                        ref_ttns, ref_ttno,
+        node_id = "site0"
+        state_node, state_tensor = ref_ttns[node_id]
+        op_node, op_tensor = ref_ttno[node_id]
+        ref_tensor = contract_subtrees_using_dictionary("site1",
+                                                        state_node, state_tensor,
+                                                        op_node, op_tensor,
                                                         cache)
         cache.update_tree_cache("site0", "site1")
         self.assertTrue(allclose(ref_tensor,
                                  cache.get_entry("site0", "site1")))
-        ref_tensor = contract_leaf("site2", ref_ttns, ref_ttno)
+        node_id = "site2"
+        state_node, state_tensor = ref_ttns[node_id]
+        op_node, op_tensor = ref_ttno[node_id]
+        ref_tensor = contract_leaf(state_node, state_tensor,
+                                   op_node, op_tensor)
         cache.update_tree_cache("site2", "site1")
         self.assertTrue(allclose(ref_tensor,
                                  cache.get_entry("site2", "site1")))
-        ref_tensor = contract_subtrees_using_dictionary("site1", "site3",
-                                                        ref_ttns, ref_ttno,
+        node_id = "site1"
+        state_node, state_tensor = ref_ttns[node_id]
+        op_node, op_tensor = ref_ttno[node_id]
+        ref_tensor = contract_subtrees_using_dictionary("site3",
+                                                        state_node, state_tensor,
+                                                        op_node, op_tensor,
                                                         cache)
         cache.update_tree_cache("site1", "site3")
         self.assertTrue(allclose(ref_tensor,
                                  cache.get_entry("site1", "site3")))
-        ref_tensor = contract_leaf("site4", ref_ttns, ref_ttno)
+        node_id = "site4"
+        state_node, state_tensor = ref_ttns[node_id]
+        op_node, op_tensor = ref_ttno[node_id]
+        ref_tensor = contract_leaf(state_node, state_tensor,
+                                   op_node, op_tensor)
         cache.update_tree_cache("site4", "site3")
         self.assertTrue(allclose(ref_tensor,
                                  cache.get_entry("site4", "site3")))
-        ref_tensor = contract_subtrees_using_dictionary("site3", "site5",
-                                                        ref_ttns, ref_ttno,
+        node_id = "site3"
+        state_node, state_tensor = ref_ttns[node_id]
+        op_node, op_tensor = ref_ttno[node_id]
+        ref_tensor = contract_subtrees_using_dictionary("site5",
+                                                        state_node, state_tensor,
+                                                        op_node, op_tensor,
                                                         cache)
         cache.update_tree_cache("site3", "site5")
         self.assertTrue(allclose(ref_tensor,

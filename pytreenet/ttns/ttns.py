@@ -52,6 +52,17 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         other_conj = other.conjugate()
         return contract_two_ttns(self, other_conj)
 
+    def norm(self) -> float:
+        """
+        Compute the norm of the TTNS.
+
+        Returns:
+            float: The norm of the state.
+        """
+        scal_prod = self.scalar_product()
+        assert scal_prod.imag == 0
+        return sqrt(scal_prod.real)
+
     def normalise(self) -> float:
         """
         Normalises the MPS in place.
@@ -59,8 +70,9 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         Returns:
             float: The norm of the state before normalisation.
         """
-        norm = sqrt(self.scalar_product())
+        norm = self.norm()
         if self.orthogonality_center_id is not None:
+            # Avoids destroying the orthogonality center
             self.tensors[self.orthogonality_center_id] /= norm
         else:
             self.tensors[self.root_id] /= norm
@@ -93,7 +105,47 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         tensor_product = TensorProduct({node_id: operator})
         return self.operator_expectation_value(tensor_product)
 
-    def operator_expectation_value(self, operator: Union[TensorProduct,TTNO]) -> complex:
+    def tensor_product_expectation_value(self,
+                                         operator: TensorProduct
+                                         ) -> complex:
+        """
+        Computes the expectation value of a tensor product of operators.
+
+        Args:
+            operator (TensorProduct): The tensor product of operators.
+
+        Returns:
+            complex: The resulting expectation value < TTNS | tensor_product | TTNS>
+
+        """
+        if len(operator) == 0:
+            return self.scalar_product()
+        if len(operator) == 1:
+            node_id = list(operator.keys())[0]
+            if self.orthogonality_center_id == node_id:
+                op = operator[node_id]
+                return self.single_site_operator_expectation_value(node_id, op)
+        # Very inefficient, fix later without copy
+        ttn = deepcopy(self)
+        conj_ttn = ttn.conjugate()
+        ttn.apply_operator(operator)
+        return contract_two_ttns(ttn, conj_ttn)
+
+    def ttno_expectation_value(self, operator: TTNO) -> complex:
+        """
+        Computes the expectation value of the TTNS with respect to a TTNO.
+
+        Args:
+            operator (TTNO): The operator to compute the expectation value with.
+
+        Returns:
+            complex: The resulting expectation value < TTNS | operator | TTNS>
+        """
+        return expectation_value(self, operator)
+
+    def operator_expectation_value(self,
+                                   operator: Union[TensorProduct,TTNO]
+                                   ) -> complex:
         """
         Finds the expectation value of the operator specified, given this TTNS.
 
@@ -106,21 +158,11 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             complex: The resulting expectation value < TTNS | operator | TTNS>
         """
         if isinstance(operator, TensorProduct):
-            if len(operator) == 0:
-                return self.scalar_product()
-            if len(operator) == 1:
-                node_id = list(operator.keys())[0]
-                if self.orthogonality_center_id == node_id:
-                    op = operator[node_id]
-                    return self.single_site_operator_expectation_value(node_id, op)
-            # Very inefficient, fix later without copy
-            ttn = deepcopy(self)
-            conj_ttn = ttn.conjugate()
-            for node_id, single_site_operator in operator.items():
-                ttn.absorb_into_open_legs(node_id, single_site_operator)
-            return contract_two_ttns(ttn, conj_ttn)
+            return self.tensor_product_expectation_value(operator)
         # Operator is a TTNO
-        return expectation_value(self, operator)
+        if isinstance(operator, TTNO):
+            return self.ttno_expectation_value(operator)
+        raise TypeError("Operator must be a TensorProduct or a TTNO!")
 
     def is_in_canonical_form(self, node_id: Union[None,str] = None) -> bool:
         """

@@ -61,6 +61,23 @@ def compare_lists_by_value(list1: List, list2: List) -> bool:
         return True
     return False
 
+def compare_lists_by_identity(list1: List, list2: List) -> bool:
+        """
+        Compares two lists by their identity (memory address) The elements and their orders should match.
+
+        Args:
+            list1 (List): First list
+            list2 (List): Second list
+
+        Returns:
+            bool: Whether the two lists have the same elements in the same order.
+        """
+        # Check if the lengths are the same
+        if len(list1) != len(list2):
+            return False
+        # Compare the identity (memory address) of each object in the lists
+        return all(id(obj1) == id(obj2) for obj1, obj2 in zip(list1, list2))
+
 def permute_tuple(tup: Tuple, permutation: List[int]) -> Tuple:
     """
     Permute the elements of a tuple.

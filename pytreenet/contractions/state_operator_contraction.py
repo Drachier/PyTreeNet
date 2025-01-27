@@ -3,6 +3,7 @@ This module provides functions to contract a TTNS with a TTNO
 """
 
 from __future__ import annotations
+from typing import Union, Callable
 
 import numpy as np
 
@@ -134,18 +135,89 @@ def contract_any(node_id: str, next_node_id: str,
     Returns:
         np.ndarray: The contracted tensor.
     """
-    node = state.nodes[node_id]
-    if node.is_leaf():
-        return contract_leaf(node_id, state, operator)
-    return contract_subtrees_using_dictionary(node_id,
-                                              next_node_id,
-                                              state,
-                                              operator,
-                                              dictionary)
+    state_node, state_tensor = state[node_id]
+    operator_node, operator_tensor = operator[node_id]
+    return contract_any_node_environment_but_one(next_node_id,
+                                                 state_node, state_tensor,
+                                                 operator_node, operator_tensor,
+                                                 dictionary)
 
-def contract_leaf(node_id: str,
-                  state: TreeTensorNetworkState,
-                  operator: TTNO) -> np.ndarray:
+def contract_any_node_environment_but_one(ignored_node_id: str,
+                                            ket_node: Node, ket_tensor: np.ndarray,
+                                            op_node: Node, op_tensor: np.ndarray,
+                                            dictionary: PartialTreeCachDict,
+                                            bra_node: Union[Node,None] = None,
+                                            bra_tensor: Union[Node,None] = None,
+                                            id_trafo_op: Union[Callable,None] = None,
+                                            id_trafo_bra: Union[Callable,None] = None
+                                            ) -> np.ndarray:
+    """
+    Contracts a node with all its subtrees except for one.
+
+    All subtrees except for one are already contracted and stored in the
+    dictionary. The one that is not contracted is the one that the remaining
+    legs point towards. The dictionary has to be according to the node
+    identifiers of the ket node neighbours.
+
+    Args:
+        ignored_node_id (str): Identifier of the ket node to which the
+            remaining legs should point.
+        ket_node (Node): The ket node.
+        ket_tensor (np.ndarray): The ket tensor.
+        op_node (Node): The operator node.
+        op_tensor (np.ndarray): The operator tensor.
+        dictionary (PartialTreeCachDict): The dictionary containing the
+            already contracted subtrees.
+        bra_node (Union[Node,None], optional): The bra node. If None, the bra
+            tensor is assumed to be the adjoint of the given ket tensor.
+        bra_tensor (Union[Node,None], optional): The bra tensor. If None, the
+            bra tensor is assumed to be the adjoint of the given ket tensor.
+        id_trafo_op (Union[Callable,None], optional): A function that transforms
+            the node identifier of the ket neighours to the identifiers of the
+            operator node's neighbours. If None, the identity is assumed.
+        id_trafo_bra (Union[Callable,None], optional): A function that transforms
+            the node identifier of the ket neighours to the identifiers of the
+            bra node's neighbours. If None, the identity is assumed.
+
+    Returns:
+        np.ndarray: The contracted tensor::
+
+                     _____      ______
+              2 ____|     |____|      |
+                    |  A* |    |      |
+                    |_____|    |      |
+                       |       |      |
+                       |       |      |
+                     __|__     |      |
+              1 ____|     |____|      |
+                    |  H  |    |  C   |
+                    |_____|    |      |
+                       |       |      |
+                       |       |      |
+                     __|__     |      |
+              0 ____|     |____|      |
+                    |  A  |    |      |
+                    |_____|    |______|
+
+    """
+    if ket_node.is_leaf():
+        return contract_leaf(ket_node, ket_tensor,
+                             op_node, op_tensor,
+                             bra_node, bra_tensor)
+    return contract_subtrees_using_dictionary(ignored_node_id,
+                                              ket_node, ket_tensor,
+                                              op_node, op_tensor,
+                                              dictionary,
+                                              bra_node=bra_node, bra_tensor=bra_tensor,
+                                              id_trafo_op=id_trafo_op,
+                                              id_trafo_bra=id_trafo_bra)
+
+def contract_leaf(state_node: Node,
+                  state_tensor: np.ndarray,
+                  operator_node: Node,
+                  operator_tensor: np.ndarray,
+                  bra_node: Union[None,Node] = None,
+                  bra_tensor: Union[None,Node] = None) -> np.ndarray:
     """
     Contracts for a leaf node the state, operator and conjugate state tensors.
 
@@ -154,9 +226,16 @@ def contract_leaf(node_id: str,
     legs must point towards the leaf's parent.
 
     Args:
-        node_id (str): Identifier of the leaf node
-        state (TreeTensorNetworkState): The TTNS representing the state.
-        operator (TTNO): The TTNO representing the Hamiltonian.
+        state_node (Node): The node of the state.
+        state_tensor (np.ndarray): The tensor of the state.
+        operator_node (Node): The node of the operator.
+        operator_tensor (np.ndarray): The tensor of the operator.
+        bra_node (Union[None,Node], optional): The node of the bra. If None,
+            the bra tensor is assumed to be the adjoint of the given state
+            tensor.
+        bra_tensor (Union[None,Node], optional): The tensor of the bra. If None,
+            the bra tensor is assumed to be the adjoint of the given state
+            tensor.
 
     Returns:
         np.ndarray: The contracted partial tree::
@@ -179,21 +258,28 @@ def contract_leaf(node_id: str,
                     |_____|
         
     """
-    ket_node, ket_tensor = state[node_id]
-    bra_tensor = ket_tensor.conj()
-    ham_node, ham_tensor = operator[node_id]
-    bra_ham = np.tensordot(ham_tensor, bra_tensor,
-                           axes=(_node_operator_output_leg(ham_node),
-                                 _node_state_phys_leg(ket_node)))
-    bra_ham_ket = np.tensordot(ket_tensor, bra_ham,
-                               axes=(_node_state_phys_leg(ket_node),
-                                     _node_operator_input_leg(ham_node)-1))
+    if bra_node is None and bra_tensor is None:
+        bra_node = state_node
+        bra_tensor = state_tensor.conj()
+    elif bra_node is None or bra_tensor is None:
+        errstr = "Either both bra_node and bra_tensor must be None or both must be given!"
+        raise ValueError(errstr)
+    bra_ham = np.tensordot(operator_tensor, bra_tensor,
+                           axes=(_node_operator_output_leg(operator_node),
+                                 _node_state_phys_leg(bra_node)))
+    bra_ham_ket = np.tensordot(state_tensor, bra_ham,
+                               axes=(_node_state_phys_leg(state_node),
+                                     _node_operator_input_leg(operator_node)-1))
     return bra_ham_ket
 
-def contract_subtrees_using_dictionary(node_id: str, ignored_node_id: str,
-                                       state: TreeTensorNetworkState,
-                                       operator: TTNO,
-                                       dictionary: PartialTreeCachDict) -> np.ndarray:
+def contract_subtrees_using_dictionary(ignored_node_id: str,
+                                        ket_node: Node, ket_tensor: np.ndarray,
+                                        op_node: Node, op_tensor: np.ndarray,
+                                        dictionary: PartialTreeCachDict,
+                                        bra_node: Union[Node,None] = None,
+                                        bra_tensor: Union[Node,None] = None,
+                                        id_trafo_op: Union[Callable,None] = None,
+                                        id_trafo_bra: Union[Callable,None] = None) -> np.ndarray:
     """
     Contracts a node with all its subtrees except for one.
 
@@ -202,13 +288,24 @@ def contract_subtrees_using_dictionary(node_id: str, ignored_node_id: str,
     legs point towards.
 
     Args:
-        node_id (str): Identifier of the node.
-        ignored_node_id (str): Identifier of the node to which the remaining
-            legs should point.
-        state (TreeTensorNetworkState): The TTNS representing the state.
-        operator (TTNO): The TTNO representing the operator.
+        ignored_node_id (str): Identifier of the ket node to which the
+            remaining legs should point.
+        ket_node (Node): The ket node.
+        ket_tensor (np.ndarray): The ket tensor.
+        op_node (Node): The operator node.
+        op_tensor (np.ndarray): The operator tensor.
         dictionary (PartialTreeCachDict): The dictionary containing the
             already contracted subtrees.
+        bra_node (Union[Node,None], optional): The bra node. If None, the bra
+            tensor is assumed to be the adjoint of the given ket tensor.
+        bra_tensor (Union[Node,None], optional): The bra tensor. If None, the
+            bra tensor is assumed to be the adjoint of the given ket tensor.
+        id_trafo_op (Union[Callable,None], optional): A function that transforms
+            the node identifier of the ket neighours to the identifiers of the
+            operator node's neighbours. If None, the identity is assumed.
+        id_trafo_bra (Union[Callable,None], optional): A function that transforms
+            the node identifier of the ket neighours to the identifiers of the
+            bra node's neighbours. If None, the identity is assumed.
 
     Returns:
         np.ndarray: The contracted tensor::
@@ -231,28 +328,37 @@ def contract_subtrees_using_dictionary(node_id: str, ignored_node_id: str,
                     |_____|    |______|
     
     """
-    ket_node, ket_tensor = state[node_id]
     tensor = contract_all_but_one_neighbour_block_to_ket(ket_tensor,
                                                          ket_node,
                                                          ignored_node_id,
                                                          dictionary)
-    op_node, op_tensor = operator[node_id]
     tensor = contract_operator_tensor_ignoring_one_leg(tensor,
                                                        ket_node,
                                                        op_tensor,
                                                        op_node,
-                                                       ignored_node_id)
-    bra_tensor = ket_tensor.conj()
-    return contract_bra_tensor_ignore_one_leg(bra_tensor,
-                                              tensor,
-                                              ket_node,
-                                              ignored_node_id)
+                                                       ignored_node_id,
+                                                       id_trafo=id_trafo_op)
+    if bra_node is None and bra_tensor is None:
+        bra_node = ket_node
+        bra_tensor = ket_tensor.conj()
+    elif bra_node is None or bra_tensor is None:
+        errstr = "Either both bra_node and bra_tensor must be None or both must be given!"
+        raise ValueError(errstr)
+    environment_block = contract_bra_tensor_ignore_one_leg(bra_tensor,
+                                                           bra_node,
+                                                           tensor,
+                                                           ket_node,
+                                                           ignored_node_id,
+                                                           id_trafo=id_trafo_bra)
+    return environment_block
 
 def contract_operator_tensor_ignoring_one_leg(current_tensor: np.ndarray,
                                               ket_node: Node,
                                               op_tensor: np.ndarray,
                                               op_node: Node,
-                                              ignoring_node_id: str) -> np.ndarray:
+                                              ignoring_node_id: str,
+                                              id_trafo: Union[Callable,None] = None
+                                              ) -> np.ndarray:
     """
     Contracts the operator tensor with the current tensor.
 
@@ -268,6 +374,9 @@ def contract_operator_tensor_ignoring_one_leg(current_tensor: np.ndarray,
         op_node (Node): The operator node.
         ignoring_node_id (str): The identifier of the node to which the
             virtual leg should not point.
+        id_trafo (Union[Callable,None], optional): A function that transforms
+            the node identifier of the ket neighours to the identifiers of the
+            operator node's neighbours. If None, the identity is assumed.
 
     Returns:
         np.ndarray: The contracted tensor::
@@ -290,7 +399,9 @@ def contract_operator_tensor_ignoring_one_leg(current_tensor: np.ndarray,
                         |_____|    |______|
     
     """
-    _, op_legs = get_equivalent_legs(ket_node, op_node, [ignoring_node_id])
+    _, op_legs = get_equivalent_legs(ket_node, op_node,
+                                     [ignoring_node_id],
+                                     id_trafo=id_trafo)
     # Due to the legs to the bra tensor, the legs of the current tensor are a
     # bit more complicated
     tensor_legs = list(range(2,2*ket_node.nneighbours(),2))
@@ -301,9 +412,12 @@ def contract_operator_tensor_ignoring_one_leg(current_tensor: np.ndarray,
                         axes=(tensor_legs, op_legs))
 
 def contract_bra_tensor_ignore_one_leg(bra_tensor: np.ndarray,
+                                       bra_node: Node,
                                        ketopblock_tensor: np.ndarray,
-                                       state_node: Node,
-                                       ignoring_node_id: str) -> np.ndarray:
+                                       ket_node: Node,
+                                       ignoring_node_id: str,
+                                       id_trafo: Union[Callable,None] = None
+                                       ) -> np.ndarray:
     """
     Contracts the bra tensor with the contracted tensor.
 
@@ -314,20 +428,24 @@ def contract_bra_tensor_ignore_one_leg(bra_tensor: np.ndarray,
     subtrees starting from this node.
 
     Args:
-        bra_tensor (np.ndarray): The bra tensor.
+        bra_tensor (np.ndarray): The bra tensor B.
+        bra_node (Node): The bra node.
         ketopblock_tensor (np.ndarray): The contracted tensor. (ACH in the
             diagram)
-        state_node (Node): The node of the state. We assume the bra state
+        ket_node (Node): The node of the state. We assume the bra state
             is the adjoint of the ket state.
         ignoring_node_id (str): The identifier of the node to which the
             virtual leg should not point.
+        id_trafo (Union[Callable,None], optional): A function that transforms
+            the node identifier of the ket neighours to the identifiers of the
+            bra node's neighbours. If None, the identity is assumed.
 
     Returns:
         np.ndarray: The contracted tensor::
                                     
                      _____      ______
                 ____|     |____|      |
-                    |  A* |    |      |
+                    |  B  |    |      |
                     |_____|    |      |
                        |       |      |
                        |       |      |
@@ -343,18 +461,22 @@ def contract_bra_tensor_ignore_one_leg(bra_tensor: np.ndarray,
                     |_____|    |______|
     
     """
-    num_neighbours = state_node.nneighbours()
-    ignored_node_index = state_node.neighbour_index(ignoring_node_id)
+    num_neighbours = ket_node.nneighbours()
     legs_tensor = list(range(1,num_neighbours))
     legs_tensor.append(num_neighbours+1)
-    legs_bra_tensor = list(range(ignored_node_index))
-    legs_bra_tensor.extend(range(ignored_node_index+1,num_neighbours+1))
+    _, legs_bra_tensor = get_equivalent_legs(ket_node, bra_node,
+                                          [ignoring_node_id],
+                                          id_trafo=id_trafo)
+    # Adding the physical leg to be contracted.
+    legs_bra_tensor.append(_node_state_phys_leg(bra_node))
     return np.tensordot(ketopblock_tensor, bra_tensor,
                         axes=(legs_tensor, legs_bra_tensor))
 
 def single_node_expectation_value(node: Node,
                                   ket_tensor: np.ndarray,
-                                  operator_tensor: np.ndarray) -> complex:
+                                  operator_tensor: np.ndarray,
+                                  bra_tensor: Union[np.ndarray,None] = None
+                                  ) -> complex:
     """
     This is a function for the special case, in which a TTN is only one node.
 
@@ -365,6 +487,8 @@ def single_node_expectation_value(node: Node,
         node (Node): The node of the TTN.
         ket_tensor (np.ndarray): The ket tensor.
         operator_tensor (np.ndarray): The operator tensor.
+        bra_tensor (Union[np.ndarray,None], optional): The bra tensor. If None,
+            the bra tensor is assumed to be the adjoint of the given ket tensor.
 
     Returns:
         complex: The expectation value.
@@ -373,8 +497,11 @@ def single_node_expectation_value(node: Node,
     assert node.is_leaf() and node.is_root(), "Node is not a leaf and a root!"
     assert ket_tensor.ndim == 1, "Ket tensor has too many legs"
     assert operator_tensor.ndim == 2, "Operator tensor has too many legs"
-    bra_tensor = ket_tensor.conj()
-    return bra_tensor @ operator_tensor @ ket_tensor[0]
+    if bra_tensor is None:
+        bra_tensor = ket_tensor.conj().T
+    else:
+        assert bra_tensor.ndim == 1, "Bra tensor has too many legs"
+    return bra_tensor @ operator_tensor @ ket_tensor
 
 def _node_state_phys_leg(node: Node) -> int:
     """

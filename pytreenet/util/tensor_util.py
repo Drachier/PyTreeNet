@@ -162,6 +162,23 @@ def tensor_multidot(tensor: np.ndarray,
         connected_legs += 1
     return tensor
 
+def multi_kron(*args) -> np.ndarray:
+    """
+    Computes the kronecker product of multiple matrices.
+
+    Args:
+        *args: Matrices to be kroneckered.
+    
+    Returns:
+        np.ndarray: The resulting matrix.
+            The convention is that the righmost matrix, corresponds to the
+            rightmost matrix in a usual kronecker product.
+
+    """
+    if len(args) == 1:
+        return args[0]
+    return np.kron(args[0], multi_kron(*args[1:]))
+
 def make_last_leg_first(tensor: np.ndarray) -> np.ndarray:
     """
     Flips the last leg of a tensor to be the first leg.

@@ -18,8 +18,11 @@ from ..contractions.state_state_contraction import contract_two_ttns
 from ..contractions.state_operator_contraction import expectation_value
 from .utils_multittns import (_init_orthogonal_states, _scalar_product_multittn, 
                            )
+<<<<<<< HEAD
 import os
 import json
+=======
+>>>>>>> main
 
 class MultiTreeTensorNetworkState(TreeTensorNetworkState):
     """
@@ -29,10 +32,15 @@ class MultiTreeTensorNetworkState(TreeTensorNetworkState):
     with multiple states at one node. And the multiple state node can be  swept
     through the network. The multi-state node is also the orthogonality center.
     """
+<<<<<<< HEAD
     def __init__(self, weight: Union[List[float], List[int], np.ndarray, None])-> None:
         super().__init__()
         if weight is None:
             weight = [1.0]
+=======
+    def __init__(self, weight: Union[List[float], List[int], np.ndarray])-> None:
+        super().__init__()
+>>>>>>> main
         if isinstance(weight, list):
             weight = np.array(weight)
         self.weight = weight

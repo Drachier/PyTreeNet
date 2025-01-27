@@ -196,12 +196,22 @@ class SVDParameters:
             are truncated. Defaults to 1e-15.
         renorm (bool, optional): If True, the truncated singular value vector
             is scaled to have the same norm as the original vector. Defaults to
-            True.
+            False.
+        sum_trunc (bool, optional): If True, all singular values with index
+            larger than K are truncated, where K is the smallest index such
+
+            .. math::
+                \sum_{i=K}^{r} (s_i / ||s|| )^2 < \text{total_tol}^2
+            
+            where r is the number of singular values. Defaults to False.
+        
     """
     max_bond_dim: int = 100
     rel_tol: float = 0.01
     total_tol: float = 1e-15
     renorm: bool = False
+    sum_trunc: bool = False
+    sum_renorm: bool = True
 
     def __post_init__(self):
         """
@@ -247,6 +257,100 @@ def renormalise_singular_values(s: np.ndarray,
     new_s = new_s * norm_old / norm_new
     return new_s
 
+def _sum_truncation_index(s: np.ndarray,
+                          total_tol: float,
+                          norming: bool = True) -> int:
+    """
+    Determines the index for truncation of the singular values.
+
+    The index is determined by the condition
+
+    .. math::
+        \sum_{i=K}^{r} (s_i / ||s|| )^2 < \text{total_tol}^2
+
+    where r is the number of singular values.
+
+    Args:
+        s (np.ndarray): Vector of singular values sorted in descending order.
+        total_tol (float): Tolarance for the sum of the squared singular
+            values.
+        norming (bool, optional): If True, the sum of the squared singular
+            values is normalised by the squared norm of the vector. Defaults to
+            True.
+    
+    Returns:
+        int: The index K for truncation.
+    
+    """
+    normsq = np.linalg.norm(s)**2
+    if normsq == 0:
+        # In this case all singular values are zero, so all are truncated.
+        return 0
+    thresh = total_tol**2
+    trunc_sum = 0
+    for i, s_val in enumerate(reversed(s)):
+        # Note that the singular values are sorted in descending order.
+        trunc_sum += s_val**2
+        if norming:
+            comp_val = trunc_sum / normsq
+        else:
+            comp_val = trunc_sum
+        if comp_val > thresh:
+            return len(s) - i
+    # In this case all singular values are truncated
+    return 0
+
+def sum_truncation(s: np.ndarray,
+                   total_tol: float,
+                   norming: bool = True
+                   ) -> np.ndarray:
+    """
+    Truncates the singular values of a tensor given as a vector by according to
+
+    .. math::
+        \sum_{i=K}^{r} (s_i / ||s|| )^2 < \text{total_tol}^2
+
+    where r is the number of singular values.
+
+    Args:
+        s (np.ndarray): Vector of singular values sorted in descending order.
+        total_tol (float): Tolarance for the sum of the squared singular
+            values.
+        norming (bool, optional): If True, the truncated singular value vector
+            is scaled to have the same norm as the original vector. Defaults to
+            True.
+
+    Returns:
+        np.ndarray: The truncated vector of singular values.
+    
+    """
+    trunc_index = _sum_truncation_index(s, total_tol, norming=norming)
+    return s[:trunc_index]
+
+def value_truncation(s: np.ndarray,
+                     total_tol: float,
+                     rel_tol: float) -> np.ndarray:
+    """
+    Truncates a vector of by removing all singular values that are smaller than
+
+    .. math::
+        \max(\text{rel_tol} \cdot \text{max}(s), \text{total_tol}).
+
+    Args:
+        s (np.ndarray): Vector of singular values sorted in descending order.
+        total_tol (float): Absolute value tolerance for the singular values.
+        rel_tol (float): Tolarance for the relative size of the singular values.
+
+    Returns:
+        np.ndarray: The truncated vector of singular values.
+
+    """
+    max_singular_value = s[0]
+    min_singular_value_cutoff = max(rel_tol * max_singular_value,
+                                    total_tol)
+    s_temp = s[s > min_singular_value_cutoff]
+    return s_temp
+
 def truncate_singular_values(s: np.ndarray,
                              svd_params: SVDParameters) -> Tuple[np.ndarray,np.ndarray]:
     """
@@ -262,10 +366,12 @@ def truncate_singular_values(s: np.ndarray,
             shortened vector of singular values and s_trunc is a vector of the
             truncated singular values.
     """
-    max_singular_value = s[0]
-    min_singular_value_cutoff = max(svd_params.rel_tol * max_singular_value,
-                                    svd_params.total_tol)
-    s_temp = s[s > min_singular_value_cutoff]
+    if len(s) == 0:
+        raise ValueError("No singular values to truncate!")
+    if svd_params.sum_trunc:
+        s_temp = sum_truncation(s, svd_params.total_tol, svd_params.sum_renorm)
+    else:
+        s_temp = value_truncation(s, svd_params.total_tol, svd_params.rel_tol)
     max_bond_dim = svd_params.max_bond_dim
     if len(s_temp) > max_bond_dim:
         new_s = s_temp[:max_bond_dim]
@@ -273,7 +379,7 @@ def truncate_singular_values(s: np.ndarray,
     elif len(s_temp) == 0:
         warn("All singular values were truncated. Returning only the largest singular value.")
         s_trunc = s[1:]
-        new_s = np.array([max_singular_value])
+        new_s = np.array([s[0]])
     else:
         new_s = s_temp
         s_trunc = s[len(s_temp):]
@@ -351,16 +457,17 @@ def contr_truncated_svd_splitting(tensor: np.ndarray,
     """
     u, s, vh = truncated_tensor_svd(tensor, u_legs, v_legs, svd_params)
     if contr_mode == ContractionMode.VCONTR:
-        us = u
         svh = np.tensordot(np.diag(s), vh, axes=(1, 0))
-    elif contr_mode == ContractionMode.UCONTR:
+        return u, svh
+    if contr_mode == ContractionMode.UCONTR:
         us = np.tensordot(u,np.diag(s), axes=(-1, 0))
-        svh = vh
-    elif contr_mode == ContractionMode.EQUAL:
+        return us, vh
+    if contr_mode == ContractionMode.EQUAL:
         s_root = np.diag(np.sqrt(s))
         svh = np.tensordot(s_root, vh, axes=(1, 0))
         us = np.tensordot(u,s_root,axes=(-1, 0))
-    return  us, svh
+        return us, svh
+    raise ValueError("Invalid contraction mode!")
 
 def idiots_splitting(tensor: np.ndarray,
                      a_legs: Tuple[int,...],

@@ -1,5 +1,5 @@
 import unittest
-from copy import deepcopy
+from copy import deepcopy, copy
 
 import numpy as np
 
@@ -8,6 +8,9 @@ from pytreenet.util import compute_transfer_tensor
 from pytreenet.random import (random_tensor_node,
                                random_small_ttns,
                                crandn)
+from pytreenet.core.leg_specification import LegSpecification
+from pytreenet.random.random_ttn import (random_big_ttns_two_root_children,
+                                         RandomTTNSMode)
 
 class TestTreeTensorNetworkBasics(unittest.TestCase):
 
@@ -81,6 +84,111 @@ class TestTreeTensorNetworkBasics(unittest.TestCase):
         self.assertTrue(np.allclose(tensor0_ref_transposed, root_tensor))
         self.assertEqual((2,3,4), root_node.shape)
 
+class TestTreeTensorNetworkCopy(unittest.TestCase):
+
+    def setUp(self):
+        self.ttn = random_big_ttns_two_root_children(mode=RandomTTNSMode.DIFFVIRT)
+        self.ref_ttn = deepcopy(self.ttn)
+        self.copy_ids = ["site0","site1","site2","site3"]
+        self.found_ttn = self.ttn.deepcopy_parts(self.copy_ids)
+
+    def test_equality_after_copying(self):
+        """
+        Tests that the copied TTN is equal to the original TTN.
+        """
+        self.assertEqual(self.ref_ttn,
+                         self.found_ttn)
+
+    def test_copying_does_not_change_original(self):
+        """
+        Tests that copying did not change the old TTN.
+        """
+        self.assertEqual(self.ttn,
+                         self.ref_ttn)
+
+    def test_nodes_different(self):
+        """
+        Tests that the node dictionaries are different objects
+        and point to the correct object. So the new one, if
+        copied, and the original, if not copied.
+        """
+        self.assertIsNot(self.ttn.nodes,
+                         self.found_ttn.nodes)
+        for node_id, node in self.ttn.nodes.items():
+            if node_id in self.copy_ids:
+                self.assertIsNot(node,
+                                 self.found_ttn.nodes[node_id])
+            else:
+                self.assertIs(node,
+                              self.found_ttn.nodes[node_id])
+
+    def test_tensor_node_is_same_as_new_ttn(self):
+        """
+        Tests that the node dictionary in the new tensor dictionary points to
+        the same new nodes as the new TTN nodes attribute.
+        """
+        self.assertIs(self.found_ttn.nodes,
+                      self.found_ttn.tensors.nodes)
+
+    def test_adding_node_leaves_old_ttn_invariant(self):
+        """
+        Checks that adding a node to the new TTN does not change the old TTN.
+        """
+        node, tensor = random_tensor_node((2,2,2), identifier="new_node")
+        self.found_ttn.add_child_to_parent(node, tensor, 0,
+                                           "site0", 2)
+        self.assertEqual(self.ttn,
+                         self.ref_ttn)
+
+    def test_transposition_of_node(self):
+        """
+        Tests that when a tensor is transposed during access, the original TTN
+        tensors are unaffected.
+        """
+        node_id = "site0"
+        assert node_id in self.copy_ids
+        test_node = self.found_ttn.nodes[node_id]
+        test_node._leg_permutation = (1,0,2)
+        # Access Node
+        _ = self.found_ttn.tensors[node_id]
+        # Testing
+        self.assertIsNot(self.ttn.nodes[node_id],
+                         self.found_ttn.nodes[node_id])
+        self.assertEqual(self.ttn,
+                         self.ref_ttn)
+        self.assertNotEqual(self.ttn,
+                            self.found_ttn)
+
+    def test_splitting_of_node(self):
+        """
+        Checks that a splitting of a copied node does not affect the old
+        TTN.
+        """
+        node_id = "site0"
+        assert node_id in self.copy_ids
+        self.found_ttn.split_node_qr(node_id,
+                                     LegSpecification(None, ["site1"], [2]),
+                                     LegSpecification(None, ["site6"], [], is_root=True),
+                                     "R", "site0")
+        # Note the order of the identifiers.
+        # This way the parent of site1 is changed, which is copied.
+        # The other way around would change the parent of site6, which is not copied.
+        self.assertEqual(self.ttn,
+                            self.ref_ttn)
+
+    def test_node_contraction(self):
+        """
+        Checks that a contraction of a copied node does not affect the old
+        TTN.
+        """
+        node1_id = "site0"
+        node2_id = "site1"
+        self.found_ttn.contract_nodes(node1_id, node2_id,
+                                      new_identifier=node1_id)
+        # Note that we have to name the new node as site0.
+        # Otherwise the parent of site6 would be changed, which is not copied.
+        self.assertEqual(self.ttn,
+                            self.ref_ttn)
 
 class TestTreeTensorNetworkSimple(unittest.TestCase):
 
