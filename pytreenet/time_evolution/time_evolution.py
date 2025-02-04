@@ -423,7 +423,7 @@ class TimeEvolution:
         self.state = deepcopy(self._initial_state)
 
 class TimeEvoMode(Enum):
-    
+
     FASTEST = "fastest"
     EXPM = "expm"
     EIGSH = "eigsh"
@@ -436,13 +436,28 @@ class TimeEvoMode(Enum):
     BDF = "BDF"
     LSODA = "LSODA"
 
+    def __str__(self) -> str:
+        return self.value
+
+    @staticmethod
+    def fastest_equivalent() -> TimeEvoMode:
+        """
+        Selects the mode that is equivalent to the fastest.
+        """
+        return TimeEvoMode.CHEBYSHEV
+
     def is_scipy(self) -> bool:
         """
         Determines, if this mode is a scipy ODE solver.
         """
-        return self not in [TimeEvoMode.FASTEST, TimeEvoMode.EXPM,
-                            TimeEvoMode.EIGSH, TimeEvoMode.CHEBYSHEV,
-                            TimeEvoMode.SPARSE]
+        if self == TimeEvoMode.FASTEST:
+            return self.fastest_equivalent().is_scipy()
+        return self in [TimeEvoMode.RK45,
+                        TimeEvoMode.RK23,
+                        TimeEvoMode.DOP853,
+                        TimeEvoMode.RADAU,
+                        TimeEvoMode.BDF,
+                        TimeEvoMode.LSODA]
 
 def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
                 time_difference: float,
@@ -471,13 +486,13 @@ def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
     sign = -2 * forward + 1  # forward=True -> -1; forward=False -> +1
     rhs_matrix = sign * 1.0j * hamiltonian
     if mode.is_scipy():
-        def ode_rhs(t, y_vec):
+        def ode_rhs(_, y_vec):
             return rhs_matrix @ y_vec
         t_span = (0, time_difference)
         solution = solve_ivp(ode_rhs, t_span, psi.flatten(),
                                 method=mode.value,
                                 t_eval=[time_difference])
-        result_vector = solution.y[0]
+        result_vector = solution.y[:,0]
     else:
         exponent = rhs_matrix * time_difference
         result_vector = fast_exp_action(exponent, psi.flatten(),

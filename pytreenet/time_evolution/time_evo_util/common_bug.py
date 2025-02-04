@@ -332,6 +332,7 @@ def root_update(current_state: TreeTensorNetworkState,
                                                 new_state,
                                                 hamiltonian,
                                                 time_step_size,
-                                                current_cache)
+                                                current_cache,
+                                                mode=bug_config.time_evo_mode)
     new_state.replace_tensor(root_id, updated_tensor)
     return new_state

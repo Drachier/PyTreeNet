@@ -3,7 +3,7 @@ import numpy as np
 from copy import deepcopy
 
 import pytreenet as ptn
-
+from pytreenet.ttno.symbolic_gaussian_elimination_fraction import gaussian_elimination
 
 class TestGaussianElimination(unittest.TestCase):
     def test_simple_all_int_matrix(self):
@@ -12,7 +12,7 @@ class TestGaussianElimination(unittest.TestCase):
             [-3, -1, 2],
             [-2, 1, 2]
         ]
-        Op_l,Gamma_m, Op_r = ptn.gaussian_elimination(deepcopy(matrix))
+        Op_l,Gamma_m, Op_r = gaussian_elimination(deepcopy(matrix))
         #self.assertEqual(result, matrix)
 
         Op_l_array = np.array(Op_l)
@@ -28,7 +28,7 @@ class TestGaussianElimination(unittest.TestCase):
             [-3, -1, 2, 1, 0],
             [-2, 1, 2, -2, 6]
         ]
-        Op_l,Gamma_m, Op_r = ptn.gaussian_elimination(deepcopy(matrix))
+        Op_l,Gamma_m, Op_r = gaussian_elimination(deepcopy(matrix))
         #self.assertEqual(result, matrix)
 
         Op_l_array = np.array(Op_l)
@@ -44,7 +44,7 @@ class TestGaussianElimination(unittest.TestCase):
         true_gamma = [[(1, 'a'), (1, 'b'), (1, 'c'), 0], [0, (1, 'd'), 0, 0], [0, 0, (1, 'f'), (1, 'g')], [0, (1, 'e'), 0, 0]]
         true_Op_r = [[1, 0, 0, 0, 0], [0, 1, 0, 0, 1], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0]]
 
-        Op_l,Gamma_m, Op_r = ptn.gaussian_elimination(matrix)
+        Op_l,Gamma_m, Op_r = gaussian_elimination(matrix)
 
         self.assertEqual(Op_l, true_Op_l)
         self.assertEqual(Gamma_m, true_gamma)
@@ -57,7 +57,7 @@ class TestGaussianElimination(unittest.TestCase):
         true_gamma = [[(1, 'a'), 0, 0, (1.0, 'd')], [0, (1, 'b'), 0, (-1.0, 'd')], [0, 0, (1.0, 'c'), (1, 'd')]]
         true_Op_r = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
 
-        Op_l,Gamma_m, Op_r = ptn.gaussian_elimination(matrix)
+        Op_l,Gamma_m, Op_r = gaussian_elimination(matrix)
 
         self.assertEqual(Op_l, true_Op_l)
         self.assertEqual(Gamma_m, true_gamma)
