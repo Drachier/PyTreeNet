@@ -432,9 +432,7 @@ class TimeEvoMode(Enum):
     RK45 = "RK45"
     RK23 = "RK23"
     DOP853 = "DOP853"
-    RADAU = "Radau"
     BDF = "BDF"
-    LSODA = "LSODA"
 
     def __str__(self) -> str:
         return self.value
@@ -455,9 +453,7 @@ class TimeEvoMode(Enum):
         return self in [TimeEvoMode.RK45,
                         TimeEvoMode.RK23,
                         TimeEvoMode.DOP853,
-                        TimeEvoMode.RADAU,
-                        TimeEvoMode.BDF,
-                        TimeEvoMode.LSODA]
+                        TimeEvoMode.BDF]
 
 def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
                 time_difference: float,
