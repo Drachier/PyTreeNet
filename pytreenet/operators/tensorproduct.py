@@ -74,6 +74,22 @@ class TensorProduct(UserDict):
             tensor_product[operator.node_identifiers[0]] = operator.operator
         return tensor_product
 
+    def add_suffix(self,
+                    suffix: str
+                    ) -> TensorProduct:
+        """
+        Adds a suffix to every node identifier in the tensor product.
+
+        Args:
+            suffix (str): The suffix to add.
+
+        Returns:
+            TensorProduct: A new tensor product with the suffix added.
+
+        """
+        new_dict = {node_id + suffix: operator for node_id, operator in self.items()}
+        return TensorProduct(new_dict)
+
     def allclose(self, other: TensorProduct) -> bool:
         """
         Returns, whether the two tensor products are close to each other.

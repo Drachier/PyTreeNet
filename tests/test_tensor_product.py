@@ -115,6 +115,32 @@ class TestTensorProduct(unittest.TestCase):
         self.assertTrue(np.allclose(correct_result, found_operator.operator))
         self.assertEqual(identifiers, found_operator.node_identifiers)
 
+class TestTensorProductNaming(unittest.TestCase):
+    """
+    Tests functions that change the names of the nodes in the tensor product.
+    """
+
+    def test_add_suffix(self):
+        """
+        Test the add_suffix method of the TensorProduct class.
+        """
+        tp = TensorProduct({"node1": "A",
+                            "node2": "B"})
+        suff = "_suffix"
+        tp_suffix = tp.add_suffix(suff)
+        self.assertEqual(2, len(tp_suffix))
+        self.assertEqual(tp["node1"], tp_suffix["node1"+suff])
+        self.assertEqual(tp["node2"], tp_suffix["node2"+suff])
+
+    def test_add_suffix_empty(self):
+        """
+        Test the add_suffix method of the TensorProduct class.
+        """
+        tp = TensorProduct({"node1": "A",
+                            "node2": "B"})
+        tp_suffix = tp.add_suffix("")
+        self.assertEqual(tp, tp_suffix)
+
 class TestTensorProductArithmetic(unittest.TestCase):
 
     def test_transpose(self):
