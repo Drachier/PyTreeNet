@@ -14,15 +14,15 @@ where :math:`A_{i}^{[j]}` is the operator acting on the j-th subsystem of the
 as part of the i-th term of the Hamiltonian.
 """
 from __future__ import annotations
-from typing import Dict, Union, List
+from typing import Dict, Union, List, Tuple
 from enum import Enum, auto
-from numpy import asarray, ndarray
 from fractions import Fraction
+
+from numpy import asarray, ndarray
 
 from .operator import NumericOperator
 from .tensorproduct import TensorProduct
 from ..core.ttn import TreeTensorNetwork
-from ..core.tree_structure import TreeStructure
 from ..util.std_utils import compare_lists_by_value
 from ..util.ttn_exceptions import NotCompatibleException
 
@@ -52,7 +52,7 @@ class Hamiltonian():
             actual numeric arrays.
     """
 
-    def __init__(self, terms: Union[List[tuple[Fraction, str, TensorProduct]], List[TensorProduct], TensorProduct, None] = None,
+    def __init__(self, terms: Union[List[tuple[Fraction, str, TensorProduct], TensorProduct], tuple[Fraction, str, TensorProduct], TensorProduct, None] = None,
                  conversion_dictionary: Union[Dict[str, ndarray],None] = None,
                  coeffs_mapping: Union[Dict[str,complex],None] = None):
         """
@@ -60,21 +60,15 @@ class Hamiltonian():
             H = sum( terms )
 
         Args:
-            terms (List[Tuple[Fraction, str, Tensorproduct]], List[Tensorproduct], Tensorproduct, optional): A list of TensorProduct making up the
-                Hamiltonian. Defaults to None.
+            terms (List[Tuple[Fraction, str, Tensorproduct]], List[Tensorproduct],
+                Tensorproduct, optional): A list of TensorProduct making up the
+                Hamiltonian. A term has the from of an fration, that is ultimately
+                multiplied with the symbolic coefficient and the symbolic
+                tensor product. Defaults to None.
             conversion_dictionary (dict, optional): A conversion dictionary might be supplied.
                 It is used, if the tensor products are symbolic. Defaults to None.
         """
-        if terms is None:
-            self.terms = []
-        elif isinstance(terms, TensorProduct):
-            self.terms = [(Fraction(1),"1",terms)]
-        else:
-            if all([isinstance(term, TensorProduct) for term in terms]):
-                self.terms = [(Fraction(1),"1",term) for term in terms]
-            else:
-                self.terms = terms
-
+        self.terms = deal_with_term_input(terms)
 
         if coeffs_mapping is None:
             coeffs_mapping = {"1" : 1}
@@ -86,7 +80,6 @@ class Hamiltonian():
 
         self.coeffs_mapping = coeffs_mapping
 
-        
     def __str__(self) -> str:
         """
         Returns a string representation of the Hamiltonian.
@@ -120,7 +113,6 @@ class Hamiltonian():
             self.terms.append(term)
         else:
             self.terms.append((Fraction(1),"1",term))
-        
 
     def add_hamiltonian(self, other: Hamiltonian):
         """
@@ -133,7 +125,9 @@ class Hamiltonian():
         self.conversion_dictionary.update(other.conversion_dictionary)
         self.coeffs_mapping.update(other.coeffs_mapping)
 
-    def add_multiple_terms(self, terms: Union[list[TensorProduct], list[tuple[Fraction, str, TensorProduct]]]):
+    def add_multiple_terms(self,
+                           terms: Union[list[TensorProduct],
+                                              list[tuple[Fraction, str, TensorProduct]]]):
         """
         Add multiple terms to this Hamiltonian
 
@@ -213,7 +207,9 @@ class Hamiltonian():
         for frac, coeff, term in self.terms:
             new_term = term.pad_with_identities(reference_ttn, symbolic=symbolic)
             new_terms.append((frac, coeff, new_term))
-        return Hamiltonian(new_terms, conversion_dictionary=self.conversion_dictionary, coeffs_mapping=self.coeffs_mapping)
+        return Hamiltonian(new_terms,
+                           conversion_dictionary=self.conversion_dictionary,
+                           coeffs_mapping=self.coeffs_mapping)
 
     def to_matrix(self, ref_ttn: TreeTensorNetwork, use_padding: bool = True,
                   mode: PadMode = PadMode.safe) -> NumericOperator:
@@ -298,3 +294,31 @@ class Hamiltonian():
         terms_comp = [term[2] for term in self.terms]
         dup = [term for term in terms_comp if terms_comp.count(term) > 1]
         return len(dup) > 0
+
+def deal_with_term_input(terms: Union[List[Union[Tuple[Fraction, str, TensorProduct], TensorProduct]], Tuple[Fraction, str, TensorProduct], TensorProduct, None] = None
+                         ) -> List[tuple[Fraction, str, TensorProduct]]:
+    """
+    Handles the different input formats of terms.
+    
+    Args:
+        terms (Union[List[Union[Tuple[Fraction, str, Tensorproduct], Tensorproduct],
+            Tensorproduct, optional): A list of TensorProduct making up the
+            Hamiltonian. A term has the from of an fration, that is ultimately
+            multiplied with the symbolic coefficient and the symbolic
+            tensor product. Defaults to None.
+    
+    Returns:
+        List[Tuple[Fraction, str, TensorProduct]]: A list of terms in the correct format.
+
+    """
+    if terms is None:
+        return []
+    elif isinstance(terms, TensorProduct):
+        return [(Fraction(1),"1",terms)]
+    elif isinstance(terms, tuple) and len(terms) == 3:
+        return [terms]
+    else:
+        for index, term in enumerate(terms):
+            if isinstance(term, TensorProduct):
+                terms[index] = (Fraction(1),"1",term)
+        return terms
