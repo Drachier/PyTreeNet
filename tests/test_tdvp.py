@@ -7,6 +7,7 @@ from scipy.linalg import expm
 
 import pytreenet as ptn
 from pytreenet.contractions.state_operator_contraction import (contract_any)
+from pytreenet.contractions.effective_hamiltonians import (get_effective_single_site_hamiltonian)
 from pytreenet.random import (random_hermitian_matrix,
                               random_small_ttns,
                               random_big_ttns_two_root_children,
@@ -187,7 +188,10 @@ class TestContractionMethods(unittest.TestCase):
     def test_update_site_c1(self):
         node_id = "c1"
         ref_state = deepcopy(self.tdvp.state)
-        eff_site_ham = self.tdvp._get_effective_site_hamiltonian(node_id)
+        eff_site_ham = get_effective_single_site_hamiltonian(node_id,
+                                                        ref_state,
+                                                        self.tdvp.hamiltonian,
+                                                        self.tdvp.partial_tree_cache)
         node_tensor = ref_state[node_id][1]
         node_state = np.reshape(node_tensor,15)
         exponent = expm(-1j * self.tdvp.time_step_size * eff_site_ham)
@@ -204,7 +208,10 @@ class TestContractionMethods(unittest.TestCase):
                                                       mode=ptn.SplitMode.KEEP)
         self.tdvp.update_tree_cache("c1", node_id)
         ref_state = deepcopy(self.tdvp.state)
-        eff_site_ham = self.tdvp._get_effective_site_hamiltonian(node_id)
+        eff_site_ham = get_effective_single_site_hamiltonian(node_id,
+                                                             ref_state,
+                                                             self.tdvp.hamiltonian,
+                                                             self.tdvp.partial_tree_cache)
         node_tensor = ref_state[node_id][1]
         node_state = np.reshape(node_tensor,60)
         exponent = expm(-1j * self.tdvp.time_step_size * eff_site_ham)
@@ -222,7 +229,10 @@ class TestContractionMethods(unittest.TestCase):
         self.tdvp.update_tree_cache("c1", "root")
         self.tdvp.update_tree_cache("root", node_id)
         ref_state = deepcopy(self.tdvp.state)
-        eff_site_ham = self.tdvp._get_effective_site_hamiltonian(node_id)
+        eff_site_ham = get_effective_single_site_hamiltonian(node_id,
+                                                             ref_state,
+                                                             self.tdvp.hamiltonian,
+                                                             self.tdvp.partial_tree_cache)
         node_tensor = ref_state[node_id][1]
         node_state = np.reshape(node_tensor,24)
         exponent = expm(-1j * self.tdvp.time_step_size * eff_site_ham)

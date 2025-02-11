@@ -191,7 +191,7 @@ class SVDParameters:
             between nodes. Defaults to 100.
         rel_tol (float, optional): singular values s for which
             (s / largest singular value) < rel_tol are truncated. Defaults to
-            0.01.
+            1e-15.
         total_tol (float, optional): singular values s for which s < total_tol
             are truncated. Defaults to 1e-15.
         renorm (bool, optional): If True, the truncated singular value vector
@@ -207,7 +207,7 @@ class SVDParameters:
         
     """
     max_bond_dim: int = 100
-    rel_tol: float = 0.01
+    rel_tol: float = 1e-15
     total_tol: float = 1e-15
     renorm: bool = False
     sum_trunc: bool = False

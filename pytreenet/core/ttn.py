@@ -274,13 +274,14 @@ class TreeTensorNetwork(TreeStructure):
         update_dict = {key: value for key, value in self.__dict__.items()
                        if key not in {"_nodes", "_tensors"}}
         new_ttn.__dict__.update(update_dict)
-        new_ttn._nodes = {node_id: self._copy_decider(node_id, node, copy_ids)
-                          for node_id, node in self._nodes.items()}
-        new_ttn._tensors = TensorDict(new_ttn._nodes,
+        new_ttn._tensors = TensorDict(self._nodes,
                                       {node_id: self._copy_decider(node_id, tensor, copy_ids)
                                        for node_id, tensor in self.tensors.items()})
+        new_ttn._nodes = {node_id: self._copy_decider(node_id, node, copy_ids)
+                          for node_id, node in self._nodes.items()}
+        new_ttn._tensors.nodes = new_ttn._nodes
         return new_ttn
-    
+
     def _copy_decider(self,
                       node_id: str, object: Union[Node,np.ndarray],
                       copy_ids: List[str]

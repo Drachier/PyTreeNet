@@ -5,7 +5,6 @@ from fractions import Fraction
 
 from pytreenet.ttno.symbolic_gaussian_elimination_fraction import gaussian_elimination
 
-
 class TestGaussianElimination(unittest.TestCase):
     def test_simple_all_int_matrix(self):
         matrix = [
@@ -35,6 +34,7 @@ class TestGaussianElimination(unittest.TestCase):
         matrix_f = [[Fraction(x) for x in row] for row in matrix]
 
         Op_l,Gamma_m, Op_r = gaussian_elimination(deepcopy(matrix_f))
+
         #self.assertEqual(result, matrix)
 
         Op_l_array = np.array(Op_l)
@@ -55,8 +55,8 @@ class TestGaussianElimination(unittest.TestCase):
         true_gamma_f = [[ Fraction(item) if isinstance(item, int) else (Fraction(item[0]), item[1]) if isinstance(item, tuple) else item for item in row]for row in true_gamma]
         true_Op_r = [[1, 0, 0, 0, 0], [0, 1, 0, 0, 1], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0]]
         true_Op_r_f = [[Fraction(x) for x in row] for row in true_Op_r]
-
         Op_l,Gamma_m, Op_r = gaussian_elimination(matrix_f)
+
 
         self.assertEqual(Op_l, true_Op_l_f)
         self.assertEqual(Gamma_m, true_gamma_f)

@@ -1,11 +1,54 @@
 import unittest
 from copy import deepcopy
+from fractions import Fraction
 
 import pytreenet as ptn
+from pytreenet.operators.hamiltonian import deal_with_term_input
+from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.random import (random_small_ttns,
                               random_tensor_product,
                               random_tensor_node,
                               crandn)
+
+class TestDealWithTermInput(unittest.TestCase):
+
+    def test_empty_input(self):
+        self.assertEqual([], deal_with_term_input())
+
+    def test_single_tensor_product(self):
+        tp = TensorProduct({"site1": "X", "site2": "Y"})
+        found = deal_with_term_input(tp)
+        self.assertEqual([(Fraction(1), "1", tp)], found)
+
+    def test_multiple_tensor_products(self):
+        tp1 = TensorProduct({"site1": "X", "site2": "Y"})
+        tp2 = TensorProduct({"site2": "Z", "site3": "Y"})
+        found = deal_with_term_input([tp1,tp2])
+        self.assertEqual([(Fraction(1), "1", tp1), (Fraction(1), "1", tp2)],
+                         found)
+
+    def test_single_tuple(self):
+        tp = TensorProduct({"site1": "X", "site2": "Y"})
+        tup = (Fraction(1), "1", tp)
+        tup_cor = deepcopy(tup)
+        found = deal_with_term_input(tup)
+        self.assertEqual([tup_cor], found)
+
+    def test_multiple_tuples(self):
+        tp1 = TensorProduct({"site1": "X", "site2": "Y"})
+        tp2 = TensorProduct({"site2": "Z", "site3": "Y"})
+        tup1 = (Fraction(1), "1", tp1)
+        tup2 = (Fraction(1), "1", tp2)
+        corr = [deepcopy(tup1), deepcopy(tup2)]
+        found = deal_with_term_input([tup1, tup2])
+        self.assertEqual(corr, found)
+
+    def test_mixture(self):
+        tp1 = TensorProduct({"site1": "X", "site2": "Y"})
+        tp2 = TensorProduct({"site2": "Z", "site3": "Y"})
+        tup2 = (Fraction(1), "1", tp2)
+        found = deal_with_term_input([tp1, tup2])
+        self.assertEqual([(Fraction(1), "1", tp1), tup2], found)
 
 class TestHamiltonianInitialisation(unittest.TestCase):
 

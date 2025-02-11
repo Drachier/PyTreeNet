@@ -74,6 +74,22 @@ class TensorProduct(UserDict):
             tensor_product[operator.node_identifiers[0]] = operator.operator
         return tensor_product
 
+    def add_suffix(self,
+                    suffix: str
+                    ) -> TensorProduct:
+        """
+        Adds a suffix to every node identifier in the tensor product.
+
+        Args:
+            suffix (str): The suffix to add.
+
+        Returns:
+            TensorProduct: A new tensor product with the suffix added.
+
+        """
+        new_dict = {node_id + suffix: operator for node_id, operator in self.items()}
+        return TensorProduct(new_dict)
+
     def allclose(self, other: TensorProduct) -> bool:
         """
         Returns, whether the two tensor products are close to each other.
@@ -187,3 +203,211 @@ class TensorProduct(UserDict):
         exponentiated_operator = expm(factor * total_operator.operator)
         return  NumericOperator(exponentiated_operator,
                                     total_operator.node_identifiers)
+
+    def _local_action(self,
+                      action: callable,
+                      invariance_dict: Union[Dict[str, bool], None] = None,
+                      id_suffix: str = "_id"
+                      ) -> TensorProduct:
+        """
+        Performs an action on the single site operators making up the tensor
+        product.
+
+        Args:
+            action (callable): The action to be performed on the operators.
+            invariance_dict (Union[Dict[str, bool], None], optional): A
+                dictionary mapping the identifiers to whether they are invariant
+                under the action. Defaults to None.
+            id_suffix (str, optional): The suffix for the identity operators.
+                Defaults to "_id".
+        
+        Returns:
+            TensorProduct: The tensor product with the action applied to the
+                operators.
+        
+        """
+        new_tp = TensorProduct()
+        for identifier, operator in self.items():
+            if isinstance(operator, str):
+                if invariance_dict is not None and invariance_dict[operator]:
+                    new_tp[identifier] = operator
+                else:
+                    new_tp[identifier] = operator + id_suffix
+            else:
+                new_tp[identifier] = action(operator)
+        return new_tp
+
+    def transpose(self,
+                  sym_dict: Union[Dict[str, bool],None] = None,
+                  transpose_suffix: str = "_T"
+                  ) -> TensorProduct:
+        """
+        Transposes a tensor product.
+
+        Args:
+            sym_dict (Union[Dict[str, bool],None], optional): A dictionary
+                mapping the identifiers to whether they are symmetric and
+                thus needn't be transposed. Defaults to None.
+            transpose_suffix (str, optional): The suffix for the transposed
+                symbolic operators. Defaults to "_T".
+        
+        Returns:
+            TebsorProduct: The a new tensor product with the transposed
+                operators.
+
+        """
+        return self._local_action(np.transpose,
+                                  invariance_dict=sym_dict,
+                                  id_suffix=transpose_suffix)
+
+    def conjugate(self,
+                  real_dict: Union[Dict[str, bool],None] = None,
+                  conjugate_suffix: str = "_conj"
+                  ) -> TensorProduct:
+        """
+        Conjugates a tensor product.
+
+        Args:
+            real_dict (Union[Dict[str, bool],None], optional): A dictionary
+                mapping the identifiers to whether they are real and thus
+                needn't be conjugated. Defaults to None.
+            conjugate_suffix (str, optional): The suffix for the conjugated
+                symbolic operators. Defaults to "_conj".
+
+        Returns:
+            TensorProduct: A new tensor product with the conjugated operators.
+        
+        """
+        return self._local_action(np.conjugate,
+                                  invariance_dict=real_dict,
+                                  id_suffix=conjugate_suffix)
+
+    def conjugate_transpose(self,
+                            herm_dict: Union[Dict[str, bool], None] = None,
+                            herm_suffix: str = "_H"
+                            ) -> TensorProduct:
+        """
+        Conjugate transposes a tensor product.
+
+        Args:
+            other (TensorProduct): The other tensor product.
+            herm_dict (Union[Dict[str, bool], None], optional): A dictionary
+                mapping the identifiers to whether they are hermitian and thus
+                needn't be conjugate transposed. Defaults to None.
+            herm_suffix (str, optional): The suffix for the hermitian
+                operators. Defaults to "_herm".
+
+        Returns:
+            TensorProduct: The conjugate transposed tensor product.
+        
+        """
+        return self._local_action(conjugate_transpose,
+                                  invariance_dict=herm_dict,
+                                  id_suffix=herm_suffix)
+
+    def otimes(self,
+               other: TensorProduct,
+               to_copy: bool = True
+               ) -> TensorProduct:
+        """
+        Computes the tensor product of two tensor products.
+
+        Args:
+            other (TensorProduct): The other tensor product.
+            to_copy (bool, optional): If True, the original tensor products
+                are not changed. Defaults to True.
+
+        Returns:
+            TensorProduct: The tensor product of the two tensor products.
+        
+        """
+        if to_copy:
+            new_tp = deepcopy(self)
+        else:
+            new_tp = self
+        for identifier, operator in other.items():
+            if identifier in new_tp:
+                errstr = "The tensor products have a common identifier!"
+                raise ValueError(errstr)
+            new_tp[identifier] = operator
+        return new_tp
+
+    def multiply(self,
+                 other: TensorProduct,
+                 identity_dict: Union[Dict[str, bool], None] = None,
+                 conversion_dict: Union[Dict[str, np.ndarray], None] = None,
+                 multi_inset: str = "_mult_"
+                 ) -> TensorProduct:
+        """
+        Multiplies two tensor products.
+
+        The multiplication is the local matrix multiplication and thus not 
+        commutative.
+
+        Args:
+            other (TensorProduct): The other tensor product.
+            identity_dict (Union[Dict[str, np.ndarray], None], optional): A
+                dictionary mapping operator labels to whether they are the
+                identity. Defaults to None.
+            conversion_dict (Union[Dict[str, np.ndarray], None], optional): A
+                dictionary mapping symbolic operators to their numerical
+                values. If provided, it will be updated accordingly with the
+                new operators.
+            multi_inset (str, optional): The string added in between the two
+                original symbolic operators. Defaults to "_mult_".
+
+        Returns:
+            TensorProduct: The product of the two tensor products.
+        
+        """
+        id_dict_exists = identity_dict is not None
+        new_tp = TensorProduct()
+        for node_id, operator in self.items():
+            if node_id in other:
+                other_operator = other[node_id]
+                if id_dict_exists and identity_dict[operator]:
+                    # In this case no actual multiplication is needed
+                    new_tp[node_id] = other_operator
+                elif id_dict_exists and identity_dict[other_operator]:
+                    # In this case no actual multiplication is needed
+                    new_tp[node_id] = operator
+                else:
+                    # Now neither operator is an identity
+                    new_tp[node_id] = operator + multi_inset + other_operator
+                    if conversion_dict is not None:
+                        op_val = conversion_dict[operator]
+                        other_op_val = conversion_dict[other_operator]
+                        new_op_val = op_val @ other_op_val
+                        conversion_dict[new_tp[node_id]] = new_op_val
+            else:
+                # In this case th other operator is implicitely the identity
+                new_tp[node_id] = operator
+        for node_id, operator in other.items():
+            if node_id not in new_tp:
+                # In this case the first operator is implicitely the identity
+                new_tp[node_id] = operator
+        return new_tp
+
+    def __matmul__(self, other: TensorProduct) -> TensorProduct:
+        """
+        Overloads the matrix multiplication operator.
+
+        Args:
+            other (TensorProduct): The other tensor product.
+
+        Returns:
+            TensorProduct: The product of the two tensor products.
+        
+        """
+        return self.multiply(other)
+
+def conjugate_transpose(matrix: np.ndarray
+                        ) -> np.ndarray:
+    """
+    Conjugate transposes a matrix.
+
+    Args:
+        matrix (np.ndarray): The matrix to be conjugate transposed.
+
+    """
+    return matrix.conj().T

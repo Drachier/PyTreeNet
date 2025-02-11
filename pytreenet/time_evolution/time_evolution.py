@@ -3,11 +3,12 @@ This module provides the abstract TimeEvolution class
 """
 from __future__ import annotations
 from typing import List, Union, Any, Dict, Iterable
-
+from enum import Enum
 from copy import deepcopy
 from math import modf
 
 import numpy as np
+from scipy.integrate import solve_ivp
 from tqdm import tqdm
 
 from ..util.ttn_exceptions import positivity_check, non_negativity_check
@@ -421,9 +422,43 @@ class TimeEvolution:
         """
         self.state = deepcopy(self._initial_state)
 
+class TimeEvoMode(Enum):
+
+    FASTEST = "fastest"
+    EXPM = "expm"
+    EIGSH = "eigsh"
+    CHEBYSHEV = "chebyshev"
+    SPARSE = "sparse"
+    RK45 = "RK45"
+    RK23 = "RK23"
+    DOP853 = "DOP853"
+    BDF = "BDF"
+
+    def __str__(self) -> str:
+        return self.value
+
+    @staticmethod
+    def fastest_equivalent() -> TimeEvoMode:
+        """
+        Selects the mode that is equivalent to the fastest.
+        """
+        return TimeEvoMode.CHEBYSHEV
+
+    def is_scipy(self) -> bool:
+        """
+        Determines, if this mode is a scipy ODE solver.
+        """
+        if self == TimeEvoMode.FASTEST:
+            return self.fastest_equivalent().is_scipy()
+        return self in [TimeEvoMode.RK45,
+                        TimeEvoMode.RK23,
+                        TimeEvoMode.DOP853,
+                        TimeEvoMode.BDF]
+
 def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
                 time_difference: float,
-                forward: bool = True) -> np.ndarray:
+                forward: bool = True,
+                mode: TimeEvoMode = TimeEvoMode.FASTEST) -> np.ndarray:
     """
     Time evolves a state psi via a Hamiltonian.
      
@@ -439,11 +474,24 @@ def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
         time_difference (float): The duration of the time-evolution
         forward (bool, optional): If the time evolution should be forward or
             backward in time. Defaults to True.
+        mode (TimeEvoMode, optional): The mode to use for the time evolution.
 
     Returns:
         np.ndarray: The time evolved state
     """
     sign = -2 * forward + 1  # forward=True -> -1; forward=False -> +1
-    exponent = sign * 1.0j * hamiltonian * time_difference
-    return np.reshape(fast_exp_action(exponent, psi.flatten(), mode="fastest"),
+    rhs_matrix = sign * 1.0j * hamiltonian
+    if mode.is_scipy():
+        def ode_rhs(_, y_vec):
+            return rhs_matrix @ y_vec
+        t_span = (0, time_difference)
+        solution = solve_ivp(ode_rhs, t_span, psi.flatten(),
+                                method=mode.value,
+                                t_eval=[time_difference])
+        result_vector = solution.y[:,0]
+    else:
+        exponent = rhs_matrix * time_difference
+        result_vector = fast_exp_action(exponent, psi.flatten(),
+                                        mode=mode.value)
+    return np.reshape(result_vector,
                       shape=psi.shape)
