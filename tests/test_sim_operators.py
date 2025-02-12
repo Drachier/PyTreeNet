@@ -1,5 +1,6 @@
 import unittest
 from copy import deepcopy
+from fractions import Fraction
 
 from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.core.tree_structure import TreeStructure
@@ -127,6 +128,9 @@ class TestNearestNeighbourHamiltonian(unittest.TestCase):
                  TensorProduct({"D": local_operator, "E": local_operator})]
         ref_ham = Hamiltonian(terms)
         # Testing
+        print(found_ham)
+        print(10*"-")
+        print(ref_ham)
         self.assertEqual(found_ham, ref_ham)
         self.assertEqual(found_ham.conversion_dictionary, {})
 

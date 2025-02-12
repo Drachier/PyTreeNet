@@ -60,9 +60,9 @@ class TestHamiltonianInitialisation(unittest.TestCase):
     def test_init_with_terms(self):
         terms = [ptn.TensorProduct({"site1": "X", "site2": "Y"}),
                  ptn.TensorProduct({"site2": "Z", "site3": "Y"})]
-        ham = ptn.Hamiltonian(terms=terms)
-        self.assertEqual(terms[0], ham.terms[0][2])
-        self.assertEqual(terms[1], ham.terms[1][2])
+        ham = ptn.Hamiltonian(terms=deepcopy(terms))
+        self.assertEqual((Fraction(1),"1",terms[0]), ham.terms[0])
+        self.assertEqual((Fraction(1),"1",terms[1]), ham.terms[1])
         self.assertEqual(0, len(ham.conversion_dictionary))
 
     def test_init_with_conversion_dict(self):
@@ -95,7 +95,7 @@ class TestHamiltonianSimpleTree(unittest.TestCase):
         term = ptn.TensorProduct({"c2": "C", "c1": "B"})
         self.ham_symb.add_term(deepcopy(term))
         self.assertEqual(3, len(self.ham_symb.terms))
-        self.assertEqual(term, self.ham_symb.terms[-1])
+        self.assertEqual(term, self.ham_symb.terms[-1][2])
 
     def test_add_terms(self):
         term = ptn.TensorProduct({"c2": "C", "c1": "B"})
@@ -113,7 +113,7 @@ class TestHamiltonianSimpleTree(unittest.TestCase):
         term = ptn.TensorProduct({"c2": "C", "c1": "B"})
         self.ham_symb = self.ham_symb + deepcopy(term)
         self.assertEqual(3, len(self.ham_symb.terms))
-        self.assertEqual(term, self.ham_symb.terms[-1])
+        self.assertEqual(term, self.ham_symb.terms[-1][2])
 
     def test_addition_hamiltonian(self):
         self.ham_num = self.ham_num + self.ham_symb
@@ -137,13 +137,13 @@ class TestHamiltonianSimpleTree(unittest.TestCase):
         padded_ham = self.ham_symb.pad_with_identities(self.ref_ttn)
         # Every term should habe three factors
         for term in padded_ham.terms:
-            self.assertEqual(len(self.ref_ttn.nodes), len(term))
+            self.assertEqual(len(self.ref_ttn.nodes), len(term[2]))
         # The correct symbols should be assigned
-        self.assertEqual("I4", padded_ham.terms[0]["c2"])
-        self.assertEqual("I3", padded_ham.terms[1]["c1"])
+        self.assertEqual("I4", padded_ham.terms[0][2]["c2"])
+        self.assertEqual("I3", padded_ham.terms[1][2]["c1"])
         # The old terms, shouldn't be changed
         for term in self.ham_symb.terms:
-            self.assertEqual(2, len(term))
+            self.assertEqual(2, len(term[2]))
 
 if __name__ == "__main__":
     unittest.main()
