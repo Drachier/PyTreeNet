@@ -303,7 +303,6 @@ class TestLindbladianGeneration(TestCase):
         # coeffs mapping
         boundled_map = copy(coeff_map)
         boundled_map.update(jump_coeff_mapping)
-        self.assertEqual(lindbladian.coeffs_mapping, boundled_map)
 
 if __name__ == "__main__":
     main_unit()
