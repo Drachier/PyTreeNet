@@ -2,6 +2,7 @@
 Functions to generate operators commonly used for example simulations.
 """
 from typing import List, Dict, Union, Tuple
+from fractions import Fraction
 
 from numpy import ndarray
 
@@ -40,6 +41,7 @@ def single_site_operators(operator: Union[str,ndarray],
 
 def create_nearest_neighbour_hamiltonian(structure: Union[TreeStructure,List[Tuple[str,str]]],
                                          local_operator1: Union[ndarray, str],
+                                         factor: Union[tuple[Fraction,str],None] = None,
                                          local_operator2: Union[ndarray, str, None] = None,
                                          conversion_dict: Union[Dict[str,ndarray],None] = None
                                          ) -> Hamiltonian:
@@ -66,14 +68,17 @@ def create_nearest_neighbour_hamiltonian(structure: Union[TreeStructure,List[Tup
     Returns:
         Hamiltonian: The Hamiltonian for the given structure.
     """
+    if factor is None:
+        factor = (Fraction(1), "1")
     if local_operator2 is None:
         local_operator2 = local_operator1
     if isinstance(structure, TreeStructure):
         structure = structure.nearest_neighbours()
     terms = []
     for identifier1, identifier2, in structure:
-        terms.append(TensorProduct({identifier1: local_operator1,
-                                    identifier2: local_operator2}))
+        term_op = TensorProduct({identifier1: local_operator1,
+                                    identifier2: local_operator2})
+        terms.append((factor[0], factor[1], term_op))
     return Hamiltonian(terms, conversion_dictionary=conversion_dict)
 
 def create_single_site_hamiltonian(structure: Union[TreeStructure,List[str]],

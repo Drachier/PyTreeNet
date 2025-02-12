@@ -223,7 +223,7 @@ class TestContractionMethods(unittest.TestCase):
         # Note the link tensor is the first child of root not c1!
         ref_tensor = np.tensordot(ref_tensor,
                                   cached_node,
-                                  axes=([1, 3, 5], [0, 1, 2]))
+                                  axes=([1, 2, 5], [0, 1, 2]))
 
         self.tdvp._update_cache_after_split(node_id, "c2")
         found_tensor = self.tdvp.partial_tree_cache.get_entry(node_id, "c2")

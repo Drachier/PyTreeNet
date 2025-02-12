@@ -413,7 +413,7 @@ class TestNodeMethods(unittest.TestCase):
             self.assertEqual(leg_values[ids][1], node.leg_permutation[leg_values[ids][0]])
 
     def test_open_dimension(self):
-        open_dimensions = [0,6,0,12,0,20,0,30,0,12,0,20]
+        open_dimensions = [1,6,1,12,1,20,1,30,1,12,1,20]
         open_dimensions = dict(zip(self.ids, open_dimensions))
         for ids in self.ids:
             self.assertEqual(open_dimensions[ids],

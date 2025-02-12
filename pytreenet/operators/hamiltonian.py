@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import Dict, Union, List, Tuple
 from enum import Enum, auto
 from fractions import Fraction
+from copy import copy
 
 from numpy import asarray, ndarray
 
@@ -90,7 +91,12 @@ class Hamiltonian():
         """
         Two Hamiltonians are equal, if all of their terms are equal.
         """
-        return compare_lists_by_value(self.terms, other_hamiltonian.terms)
+        if len(self.terms) != len(other_hamiltonian.terms):
+            return False
+        for term in other_hamiltonian.terms:
+            if not term in self.terms:
+                return False
+        return True
 
     def __add__(self, other: Union[TensorProduct, Hamiltonian]) -> Hamiltonian:
         if isinstance(other, TensorProduct):
