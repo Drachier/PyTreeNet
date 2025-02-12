@@ -52,6 +52,7 @@ def generate_lindbladian(hamiltonian: Hamiltonian,
                                 copy(jump_operator_dict),
                                 ket_suffix,
                                 bra_suffix)
+    return lindbladian
 
 def _add_hamiltonian_ket_terms(lindbladian: Hamiltonian,
                                hamiltonian: Hamiltonian,
@@ -101,7 +102,7 @@ def _add_hamiltonian_bra_terms(lindbladian: Hamiltonian,
         # -1 comes from the commutator
         lindbladian.add_term((-1*term[0], term[1], new_tp))
     # The transposed operators need their numerical values.
-    transpose_dict = {label: operator.T
+    transpose_dict = {label + "_T": operator.T
                       for label, operator in hamiltonian.conversion_dictionary.items()
                       if not sym_dict[label]}
     lindbladian.conversion_dictionary.update(transpose_dict)
@@ -143,7 +144,7 @@ def _add_jump_operators(lindbladian: Hamiltonian,
         full_tp = ket_tp.otimes(bra_tp, to_copy=True)
         lindbladian.add_term((frac, coeff, full_tp))
     # The conjugated operators need their numerical values.
-    conjugate_dict = {label: operator.conj()
+    conjugate_dict = {label + "_conj": operator.conj()
                       for label, operator in jump_operator_dict.items()
                       if not real_dict[label]}
     lindbladian.conversion_dictionary.update(conjugate_dict)
@@ -197,7 +198,8 @@ def _add_jump_operator_products(lindbladian: Hamiltonian,
         bra_tp = op_mult_transp.add_suffix(bra_suffix)
         lindbladian.add_term((new_frac, coeff, ket_tp))
         lindbladian.add_term((new_frac, coeff, bra_tp))
-        transpose_dict = {label: operator.T
+        lindbladian.conversion_dictionary.update(jop_conv_dict)
+        transpose_dict = {label + "_T": operator.T
                         for label, operator in jop_conv_dict.items()
                         if not sym_dict[label]}
         lindbladian.conversion_dictionary.update(transpose_dict)

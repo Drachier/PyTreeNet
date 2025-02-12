@@ -1,5 +1,6 @@
 from unittest import TestCase, main as main_unit
 from fractions import Fraction
+from copy import copy
 
 from numpy import asarray
 
@@ -12,7 +13,8 @@ from pytreenet.operators.lindbladian import (_find_real_operators,
                                              _add_hamiltonian_ket_terms,
                                              _add_hamiltonian_bra_terms,
                                              _add_jump_operators,
-                                             _add_jump_operator_products)
+                                             _add_jump_operator_products,
+                                             generate_lindbladian)
 
 class TestFindingFunctions(TestCase):
     """
@@ -209,6 +211,99 @@ class TestAddJumpOperatorTerms(TestCase):
         op4 = linbladian.terms[3][2]
         self.assertEqual(op4["node2"+self.bra_suff], "C_H_mult_C")
         self.assertEqual(op4["node3"+self.bra_suff], "D_mult_D_T")
+
+class TestLindbladianGeneration(TestCase):
+    """
+    Tests the generation of a Lindbladian from a Hamiltonian and jump operators.
+    """
+
+    def test_generate_lindbladian(self):
+        operators = (TensorProduct({"node1": "A", "node2": "B"}),
+                     TensorProduct({"node2": "C", "node3": "D"}))
+        factors = (Fraction(1, 2), Fraction(1, 3))
+        symb_factors = ("g", "j")
+        terms = tuple(zip(factors, symb_factors, operators))
+        conv_dict = {"A": asarray([[1, 2], [3, 4]]),
+                     "B": asarray([[5, 6], [7, 8]]),
+                     "C": asarray([[9, 20], [11, 12]]),
+                     "D": asarray([[13, 15], [15, 17]])} # symmetric
+        coeff_map = {"1": 1, "g": 2j, "j": 5}
+        hamiltonian = Hamiltonian(terms,
+                                    conversion_dictionary=conv_dict,
+                                    coeffs_mapping=coeff_map)
+        opsj = (TensorProduct({"node1": "Aj", "node2": "Bj"}),
+                     TensorProduct({"node2": "Cj", "node3": "Dj"}))
+        factorsj = (Fraction(1, 2), Fraction(1, 3))
+        symb_factorsj = ("g", "j")
+        termsj = tuple(zip(factorsj, symb_factorsj, opsj))
+        jump_operator_dict = {"Aj": asarray([[1, 2j], [3, 4]]),
+                                "Bj": asarray([[1, 0], [0, 1]]), # Id and thus real
+                                "Cj": asarray([[1, 1j], [1j, 1]]), # Product of CC^dagger is symmetric
+                                "Dj": asarray([[13, -15j], [15j, 17]])} # hermitian
+        jump_coeff_mapping = {"1": 1, "gj": 2j, "jj": 5}
+        ket_suff = "_ket"
+        bra_suff = "_bra"
+        lindbladian = generate_lindbladian(hamiltonian, termsj,
+                                           jump_operator_dict,
+                                           jump_coeff_mapping,
+                                           ket_suffix=ket_suff,
+                                           bra_suffix=bra_suff)
+        # Testing
+        self.assertEqual(len(lindbladian.terms), 10)
+        # Hamiltonian terms
+        # ket
+        for i, term in enumerate(lindbladian.terms[:2]):
+            self.assertEqual(term[0], factors[i])
+            self.assertEqual(term[1], symb_factors[i])
+        self.assertEqual(lindbladian.terms[0][2]["node1"+ket_suff], "A")
+        self.assertEqual(lindbladian.terms[0][2]["node2"+ket_suff], "B")
+        self.assertEqual(lindbladian.terms[1][2]["node2"+ket_suff], "C")
+        self.assertEqual(lindbladian.terms[1][2]["node3"+ket_suff], "D")
+        # bra
+        for i, term in enumerate(lindbladian.terms[2:4]):
+            self.assertEqual(term[0], -1*factors[i])
+            self.assertEqual(term[1], symb_factors[i])
+        self.assertEqual(lindbladian.terms[2][2]["node1"+bra_suff], "A_T")
+        self.assertEqual(lindbladian.terms[2][2]["node2"+bra_suff], "B_T")
+        self.assertEqual(lindbladian.terms[3][2]["node2"+bra_suff], "C_T")
+        self.assertEqual(lindbladian.terms[3][2]["node3"+bra_suff], "D")
+        # Jump operator terms
+        for i, term in enumerate(lindbladian.terms[4:6]):
+            self.assertEqual(term[0], factorsj[i])
+            self.assertEqual(term[1], symb_factorsj[i])
+        self.assertEqual(lindbladian.terms[4][2]["node1"+ket_suff], "Aj")
+        self.assertEqual(lindbladian.terms[4][2]["node2"+ket_suff], "Bj")
+        self.assertEqual(lindbladian.terms[4][2]["node1"+bra_suff], "Aj_conj")
+        self.assertEqual(lindbladian.terms[4][2]["node2"+bra_suff], "Bj")
+        self.assertEqual(lindbladian.terms[5][2]["node2"+ket_suff], "Cj")
+        self.assertEqual(lindbladian.terms[5][2]["node3"+ket_suff], "Dj")
+        self.assertEqual(lindbladian.terms[5][2]["node2"+bra_suff], "Cj_conj")
+        self.assertEqual(lindbladian.terms[5][2]["node3"+bra_suff], "Dj_conj")
+        # Jump operator products
+        for i, term in enumerate(lindbladian.terms[6:]):
+            self.assertEqual(term[0], -1*factorsj[i//2] / 2)
+            self.assertEqual(term[1], symb_factorsj[i//2])
+        self.assertEqual(lindbladian.terms[6][2]["node1"+ket_suff], "Aj_H_mult_Aj")
+        self.assertEqual(lindbladian.terms[6][2]["node2"+ket_suff], "Bj")
+        self.assertEqual(lindbladian.terms[7][2]["node1"+bra_suff], "Aj_H_mult_Aj_T")
+        self.assertEqual(lindbladian.terms[7][2]["node2"+bra_suff], "Bj")
+        self.assertEqual(lindbladian.terms[8][2]["node2"+ket_suff], "Cj_H_mult_Cj")
+        self.assertEqual(lindbladian.terms[8][2]["node3"+ket_suff], "Dj_mult_Dj")
+        self.assertEqual(lindbladian.terms[9][2]["node2"+bra_suff], "Cj_H_mult_Cj")
+        self.assertEqual(lindbladian.terms[9][2]["node3"+bra_suff], "Dj_mult_Dj_T")
+        # Testing Dictionaries
+        # conversion dictionary
+        self.assertEqual(len(lindbladian.conversion_dictionary), 24)
+        corr_keys = ["A", "B", "C", "D", "Aj", "Bj", "Cj", "Dj",
+                     "A_T", "B_T", "C_T", "Aj_conj", "Cj_conj", "Dj_conj",
+                     "Aj_H_mult_Aj", "Aj_H_mult_Aj_T", "Cj_H_mult_Cj",
+                     "Dj_mult_Dj", "Dj_mult_Dj_T"]
+        for key in corr_keys:
+            self.assertIn(key, lindbladian.conversion_dictionary)
+        # coeffs mapping
+        boundled_map = copy(coeff_map)
+        boundled_map.update(jump_coeff_mapping)
+        self.assertEqual(lindbladian.coeffs_mapping, boundled_map)
 
 if __name__ == "__main__":
     main_unit()
