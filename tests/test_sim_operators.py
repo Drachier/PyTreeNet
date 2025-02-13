@@ -20,13 +20,15 @@ class TestSimOperators(unittest.TestCase):
         node_identifiers = ["A", "B", "C"]
         operators = single_site_operators(operator, node_identifiers)
         self.assertEqual(len(operators), 3)
-        self.assertTrue(all(isinstance(op, TensorProduct)
+        self.assertTrue(all(Fraction(1) == op[0]
                             for op in operators.values()))
-        self.assertTrue(all(len(op) == 1
+        self.assertTrue(all("1" == op[1]
                             for op in operators.values()))
         self.assertTrue(all(node in operators
                             for node in node_identifiers))
-        self.assertTrue(all(operators[node] == TensorProduct({node:operator})
+        self.assertTrue(all(len(op[2]) == 1
+                            for op in operators.values()))
+        self.assertTrue(all(operators[node][2] == TensorProduct({node:operator})
                             for node in node_identifiers))
 
     def test_single_site_operators_with_names(self):
@@ -36,16 +38,61 @@ class TestSimOperators(unittest.TestCase):
         operator = "M"
         node_identifiers = ["A", "B", "C"]
         operator_names = ["M1", "M2", "M3"]
-        operators = single_site_operators(operator, node_identifiers, operator_names)
+        operators = single_site_operators(operator, node_identifiers,
+                                          operator_names=operator_names)
         self.assertEqual(len(operators), 3)
-        self.assertTrue(all(isinstance(op, TensorProduct)
+        self.assertTrue(all(Fraction(1) == op[0]
                             for op in operators.values()))
-        self.assertTrue(all(len(op) == 1
+        self.assertTrue(all("1" == op[1]
                             for op in operators.values()))
         self.assertTrue(all(op_name in operators
                             for op_name in operator_names))
-        self.assertTrue(all(operators[op_name] == TensorProduct({node_identifiers[i]:operator})
+        self.assertTrue(all(len(op[2]) == 1
+                            for op in operators.values()))
+        self.assertTrue(all(operators[op_name][2] == TensorProduct({node_identifiers[i]:operator})
                             for i, op_name in enumerate(operator_names)))
+
+    def test_single_site_operators_with_factor(self):
+        """
+        Tests that the function works with one constant factor for all terms.
+        """
+        operator = "M"
+        node_identifiers = ["A", "B", "C"]
+        factor = (Fraction(2), "2")
+        operators = single_site_operators(operator,
+                                          node_identifiers,
+                                          factor=factor)
+        self.assertEqual(len(operators), 3)
+        self.assertTrue(all(Fraction(2) == op[0]
+                            for op in operators.values()))
+        self.assertTrue(all("2" == op[1]
+                            for op in operators.values()))
+        self.assertTrue(all(len(op[2]) == 1
+                            for op in operators.values()))
+        self.assertTrue(all(operators[node][2] == TensorProduct({node:operator})
+                            for node in node_identifiers))
+
+    def test_single_site_operators_with_multiple_factors(self):
+        """
+        Tests that the function works with one factor for each term.
+        """
+        operator = "M"
+        node_identifiers = ["A", "B", "C"]
+        factor = [(Fraction(2),"2"),
+                  (Fraction(3),"3"),
+                  (Fraction(4),"4")]
+        operators = single_site_operators(operator,
+                                          node_identifiers,
+                                          factor=factor)
+        self.assertEqual(len(operators), 3)
+        self.assertTrue(all(Fraction(i+2) == op[0]
+                            for i,op in enumerate(operators.values())))
+        self.assertTrue(all(str(i+2) == op[1]
+                            for i, op in enumerate(operators.values())))
+        self.assertTrue(all(len(op[2]) == 1
+                            for op in operators.values()))
+        self.assertTrue(all(operators[node][2] == TensorProduct({node:operator})
+                            for node in node_identifiers))
 
     def test_single_site_operator_all_sites(self):
         """
@@ -60,13 +107,15 @@ class TestSimOperators(unittest.TestCase):
         tree.add_child_to_parent(GraphNode("E"),"D")
         operators = single_site_operators(operator, tree)
         self.assertEqual(len(operators), 5)
-        self.assertTrue(all(isinstance(op, TensorProduct)
+        self.assertTrue(all(Fraction(1) == op[0]
                             for op in operators.values()))
-        self.assertTrue(all(len(op) == 1
+        self.assertTrue(all("1" == op[1]
                             for op in operators.values()))
         self.assertTrue(all(node in operators
                             for node in tree.nodes))
-        self.assertTrue(all(operators[node] == TensorProduct({node:operator})
+        self.assertTrue(all(len(op[2]) == 1
+                            for op in operators.values()))
+        self.assertTrue(all(operators[node][2] == TensorProduct({node:operator})
                             for node in tree.nodes))
 
 def mps_structure(n_sites: int) -> TreeStructure:

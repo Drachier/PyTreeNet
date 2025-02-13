@@ -2,6 +2,7 @@
 A module to provide various commonly used models for simulations.
 """
 from typing import List, Tuple, Union, Dict
+from fractions import Fraction
 
 from numpy import eye, ndarray, zeros, mean
 
@@ -64,7 +65,7 @@ def flipped_ising_model(ref_tree: Union[TreeStructure, List[Tuple[str, str]]],
 
 def _abstract_ising_model(ref_tree: Union[TreeStructure, List[Tuple[str, str]]],
                           ext_magn: float,
-                          factor: float,
+                          coupling: float,
                           ext_magn_op: Tuple[str,ndarray],
                           nn_op: Tuple[str,ndarray]
                           ) -> Hamiltonian:
@@ -88,8 +89,10 @@ def _abstract_ising_model(ref_tree: Union[TreeStructure, List[Tuple[str, str]]],
 
     """
     local_dim = 2
-    ext_magn_id = "mg" + ext_magn_op[0]
-    single_dict = {ext_magn_id: -1*ext_magn*ext_magn_op[1]}
+    ext_magn_id = ext_magn_op[0]
+    factor = (Fraction(-1), "ext_magn")
+    single_dict = {ext_magn_id: ext_magn_op[1]}
+    single_mapping = {"ext_magn": ext_magn}
     # Produce the single site Hamiltonian
     # We need to prepare the identifiers for the single site Hamiltonian
     if isinstance(ref_tree, TreeStructure):
@@ -103,15 +106,19 @@ def _abstract_ising_model(ref_tree: Union[TreeStructure, List[Tuple[str, str]]],
         single_site_structure = list(set(single_site_structure))
     single_site_ham = create_single_site_hamiltonian(single_site_structure,
                                                      ext_magn_id,
-                                                     conversion_dict=single_dict)
+                                                     factor=factor,
+                                                     conversion_dict=single_dict,
+                                                     coeffs_mapping=single_mapping)
     # Produce the nearest neighbour Hamiltonian
-    nn_minus_id = "m" + nn_op[0]
-    nn_dict = {nn_minus_id: -1*factor*nn_op[1],
-                nn_op[0]: nn_op[1]}
+    nn_op_id = nn_op[0]
+    factor_nn = (Fraction(-1), "coupling")
+    nn_dict = {nn_op_id: nn_op[1]}
+    nn_mapping = {"coupling": coupling}
     nearest_neighbour_ham = create_nearest_neighbour_hamiltonian(ref_tree,
-                                                                nn_minus_id,
-                                                                nn_op[0],
-                                                                conversion_dict=nn_dict)
+                                                                 nn_op_id,
+                                                                 factor=factor_nn,
+                                                                 conversion_dict=nn_dict,
+                                                                 coeffs_mapping=nn_mapping)
     # Now we add all together into one Hamiltonian
     ham = Hamiltonian()
     ham.add_hamiltonian(single_site_ham)
