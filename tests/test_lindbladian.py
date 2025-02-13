@@ -119,12 +119,12 @@ class TestHamiltonianTerms(TestCase):
             self.assertEqual(term[0], -1*self.factors[i])
             self.assertEqual(term[1], self.symb_factors[i])
             self.assertEqual(term[2], tp_ops[i].add_suffix(suff))
-        transpose_dict = {"A": self.conv_dict["A"].T,
-                          "B": self.conv_dict["B"].T,
-                          "C": self.conv_dict["C"].T}
+        transpose_dict = {"A_T": self.conv_dict["A"].T,
+                          "B_T": self.conv_dict["B"].T,
+                          "C_T": self.conv_dict["C"].T}
         self.assertEqual(len(lindbladian.conversion_dictionary), 3)
-        for key, value in lindbladian.conversion_dictionary.items():
-            self.assertTrue((value == transpose_dict[key]).all())
+        for key, value in transpose_dict.items():
+            self.assertTrue((value == lindbladian.conversion_dictionary[key]).all())
 
 class TestAddJumpOperatorTerms(TestCase):
     """
