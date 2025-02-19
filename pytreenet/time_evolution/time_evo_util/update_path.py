@@ -3,10 +3,44 @@ Module to find the update path of a TDVP algorithm.
 """
 from __future__ import annotations
 from typing import List
-from copy import deepcopy
 from ...core.tree_structure import TreeStructure
+from enum import Enum
+
+class PathFinderMode(Enum):
+      LeafToLeaf = "LeafToLeaf"
+      LeafToRoot = "LeafToRoot"
 
 class TDVPUpdatePathFinder():
+    """
+    Base class to construct the update path for a TDVP algorithm.
+
+    Attributes:
+        state (TreeStructure): The tree structure used for path finding.
+        mode (PathFinderMode): The update path strategy mode.
+                               Can be either `LeafToLeaf` or `LeafToRoot`.
+    """
+    def __init__(self, state: TreeStructure,
+                 mode: PathFinderMode = PathFinderMode.LeafToLeaf) -> None:
+        self.state = state
+        self.mode = mode
+
+        if self.mode == PathFinderMode.LeafToRoot:
+            self._finder = TDVPUpdatePathFinder_LeafToRoot(self.state)
+        elif self.mode == PathFinderMode.LeafToLeaf:
+            self._finder = TDVPUpdatePathFinder_LeafToLeaf(self.state)
+        else:
+            raise ValueError(f"Unsupported mode: {self.mode}")
+
+    def find_path(self) -> List[str]:
+        """
+        Finds the complete update path using the selected path finding strategy.
+
+        Returns:
+            List[str]: The ordered list of node identifiers constituting the update path.
+        """
+        return self._finder.find_path()
+
+class TDVPUpdatePathFinder_LeafToRoot():
     """
     Constructs the update path of a TDVP algorithm.
 
@@ -23,7 +57,7 @@ class TDVPUpdatePathFinder():
     """
 
     def __init__(self, state: TreeStructure) -> None:
-        self.state = deepcopy(state)
+        self.state = state
         self.start = self.find_start_node_id()
         self.main_path = self.state.find_path_to_root(self.start)
 
@@ -216,7 +250,7 @@ class TDVPUpdatePathFinder_LeafToLeaf():
     """
 
     def __init__(self, state) -> None:
-        self.state = deepcopy(state)
+        self.state = state
         self.start, self.end = self._find_two_diameter_leaves()
         self.main_path = self.state.path_from_to(self.start, self.end)
 
@@ -228,11 +262,7 @@ class TDVPUpdatePathFinder_LeafToLeaf():
         Returns:
             (L_A, L_B): Identifiers of the diameter leaves.
         """
-        leaves = self.state.get_leaves()
-        
-        # Add root to leaves if it has only one child
-        if self.state.nodes[self.state.root_id].nneighbours() == 1:
-            leaves.append(self.state.root_id)
+        leaves = self.state.get_leaves(include_root = True)
 
         best_dist = -1
         best_pair = (leaves[0], leaves[0])
