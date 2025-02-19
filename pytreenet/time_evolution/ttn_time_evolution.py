@@ -8,6 +8,8 @@ from .time_evolution import TimeEvolution
 from ..ttns import TreeTensorNetworkState
 from ..ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
+from ..time_evolution import TimeEvoMode
+from ..time_evolution.time_evo_util import PathFinderMode
 
 @dataclass
 class TTNTimeEvolutionConfig:
@@ -20,6 +22,8 @@ class TTNTimeEvolutionConfig:
     and better documentation.
     """
     record_bond_dim: bool = False
+    time_evo_mode: TimeEvoMode = TimeEvoMode.FASTEST
+    main_path_mode: PathFinderMode = PathFinderMode.LeafToLeaf
 
 class TTNTimeEvolution(TimeEvolution):
     """
