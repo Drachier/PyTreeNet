@@ -14,12 +14,11 @@ where :math:`A_{i}^{[j]}` is the operator acting on the j-th subsystem of the
 as part of the i-th term of the Hamiltonian.
 """
 from __future__ import annotations
-from typing import Dict, Union, List, Tuple
+from typing import Dict, Union, List, Tuple, Callable
 from enum import Enum, auto
 from fractions import Fraction
-from copy import copy
 
-from numpy import asarray, ndarray
+from numpy import asarray, ndarray, eye
 
 from .operator import NumericOperator
 from .tensorproduct import TensorProduct
@@ -300,6 +299,27 @@ class Hamiltonian():
         terms_comp = [term[2] for term in self.terms]
         dup = [term for term in terms_comp if terms_comp.count(term) > 1]
         return len(dup) > 0
+    
+    def include_identities(self,
+                           dims: Union[int,list[int]],
+                           ident_creation: Callable = eye):
+        """
+        Adds the given dimensional identities to the conversion dictionary.
+        They are stored under the key `"I{dim}"`
+
+        Args:
+            dims (Union[int,list[int]]): The dimensions for which to add the
+                identities.
+            ident_creation (Callable): The function used to generate an
+                identity. Defaults to numpy's eye function.
+        """
+        if isinstance(dims,int):
+            self.conversion_dictionary[f"I{dims}"] = ident_creation(dims)
+        elif isinstance(dims,list):
+            for dim in dims:
+                self.conversion_dictionary[f"I{dim}"] = ident_creation(dim)
+        else:
+            raise TypeError("Dims can only be int or list of int!")
 
 def deal_with_term_input(terms: Union[List[Union[Tuple[Fraction, str, TensorProduct], TensorProduct]], Tuple[Fraction, str, TensorProduct], TensorProduct, None] = None
                          ) -> List[tuple[Fraction, str, TensorProduct]]:

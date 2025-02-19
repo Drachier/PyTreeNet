@@ -2,6 +2,8 @@ import unittest
 from copy import deepcopy
 from fractions import Fraction
 
+from numpy import eye
+
 from pytreenet.core.ttn import TreeTensorNetwork
 from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.random import (random_small_ttns,
@@ -146,6 +148,23 @@ class TestHamiltonianSimpleTree(unittest.TestCase):
         # The old terms, shouldn't be changed
         for term in self.ham_symb.terms:
             self.assertEqual(2, len(term[2]))
+
+class TestConvDictMethods(unittest.TestCase):
+
+    def test_include_identities_integer(self):
+        ham = Hamiltonian()
+        ham.include_identities(4)
+        self.assertIn("I4",ham.conversion_dictionary)
+        self.assertTrue((ham.conversion_dictionary["I4"] == eye(4)).all())
+
+    def test_include_identities_list(self):
+        ham = Hamiltonian()
+        dims = [1,2]
+        ham.include_identities(dims)
+        self.assertIn("I1", ham.conversion_dictionary)
+        self.assertIn("I2", ham.conversion_dictionary)
+        self.assertTrue((ham.conversion_dictionary["I1"] == eye(1)).all())
+        self.assertTrue((ham.conversion_dictionary["I2"] == eye(2)).all())
 
 if __name__ == "__main__":
     unittest.main()
