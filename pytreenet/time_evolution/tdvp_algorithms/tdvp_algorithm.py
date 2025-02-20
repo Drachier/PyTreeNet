@@ -19,6 +19,21 @@ from ...operators.tensorproduct import TensorProduct
 from ...contractions.sandwich_caching import SandwichCache
 from ..time_evo_util.effective_time_evolution import single_site_time_evolution
 from ..time_evo_util.update_path import TDVPUpdatePathFinder
+from ...time_evolution.time_evo_util import PathFinderMode
+
+@dataclass
+class TDVPConfig(TTNTimeEvolutionConfig):
+    """
+    Configuration class for TDVP algorithms.
+
+    Attributes:
+        update_path (List[str]): The order in which the nodes are updated.
+        orthogonalisation_path (List[List[str]]): The path along which the
+            TTNS has to be orthogonalised between each node update.
+    """
+    time_evo_mode: TimeEvoMode = TimeEvoMode.FASTEST
+    main_path_mode: PathFinderMode = PathFinderMode.LeafToLeaf
+
 
 class TDVPAlgorithm(TTNTimeEvolution):
     """
@@ -39,12 +54,13 @@ class TDVPAlgorithm(TTNTimeEvolution):
         partial_tree_cache (PartialTreeCacheDict): A dictionary to hold
             already contracted subtrees of the TTNS.
     """
+    config_class = TDVPConfig
 
     def __init__(self, initial_state: TreeTensorNetworkState,
                  hamiltonian: TTNO,
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
-                 config: Union[TTNTimeEvolutionConfig,None] = None) -> None:
+                 config: Union[TDVPConfig,None] = None) -> None:
         """
         Initilises an instance of a TDVP algorithm.
 
@@ -65,6 +81,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
                          time_step_size, final_time,
                          operators,
                          config)
+        self.config: TDVPConfig
         self.update_path = self._finds_update_path()
         self.orthogonalization_path = self._find_tdvp_orthogonalization_path(self.update_path)
         self._orthogonalize_init()
