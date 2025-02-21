@@ -10,6 +10,7 @@ from math import modf
 import numpy as np
 from scipy.integrate import solve_ivp
 from tqdm import tqdm
+from h5py import File
 
 from ..util.ttn_exceptions import positivity_check, non_negativity_check
 from ..util import fast_exp_action
@@ -251,13 +252,16 @@ class TimeEvolution:
             current_results[i] = exp_val
         return current_results
 
-    def save_results_to_file(self, filepath: str):
+    def save_results_to_file(self, filepath: str | File):
         """
         Saves the data of `self.results` into a .npz file.
 
         Args:
-            filepath (str): The path of the file.
+            filepath (str | File): The path of the file.
         """
+        if isinstance(filepath, File):
+            self.save_to_h5(filepath)
+            return
         if filepath == "":
             return # No filepath given, no need to save anything
         if filepath is None:
@@ -270,6 +274,23 @@ class TimeEvolution:
             kwarg_dict["operator" + str(i) + "results"] = self.results[i]
         kwarg_dict["time"] = self.results[-1]
         np.savez(filepath, **kwarg_dict)
+
+    def save_to_h5(self, file: File) -> File:
+        """
+        Saves the data of `self.results` into a HDF5 file.
+
+        Args:
+            file (File): The HDF5 file to save the data to.
+
+        Returns:
+            File: The file object.
+
+        """
+        for op_id in self._operator_index_dict.keys():
+            results = self.operator_result(op_id)
+            file.create_dataset(op_id, data=results)
+        file.create_dataset("time", data=self.times())
+        return file
 
     def init_results(self, evaluation_time: Union[int,"inf"] = 1):
         """
