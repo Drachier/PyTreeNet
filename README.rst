@@ -46,7 +46,7 @@ You are welcome to contribute to PyTreeNet. For code contributions create a `pul
 
 Citing
 ------
-Add citing when uploaded to arXiv.
+If you use PyTreeNet in your work, please cite the accompanying paper `PyTreeNet: A Python Library for easy Utilisation of Tree Tensor Networks (arxiv:2407.13249) <https://arxiv.org/abs/2407.13249>`
 
 License
 -------
