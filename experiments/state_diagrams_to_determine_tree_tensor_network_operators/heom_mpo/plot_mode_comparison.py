@@ -25,7 +25,7 @@ def create_datapath(struture: str,
                     ) -> str:
     mode_str = mode_to_save_str(mode)
     homogenous_str = homogenous_to_save_str(homogenous)
-    savepath = os.getcwd() + f"/pyth/data/data_{struture}_{mode_str}_{homogenous_str}.h5"
+    savepath = os.getcwd() + f"/data/data_{struture}_{mode_str}_{homogenous_str}.h5"
     return savepath
 
 def _load_metadata(file):
