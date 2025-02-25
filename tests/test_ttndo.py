@@ -1,7 +1,14 @@
 from unittest import TestCase, main
+from copy import deepcopy
 
-from pytreenet.ttns.ttndo import SymmetricTTNDO
+from numpy import allclose
+
+from pytreenet.ttns.ttns import TreeTensorNetworkState
+from pytreenet.ttns.ttndo import (SymmetricTTNDO,
+                                  from_ttns)
 from pytreenet.random import crandn
+from pytreenet.random.random_ttns import (random_small_ttns,
+                                          random_big_ttns_two_root_children)
 
 class TestTTNDOInit(TestCase):
     """
@@ -196,6 +203,64 @@ class TestTTNDOChildrenAddingMethod(TestCase):
         self.assertRaises(ValueError, self.ttndo.add_symmetric_children_to_parent,
                           child_id, ket_tensor, bra_tensor, 0,
                           parent_id, 1, 2)
+
+class TestFromTTNS(TestCase):
+    """
+    Tests the function producing a TTNDO from a TTNS.
+    """
+
+    def correctness(self,
+                    ref_ttns: TreeTensorNetworkState,
+                    ttndo: SymmetricTTNDO):
+        """
+        Check the correctness of the conversion.
+        """
+        self.assertEqual(2 * len(ref_ttns.nodes) + 1, len(ttndo.nodes))
+        self.assertEqual(2 * len(ref_ttns.tensors) + 1, len(ttndo.tensors))
+        for node_id, node in ref_ttns.nodes.items():
+            tensor = ref_ttns.tensors[node_id]
+            if node_id != ref_ttns.root_id:
+                self.assertTrue(allclose(tensor,
+                                        ttndo.tensors[ttndo.ket_id(node_id)]))
+                self.assertTrue(allclose(tensor.conj(),
+                                            ttndo.tensors[ttndo.bra_id(node_id)]))
+                parent_id = node.parent
+                self.assertTrue(ttndo.is_child_of(ttndo.ket_id(node_id),
+                                                  ttndo.ket_id(parent_id)))
+                self.assertTrue(ttndo.is_child_of(ttndo.bra_id(node_id),
+                                                  ttndo.bra_id(parent_id)))
+            else:
+                self.assertTrue(allclose(tensor,
+                                        ttndo.tensors[ttndo.ket_id(node_id)][0]))
+                self.assertTrue(allclose(tensor.conj(),
+                                        ttndo.tensors[ttndo.bra_id(node_id)][0]))
+                self.assertTrue(ttndo.is_child_of(ttndo.ket_id(node_id),
+                                                  ttndo.root_id))
+                self.assertTrue(ttndo.is_child_of(ttndo.bra_id(node_id),
+                                                  ttndo.root_id))
+            for child in node.children:
+                self.assertTrue(ttndo.is_child_of(ttndo.ket_id(child), ttndo.ket_id(node_id)))
+                self.assertTrue(ttndo.is_child_of(ttndo.bra_id(child), ttndo.bra_id(node_id)))
+
+    def test_random_small_tree(self):
+        """
+        Test the conversion of a random small TTNS to a TTNDO.
+        """
+        ttns = random_small_ttns()
+        ref_ttns = deepcopy(ttns)
+        root_id = "ttndo_root"
+        ttndo = from_ttns(ttns, root_id=root_id)
+        self.correctness(ref_ttns, ttndo)
+
+    def test_random_big_tree(self):
+        """
+        Test the conversion of a random big TTNS to a TTNDO.
+        """
+        ttns = random_big_ttns_two_root_children()
+        ref_ttns = deepcopy(ttns)
+        root_id = "ttndo_root"
+        ttndo = from_ttns(ttns, root_id=root_id)
+        self.correctness(ref_ttns, ttndo)
 
 if __name__ == '__main__':
     main()
