@@ -2,7 +2,7 @@
 This module implements some commonly used nodes/tensors.
 """
 
-from numpy import zeros, ndarray
+from numpy import zeros, ndarray, pad
 
 def trivial_virtual_node(shape: tuple) -> ndarray:
     """
@@ -18,7 +18,8 @@ def trivial_virtual_node(shape: tuple) -> ndarray:
         ndarray: The trivial virtual tensor.
     
     """
-    tensor = zeros([dim for dim in shape] + [1])
+    tensor = zeros([dim for dim in shape] + [1],
+                   dtype=complex)
     zeros_indices = tuple([0 for _ in range(len(shape) + 1)])
     tensor[zeros_indices] = 1
     return tensor
