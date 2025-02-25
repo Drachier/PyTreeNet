@@ -634,6 +634,39 @@ class TreeTensorNetwork(TreeStructure):
                                             permutation=permutation)
         self._tensors[node_id] = new_tensor
 
+    def replace_node(self,
+                     new_node_id: str,
+                     old_node_id: str,
+                     tensor: np.ndarray):
+        """
+        Replaces a node with a new one.
+
+        This mainly allows for a node to have a different number of open legs.
+
+        Args:
+            new_node_id (str): The identifier of the new node.
+            old_node_id (str): The identifier of the old node.
+            tensor (np.ndarray): The tensor associated to the new node.
+
+        """
+        new_node = Node(tensor=tensor,
+                        identifier=new_node_id)
+        old_node = self._nodes[old_node_id]
+        for neighbour_id in old_node.neighbouring_nodes():
+            neighbour_index = old_node.neighbour_index(neighbour_id)
+            new_dim = new_node.shape[neighbour_index]
+            old_dim = old_node.shape[neighbour_index]
+            assert new_dim == old_dim, \
+                f"The dimensions of the legs of the new node {new_node_id} are not compatible with the neighbour {neighbour_id}!"
+        self.replace_node_in_neighbours(new_node_id, old_node_id,
+                                        del_old_node=True)
+        # Otherwise it might happen that the old tensor is still around
+        del self._tensors[old_node_id]
+        new_node.children = old_node.children
+        new_node.parent = old_node.parent
+        self._nodes[new_node_id] = new_node
+        self._tensors[new_node_id] = tensor
+
     def insert_identity(self, child_id: str, parent_id: str,
                         new_identifier: Union[str,None] = None):
         """
