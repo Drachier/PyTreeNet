@@ -302,7 +302,7 @@ class Hamiltonian():
     
     def include_identities(self,
                            dims: Union[int,list[int]],
-                           ident_creation: Callable = eye):
+                           ident_creation: Callable = lambda d: eye(d,dtype=complex)):
         """
         Adds the given dimensional identities to the conversion dictionary.
         They are stored under the key `"I{dim}"`

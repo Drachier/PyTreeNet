@@ -48,7 +48,8 @@ def bosonic_operators(dimension: int = 2) -> Tuple[np.ndarray,np.ndarray,np.ndar
     """
     positivity_check(dimension, "dimension")
     sqrt_number_vec = np.asarray([np.sqrt(i)
-                                  for i in range(1, dimension)])
+                                  for i in range(1, dimension)],
+                                  dtype=complex)
 
     creation_op = np.diag(sqrt_number_vec, k=-1)
     annihilation_op = creation_op.T
