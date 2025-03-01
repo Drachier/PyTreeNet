@@ -67,9 +67,7 @@ def perform_expansion(state, hamiltonian, tol, config):
     return state_ex, after_ex_total_bond, expanded_dim_tot
 
 
-
-
-from pytreenet.contractions.contraction_util import get_equivalent_legs
+from ..contractions.contraction_util import get_equivalent_legs
 import random
 
 def random_leaf(state) :
