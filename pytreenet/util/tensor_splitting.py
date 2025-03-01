@@ -54,10 +54,41 @@ class SplitMode(Enum):
         """
         return self is not SplitMode.REDUCED
 
+
+def it_splitting(tensor: np.ndarray,
+                a_legs: Tuple[int, ...],
+                b_legs: Tuple[int, ...],
+                **kwargs) -> Tuple[np.ndarray, np.ndarray]:
+    # Extract the shapes of the specified leg partitions
+    perm = list(a_legs) + list(b_legs)
+    reordered_tensor = np.transpose(tensor, perm)
+
+    shape = tensor.shape
+    # shape of 
+    shape_a = tuple(shape[i] for i in a_legs)
+    shape_b = tuple(shape[i] for i in b_legs)
+    
+    # Compute the bond dimension D as the product of dimensions in a_legs
+    D = int(np.prod(shape_a))
+    
+    # Create an identity matrix of size D x D
+    identity_matrix = np.eye(D)
+    
+    # Reshape the identity matrix to form the identity tensor
+    # Shape: (*shape_a, D)
+    identity_tensor = identity_matrix.reshape(shape_a + (D,))
+    
+    # Reshape the original tensor by collapsing a_legs into the bond dimension
+    # Shape: (D, *shape_b)
+    moved_tensor = reordered_tensor.reshape((D,) + shape_b)
+
+    return identity_tensor, moved_tensor
+
+
 def tensor_qr_decomposition(tensor: np.ndarray,
                             q_legs: Tuple[int,...],
                             r_legs: Tuple[int,...],
-                            mode: SplitMode = SplitMode.REDUCED) -> Tuple[np.ndarray,np.ndarray]:
+                            mode: SplitMode = SplitMode.KEEP) -> Tuple[np.ndarray,np.ndarray]:
     """
     Computes the QR decomposition of a tensor with respect to the given legs.
 

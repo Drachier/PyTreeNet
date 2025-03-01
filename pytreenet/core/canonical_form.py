@@ -81,41 +81,7 @@ def _find_smallest_distance_neighbour(node: Node,
 def split_qr_contract_r_to_neighbour(ttn: TreeTensorNetwork,
                                      node_id: str,
                                      neighbour_id: str,
-                                     mode: SplitMode = SplitMode.REDUCED):
-    """
-    Takes a node an splits of the virtual leg to a neighbours via QR
-     decomposition. The resulting R tensor is contracted with the neighbour.::
-
-         __|__      __|__        __|__      __      __|__
-      __|  N1 |____|  N2 | ---> | N1' |____|__|____|  N2 |
-        |_____|    |_____|      |_____|            |_____|
-
-                __|__      __|__ 
-      --->   __| N1' |____| N2' |
-               |_____|    |_____|
-
-    Args:
-        ttn (TreeTensorNetwork): The tree tensor network in which to perform
-            this action.
-        node_id (str): The identifier of the node to be split.
-        neighbour_id (str): The identifier of the neigbour to which to split.
-        mode: The mode to be used for the QR decomposition. For details refer to
-            `tensor_util.tensor_qr_decomposition`.
-    """
-    node = ttn.nodes[node_id]
-    q_legs, r_legs = _build_qr_leg_specs(node, neighbour_id)
-    r_tensor_id = str(uuid1()) # Avoid identifier duplication
-    ttn.split_node_qr(node_id, q_legs, r_legs,
-                        q_identifier=node_id,
-                        r_identifier=r_tensor_id,
-                        mode=mode)
-    ttn.contract_nodes(neighbour_id, r_tensor_id,
-                        new_identifier=neighbour_id)
-
-def split_qr_contract_r_to_neighbour(ttn: TreeTensorNetwork,
-                                     node_id: str,
-                                     neighbour_id: str,
-                                     mode: SplitMode = SplitMode.REDUCED):
+                                     mode: SplitMode = SplitMode.KEEP):
     """
     Takes a node an splits of the virtual leg to a neighbours via QR
      decomposition. The resulting R tensor is contracted with the neighbour.::
@@ -151,7 +117,6 @@ def split_qr_contract_r_to_neighbour(ttn: TreeTensorNetwork,
     
     ttn.update_children_and_leg_permutation(node_id, children_dict[node_id])
     ttn.update_children_and_leg_permutation(neighbour_id, children_dict[neighbour_id])    
-
 
 def split_svd_contract_sv_to_neighbour(ttn: TreeTensorNetwork,
                                      node_id: str,

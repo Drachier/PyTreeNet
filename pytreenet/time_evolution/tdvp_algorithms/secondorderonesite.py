@@ -7,13 +7,15 @@ from ...operators.tensorproduct import TensorProduct
 from ...ttno.ttno_class import TTNO
 from ...ttns import TreeTensorNetworkState
 from ..ttn_time_evolution import TTNTimeEvolutionConfig
-from pytreenet.time_evolution.Subspace_expansion import expand_subspace , adjust_tol_and_expand
+from pytreenet.time_evolution.Subspace_expansion import Krylov_basis , enlarge_ttn1_bond_with_ttn2
 from ..Lattice_simulation.util import ttn_to_t3n , t3n_to_ttn
 from pytreenet.time_evolution import ExpansionMode
+from pytreenet.time_evolution.Lattice_simulation import build_leg_specs
 from .onesitetdvp import OneSiteTDVP
-from ...contractions.state_operator_contraction import expectation_value
+from ...contractions.state_operator_contraction import contract_any , expectation_value
 from math import floor
 import numpy as np
+from ...util.tensor_splitting import SplitMode
 
 class SecondOrderOneSiteTDVP(OneSiteTDVP):
     """
@@ -59,7 +61,7 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
                          config)
         self.backwards_update_path = self._init_second_order_update_path()
         self.backwards_orth_path = self._init_second_order_orth_path()
-        self.convergence_list = []
+        self.divergence_list = []
         self.accepted_states = []
 
     def _init_second_order_update_path(self) -> List[str]:
@@ -82,7 +84,7 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
         return back_orthogonalization_path
 
     def _update_forward_site_and_link(self, node_id: str,
-                                      next_node_id: str):
+                                      next_node_id: str, i):
         """
         Run the forward update with half time step.
 
@@ -93,10 +95,44 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
             next_node_id (str): The other node of the link to be updated.
         """
         assert self.state.orthogonality_center_id == node_id
-        self._update_site(node_id,
-                          time_step_factor=0.5)
-        self._update_link(node_id, next_node_id,
-                          time_step_factor=0.5)
+
+        if str(self.state.nodes[node_id].identifier).startswith("3"):
+            # remove open leg
+            new_tensor = self.state.tensors[node_id].reshape(self.state.tensors[node_id].shape[:-1])
+            open_leg = self.state.nodes[node_id].open_legs[0]
+            self.state.nodes[node_id]._leg_permutation.pop(open_leg)
+            self.state.tensors[node_id] = new_tensor
+            self.state.nodes[node_id].link_tensor(new_tensor)
+
+            self.state.contract_nodes(node_id, 
+                                        next_node_id,
+                                        new_identifier = next_node_id)
+            next_next_neighbour_id = self.orthogonalization_path[i+1][0]
+            print("Node ID:", node_id, "Next Node ID:", next_node_id, "Next Next Neighbour ID:", next_next_neighbour_id)
+            main_legs, next_legs = build_leg_specs(self.state.nodes[next_node_id], next_next_neighbour_id)
+            self.state.split_node_it(next_node_id , main_legs, next_legs,
+                                        identifier_a= "3_" + next_node_id,
+                                        identifier_b= next_node_id)  
+
+            # add open leg
+            shape = self.state.tensors[node_id].shape
+            T = self.state.tensors[node_id].reshape(shape + (1,))
+            self.state.nodes[node_id]._leg_permutation.append(open_leg)
+            self.state.tensors[node_id] = T 
+            self.state.nodes[node_id].link_tensor(T)           
+
+            new_tensor = contract_any(node_id, next_node_id,
+                                        self.state, self.hamiltonian,
+                                        self.partial_tree_cache)
+            self.partial_tree_cache.add_entry(node_id, next_node_id, new_tensor)
+            
+            self.state.orthogonality_center_id = next_node_id
+        else:   
+            self._update_site(node_id,
+                            time_step_factor=0.5)
+            self._update_link(node_id, next_node_id,
+                            time_step_factor=0.5)
+        
 
     def forward_sweep(self):
         """
@@ -109,7 +145,7 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
             # Select Next Node
             next_node_id = self.orthogonalization_path[i][0]
             # Update
-            self._update_forward_site_and_link(node_id, next_node_id)
+            self._update_forward_site_and_link(node_id, next_node_id, i)
 
     def _final_forward_update(self):
         """
@@ -203,19 +239,28 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
         elif self.config.Expansion_params["ExpansionMode"] == ExpansionMode.Full_T3N:
              self.run_ex_full_t3n(evaluation_time, filepath, pgbar) 
 
+    def check_overgrown_bond_dimensions(self, ttn_ex, ttn):
+        if ttn_ex.total_bond_dim() >= self.config.Expansion_params["max_bond"]:
+            print("Exceed max bond dimension:", self.config.Expansion_params["max_bond"])
+            ttn_ex = ttn
+            should_expand = False
+        else:
+            should_expand = True
+        return ttn_ex, should_expand
 
     # EXPANDS with no T3NS transformation
 
-    def perform_expansion(self, state, tol):
+    def perform_expansion(self, basis, tol):
         self.config.Expansion_params["tol"] = tol
-        state_ex = expand_subspace(state, 
-                                   self.hamiltonian,
-                                   self.config.Expansion_params)
+        ttn_ex = basis[0]
+        for i in range(len(basis)-1):
+            ttn_ex = enlarge_ttn1_bond_with_ttn2(ttn_ex, basis[i+1], self.config.Expansion_params["tol"])
+        state_ex = ttn_ex
         after_ex_total_bond = state_ex.total_bond_dim()
-        expanded_dim_tot = after_ex_total_bond - state.total_bond_dim()
+        expanded_dim_tot = after_ex_total_bond - basis[0].total_bond_dim()
         return state_ex, after_ex_total_bond, expanded_dim_tot
 
-    def phase1_increase_tol(self, state, tol, expanded_dim_tot):
+    def phase1_increase_tol(self, basis, tol, expanded_dim_tot):
         max_trials = self.config.Expansion_params["num_second_trial"]
         num_trials = 0
         min_rel_tot_bond, max_rel_tot_bond = self.config.Expansion_params["rel_tot_bond"]
@@ -226,7 +271,7 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
                 # Increase tol to reduce expanded_dim_tot
                 tol += self.config.Expansion_params["tol_step_increase"]
                 print("Increasing tol:", tol)
-                state_ex, _, expanded_dim_tot = self.perform_expansion(state, tol)
+                state_ex, _, expanded_dim_tot = self.perform_expansion(basis, tol)
                 num_trials += 1
                 if min_rel_tot_bond <= expanded_dim_tot <= max_rel_tot_bond:
                     # Acceptable expansion found
@@ -236,16 +281,16 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
                     # Need to switch to Phase 2
                     print("Expanded dim:", expanded_dim_tot, "falls below min_rel_tot_bond:", min_rel_tot_bond)
                     if expanded_dim_tot <= 0:
-                       state_ex = state
+                       state_ex = basis[0]
                     print("Switching to Phase 2")
                     return state_ex, tol, expanded_dim_tot, True  # Proceed to Phase 2                
         # Exceeded max trials
         print("Exceeded maximum trials in Phase 1 without acceptable expansion")
-        state_ex = state
+        state_ex = basis[0]
         tol += self.config.Expansion_params["tol_step_increase"]
         return state_ex, tol, expanded_dim_tot, False  # Proceed to Phase 2
 
-    def phase2_decrease_tol(self, state, tol, expanded_dim_tot):
+    def phase2_decrease_tol(self, basis, tol, expanded_dim_tot):
         max_trials = self.config.Expansion_params["num_second_trial"]
         num_trials = 0
         min_rel_tot_bond, max_rel_tot_bond = self.config.Expansion_params["rel_tot_bond"]
@@ -256,7 +301,7 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
                 # Decrease tol to increase expanded_dim_tot
                 tol -= self.config.Expansion_params["tol_step_decrease"]
                 print("Decreasing tol:", tol)
-                state_ex, _, expanded_dim_tot = self.perform_expansion(state, tol)
+                state_ex, _, expanded_dim_tot = self.perform_expansion(basis, tol)
                 print("Expanded_dim_tot:", expanded_dim_tot)
                 if min_rel_tot_bond <= expanded_dim_tot <= max_rel_tot_bond:
                     # Acceptable expansion found
@@ -266,25 +311,31 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
                     # Expanded dimension exceeded rel_tot_bond again
                     print("Expanded dim exceeded rel_tot_bond again:", expanded_dim_tot)
                     # Reset state_ex to initial state
-                    state_ex = state
+                    state_ex = basis[0]
                     return state_ex, tol, expanded_dim_tot  # Reset and exit
         # Exceeded max trials
         print("Exceeded maximum trials in Phase 2 without acceptable expansion")
         # Reset state_ex to initial state
-        state_ex = state
+        state_ex = basis[0]
         tol -= self.config.Expansion_params["tol_step_decrease"]
         return state_ex, tol, expanded_dim_tot  # Reset and exit
 
     def adjust_tol_and_expand(self, tol):
-        state = deepcopy(self.state)
-        before_ex_total_bond = state.total_bond_dim()
-
-        self.config.Expansion_params["SVDParameters"] = replace(self.config.Expansion_params["SVDParameters"],max_bond_dim=state.max_bond_dim())
-        print("SVD MAX:", state.max_bond_dim())
+        before_ex_total_bond = self.state.total_bond_dim()
+        
+        #self.config.Expansion_params["SVDParameters"] = replace(self.config.Expansion_params["SVDParameters"],max_bond_dim=state.max_bond_dim())
+        #print("SVD MAX:", state.max_bond_dim())
         print("Initial tol:", tol)
 
+        basis = Krylov_basis(self.state,
+                             self.hamiltonian,
+                             self.config.Expansion_params["num_vecs"],
+                             self.config.Expansion_params["tau"],
+                             self.config.Expansion_params["SVDParameters"],
+                             self.config.Expansion_params["KrylovBasisMode"] )
+
         # Initial Expansion Attempt
-        state_ex, after_ex_total_bond, expanded_dim_tot = self.perform_expansion(state, tol)
+        state_ex, after_ex_total_bond, expanded_dim_tot = self.perform_expansion(basis, tol)
 
         # Unpack the acceptable range
         min_rel_tot_bond, max_rel_tot_bond = self.config.Expansion_params["rel_tot_bond"]
@@ -295,23 +346,22 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
             print("Acceptable expansion found in initial attempt:", expanded_dim_tot)
         elif expanded_dim_tot > max_rel_tot_bond:
             # Need to adjust tol in Phase 1
-            state_ex, tol, expanded_dim_tot, switch_to_phase_2 = self.phase1_increase_tol(state, tol, expanded_dim_tot)
+            state_ex, tol, expanded_dim_tot, switch_to_phase_2 = self.phase1_increase_tol(basis, tol, expanded_dim_tot)
             if switch_to_phase_2:
                 # Switch to Phase 2
-                state_ex, tol, expanded_dim_tot = self.phase2_decrease_tol(state, tol, expanded_dim_tot)
+                state_ex, tol, expanded_dim_tot = self.phase2_decrease_tol(basis, tol, expanded_dim_tot)
         elif expanded_dim_tot < min_rel_tot_bond:
             # Need to adjust tol in Phase 2
-            state_ex, tol, expanded_dim_tot = self.phase2_decrease_tol(state, tol, expanded_dim_tot)
+            state_ex, tol, expanded_dim_tot = self.phase2_decrease_tol(basis, tol, expanded_dim_tot)
 
         after_ex_total_bond = state_ex.total_bond_dim()
         expanded_dim_total_bond = after_ex_total_bond - before_ex_total_bond
 
-        state_ex, should_expand = self.check_overgrown_bond_dimensions(state_ex, state)
+        state_ex, should_expand = self.check_overgrown_bond_dimensions(state_ex, self.state)
 
         print("Final expanded_dim:", expanded_dim_total_bond, ":", before_ex_total_bond, "--->", after_ex_total_bond)
 
         return state_ex, tol, should_expand
-
 
     def run_ex(self, evaluation_time: Union[int, "inf"] = 1, filepath: str = "", pgbar: bool = True):
         
@@ -327,13 +377,14 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
 
                 state_ex_ttn, tol, should_expand = self.adjust_tol_and_expand(tol)
                 self.state = state_ex_ttn
+                self.state.normalize_ttn()
                 self._orthogonalize_init(force_new=True)
                 self.partial_tree_cache = PartialTreeCachDict()
                 self.partial_tree_cache = self._init_partial_tree_cache()         
-           
             self.record_bond_dimensions()
 
         self.save_results_to_file(filepath) 
+
 
     # EXPANDS with a predefined T3NS conf. if "T3N_dict" is not None and random T3NS otherwise
 
@@ -346,15 +397,6 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
         ttn_ex = t3n_to_ttn(t3n_ex, self.config.Expansion_params["T3N_dict"])
         expanded_dim_tot = ttn_ex.total_bond_dim() - self.state.total_bond_dim()
         return ttn_ex, expanded_dim_tot,  after_ex_total_bond_t3ns
-
-    def check_overgrown_bond_dimensions(self, ttn_ex, ttn):
-        if ttn_ex.total_bond_dim() >= self.config.Expansion_params["max_bond"]:
-            print("Exceed max bond dimension:", self.config.Expansion_params["max_bond"])
-            ttn_ex = ttn
-            should_expand = False
-        else:
-            should_expand = True
-        return ttn_ex, should_expand
 
     def phase1_increase_tol_t3n(self, t3n, t3no, tol, expanded_dim_tot):
         max_trials = self.config.Expansion_params["num_second_trial"]
@@ -511,7 +553,52 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
                                                     self.config.Expansion_params["T3NMode"],
                                                     self.config.Expansion_params["T3N_contr_mode"])  
 
+    # Run fully on T3N
     def run_ex_full_t3n(self, evaluation_time: Union[int, "inf"] = 1, filepath: str = "", pgbar: bool = True):
+        
+        self.init_results(evaluation_time)
+        should_expand = True
+        tol = self.config.Expansion_params["tol"]
+        self.hamiltonian, _ = ttn_to_t3n(self.hamiltonian, 
+                                         self.update_path,
+                                         self.orthogonalization_path)
+        self.operators      = [ttn_to_t3n(self.operators[i], 
+                                          self.update_path,
+                                          self.orthogonalization_path)[0]
+                                        for i in range(len(self.operators))]
+        self.state ,   _    = ttn_to_t3n(self.state, 
+                                        self.update_path,
+                                        self.orthogonalization_path)
+                                                 
+
+        # Initialization according to the T3NS
+        self.update_path = self._finds_update_path()
+        self.state.canonical_form(self.update_path[0] , SplitMode.REDUCED)
+        self.orthogonalization_path = self._find_tdvp_orthogonalization_path(self.update_path)
+        self._orthogonalize_init()
+        self.partial_tree_cache = self._init_partial_tree_cache()
+        self.backwards_update_path = self._init_second_order_update_path()
+        self.backwards_orth_path = self._init_second_order_orth_path()
+
+        for i in self.create_run_tqdm(pgbar):
+            self.evaluate_and_save_results(evaluation_time, i)
+
+            
+            self.run_one_time_step()
+            # Expansion Step
+            if (i + 1) % (self.config.Expansion_params["expansion_steps"]+ 1) == 0 and should_expand:
+                state_ex, tol, should_expand = self.adjust_tol_and_expand(tol)
+                self.state = state_ex
+                self._orthogonalize_init(force_new=True)
+                self.partial_tree_cache = PartialTreeCachDict()
+                self.partial_tree_cache = self._init_partial_tree_cache()   
+
+            self.record_bond_dimensions()
+
+        self.save_results_to_file(filepath)  
+
+    # Run fully on T3N
+    def run_ex_full_t3n___(self, evaluation_time: Union[int, "inf"] = 1, filepath: str = "", pgbar: bool = True):
         
         self.init_results(evaluation_time)
         should_expand = True
@@ -548,6 +635,7 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
 
         # Initialization according to the T3NS
         self.update_path = self._finds_update_path()
+        self.state.canonical_form(self.update_path[0] , SplitMode.REDUCED)
         self.orthogonalization_path = self._find_tdvp_orthogonalization_path(self.update_path)
         self._orthogonalize_init()
         self.partial_tree_cache = self._init_partial_tree_cache()
@@ -570,5 +658,3 @@ class SecondOrderOneSiteTDVP(OneSiteTDVP):
             self.record_bond_dimensions()
 
         self.save_results_to_file(filepath)  
-
-        

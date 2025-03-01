@@ -114,7 +114,7 @@ def Visualize_tree(tree_dict, lattice_dim_squred):
     nx.draw(
         G_tree,
         pos_tree,
-        with_labels=False,  # Do not show labels on the vertices
+        with_labels=True,  # Do not show labels on the vertices
         node_size=50,      # Smaller circles
         node_color="black", # Black circles
         edge_color="black",
@@ -178,7 +178,6 @@ def Weighted_Path_Length_Index(ttn):
     # Compute CV and return its reciprocal
     return  100/(std_dev_length* mean_length)
 
-
 def calculate_node_degree_distribution(tree_dict):
     """
     Calculates the degree distribution of nodes in the tree.
@@ -202,9 +201,6 @@ def calculate_node_degree_distribution(tree_dict):
         degree_counts[degree] += 1
 
     return degree_counts
-
-
-import numpy as np
 
 def compute_scores_old(profiling_data, alpha=1, beta=1, gamma=1):
     """
@@ -270,9 +266,7 @@ def compute_scores_old(profiling_data, alpha=1, beta=1, gamma=1):
 
     return scored_data
 
-
-
-def compute_scores(profiling_data, cache_calls_ncalls, alpha=1, gamma=1):
+def compute_scores___(profiling_data, cache_calls_ncalls, alpha=1, gamma=1):
     """
     Compute scores for configurations based on Running Time and WPLI for a specific cache_calls_ncalls value.
     
@@ -338,4 +332,3 @@ def compute_scores(profiling_data, cache_calls_ncalls, alpha=1, gamma=1):
         entry['Normalized_Score'] = normalized_scores[i]
     
     return subset
-

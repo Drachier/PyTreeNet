@@ -57,6 +57,7 @@ from .node import Node, relative_leg_permutation
 from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      contr_truncated_svd_splitting,
                                      idiots_splitting,
+                                     it_splitting,
                                      SplitMode,
                                      SVDParameters,
                                      ContractionMode)
@@ -65,7 +66,7 @@ from .canonical_form import (canonical_form,
                              split_qr_contract_r_to_neighbour)
 from ..contractions.tree_contraction import completely_contract_tree
 from ..util.ttn_exceptions import NotCompatibleException
-
+import pytreenet as ptn
 
 class TensorDict(UserDict):
     """
@@ -1014,7 +1015,7 @@ class TreeTensorNetwork(TreeStructure):
     def split_node_qr(self, node_id: str,
                       q_legs: LegSpecification, r_legs: LegSpecification,
                       q_identifier: str = "", r_identifier: str = "",
-                      mode: SplitMode = SplitMode.REDUCED):
+                      mode: SplitMode = SplitMode.KEEP):
         """
         Splits a node into two nodes via QR-decomposition.
 
@@ -1036,6 +1037,36 @@ class TreeTensorNetwork(TreeStructure):
                          out_identifier=q_identifier,
                          in_identifier=r_identifier,
                          mode=mode)
+
+    def split_node_it(self,
+                      node_id: str,
+                      legs_a: LegSpecification,
+                      legs_b: LegSpecification,
+                      identifier_a: str = "",
+                      identifier_b: str = ""):
+        """
+        Splits a node into two nodes using the custom IT splitting function.
+        
+        This method replaces part of the node's tensor with an identity tensor
+        and moves the remainder to a neighboring node, as defined by the IT operation.
+        
+        Args:
+            node_id (str): Identifier of the node to be split.
+            legs_a (LegSpecification): Leg specifications for the first resulting node 
+                                       (receives the identity tensor).
+            legs_b (LegSpecification): Leg specifications for the second resulting node 
+                                       (receives the moved tensor).
+            identifier_a (str, optional): Identifier for the node receiving the identity tensor.
+                                          Defaults to "".
+            identifier_b (str, optional): Identifier for the node receiving the moved tensor.
+                                          Defaults to "".
+        """
+        self.split_nodes(node_id,
+                         out_legs=legs_a,
+                         in_legs=legs_b,
+                         splitting_function=it_splitting,
+                         out_identifier=identifier_a,
+                         in_identifier=identifier_b)
 
     def split_node_svd(self, node_id: str,
                        u_legs: LegSpecification, v_legs: LegSpecification,
@@ -1115,7 +1146,7 @@ class TreeTensorNetwork(TreeStructure):
             self._move_orth_center_to_neighbour(node_id, mode=mode)
 
     def _move_orth_center_to_neighbour(self, new_center_id: str,
-                                       mode: SplitMode = SplitMode.REDUCED):
+                                       mode: SplitMode = SplitMode.KEEP):
         """
         Moves the orthogonality center to a neighbour of the current center.
 
@@ -1171,7 +1202,7 @@ class TreeTensorNetwork(TreeStructure):
         canonical_form(self, orthogonality_center_id, mode, contr_mode)
 
     def orthogonalize(self, orthogonality_center_id: str,
-                      mode: SplitMode = SplitMode.REDUCED):
+                      mode: SplitMode = SplitMode.KEEP):
         """
         Wrapper of canonical form.
 
@@ -1202,7 +1233,12 @@ class TreeTensorNetwork(TreeStructure):
         """
         return completely_contract_tree(self, to_copy=to_copy)
     
-    
+    def normalize_ttn(self):
+        orth_center = self.orthogonality_center_id
+        norm = ptn.contract_two_ttns(self,self.conjugate())
+        self.tensors[orth_center] /= norm
+
+
     def multiply_const(self, const: float):
         """
         Multiplies all tensors in the TTN with a constant.

@@ -75,8 +75,52 @@ def get_neighbors_with_distance_HDV(Lx, Ly, distance):
 class T3NMode(Enum):
       QR = "QR"
       SVD = "SVD"
+      IT = "IT"
+
+
 
 def ttn_to_t3n(ttn, 
+               update_path=None,
+               orthogonalization_path=None): 
+    ttn_copy = deepcopy(ttn)
+    neighbour_map = {}  # To store the mapping of node_id to neighbour_id
+
+    for idx, node_id in enumerate(update_path):
+        node = ttn_copy.nodes[node_id]
+        if node.nneighbours() > 2:
+            # Retrieve neighbour_id from orthogonalization_path based on the update_path index
+            neighbour_id = orthogonalization_path[idx][0]
+            
+            # Build the leg specifications for the QR decomposition
+            main_legs, next_legs = build_leg_specs(node, neighbour_id)
+
+            # Split the node into two parts
+            ttn_copy.split_node_it(node_id, main_legs, next_legs,
+                                   identifier_a="3_" + node_id,
+                                   identifier_b=node_id)
+            # Reshape the new tensor to include additional dimensions if needed
+            shape = ttn_copy.tensors["3_" + node_id].shape
+            if isinstance(ttn_copy, TreeTensorNetworkState):
+                T = ttn_copy.tensors["3_" + node_id].reshape(shape + (1,))
+                ttn_copy.tensors["3_" + node_id] = T 
+                ttn_copy.nodes["3_" + node_id].link_tensor(T)
+            elif isinstance(ttn_copy, TTNO):
+                T = ttn_copy.tensors["3_" + node_id].reshape(shape + (1, 1))
+                ttn_copy.tensors["3_" + node_id] = T 
+                ttn_copy.nodes["3_" + node_id].link_tensor(T)
+
+            # Update the neighbour map
+            neighbour_map[node_id] = neighbour_id
+
+    return ttn_copy, neighbour_map
+
+
+
+
+
+
+
+def ttn_to_t3n_______(ttn, 
                T3N_dict = None, 
                T3N_mode = T3NMode.QR, 
                T3N_contr_mode = ContractionMode.EQUAL): 
@@ -101,7 +145,12 @@ def ttn_to_t3n(ttn,
             elif T3N_mode == T3NMode.QR:
                 ttn_copy.split_node_qr(node_id, main_legs, next_legs,
                                        q_identifier= "3_" + node_id,
-                                       r_identifier= node_id)  
+                                       r_identifier= node_id,
+                                       mode = SplitMode.REDUCED)  
+            elif T3N_mode == T3NMode.IT:
+                ttn_copy.split_node_it(node_id, main_legs, next_legs,
+                                       identifier_a= "3_" + node_id,
+                                       identifier_b= node_id)    
                  
             shape = ttn_copy.tensors["3_" + node_id].shape
             if isinstance(ttn_copy , TreeTensorNetworkState):
@@ -114,6 +163,7 @@ def ttn_to_t3n(ttn,
                 ttn_copy.nodes["3_" + node_id].link_tensor(T)
             dict[node_id] = neighbour_id
     return ttn_copy , dict
+
 
 def t3n_to_ttn(state, node_map):
     ttn = deepcopy(state)
@@ -222,22 +272,21 @@ def alternating_product_state(ttn,
         black_id = "Site" + f"{node}"
         n = product_state.tensors[black_id].ndim - 1
         tensor = black_state.reshape((1,) * n + (2,))
-        T = np.pad(tensor, n*((bond_dim, bond_dim),) + ((0, 0),))
+        T = np.pad(tensor, n*((0, bond_dim),) + ((0, 0),))
         product_state.tensors[black_id] = T
         product_state.nodes[black_id].link_tensor(T)  
     for node in white_sites:
         white_id = "Site" + f"{node}"
         n = product_state.tensors[white_id].ndim - 1
         tensor = white_state.reshape((1,) * n + (2,))
-        T = np.pad(tensor, n*((bond_dim, bond_dim),) + ((0, 0),))
+        T = np.pad(tensor, n*((0, bond_dim),) + ((0, 0),))
         product_state.tensors[white_id] = T
         product_state.nodes[white_id].link_tensor(T)  
 
     return product_state
 
-
 # HAMILTONIANS
-def BoseHubbard_ham(t, U, m, Lx, Ly , d):
+def BoseHubbard_ham(t, U, m, Lx, Ly , d, boundary_condition = None):
     creation_op, annihilation_op, number_op = bosonic_operators(dimension=d)
     
     conversion_dict = {
@@ -256,22 +305,32 @@ def BoseHubbard_ham(t, U, m, Lx, Ly , d):
     
     terms = []
     
-    # Hopping terms
-    for x in range(Lx):
-        for y in range(Ly):
-            current_site = f"Site({x},{y})"
-            
-            # Horizontal connections
-            if x < Lx - 1:
-                right_neighbor = f"Site({x+1},{y})"
-                terms.append(TensorProduct({current_site: "-t * b^dagger", right_neighbor: "b"}))
-                terms.append(TensorProduct({current_site: "-t * b", right_neighbor: "b^dagger"}))
-            
-            # Vertical connections
-            if y < Ly - 1:
-                up_neighbor = f"Site({x},{y+1})"
-                terms.append(TensorProduct({current_site: "-t * b^dagger", up_neighbor: "b"}))
-                terms.append(TensorProduct({current_site: "-t * b", up_neighbor: "b^dagger"}))
+    if boundary_condition == "periodic":
+        for x in range(Lx):
+            for y in range(Ly):
+                current_site = f"Site({x},{y})"
+                neighbors = get_neighbors_periodic(x, y, Lx, Ly)
+                
+                for neighbor in neighbors:
+                    terms.append(TensorProduct({current_site: "-t * b^dagger", neighbor: "b"}))
+                    terms.append(TensorProduct({current_site: "-t * b", neighbor: "b^dagger"}))
+    else:
+        # Hopping terms
+        for x in range(Lx):
+            for y in range(Ly):
+                current_site = f"Site({x},{y})"
+                
+                # Horizontal connections
+                if x < Lx - 1:
+                    right_neighbor = f"Site({x+1},{y})"
+                    terms.append(TensorProduct({current_site: "-t * b^dagger", right_neighbor: "b"}))
+                    terms.append(TensorProduct({current_site: "-t * b", right_neighbor: "b^dagger"}))
+                
+                # Vertical connections
+                if y < Ly - 1:
+                    up_neighbor = f"Site({x},{y+1})"
+                    terms.append(TensorProduct({current_site: "-t * b^dagger", up_neighbor: "b"}))
+                    terms.append(TensorProduct({current_site: "-t * b", up_neighbor: "b^dagger"}))
     
     # On-site interaction terms
     for x in range(Lx):
@@ -294,6 +353,118 @@ def get_neighbors_periodic(x, y, Lx, Ly):
     neighbors.append((f"Site({x},{up_y})"))
     return neighbors
 
+
+def Transverse_Field_Ising(J_z, h_x, Lx, Ly , boundary_condition = None):
+    # Get the Pauli matrices
+    X, Y, Z = pauli_matrices()
+    X = X 
+    Y = Y 
+    Z = Z 
+    # Create a conversion dictionary for the operators
+    conversion_dict = {
+        "X": X,
+        "Y": Y,
+        "Z": Z,
+        "J_z * Z": -J_z * Z,
+        "I2": np.eye(2),
+        "h_x * X": -h_x * X
+    }
+    
+    terms = []
+    
+    if boundary_condition == "periodic":
+        for x in range(Lx):
+            for y in range(Ly):
+                current_site = f"Site({x},{y})"
+                neighbors = get_neighbors_periodic(x, y, Lx, Ly)
+                
+                for neighbor in neighbors:
+                    terms.append(TensorProduct({current_site: "Z", neighbor: "J_z * Z"})) 
+    else:
+        # Hopping terms
+        for x in range(Lx):
+            for y in range(Ly):
+                current_site = f"Site({x},{y})"  
+
+                # Horizontal connections
+                if x < Lx - 1:
+                    right_neighbor = f"Site({x+1},{y})" 
+                    terms.append(TensorProduct({current_site: "Z", right_neighbor: "J_z * Z"})) 
+
+                # Vertical connections
+                if y < Ly - 1:
+                    up_neighbor = f"Site({x},{y+1})"
+                    terms.append(TensorProduct({current_site: "Z", up_neighbor: "J_z * Z"}))                     
+
+
+    # On-site magnetic field terms
+    for x in range(Lx):
+        for y in range(Ly):
+            current_site = f"Site({x},{y})"
+            terms.append(TensorProduct({current_site: "h_x * X"}))
+    
+    return Hamiltonian(terms, conversion_dict)
+
+
+
+def Anisotropic_Heisenberg_ham(J_x, J_y, J_z, h_z, Lx, Ly , boundary_condition = None):
+    # Get the Pauli matrices
+    X, Y, Z = pauli_matrices()
+    X = X / 2
+    Y = Y / 2
+    Z = Z / 2
+    # Create a conversion dictionary for the operators
+    conversion_dict = {
+        "X": X,
+        "J_x * X": J_x * X,
+        "Y": Y,
+        "J_y * Y": J_y * Y,
+        "Z": Z,
+        "J_z * Z": J_z * Z,
+        "I2": np.eye(2),
+        "h_z * Z": h_z * Z
+    }
+    
+    terms = []
+    
+    if boundary_condition == "periodic":
+        for x in range(Lx):
+            for y in range(Ly):
+                current_site = f"Site({x},{y})"
+                neighbors = get_neighbors_periodic(x, y, Lx, Ly)
+                
+                for neighbor in neighbors:
+                    terms.append(TensorProduct({current_site: "X", neighbor: "J_x * X"}))
+                    terms.append(TensorProduct({current_site: "Y", neighbor: "J_y * Y"}))
+                    terms.append(TensorProduct({current_site: "Z", neighbor: "J_z * Z"})) 
+    else:
+        # Hopping terms
+        for x in range(Lx):
+            for y in range(Ly):
+                current_site = f"Site({x},{y})"  
+
+                # Horizontal connections
+                if x < Lx - 1:
+                    right_neighbor = f"Site({x+1},{y})" 
+                    terms.append(TensorProduct({current_site: "X", right_neighbor: "J_x * X"}))
+                    terms.append(TensorProduct({current_site: "Y", right_neighbor: "J_y * Y"}))
+                    terms.append(TensorProduct({current_site: "Z", right_neighbor: "J_z * Z"})) 
+
+                # Vertical connections
+                if y < Ly - 1:
+                    up_neighbor = f"Site({x},{y+1})"
+                    terms.append(TensorProduct({current_site: "X", up_neighbor: "J_x * X"}))
+                    terms.append(TensorProduct({current_site: "Y", up_neighbor: "J_y * Y"}))
+                    terms.append(TensorProduct({current_site: "Z", up_neighbor: "J_z * Z"}))                     
+
+
+    # On-site magnetic field terms
+    for x in range(Lx):
+        for y in range(Ly):
+            current_site = f"Site({x},{y})"
+            terms.append(TensorProduct({current_site: "h_z * Z"}))
+    
+    return Hamiltonian(terms, conversion_dict)
 
 
 def Anisotropic_Heisenberg_ham(J_x, J_y, J_z, h_z, Lx, Ly , boundary_condition = None):
@@ -496,7 +667,6 @@ def density_density_correlation_function(Lx, Ly, dist, dim, mode="HV"):
         node_id2 = f"Site({site2[0]},{site2[1]})"
         # Add n_i * n_j term
         terms.append(TensorProduct({node_id1: "n", node_id2: "n"}))
-
     return Hamiltonian(terms, conversion_dict)
 
 def Number_op_total(Lx, Ly, dim=2):

@@ -1,10 +1,27 @@
-import qutip as qt
 import random
 import numpy as np
 from .util import get_neighbors_with_distance_HV, get_neighbors_with_distance_HDV
 
+try:
+    import qutip as qt
+except ImportError:
+    class qt:
+        pass
 
-def create_bose_hubbard_2d(Lx, Ly, n_bosons, J, U, mu):
+def get_neighbors_periodic(x, y, Lx, Ly):
+    neighbors = []
+
+    # Right neighbor (with periodic boundary)
+    right_x = (x + 1) % Lx
+    neighbors.append((right_x,y))
+
+    # Up neighbor (with periodic boundary)
+    up_y = (y + 1) % Ly
+    neighbors.append((x,up_y))
+    return neighbors
+
+
+def create_bose_hubbard_2d(Lx, Ly, n_bosons, J, U, mu, periodic=False ):
     """
     Create 2D Bose-Hubbard Hamiltonian with chemical potential
     
@@ -38,19 +55,33 @@ def create_bose_hubbard_2d(Lx, Ly, n_bosons, J, U, mu):
         return x * Ly + y
     
     # Hopping terms in x-direction
-    for x in range(Lx):
-        for y in range(Ly):
-            # x-direction hopping
-            if x < Lx - 1:
-                i = get_index(x, y)
-                j = get_index(x + 1, y)
-                H += -J * (a_ops[i].dag() * a_ops[j] + a_ops[j].dag() * a_ops[i])
-            
-            # y-direction hopping
-            if y < Ly - 1:
-                i = get_index(x, y)
-                j = get_index(x, y + 1)
-                H += -J * (a_ops[i].dag() * a_ops[j] + a_ops[j].dag() * a_ops[i])
+    if periodic == False:
+        for x in range(Lx):
+            for y in range(Ly):
+                # x-direction hopping
+                if x < Lx - 1:
+                    i = get_index(x, y)
+                    j = get_index(x + 1, y)
+                    H += -J * (a_ops[i].dag() * a_ops[j] + a_ops[j].dag() * a_ops[i])
+                
+                # y-direction hopping
+                if y < Ly - 1:
+                    i = get_index(x, y)
+                    j = get_index(x, y + 1)
+                    H += -J * (a_ops[i].dag() * a_ops[j] + a_ops[j].dag() * a_ops[i])
+    else:
+        for x in range(Lx):
+            for y in range(Ly):
+                current_site = (x,y)
+                neighbors = get_neighbors_periodic(x, y, Lx, Ly)
+                
+                for neighbor in neighbors:
+                    i = get_index(current_site[0], current_site[1])
+                    j = get_index(neighbor[0], neighbor[1])
+                    H += -J * (a_ops[i].dag() * a_ops[j] + a_ops[j].dag() * a_ops[i]) 
+
+    
+                       
     
     # On-site interaction and chemical potential terms
     for i in range(n_sites):
@@ -61,15 +92,16 @@ def create_bose_hubbard_2d(Lx, Ly, n_bosons, J, U, mu):
     return H, a_ops
 
 class BoseHubbard2D_Qutip:
-    def __init__(self, Lx, Ly, n_bosons, J, U, mu):
+    def __init__(self, Lx, Ly, n_bosons, J, U, mu, periodic=False):
         self.Lx = Lx
         self.Ly = Ly
         self.n_bosons = n_bosons + 1 
         self.J = J
         self.U = U
         self.mu = mu
-        
-        self.H, self.a_ops = create_bose_hubbard_2d(Lx, Ly, n_bosons, J, U, mu)
+        self.periodic = periodic
+
+        self.H, self.a_ops = create_bose_hubbard_2d(Lx, Ly, n_bosons, J, U, mu, periodic)
         self.n_ops = [a.dag() * a for a in self.a_ops]
 
     def uniform_product_state(self, local_state) :
@@ -248,12 +280,14 @@ class BoseHubbard2D_Qutip:
                 idx1 = site1[0] * self.Ly + site1[1]
                 idx2 = site2[0] * self.Ly + site2[1]
 
-                n1 = qt.expect(self.n_ops[idx1], state)
-                n2 = qt.expect(self.n_ops[idx2], state)
+                #n1 = qt.expect(self.n_ops[idx1], state)
+                #n2 = qt.expect(self.n_ops[idx2], state)
                 n1n2 = qt.expect(self.n_ops[idx1] * self.n_ops[idx2], state)
-                result += n1n2 - (n1 * n2)       
+                #result += n1n2 - (n1 * n2)       
+                result += n1n2     
 
-        return result / len(current_sites)
+
+        return result
 
 
     def calculate_specific_site_correlation(self, state, site1, site2, normalize=False):
@@ -483,4 +517,4 @@ class BoseHubbard2D_Qutip:
                 states[idx], distance, mode, Normalize)
                 
         return correlations, eval_times
-    
+

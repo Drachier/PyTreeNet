@@ -19,7 +19,7 @@ from ...ttno.ttno_class import TTNO
 from ...operators.tensorproduct import TensorProduct
 from ...contractions.sandwich_caching import SandwichCache
 from ...contractions.effective_hamiltonians import get_effective_single_site_hamiltonian
-from ..time_evo_util.update_path import TDVPUpdatePathFinder
+from ..time_evo_util.update_path import TDVPUpdatePathFinder , TDVPUpdatePathFinder_LeafToLeaf
 
 class TDVPAlgorithm(TTNTimeEvolution):
     """
@@ -87,10 +87,10 @@ class TDVPAlgorithm(TTNTimeEvolution):
         """
         if self.state.orthogonality_center_id is None or force_new:
             self.state.canonical_form(self.update_path[0],
-                                      mode=SplitMode.KEEP)
+                                      mode=self.config.Expansion_params["QR_Mode"])
         else:
             self.state.move_orthogonalization_center(self.update_path[0],
-                                                     mode=SplitMode.KEEP)
+                                                     mode=self.config.Expansion_params["QR_Mode"])
 
     def _find_tdvp_orthogonalization_path(self,
                                           update_path: List[str]) -> List[List[str]]:
@@ -120,7 +120,8 @@ class TDVPAlgorithm(TTNTimeEvolution):
             List[str]: The order in which the nodes in the TTN should be time
                 evolved.
         """
-        return TDVPUpdatePathFinder(self.state).find_path()
+        #return TDVPUpdatePathFinder(self.state).find_path()
+        return TDVPUpdatePathFinder_LeafToLeaf(self.state).find_path()
 
     def _init_partial_tree_cache(self) -> SandwichCache:
         """
@@ -182,9 +183,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
                                                   hamiltonian_eff_site,
                                                   self.time_step_size * time_step_factor,
                                                   forward =True,
-                                                  Lanczos = self.config.Lanczos_evolution,
-                                                  lanczos_params = self.config.Lanczos_params,
-                                                  lanczos_cutoff = self.config.Expansion_params["lanczos_cutoff"])
+                                                  parameters = self.config.ExpAction_params)
 
     def _move_orth_and_update_cache_for_path(self, path: List[str]):
         """
@@ -201,6 +200,6 @@ class TDVPAlgorithm(TTNTimeEvolution):
         assert self.state.orthogonality_center_id == path[0]
         for i, node_id in enumerate(path[1:]):
             self.state.move_orthogonalization_center(node_id,
-                                                     mode=SplitMode.KEEP)
+                                                     mode=self.config.Expansion_params["QR_Mode"])
             previous_node_id = path[i] # +0, because path starts at 1.
             self.partial_tree_cache.update_tree_cache(previous_node_id, node_id)

@@ -17,10 +17,6 @@ from ..util.tensor_splitting import SVDParameters , ContractionMode , SplitMode
 from .Subspace_expansion import KrylovBasisMode
 from .Lattice_simulation.util import T3NMode
 
-import tenpy 
-from tenpy.algorithms.tdvp import LanczosEvolution
-from tenpy.linalg.np_conserved import Array, LegCharge, ChargeInfo
-
 import logging
 logging.getLogger('tenpy').setLevel(logging.WARNING)
 
@@ -46,21 +42,29 @@ class TTNTimeEvolutionConfig:
     This configuration class specifies additional parameters for the time evolution
     of a tree tensor network, providing type hints and better documentation.
     """
+
+    DEFAULT_TJM_PARAMS = {
+        "N": 1, }
+
     # Default values as class-level constants
-    DEFAULT_LANCZOS_PARAMS = {
-        'N_min':  5,
-        'N_max':  20,
-        'P_tol':  1e-14,
-        'reortho': False,
-    }
+    DEFAULT_EXPACTION_PARAMS = {
+        "mode" : "Krylov",    # no higher approximation in default mode
+        "size_threshold" : 500, 
+
+        # "Krylov" parameters
+        "Krylov_tol"  : 1e-5,
+        "krylov_dim"   : 5,
+
+        # "Taylor" parameters
+        "Taylor_num_terms"  : 3,}
 
     DEFAULT_EXPANSION_PARAMS = {
+        "QR_Mode" : SplitMode.REDUCED,
         "ExpansionMode": ExpansionMode.No_expansion,
         "KrylovBasisMode": KrylovBasisMode.apply_1st_order_expansion,
         "num_vecs": 3,
         "tau": 1e-2,
         "SVDParameters": SVDParameters(max_bond_dim=np.inf, rel_tol=-np.inf, total_tol=-np.inf),
-        "lanczos_cutoff": 1000,
         "expansion_steps": 10,
         "InitExpST" : 0.1 , # Init expansion start time
         "ConvThresh" : 1e-2, # convergence threshold
@@ -73,11 +77,11 @@ class TTNTimeEvolutionConfig:
         "rel_tot_bond": (0, 20),
         "T3N_dict": None,
         "T3NMode": T3NMode.QR,
-        "T3N_contr_mode" : ContractionMode.EQUAL}
-
+        "T3N_contr_mode" : ContractionMode.EQUAL,}
+    
     record_bond_dim: bool = False
     Lanczos_evolution: Optional[bool] = False
-    Lanczos_params: Optional[Dict[str, Any]] = field(default_factory=lambda: TTNTimeEvolutionConfig.DEFAULT_LANCZOS_PARAMS)
+    ExpAction_params: Optional[Dict[str, Any]] = field(default_factory=lambda: TTNTimeEvolutionConfig.DEFAULT_EXPACTION_PARAMS)
     Expansion_params: Optional[Dict[str, Any]] = field(default_factory=lambda: TTNTimeEvolutionConfig.DEFAULT_EXPANSION_PARAMS)
 
     def __post_init__(self):
@@ -85,9 +89,9 @@ class TTNTimeEvolutionConfig:
         if self.Expansion_params is not None:
             self.Expansion_params = merge_with_defaults(self.Expansion_params, TTNTimeEvolutionConfig.DEFAULT_EXPANSION_PARAMS)
         
-        # Merge user-provided Lanczos_params with the default values
-        if self.Lanczos_params is not None:
-            self.Lanczos_params = merge_with_defaults(self.Lanczos_params, TTNTimeEvolutionConfig.DEFAULT_LANCZOS_PARAMS)
+        # Merge user-provided ExpAction_params with the default values
+        if self.ExpAction_params is not None:
+            self.ExpAction_params = merge_with_defaults(self.ExpAction_params, TTNTimeEvolutionConfig.DEFAULT_EXPACTION_PARAMS)
 
 class TimeEvolution:
     """
@@ -140,7 +144,7 @@ class TimeEvolution:
             self.operators = [operators]
         self._results = None
         self.config = config
-
+        
     def _compute_num_time_steps(self) -> int:
         """
         Compute the number of time steps from attributes.
@@ -253,7 +257,8 @@ class TimeEvolution:
         """
         Returns the times at which the operators were evaluated.
         """
-        return np.real(self.results[-1])
+        return np.real(np.arange(0, self.final_time + self.time_step_size , self.time_step_size))
+
 
     def operator_result(self, operator_id: Union[str, int],
                         realise: bool = False) -> np.ndarray:
@@ -346,6 +351,31 @@ class TimeEvolution:
             kwarg_dict["operator" + str(i)] = operator
             kwarg_dict["operator" + str(i) + "results"] = self.results[i]
         kwarg_dict["time"] = self.results[-1]
+        np.savez(filepath, **kwarg_dict)
+
+    def save_results_to_file_TJM(self, filepath: str):
+        """
+        Saves the data of `self.results` into a .npz file.
+
+        Args:
+            filepath (str): The path of the file.
+        """
+        if not filepath:
+            print("No filepath given. Data wasn't saved.")
+            return
+
+        if self.results is None:
+            print("No results to save.")
+            return
+
+        kwarg_dict = {}
+        for operator in self.operators:
+            site_id = list(operator.keys())[0]
+            if site_id in self.results:
+                kwarg_dict[site_id] = self.results[site_id]
+            else:
+                print(f"Warning: No results found for {site_id}")
+        kwarg_dict["Bond_dims"] = self.bond_dims
         np.savez(filepath, **kwarg_dict)
 
     def init_results(self, evaluation_time: Union[int,"inf"] = 1):
@@ -455,6 +485,29 @@ class TimeEvolution:
             self.save_operator_results(current_results, index)
             self.save_time(time_step, index)
 
+    def evaluate_and_save_results_TJM(self,
+                                  evaluation_time: Union[int,"inf"],
+                                  time_step: int):
+        """
+        Evaluates and saves the operator results at a given time step.
+
+        Args:
+            evaluation_time (Union[int,"inf"]): The difference in time steps after which
+                to evaluate the operator expectation values, e.g. for a value of 10
+                the operators are evaluated at time steps 0,10,20,... If it is set to
+                "inf", the operators are only evaluated at the end of the time.
+            time_step (int): The current time step.
+
+        """
+        if self.should_evaluate(evaluation_time, time_step):
+            index = self.result_index(evaluation_time, time_step)
+
+            for operator in self.operators:
+                site_id = list(operator.keys())[0]
+                exp_val = operator_expectation_value_TJM(self.state ,operator)
+                self._results[site_id][index] = exp_val          
+
+
     def create_run_tqdm(self, pgbar: bool = True) -> Iterable:
         """
         Creates the decorated iterator for the progress bar.
@@ -502,9 +555,7 @@ class TimeEvolution:
 def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
                       time_difference: float,
                       forward: bool = True,
-                      Lanczos = False,
-                      lanczos_params = None,
-                      lanczos_cutoff = None) -> np.ndarray:
+                      parameters = None) -> np.ndarray:
     """
     Time evolves a state psi via a Hamiltonian.
      
@@ -525,51 +576,28 @@ def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
         np.ndarray: The time evolved state
     """
     sign = -2 * forward + 1  # forward=True -> -1; forward=False -> +1    
-    if Lanczos:
-        if  psi.flatten().shape[0] > lanczos_cutoff:
-            psi_shape = psi.shape
-            psi = psi.flatten()
-            exponent = hamiltonian
-
-            # Generate trivial legcharges lists for eff_H and psi
-            legcharges_exponent = generate_trivial_legcharges(exponent.shape)
-            legcharges_psi = generate_trivial_legcharges(psi.shape)
-
-            # Convert data to `Array` instances with trivial legcharges
-            exponent = Array.from_ndarray(exponent, legcharges_exponent, dtype=exponent.dtype)
-            psi = Array.from_ndarray(psi, legcharges_psi, dtype=psi.dtype)
-            
-            lanczos_evolver = LanczosEvolution(exponent, psi, lanczos_params)
-            dt = sign * 1.0j * time_difference
-            psi_evolved, N = lanczos_evolver.run(dt)
-
-            if N >= lanczos_params['N_max']:
-               print(f"Warning: Reached maximum iterations ({N}")
-
-            return np.reshape(psi_evolved.to_ndarray() , psi_shape)
-        else:
-            exponent = sign * 1.0j * hamiltonian * time_difference
-            return np.reshape(fast_exp_action(exponent, psi.flatten(), mode="fastest"),
-                            newshape=psi.shape)             
-    else:
-        exponent = sign * 1.0j * hamiltonian * time_difference
-        return np.reshape(fast_exp_action(exponent, psi.flatten(), mode="fastest"),
-                        newshape=psi.shape)        
-
-# Define a function to generate trivial legcharges for each leg of a tensor
-def generate_trivial_legcharges(tensor_shape):
-    """
-    Generates a list of trivial LegCharge objects for each leg in the tensor.
+    #exponent = sign * 1.0j * hamiltonian * time_difference
+    exponent = hamiltonian
+    t = sign * 1.0j  * time_difference
+    result = np.reshape(fast_exp_action(t,exponent, psi.flatten(), parameters),newshape=psi.shape)        
     
-    Parameters
-    ----------
-    tensor_shape : tuple
-        Shape of the tensor (e.g., eff_H or psi).
-        
-    Returns
-    -------
-    list of LegCharge
-        A list of LegCharge objects with trivial charges for each leg of the tensor.
-    """
-    charge_info = ChargeInfo(mod=[])  # Empty mod implies no charge conservation
-    return [LegCharge.from_trivial(ind_len=dim, chargeinfo=charge_info) for dim in tensor_shape]
+    return result
+
+from ..contractions.state_operator_contraction import expectation_value
+from ..operators.tensorproduct import TensorProduct
+
+def operator_expectation_value_TJM(state , operator): 
+    if isinstance(operator, TensorProduct):
+        assert len(operator) == 1
+        node_id = list(operator.keys())[0]
+        if state.orthogonality_center_id == node_id:
+            #assert state.is_in_canonical_form(node_id=node_id)
+            op = operator[node_id]
+            return state.single_site_operator_expectation_value(node_id, op)
+        else :
+            state_copy = deepcopy(state)
+            state_copy.move_orthogonalization_center(node_id)
+            #assert state_copy.is_in_canonical_form(node_id=node_id)
+            op = operator[node_id]
+            return state_copy.single_site_operator_expectation_value(node_id, op)
+    return expectation_value(state, list(operator.values())[0])

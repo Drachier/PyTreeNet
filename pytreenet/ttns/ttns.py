@@ -49,7 +49,8 @@ class TreeTensorNetworkState(TreeTensorNetwork):
                 return complex(np.tensordot(tensor, tensor_conj, axes=(legs,legs)))
             # Very inefficient, fix later without copy
             other = deepcopy(self)
-        return contract_two_ttns(self, other.conjugate())
+            other_conj = other.conjugate()    
+        return contract_two_ttns(self, other_conj)
 
     def normalise(self) -> float:
         """
@@ -62,7 +63,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         if self.orthogonality_center_id is not None:
             self.tensors[self.orthogonality_center_id] /= norm
         else:
-            self.tensors[self.root_id] /= norm
+            self.tensors[self.root_id] /= np.sqrt(norm)
         return norm
 
     def single_site_operator_expectation_value(self, node_id: str,

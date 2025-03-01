@@ -213,17 +213,4 @@ def rho_structure(vectorized_rho):
         ttno_rho.tensors[node_id] = I
         ttno_rho.nodes[node_id].link_tensor(I)
     return ttno_rho    
-
-def Number_op_total(Lx, Ly, dim=2):
-    creation_op, annihilation_op, number_op = bosonic_operators(dim)
-    conversion_dict = {"n": number_op , f"I{dim}": np.eye(dim)}
-    for dim in range(1, 200):
-        conversion_dict[f"I{dim}"] = np.eye(dim)
-
-    terms = []
-    for x in range(Lx):
-        for y in range(Ly):
-            current_site = f"Vertex({x},{y})"
-            terms.append(TensorProduct({current_site: "n"}))
-
-    return Hamiltonian(terms, conversion_dict) 
+ 
