@@ -7,9 +7,9 @@ from ...util.tensor_splitting import SplitMode
 from ...ttno.ttno_class import TTNO
 from ...ttns import TreeTensorNetworkState
 from ..ttn_time_evolution import TTNTimeEvolutionConfig
-from pytreenet.time_evolution.Subspace_expansion import Krylov_basis , enlarge_ttn1_bond_with_ttn2
+from ...time_evolution.Subspace_expansion import Krylov_basis , enlarge_ttn1_bond_with_ttn2
 from ..Lattice_simulation.util import ttn_to_t3n , t3n_to_ttn
-from pytreenet.time_evolution.Lattice_simulation import build_leg_specs
+from ...time_evolution.Lattice_simulation import build_leg_specs
 from .onesitetdvp_random import OneSiteTDVP_random
 from ...contractions.state_operator_contraction import contract_any
 from ...contractions.state_state_contraction import contract_two_ttns

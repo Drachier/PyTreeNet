@@ -2,7 +2,7 @@
 Utility functions used for multiple special tensor network classes.
 """
 
-from pytreenet.util.ttn_exceptions import (positivity_check,
+from ..util.ttn_exceptions import (positivity_check,
                                            non_negativity_check)
 
 def check_product_state_parameters(state_value: int,

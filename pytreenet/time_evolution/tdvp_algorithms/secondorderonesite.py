@@ -7,10 +7,10 @@ from ...operators.tensorproduct import TensorProduct
 from ...ttno.ttno_class import TTNO
 from ...ttns import TreeTensorNetworkState
 from ..ttn_time_evolution import TTNTimeEvolutionConfig
-from pytreenet.time_evolution.Subspace_expansion import Krylov_basis , enlarge_ttn1_bond_with_ttn2
+from ...time_evolution.Subspace_expansion import Krylov_basis , enlarge_ttn1_bond_with_ttn2
 from ..Lattice_simulation.util import ttn_to_t3n , t3n_to_ttn
-from pytreenet.time_evolution import ExpansionMode
-from pytreenet.time_evolution.Lattice_simulation import build_leg_specs
+from ...time_evolution import ExpansionMode
+from ...time_evolution.Lattice_simulation import build_leg_specs
 from .onesitetdvp import OneSiteTDVP
 from ...contractions.state_operator_contraction import contract_any , expectation_value
 from math import floor

@@ -5,11 +5,11 @@ from typing import Union
 from ...util.tensor_splitting import SplitMode
 from .onesitetdvp import OneSiteTDVP
 from copy import deepcopy
-from pytreenet.time_evolution.Subspace_expansion import expand_subspace 
+from ...time_evolution.Subspace_expansion import expand_subspace 
 from ...util.tensor_splitting import SplitMode
-from pytreenet.time_evolution import ExpansionMode
+from ..time_evolution import ExpansionMode
 from ..Lattice_simulation.util import ttn_to_t3n 
-from pytreenet.time_evolution.Lattice_simulation import build_leg_specs
+from ...time_evolution.Lattice_simulation import build_leg_specs
 from ...contractions.state_operator_contraction import contract_any
 
 
