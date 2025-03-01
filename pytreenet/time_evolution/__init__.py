@@ -9,6 +9,8 @@ from .exact_time_evolution import *
 from .time_evolution import *
 from .time_evoltion_random import *
 from .tdvp import *
+from .tdvp_algorithms.TJM import *
+from .tdvp_algorithms.TJM_random import *
 from .tdvp_algorithms.firstorderonesite import *
 from .tdvp_algorithms.secondorderonesite import *
 from .tdvp_algorithms.secondordertwosite import *
