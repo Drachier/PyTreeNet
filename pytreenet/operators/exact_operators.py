@@ -186,3 +186,102 @@ def exact_zero_state(num_sites: int, local_dimension: int) -> ndarray:
     """
     total_dim = local_dimension**num_sites
     return ket_i(0, total_dim)
+
+def assert_square_matrix(operator: ndarray) -> None:
+    """
+    Assert that an array is a square matrix.
+
+    Args:
+        operator (ndarray): The matrix.
+
+    """
+    assert operator.ndim == 2, \
+        "The operator must be a matrix!"
+    assert operator.shape[0] == operator.shape[1], \
+        "The operator must be square!"
+
+def exact_vectorised_operator(operator: ndarray
+                                ) -> ndarray:
+    """
+    Vectorise an operator.
+
+    Args:
+        operator (ndarray): The operator.
+
+    Returns:
+        ndarray: The vectorised operator.
+
+    """
+    assert_square_matrix(operator)
+    return operator.flatten()
+
+def exact_state_to_density_matrix(state: ndarray,
+                                  vectorise: bool = False
+                                  ) -> ndarray:
+    """
+    Generate the density matrix from a state.
+
+    Args:
+        state (ndarray): The state.
+
+    Returns:
+        ndarray: The density matrix.
+
+    """
+    dens_matrix = state @ state.conj().T
+    if vectorise:
+        return exact_vectorised_operator(dens_matrix)
+    return dens_matrix
+
+def exact_lindbladian(hamiltonian: ndarray,
+                      jump_operators: List[ndarray | tuple[float, ndarray]]
+                      ) -> ndarray:
+    """
+    Generate the exact Lindbladian for a system.
+
+    Args:
+        hamiltonian (ndarray): The Hamiltonian.
+        jump_operators (List[ndarray | tuple[float, ndarray]]): The jump
+            operators. Can be provided on their own or with a coefficient
+            that describes the jump rate. Should already be the full system
+            operators.
+        
+    Returns:
+        ndarray: The Lindbladian superoperator as a matrix.
+
+    """
+    assert_square_matrix(hamiltonian)
+    dim = hamiltonian.shape[0]
+    superop_shape = (dim**2, dim**2)
+    lindbladian = zeros(superop_shape, dtype=complex)
+    identity = eye(dim, dtype=complex)
+    # Hamiltonian part
+    positive = kron(hamiltonian, identity)
+    positive = positive.reshape(superop_shape)
+    negative = -1 * kron(identity, hamiltonian.T)
+    negative = negative.reshape(superop_shape)
+    lindbladian += positive + negative
+    # Jump operator parts
+    for jump_operator in jump_operators:
+        jump_operator_terms = _jump_operator_terms(jump_operator)
+        lindbladian += jump_operator_terms
+    return lindbladian
+
+def _jump_operator_terms(jump_operator: tuple[float, ndarray] | ndarray
+                         ) -> ndarray:
+    """
+    Generates the three terms for a jump operator and adds them.
+    """
+    if isinstance(jump_operator, tuple):
+        jump_operator = jump_operator[0] * jump_operator[1]
+    assert_square_matrix(jump_operator)
+    dim = jump_operator.shape[0]
+    identity = eye(dim, dtype=complex)
+    superop_shape = (dim**2, dim**2)
+    t1 = -1j * kron(jump_operator, jump_operator.conj())
+    t1 = t1.reshape(superop_shape)
+    t2 = -1j / 2 * kron(jump_operator.conj().T @ jump_operator, identity)
+    t2 = t2.reshape(superop_shape)
+    t3 = 1j / 2 * kron(identity, jump_operator.conj().T @ jump_operator)
+    t3 = t3.reshape(superop_shape)
+    return t1 + t2 + t3
