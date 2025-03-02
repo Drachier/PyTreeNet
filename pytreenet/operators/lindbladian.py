@@ -135,8 +135,8 @@ def _add_jump_operators(lindbladian: Hamiltonian,
     """
     real_dict = _find_real_operators(jump_operator_dict)
     for jump_operator in jump_operators:
-        frac = jump_operator[0]
-        coeff = jump_operator[1]
+        frac = -1* jump_operator[0]
+        coeff = jump_operator[1] + "*j"
         op = jump_operator[2]
         ket_tp = op.add_suffix(ket_suffix)
         bra_tp = op.add_suffix(bra_suffix)
@@ -149,7 +149,9 @@ def _add_jump_operators(lindbladian: Hamiltonian,
                       if not real_dict[label]}
     lindbladian.conversion_dictionary.update(conjugate_dict)
     # Add we need to add the numerical values of the coefficients
-    lindbladian.coeffs_mapping.update(jump_coeff_mapping)
+    i_coeffs = {label + "*j": 1j*value
+                for label, value in jump_coeff_mapping.items()}
+    lindbladian.coeffs_mapping.update(i_coeffs)
 
 def _add_jump_operator_products(lindbladian: Hamiltonian,
                                 jump_operators: List[tuple[Fraction, str, TensorProduct]],
@@ -184,8 +186,8 @@ def _add_jump_operator_products(lindbladian: Hamiltonian,
             jop_conv_dict[op+"_H"] = op_value.conj().T
             id_dict[op+"_H"] = False
     for jump_operator in jump_operators:
-        frac = jump_operator[0]
-        coeff = jump_operator[1]
+        frac = -1 * jump_operator[0] / 2
+        coeff = jump_operator[1] + "*j"
         op = jump_operator[2]
         op_adj = op.conjugate_transpose(herm_dict=herm_dict)
         op_mult = op_adj.multiply(op,
@@ -193,10 +195,10 @@ def _add_jump_operator_products(lindbladian: Hamiltonian,
                                   conversion_dict=jop_conv_dict)
         sym_dict = _find_symmetric_operators(jop_conv_dict)
         op_mult_transp = op_mult.transpose(sym_dict)
-        new_frac = -1 * frac / 2
+        new_frac = -1 * frac
         ket_tp = op_mult.add_suffix(ket_suffix)
         bra_tp = op_mult_transp.add_suffix(bra_suffix)
-        lindbladian.add_term((new_frac, coeff, ket_tp))
+        lindbladian.add_term((frac, coeff, ket_tp))
         lindbladian.add_term((new_frac, coeff, bra_tp))
         lindbladian.conversion_dictionary.update(jop_conv_dict)
         transpose_dict = {label + "_T": operator.T

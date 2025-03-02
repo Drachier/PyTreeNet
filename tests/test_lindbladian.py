@@ -156,8 +156,8 @@ class TestAddJumpOperatorTerms(TestCase):
         self.assertEqual(len(lindbladian.terms), 2)
         for i, _ in enumerate(self.terms):
             l_term = lindbladian.terms[i]
-            self.assertEqual(l_term[0], self.factors[i])
-            self.assertEqual(l_term[1], self.symb_factors[i])
+            self.assertEqual(l_term[0], -1*self.factors[i])
+            self.assertEqual(l_term[1], self.symb_factors[i] + "*j")
             self.assertEqual(len(l_term[2]), 4)
         # term1
         op1 = lindbladian.terms[0][2]
@@ -187,13 +187,13 @@ class TestAddJumpOperatorTerms(TestCase):
         self.assertEqual(len(linbladian.terms), 4)
         # test prefactors
         self.assertEqual(linbladian.terms[0][0], -1*self.factors[0] / 2)
-        self.assertEqual(linbladian.terms[1][0], -1*self.factors[0] / 2)
+        self.assertEqual(linbladian.terms[1][0], self.factors[0] / 2)
         self.assertEqual(linbladian.terms[2][0], -1*self.factors[1] / 2)
-        self.assertEqual(linbladian.terms[3][0], -1*self.factors[1] / 2)
-        self.assertEqual(linbladian.terms[0][1], self.symb_factors[0])
-        self.assertEqual(linbladian.terms[1][1], self.symb_factors[0])
-        self.assertEqual(linbladian.terms[2][1], self.symb_factors[1])
-        self.assertEqual(linbladian.terms[3][1], self.symb_factors[1])
+        self.assertEqual(linbladian.terms[3][0], self.factors[1] / 2)
+        self.assertEqual(linbladian.terms[0][1], self.symb_factors[0] + "*j")
+        self.assertEqual(linbladian.terms[1][1], self.symb_factors[0] + "*j")
+        self.assertEqual(linbladian.terms[2][1], self.symb_factors[1] + "*j")
+        self.assertEqual(linbladian.terms[3][1], self.symb_factors[1] + "*j")
         # test operators
         # term1
         op1 = linbladian.terms[0][2]
@@ -269,8 +269,8 @@ class TestLindbladianGeneration(TestCase):
         self.assertEqual(lindbladian.terms[3][2]["node3"+bra_suff], "D")
         # Jump operator terms
         for i, term in enumerate(lindbladian.terms[4:6]):
-            self.assertEqual(term[0], factorsj[i])
-            self.assertEqual(term[1], symb_factorsj[i])
+            self.assertEqual(term[0], -1*factorsj[i])
+            self.assertEqual(term[1], symb_factorsj[i] + "*j")
         self.assertEqual(lindbladian.terms[4][2]["node1"+ket_suff], "Aj")
         self.assertEqual(lindbladian.terms[4][2]["node2"+ket_suff], "Bj")
         self.assertEqual(lindbladian.terms[4][2]["node1"+bra_suff], "Aj_conj")
@@ -281,8 +281,11 @@ class TestLindbladianGeneration(TestCase):
         self.assertEqual(lindbladian.terms[5][2]["node3"+bra_suff], "Dj_conj")
         # Jump operator products
         for i, term in enumerate(lindbladian.terms[6:]):
-            self.assertEqual(term[0], -1*factorsj[i//2] / 2)
-            self.assertEqual(term[1], symb_factorsj[i//2])
+            if i % 2 == 0:
+                self.assertEqual(term[0], -1*factorsj[i//2] / 2)
+            else:
+                self.assertEqual(term[0], factorsj[i//2] / 2)
+            self.assertEqual(term[1], symb_factorsj[i//2] + "*j")
         self.assertEqual(lindbladian.terms[6][2]["node1"+ket_suff], "Aj_H_mult_Aj")
         self.assertEqual(lindbladian.terms[6][2]["node2"+ket_suff], "Bj")
         self.assertEqual(lindbladian.terms[7][2]["node1"+bra_suff], "Aj_H_mult_Aj_T")
@@ -302,7 +305,9 @@ class TestLindbladianGeneration(TestCase):
             self.assertIn(key, lindbladian.conversion_dictionary)
         # coeffs mapping
         boundled_map = copy(coeff_map)
-        boundled_map.update(jump_coeff_mapping)
+        boundled_map.update({key + "*j": value*1j
+                             for key, value in jump_coeff_mapping.items()})
+        self.assertEqual(lindbladian.coeffs_mapping, boundled_map)
 
 if __name__ == "__main__":
     main_unit()
