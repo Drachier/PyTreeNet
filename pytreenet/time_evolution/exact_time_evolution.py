@@ -84,7 +84,7 @@ class ExactTimeEvolution(TimeEvolution):
             complex: The expectation value of the operator.
         """
         if self.config.open:
-            dim = np.sqrt(self.state.shape[0])
+            dim = operator.shape[0]
             unvectorised_state = self.state.reshape(dim,dim)
             return np.trace(operator @ unvectorised_state)
         return self.state.conj().T @ operator @ self.state

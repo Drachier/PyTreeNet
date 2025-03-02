@@ -3,7 +3,7 @@ This module contains exact full matrix operators for many body systems.
 """
 from typing import List, Dict
 
-from numpy import ndarray, kron, eye, zeros, asarray
+from numpy import ndarray, kron, eye, zeros, asarray, outer
 
 from .common_operators import pauli_matrices, ket_i
 
@@ -228,7 +228,7 @@ def exact_state_to_density_matrix(state: ndarray,
         ndarray: The density matrix.
 
     """
-    dens_matrix = state @ state.conj().T
+    dens_matrix = outer(state, state.conj())
     if vectorise:
         return exact_vectorised_operator(dens_matrix)
     return dens_matrix
