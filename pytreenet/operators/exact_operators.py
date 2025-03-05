@@ -75,23 +75,26 @@ def _exact_abstract_ising_model(coupling_strength: float,
 
     """
     local_dim = 2
-    hamiltonian = zeros((local_dim**num_sites, local_dim**num_sites),
+    dim = local_dim**num_sites
+    hamiltonian = zeros((dim, dim),
                         dtype=complex)
     identity = eye(local_dim)
     # Two site terms
+    factor_op = -1 * coupling_strength * nn_op
     for sitei in range(num_sites-1):
         term = 1
         for sitej in range(num_sites):
             if sitej == sitei:
-                term = kron(term, -1 * coupling_strength * nn_op)
+                term = kron(term, factor_op)
             elif sitej == sitei+1:
                 term = kron(term, nn_op)
             else:
                 term = kron(term, identity)
         hamiltonian += term
     # Single site terms
+    ss_op = -1 * g * ext_magn_op
     for sitei in range(num_sites):
-        term = exact_single_site_operator(-1 * g * ext_magn_op,
+        term = exact_single_site_operator(ss_op,
                                           sitei,
                                           num_sites)
         hamiltonian += term
@@ -159,9 +162,9 @@ def exact_single_site_operator(local_operator: ndarray,
         ndarray: The local operator extended to the full chain.
 
     """
-    assert local_operator.shape[0] == local_operator.shape[1] \
-        and local_operator.shape[0] == 2, \
-        "**local_operator** must be a 2x2 matrix."
+    assert_square_matrix(local_operator)
+    assert site_index < num_sites, \
+        "The position of the operator must be within the chain!"
     local_dim = local_operator.shape[0]
     identity = eye(local_dim)
     operator = asarray([[1]])
@@ -254,18 +257,27 @@ def exact_lindbladian(hamiltonian: ndarray,
     dim = hamiltonian.shape[0]
     superop_shape = (dim**2, dim**2)
     lindbladian = zeros(superop_shape, dtype=complex)
-    identity = eye(dim, dtype=complex)
     # Hamiltonian part
-    positive = kron(hamiltonian, identity)
-    positive = positive.reshape(superop_shape)
-    negative = -1 * kron(identity, hamiltonian.T)
-    negative = negative.reshape(superop_shape)
-    lindbladian += positive + negative
+    ham_part = _hamiltonian_part(hamiltonian)
+    lindbladian += ham_part
     # Jump operator parts
     for jump_operator in jump_operators:
         jump_operator_terms = _jump_operator_terms(jump_operator)
         lindbladian += jump_operator_terms
     return lindbladian
+
+def _hamiltonian_part(hamiltonian: ndarray
+                      ) -> ndarray:
+    """
+    Returns the Hamiltonian part of the Lindbladian.
+    """
+    dim = hamiltonian.shape[0]
+    identity = eye(dim, dtype=complex)
+    positive = kron(hamiltonian, identity)
+    negative = -1 * kron(identity, hamiltonian.T)
+    part = positive + negative
+    return part
+
 
 def _jump_operator_terms(jump_operator: tuple[float, ndarray] | ndarray
                          ) -> ndarray:
@@ -273,15 +285,14 @@ def _jump_operator_terms(jump_operator: tuple[float, ndarray] | ndarray
     Generates the three terms for a jump operator and adds them.
     """
     if isinstance(jump_operator, tuple):
+        assert len(jump_operator) == 2, \
+            "The jump operator must be a tuple with a coefficient and the operator!"
         jump_operator = jump_operator[0] * jump_operator[1]
+        print(jump_operator)
     assert_square_matrix(jump_operator)
     dim = jump_operator.shape[0]
     identity = eye(dim, dtype=complex)
-    superop_shape = (dim**2, dim**2)
     t1 = 1j * kron(jump_operator, jump_operator.conj())
-    t1 = t1.reshape(superop_shape)
     t2 = -1j / 2 * kron(jump_operator.conj().T @ jump_operator, identity)
-    t2 = t2.reshape(superop_shape)
-    t3 = 1j / 2 * kron(identity, jump_operator.conj().T @ jump_operator)
-    t3 = t3.reshape(superop_shape)
+    t3 = 1j / 2 * kron(identity, (jump_operator.conj().T @ jump_operator).T)
     return t1 + t2 + t3
