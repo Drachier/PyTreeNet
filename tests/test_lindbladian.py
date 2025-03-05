@@ -156,7 +156,7 @@ class TestAddJumpOperatorTerms(TestCase):
         self.assertEqual(len(lindbladian.terms), 2)
         for i, _ in enumerate(self.terms):
             l_term = lindbladian.terms[i]
-            self.assertEqual(l_term[0], -1*self.factors[i])
+            self.assertEqual(l_term[0], self.factors[i])
             self.assertEqual(l_term[1], self.symb_factors[i] + "*j")
             self.assertEqual(len(l_term[2]), 4)
         # term1
@@ -269,7 +269,7 @@ class TestLindbladianGeneration(TestCase):
         self.assertEqual(lindbladian.terms[3][2]["node3"+bra_suff], "D")
         # Jump operator terms
         for i, term in enumerate(lindbladian.terms[4:6]):
-            self.assertEqual(term[0], -1*factorsj[i])
+            self.assertEqual(term[0], factorsj[i])
             self.assertEqual(term[1], symb_factorsj[i] + "*j")
         self.assertEqual(lindbladian.terms[4][2]["node1"+ket_suff], "Aj")
         self.assertEqual(lindbladian.terms[4][2]["node2"+ket_suff], "Bj")

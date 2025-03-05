@@ -278,7 +278,7 @@ def _jump_operator_terms(jump_operator: tuple[float, ndarray] | ndarray
     dim = jump_operator.shape[0]
     identity = eye(dim, dtype=complex)
     superop_shape = (dim**2, dim**2)
-    t1 = -1j * kron(jump_operator, jump_operator.conj())
+    t1 = 1j * kron(jump_operator, jump_operator.conj())
     t1 = t1.reshape(superop_shape)
     t2 = -1j / 2 * kron(jump_operator.conj().T @ jump_operator, identity)
     t2 = t2.reshape(superop_shape)

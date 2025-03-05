@@ -135,7 +135,7 @@ def _add_jump_operators(lindbladian: Hamiltonian,
     """
     real_dict = _find_real_operators(jump_operator_dict)
     for jump_operator in jump_operators:
-        frac = -1* jump_operator[0]
+        frac = jump_operator[0]
         coeff = jump_operator[1] + "*j"
         op = jump_operator[2]
         ket_tp = op.add_suffix(ket_suffix)
