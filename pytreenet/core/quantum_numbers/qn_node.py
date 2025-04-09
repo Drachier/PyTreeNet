@@ -27,9 +27,8 @@ class QNNode(Node):
         """
         super().__init__(tensor, identifier)
         if qn is not None and tensor is not None:
-            if len(qn) != tensor.ndim:
-                errstr = "Quantum numbers must match tensor dimensions."
-                raise ValueError(errstr)
+            assert len(qn) == tensor.ndim, \
+                "Quantum numbers must match tensor dimensions!"
         self._qn = qn
 
     @property
@@ -82,9 +81,24 @@ class QNNode(Node):
                 the tensor and quantum numbers.
         """
         tensor, qn = tensor
-        assert len(qn) == tensor.ndim, "Quantum numbers must match tensor dimensions."
+        assert len(qn) == tensor.ndim, \
+            "Quantum numbers must match tensor dimensions."
         super().link_tensor(tensor)
         self._qn = qn
+
+    def qn_valid(self) -> bool:
+        """
+        The quantum numbers are valid, if they are not None and
+        their dimension matches the tensor dimensions.
+        """
+        if self.qn is None:
+            return False
+        if len(self.qn) != len(self.shape):
+            return False
+        for dim, qn in zip(self.shape, self.qn):
+            if dim != len(qn):
+                return False
+        return True
 
     def get_neighbour_qn(self,
                          neighbour_id: str
