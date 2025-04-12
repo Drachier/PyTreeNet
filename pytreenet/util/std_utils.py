@@ -1,7 +1,7 @@
 """
 Some useful tools that do not fit into any other category.
 """
-from typing import Tuple, Any, Dict, List
+from typing import Iterator, Any, Dict, List
 from copy import deepcopy, copy
 from collections import Counter
 
@@ -78,7 +78,7 @@ def compare_lists_by_identity(list1: List, list2: List) -> bool:
         # Compare the identity (memory address) of each object in the lists
         return all(id(obj1) == id(obj2) for obj1, obj2 in zip(list1, list2))
 
-def permute_tuple(tup: Tuple, permutation: List[int]) -> Tuple:
+def permute_iterator(it: Iterator, permutation: List[int]) -> Iterator:
     """
     Permute the elements of a tuple.
 
@@ -89,8 +89,8 @@ def permute_tuple(tup: Tuple, permutation: List[int]) -> Tuple:
     Returns:
         Tuple: The permuted tuple.
     """
-    assert len(tup) == len(permutation)
-    return tuple(tup[i] for i in permutation)
+    assert len(it) == len(permutation)
+    return it.__class__(it[i] for i in permutation)
 
 def fast_exp_action(exponent: np.ndarray,
                     vector: np.ndarray,
