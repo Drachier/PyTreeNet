@@ -2,13 +2,17 @@ import unittest
 from copy import deepcopy
 from fractions import Fraction
 
-import pytreenet as ptn
-from pytreenet.operators.hamiltonian import deal_with_term_input
+from numpy import eye
+
+from pytreenet.core.ttn import TreeTensorNetwork
 from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.random import (random_small_ttns,
                               random_tensor_product,
                               random_tensor_node,
                               crandn)
+
+from pytreenet.operators.hamiltonian import (Hamiltonian,
+                                             deal_with_term_input)
 
 class TestDealWithTermInput(unittest.TestCase):
 
@@ -53,21 +57,21 @@ class TestDealWithTermInput(unittest.TestCase):
 class TestHamiltonianInitialisation(unittest.TestCase):
 
     def test_empty_init(self):
-        ham = ptn.Hamiltonian()
+        ham = Hamiltonian()
         self.assertEqual(0, len(ham.terms))
         self.assertEqual(0, len(ham.conversion_dictionary))
 
     def test_init_with_terms(self):
-        terms = [ptn.TensorProduct({"site1": "X", "site2": "Y"}),
-                 ptn.TensorProduct({"site2": "Z", "site3": "Y"})]
-        ham = ptn.Hamiltonian(terms=deepcopy(terms))
+        terms = [TensorProduct({"site1": "X", "site2": "Y"}),
+                 TensorProduct({"site2": "Z", "site3": "Y"})]
+        ham = Hamiltonian(terms=deepcopy(terms))
         self.assertEqual((Fraction(1),"1",terms[0]), ham.terms[0])
         self.assertEqual((Fraction(1),"1",terms[1]), ham.terms[1])
         self.assertEqual(0, len(ham.conversion_dictionary))
 
     def test_init_with_conversion_dict(self):
         conv_dict = {"A": crandn((2,2)), "X": crandn((4,4))}
-        ham = ptn.Hamiltonian(conversion_dictionary=conv_dict)
+        ham = Hamiltonian(conversion_dictionary=conv_dict)
         self.assertEqual(0, len(ham.terms))
         self.assertEqual(conv_dict, ham.conversion_dictionary)
 
@@ -77,29 +81,29 @@ class TestHamiltonianSimpleTree(unittest.TestCase):
         # Numeric Hamiltonian
         self.ref_ttn = random_small_ttns()
         self.terms_num = [random_tensor_product(self.ref_ttn, 2) for _ in range(0,3)]
-        self.ham_num = ptn.Hamiltonian(terms=deepcopy(self.terms_num))
+        self.ham_num = Hamiltonian(terms=deepcopy(self.terms_num))
 
         # Symbolic Hamiltonian
-        self.terms_symb = [ptn.TensorProduct({"root": "A", "c1": "B"}),
-                           ptn.TensorProduct({"root": "A", "c2": "C"})]
+        self.terms_symb = [TensorProduct({"root": "A", "c1": "B"}),
+                           TensorProduct({"root": "A", "c2": "C"})]
         self.conversion_dict = {"A": crandn((2,2)),
                                 "B": crandn((3,3)),
                                 "C": crandn((4,4))}
-        self.ham_symb = ptn.Hamiltonian(terms=deepcopy(self.terms_symb),
+        self.ham_symb = Hamiltonian(terms=deepcopy(self.terms_symb),
                                         conversion_dictionary=self.conversion_dict)
 
         # Empty Hamiltonian
-        self.empty_ham = ptn.Hamiltonian()
+        self.empty_ham = Hamiltonian()
 
     def test_add_term(self):
-        term = ptn.TensorProduct({"c2": "C", "c1": "B"})
+        term = TensorProduct({"c2": "C", "c1": "B"})
         self.ham_symb.add_term(deepcopy(term))
         self.assertEqual(3, len(self.ham_symb.terms))
         self.assertEqual(term, self.ham_symb.terms[-1][2])
 
     def test_add_terms(self):
-        term = ptn.TensorProduct({"c2": "C", "c1": "B"})
-        term2 = ptn.TensorProduct({"c2": "F", "c1": "B"})
+        term = TensorProduct({"c2": "C", "c1": "B"})
+        term2 = TensorProduct({"c2": "F", "c1": "B"})
         self.ham_symb.add_multiple_terms([term, term2])
         self.assertEqual(4, len(self.ham_symb.terms))
 
@@ -110,7 +114,7 @@ class TestHamiltonianSimpleTree(unittest.TestCase):
         self.assertEqual(2, len(self.ham_symb.terms))
 
     def test_addition_term(self):
-        term = ptn.TensorProduct({"c2": "C", "c1": "B"})
+        term = TensorProduct({"c2": "C", "c1": "B"})
         self.ham_symb = self.ham_symb + deepcopy(term)
         self.assertEqual(3, len(self.ham_symb.terms))
         self.assertEqual(term, self.ham_symb.terms[-1][2])
@@ -128,7 +132,7 @@ class TestHamiltonianSimpleTree(unittest.TestCase):
         self.assertTrue(self.ham_num.is_compatible_with(self.ref_ttn))
 
     def test_is_compatible_with_false(self):
-        ttn = ptn.TreeTensorNetwork()
+        ttn = TreeTensorNetwork()
         node, tensor = random_tensor_node((2,3,4), identifier="False!")
         ttn.add_root(node, tensor)
         self.assertFalse(self.ham_num.is_compatible_with(ttn))
@@ -144,6 +148,23 @@ class TestHamiltonianSimpleTree(unittest.TestCase):
         # The old terms, shouldn't be changed
         for term in self.ham_symb.terms:
             self.assertEqual(2, len(term[2]))
+
+class TestConvDictMethods(unittest.TestCase):
+
+    def test_include_identities_integer(self):
+        ham = Hamiltonian()
+        ham.include_identities(4)
+        self.assertIn("I4",ham.conversion_dictionary)
+        self.assertTrue((ham.conversion_dictionary["I4"] == eye(4)).all())
+
+    def test_include_identities_list(self):
+        ham = Hamiltonian()
+        dims = [1,2]
+        ham.include_identities(dims)
+        self.assertIn("I1", ham.conversion_dictionary)
+        self.assertIn("I2", ham.conversion_dictionary)
+        self.assertTrue((ham.conversion_dictionary["I1"] == eye(1)).all())
+        self.assertTrue((ham.conversion_dictionary["I2"] == eye(2)).all())
 
 if __name__ == "__main__":
     unittest.main()

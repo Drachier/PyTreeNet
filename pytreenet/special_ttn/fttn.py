@@ -24,6 +24,7 @@ from ..core.ttn import TreeTensorNetwork
 from ..ttns import TreeTensorNetworkState
 from ..core.node import Node
 from ..ttno.ttno_class import TTNO
+from ..util.ttn_exceptions import positivity_check
 
 class ForkTreeTensorNetwork(TreeTensorNetwork):
     """
@@ -194,8 +195,64 @@ class ForkTreeProductState(ForkTreeTensorNetwork, TreeTensorNetworkState):
     
     Every node has one open leg, that may be trivial.
     """
-    def __init__(self, main_identifier_prefix: str = "main", subchain_identifier_prefix: str = "sub"):
-        super().__init__(main_identifier_prefix, subchain_identifier_prefix)
+    def __init__(self,
+                 main_identifier_prefix: str = "main",
+                 subchain_identifier_prefix: str = "sub"):
+        super().__init__(main_identifier_prefix,
+                         subchain_identifier_prefix)
+
+def constant_ftps(local_state: np.ndarray,
+                  width: int,
+                  height: int,
+                  bond_dim: int = 1,
+                  main_identifier_prefix: str = "main",
+                  subchain_identifier_prefix: str = "sub"
+                  ) -> ForkTreeProductState:
+    """
+    Generates an FTPS that has the same tensor at every node.
+
+    Args:
+        local_tensor (np.ndarray): The tensor that is to be used at every node.
+        width (int): The number of nodes in the main chain.
+        height (int): The number of nodes in each subchain.
+        bond_dim (int, optional): The bond dimension to which the tensors are
+            extended. Defaults to 1.
+
+    Returns:
+        ForkTreeProductState: The generated FTPS.
+    
+    """
+    positivity_check(width, "width")
+    positivity_check(height, "height")
+    positivity_check(bond_dim, "bond_dim")
+    assert local_state.ndim == 1, "The local state has to be a vector!"
+    phys_dim = local_state.shape[0]
+    ftps = ForkTreeProductState(main_identifier_prefix=main_identifier_prefix,
+                                subchain_identifier_prefix=subchain_identifier_prefix)
+    # Add main chains
+    for i in range(height):
+        if i in [0, height - 1]:
+            tensor = np.zeros((bond_dim, bond_dim, phys_dim),
+                              dtype=local_state.dtype)
+            tensor[0, 0, :] = local_state
+        else:
+            tensor = np.zeros((bond_dim, bond_dim, bond_dim, phys_dim),
+                              dtype=local_state.dtype)
+            tensor[0, 0, 0, :] = local_state
+        ftps.add_main_chain_node(tensor)
+    # Add subchains
+    for i in range(height):
+        for j in range(width - 1):
+            if j == width - 2:
+                tensor = np.zeros((bond_dim, phys_dim),
+                                  dtype=local_state.dtype)
+                tensor[0, :] = local_state
+            else:
+                tensor = np.zeros((bond_dim, bond_dim, phys_dim),
+                                  dtype=local_state.dtype)
+                tensor[0, 0, :] = local_state
+            ftps.add_sub_chain_node(tensor, i)
+    return ftps
 
 class ForkTreeProductOperator(ForkTreeTensorNetwork, TTNO):
     """

@@ -7,7 +7,7 @@ This leads to the concept of a tree tensor network density operator (TTNDO).
 from re import match
 from copy import deepcopy
 
-from numpy import eye, ndarray
+from numpy import eye, ndarray, pad
 
 from ..core.node import Node
 from .ttns import TreeTensorNetworkState
@@ -39,7 +39,7 @@ class SymmetricTTNDO(TreeTensorNetworkState):
         Args:
             identifier (str): The identifier of the new root.
             dimension (int, optional): The dimension of the virtual legs of the
-                new root. Defaults to 1.
+                new root. Defaults to 2.
         
         """
         positivity_check(dimension, "dimension")
@@ -251,3 +251,62 @@ class SymmetricTTNDO(TreeTensorNetworkState):
         """
         tensor_product = TensorProduct({node_id: operator})
         return self.operator_expectation_value(tensor_product)
+
+def from_ttns(ttns: TreeTensorNetworkState,
+                root_id: str = "ttndo_root",
+                root_bond_dim: int = 2
+                ) -> SymmetricTTNDO:
+    """
+    Creates a TTNDO from a TTN.
+
+    Args:
+        ttns (TreeTensorNetworkState): The TTN to convert.
+        root_id (str, optional): The identifier of the new root. Defaults to
+            "ttndo_root".
+        root_bond_dim (int, optional): The bond dimension of the new root.
+            Defaults to 2.
+
+    Returns:
+        SymmetricTTNDO: The resulting TTNDO.
+    """
+    ttndo = SymmetricTTNDO()
+    ttndo.add_trivial_root(root_id,
+                           dimension=root_bond_dim)
+    # Now we attach the root
+    root_node, root_tensor = ttns.root
+    ttns_root_id = root_node.identifier
+    # We need to add a leg to be attached to the ttndo root.
+    new_shape = tuple([1] + list(root_node.shape))
+    root_tensor = deepcopy(root_tensor).reshape(new_shape)
+    padding = [(0,0) for _ in range(len(root_tensor.shape))]
+    padding[0] = (0,root_bond_dim-1)
+    root_tensor = pad(root_tensor, padding)
+    ttndo.add_symmetric_children_to_parent(ttns_root_id,
+                                           root_tensor,
+                                           root_tensor.conj(),
+                                           0,
+                                           root_id,
+                                           0,
+                                           parent_bra_leg=1
+                                           )
+    # Now we need to attach the children
+    _rec_add_children(ttns, ttndo, root_node)
+    return ttndo
+
+def _rec_add_children(ttns: TreeTensorNetworkState,
+                      ttndo: SymmetricTTNDO,
+                      node: Node):
+    """
+    Recursively adds children to the TTNDO.
+    """
+    for child_id in node.children:
+        child_node, child_tensor = ttns[child_id]
+        # If the parent is the root, it got an additional leg now
+        parent_leg = node.neighbour_index(child_id) + int(node.is_root())
+        ttndo.add_symmetric_children_to_parent(child_id,
+                                               child_tensor,
+                                               child_tensor.conj(),
+                                               child_node.parent_leg,
+                                               node.identifier,
+                                               parent_leg)
+        _rec_add_children(ttns, ttndo, child_node)

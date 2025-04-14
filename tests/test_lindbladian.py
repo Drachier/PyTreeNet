@@ -2,10 +2,16 @@ from unittest import TestCase, main as main_unit
 from fractions import Fraction
 from copy import copy
 
-from numpy import asarray
+from numpy import asarray, zeros, eye, kron, allclose, zeros_like, sqrt
 
 from pytreenet.operators.hamiltonian import Hamiltonian
 from pytreenet.operators.tensorproduct import TensorProduct
+from pytreenet.operators.common_operators import ket_i
+from pytreenet.special_ttn.binary import generate_binary_ttns
+from pytreenet.ttns.ttndo import from_ttns
+from pytreenet.random import crandn
+from pytreenet.operators.exact_operators import exact_lindbladian
+from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
 from pytreenet.operators.lindbladian import (_find_real_operators,
                                              _find_hermitian_operators,
                                              _find_identity_operators,
@@ -157,7 +163,7 @@ class TestAddJumpOperatorTerms(TestCase):
         for i, _ in enumerate(self.terms):
             l_term = lindbladian.terms[i]
             self.assertEqual(l_term[0], self.factors[i])
-            self.assertEqual(l_term[1], self.symb_factors[i])
+            self.assertEqual(l_term[1], self.symb_factors[i] + "*j")
             self.assertEqual(len(l_term[2]), 4)
         # term1
         op1 = lindbladian.terms[0][2]
@@ -187,13 +193,13 @@ class TestAddJumpOperatorTerms(TestCase):
         self.assertEqual(len(linbladian.terms), 4)
         # test prefactors
         self.assertEqual(linbladian.terms[0][0], -1*self.factors[0] / 2)
-        self.assertEqual(linbladian.terms[1][0], -1*self.factors[0] / 2)
+        self.assertEqual(linbladian.terms[1][0], self.factors[0] / 2)
         self.assertEqual(linbladian.terms[2][0], -1*self.factors[1] / 2)
-        self.assertEqual(linbladian.terms[3][0], -1*self.factors[1] / 2)
-        self.assertEqual(linbladian.terms[0][1], self.symb_factors[0])
-        self.assertEqual(linbladian.terms[1][1], self.symb_factors[0])
-        self.assertEqual(linbladian.terms[2][1], self.symb_factors[1])
-        self.assertEqual(linbladian.terms[3][1], self.symb_factors[1])
+        self.assertEqual(linbladian.terms[3][0], self.factors[1] / 2)
+        self.assertEqual(linbladian.terms[0][1], self.symb_factors[0] + "*j")
+        self.assertEqual(linbladian.terms[1][1], self.symb_factors[0] + "*j")
+        self.assertEqual(linbladian.terms[2][1], self.symb_factors[1] + "*j")
+        self.assertEqual(linbladian.terms[3][1], self.symb_factors[1] + "*j")
         # test operators
         # term1
         op1 = linbladian.terms[0][2]
@@ -270,7 +276,7 @@ class TestLindbladianGeneration(TestCase):
         # Jump operator terms
         for i, term in enumerate(lindbladian.terms[4:6]):
             self.assertEqual(term[0], factorsj[i])
-            self.assertEqual(term[1], symb_factorsj[i])
+            self.assertEqual(term[1], symb_factorsj[i] + "*j")
         self.assertEqual(lindbladian.terms[4][2]["node1"+ket_suff], "Aj")
         self.assertEqual(lindbladian.terms[4][2]["node2"+ket_suff], "Bj")
         self.assertEqual(lindbladian.terms[4][2]["node1"+bra_suff], "Aj_conj")
@@ -281,8 +287,11 @@ class TestLindbladianGeneration(TestCase):
         self.assertEqual(lindbladian.terms[5][2]["node3"+bra_suff], "Dj_conj")
         # Jump operator products
         for i, term in enumerate(lindbladian.terms[6:]):
-            self.assertEqual(term[0], -1*factorsj[i//2] / 2)
-            self.assertEqual(term[1], symb_factorsj[i//2])
+            if i % 2 == 0:
+                self.assertEqual(term[0], -1*factorsj[i//2] / 2)
+            else:
+                self.assertEqual(term[0], factorsj[i//2] / 2)
+            self.assertEqual(term[1], symb_factorsj[i//2] + "*j")
         self.assertEqual(lindbladian.terms[6][2]["node1"+ket_suff], "Aj_H_mult_Aj")
         self.assertEqual(lindbladian.terms[6][2]["node2"+ket_suff], "Bj")
         self.assertEqual(lindbladian.terms[7][2]["node1"+bra_suff], "Aj_H_mult_Aj_T")
@@ -302,7 +311,101 @@ class TestLindbladianGeneration(TestCase):
             self.assertIn(key, lindbladian.conversion_dictionary)
         # coeffs mapping
         boundled_map = copy(coeff_map)
-        boundled_map.update(jump_coeff_mapping)
+        boundled_map.update({key + "*j": value*1j
+                             for key, value in jump_coeff_mapping.items()})
+        self.assertEqual(lindbladian.coeffs_mapping, boundled_map)
+
+class TestAgainstExact(TestCase):
+    """
+    Tests the construction methods against the matrix construction.
+    """
+
+    def setUp(self):
+        self.num_qubits = 3
+        bond_dim = 1
+        local_tensor = zeros((bond_dim,2),
+                             dtype=complex)
+        local_state = ket_i(0,2)
+        local_tensor[0,:] = local_state
+        ttns = generate_binary_ttns(self.num_qubits,
+                                    bond_dim,
+                                    local_tensor,
+                                    phys_prefix="qubit"
+                                    )
+        self.ttndo = from_ttns(ttns)
+
+    def _full_tensor(self,
+                     lindbladian: Hamiltonian):
+        """
+        Computes the full tensor of the lindbladian.
+        """
+        ttno = TreeTensorNetworkOperator.from_hamiltonian(lindbladian,
+                                                          self.ttndo
+                                                          )
+        tensor, order = ttno.as_matrix()
+        return tensor, order
+
+    def test_hamiltonian_only(self):
+        ham_ops = (TensorProduct({"qubit0": "A", "qubit1": "B"}),
+                   TensorProduct({"qubit1": "C", "qubit2": "D"}))
+        factors = (Fraction(1, 2), Fraction(1, 5))
+        symb_factors = ("g", "j")
+        terms = tuple(zip(factors, symb_factors, ham_ops))
+        conv_dict = {"A": asarray([[1, 2], [3, 4]], dtype=complex),
+                     "B": asarray([[5, 6], [7, 8]], dtype=complex),
+                     "C": asarray([[9, 20], [11, 12]], dtype=complex),
+                     "D": asarray([[13, 15], [15, 17]], dtype=complex)} # symmetric
+        coeff_map = {"1": 1, "g": 2j, "j": 6.0}
+        hamiltonian = Hamiltonian(terms,
+                                  conversion_dictionary=conv_dict,
+                                  coeffs_mapping=coeff_map)
+        hamiltonian.include_identities([1,2])
+        lindbladian = generate_lindbladian(hamiltonian, [], {}, {})
+        found, order = self._full_tensor(lindbladian)
+        # Generate exact solution
+        # The qubits in the contracted tree have order q1, q2, q0
+        term1 = kron(conv_dict["B"], eye(2))
+        term1 = kron(term1, conv_dict["A"])
+        term1 = factors[0] * coeff_map["g"] * term1
+        term2 = kron(conv_dict["C"], conv_dict["D"])
+        term2 = kron(term2, eye(2))
+        term2 = factors[1] * coeff_map["j"] * term2
+        ham = term1 + term2
+        exact = exact_lindbladian(ham, [])
+        # Testing
+        self.assertTrue(allclose(exact,found))
+
+    def test_random_jump_operator(self):
+        """
+        Test the generation of a lindbladian with a random jump operator only.
+        """
+        jump_op = (Fraction(1,2),
+                   "gjump",
+                   TensorProduct({"qubit0": "A",
+                                  "qubit1": "B"}))
+        jump_dict = {"A": asarray([[1, 2j], [3, 4]], dtype=complex),
+                     "B": asarray([[5, 6], [7j, 8j]], dtype=complex)}
+        jump_coeff_map = {"gjump": 3.0}
+        ham = Hamiltonian()
+        ham.include_identities([1,2])
+        lindbladian = generate_lindbladian(ham,
+                                           [jump_op],
+                                           jump_dict,
+                                           jump_coeff_map)
+        found, order = self._full_tensor(lindbladian)
+        # Generate exact solution
+        # The qubits in the contracted tree have order q1, q2, q0
+        term1 = kron(jump_dict["B"],eye(2))
+        term1 = kron(term1,jump_dict["A"])
+        term1 = term1
+        coeff = jump_op[0] * jump_coeff_map["gjump"]
+        exact = exact_lindbladian(zeros_like(term1),
+                                  [(coeff,term1)])
+        # Testing
+        print(order)
+        self.assertTrue(allclose(exact,found))
+
+
 
 if __name__ == "__main__":
     main_unit()

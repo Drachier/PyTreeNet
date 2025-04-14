@@ -38,6 +38,9 @@ def single_site_operators(operator: Union[str,ndarray],
         node_identifiers = list(node_identifiers.nodes.keys())
     if factor is None:
         factor = [(Fraction(1), "1")] * len(node_identifiers)
+    elif factor[0] == 0:
+        # Factually zero operators
+        return {}
     elif isinstance(factor, tuple):
         factor = [factor] * len(node_identifiers)
     assert len(factor) == len(node_identifiers)
@@ -83,6 +86,11 @@ def create_nearest_neighbour_hamiltonian(structure: Union[TreeStructure,List[Tup
     """
     if factor is None:
         factor = (Fraction(1), "1")
+    elif factor[0] == 0:
+        # Factually a zero Hamiltonian
+        return Hamiltonian([],
+                           conversion_dictionary=conversion_dict,
+                           coeffs_mapping=coeffs_mapping)
     if local_operator2 is None:
         local_operator2 = local_operator1
     if isinstance(structure, TreeStructure):

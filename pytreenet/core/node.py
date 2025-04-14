@@ -6,7 +6,7 @@ from numpy import ndarray
 
 from .graph_node import (GraphNode,
                          find_child_permutation_neighbour_index)
-from ..util.std_utils import permute_tuple
+from ..util.std_utils import permute_iterator
 from ..util.ttn_exceptions import NotCompatibleException
 
 
@@ -78,7 +78,7 @@ class Node(GraphNode):
         """
         if self._shape is None:
             return None
-        return permute_tuple(self._shape, self._leg_permutation)
+        return permute_iterator(self._shape, self._leg_permutation)
 
     @property
     def parent_leg(self) -> int:
@@ -157,7 +157,7 @@ class Node(GraphNode):
         if permutation is None and self.shape == tensor.shape:
             # In this case the tensor fits without changes needed.
             self._reset_permutation()
-        elif permutation is not None and permute_tuple(tensor.shape, permutation) == self.shape:
+        elif permutation is not None and permute_iterator(tensor.shape, permutation) == self.shape:
             # The tensor fits with the permutation.
             self._leg_permutation = permutation
             self._shape = tensor.shape
