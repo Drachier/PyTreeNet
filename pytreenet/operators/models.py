@@ -202,7 +202,8 @@ def _get_ham_objects(factor_value: float,
     mapping = {factor_id: factor_value}
     return operator_id, factor, conv_dict, mapping
 
-def local_magnetisation(structure: Union[TreeStructure,List[str]]
+def local_magnetisation(structure: Union[TreeStructure,List[str]],
+                        with_factor: bool = True
                         ) -> Dict[str,TensorProduct]:
     """
     Generates the local magnetisation operator for a given tree structure.
@@ -211,13 +212,15 @@ def local_magnetisation(structure: Union[TreeStructure,List[str]]
         structure (Union[TreeStructure,List[str]]): The tree structure for
             which the local magnetisation operator should be generated. Can
             also be a list of node identifiers.
+        with_factor (bool): If True, the local magnetisation operator is
+            provided with a factor of 1.0.
     
     Returns:
         Dict[str,TensorProduct]: The local magnetisation operators.
 
     """
     sigma_z = pauli_matrices()[2]
-    return single_site_operators(sigma_z, structure)
+    return single_site_operators(sigma_z, structure, with_factor=with_factor)
 
 def total_magnetisation(local_magnetisations: List[ndarray]
                         ) -> ndarray:
