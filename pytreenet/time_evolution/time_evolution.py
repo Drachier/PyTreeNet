@@ -511,8 +511,13 @@ def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
                                 t_eval=[time_difference])
         result_vector = solution.y[:,0]
     else:
-        exponent = rhs_matrix * time_difference
-        result_vector = fast_exp_action(exponent, psi.flatten(),
-                                        mode=mode.value)
+        #exponent = rhs_matrix * time_difference
+        #result_vector = fast_exp_action(exponent, psi.flatten(),
+        #                                mode=mode.value)
+        exponent = hamiltonian
+        t = sign * 1.0j  * time_difference
+        parameters = {"Krylov_tol" : 1e-5, "krylov_dim" : 6}
+        result_vector = np.reshape(fast_exp_action(t,exponent, psi.flatten(), parameters),newshape=psi.shape)
+                 
     return np.reshape(result_vector,
                       shape=psi.shape)

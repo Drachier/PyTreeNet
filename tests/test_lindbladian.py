@@ -8,7 +8,7 @@ from pytreenet.operators.hamiltonian import Hamiltonian
 from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.operators.common_operators import ket_i
 from pytreenet.special_ttn.binary import generate_binary_ttns
-from pytreenet.ttns.ttndo import from_ttns
+from pytreenet.ttns.ttndo import from_ttns_symmetric
 from pytreenet.random import crandn
 from pytreenet.operators.exact_operators import exact_lindbladian
 from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
@@ -332,7 +332,7 @@ class TestAgainstExact(TestCase):
                                     local_tensor,
                                     phys_prefix="qubit"
                                     )
-        self.ttndo = from_ttns(ttns)
+        self.ttndo = from_ttns_symmetric(ttns)
 
     def _full_tensor(self,
                      lindbladian: Hamiltonian):

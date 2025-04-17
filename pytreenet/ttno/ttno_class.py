@@ -15,6 +15,7 @@ from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      truncated_tensor_svd,
                                      SVDParameters)
 from .state_diagram import StateDiagram, TTNOFinder
+from ..operators.tensorproduct import TensorProduct
 
 __all__ = ["Decomposition", "TTNO", "TreeTensorNetworkOperator"]
 
@@ -76,6 +77,30 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
                                       hamiltonian.conversion_dictionary,
                                       hamiltonian.coeffs_mapping,                                        
                                       method)
+    @classmethod
+    def Identity(cls, reference_tree: TreeTensorNetwork) -> TTNO:
+        """
+        Creates a TTNO representing the identity operator.
+
+        Args:
+        reference_tree (TreeTensorNetworkState): The tree structure which the TTNO
+                                                 should respect.
+        Returns:
+        new_TTNO: TTNO
+
+        """
+        tp_dict = {}
+        for node_id , node in list(reference_tree.nodes.items()):
+            tp_dict[node.identifier] = node.identifier
+        tp = TensorProduct(tp_dict)
+
+        con_dict = {}
+        for node_id , node in list(reference_tree.nodes.items()):
+            con_dict[node.identifier] = np.eye(node.shape[-1])
+
+        H = Hamiltonian(tp, con_dict)
+        return cls.from_hamiltonian( H, reference_tree)  
+    
 
     @classmethod
     def from_state_diagram(cls, state_diagram: StateDiagram,
@@ -110,6 +135,9 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
         for he in state_diagram.get_all_hyperedges():
             position = he.find_tensor_position(reference_tree)
             operator = conversion_dict[he.label].copy()
+            # Make sure operator is of complex type before the multiplication
+            if not np.issubdtype(operator.dtype, np.complexfloating):
+                operator = operator.astype(complex)
             operator *= complex(he.lambda_coeff) * coeffs_mapping[he.gamma_coeff]
             ttno.tensors[he.corr_node_id][position] += operator
 
@@ -234,7 +262,7 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
             return
 
         current_children = reference_tree.nodes[current_node_id].children
-        current_node = self.nodes[current_node.identifier]
+        current_node = self.nodes[current_node_id]
         current_tensor = self.tensors[current_node_id]
 
         for child_id in current_children:

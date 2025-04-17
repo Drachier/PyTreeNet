@@ -2,20 +2,27 @@
 This module contains functions to contrac a TTNDO.
 """
 from __future__ import annotations
-from typing import List
+from typing import List, TYPE_CHECKING
 from re import match
+from copy import deepcopy
 
-from numpy import tensordot, ndarray
+from numpy import tensordot, ndarray, trace
+import numpy as np
 
 from ..ttno.ttno_class import TreeTensorNetworkOperator
 from .tree_cach_dict import PartialTreeCachDict
 from .contraction_util import (contract_all_but_one_neighbour_block_to_ket,
-                               get_equivalent_legs)
+                               get_equivalent_legs,
+                               determine_index_with_ignored_leg)
 from .state_state_contraction import contract_any_nodes as contract_any_nodes_state
 from .state_operator_contraction import (contract_any_node_environment_but_one as contract_any_nodes_operator,
                                          contract_operator_tensor_ignoring_one_leg)
 
-def ttndo_contraction_order(ttndo: SymmetricTTNDO) -> List[str]:
+# Move the class imports inside TYPE_CHECKING block to avoid circular imports
+if TYPE_CHECKING:
+    from ..ttns.ttndo import IntertwinedTTNDO, SymmetricTTNDO
+
+def ttndo_contraction_order(ttndo: 'SymmetricTTNDO') -> List[str]:
     """
     Returns the contraction order of a TTNDO.
 
@@ -35,7 +42,7 @@ def ttndo_contraction_order(ttndo: SymmetricTTNDO) -> List[str]:
                     if match(r".*"+ttndo.ket_suffix, node_id)]
     return bra_node_ids
 
-def trace_ttndo(ttndo: SymmetricTTNDO) -> complex:
+def trace_symmetric_ttndo(ttndo: 'SymmetricTTNDO') -> complex:
     """
     Computes the trace of a TTNDO.
 
@@ -76,7 +83,7 @@ def trace_ttndo(ttndo: SymmetricTTNDO) -> complex:
                                         ttndo.root_id)
     return _contract_final_block(ttndo, final_block)
 
-def ttndo_ttno_expectation_value(ttndo: SymmetricTTNDO,
+def symmetric_ttndo_ttno_expectation_value(ttndo: 'SymmetricTTNDO',
                                  ttno: TreeTensorNetworkOperator
                                  ) -> complex:
     """
@@ -127,7 +134,7 @@ def ttndo_ttno_expectation_value(ttndo: SymmetricTTNDO,
     # Now we need to contract the final block to the root of the TTNDO
     return _contract_final_block(ttndo, final_block)
 
-def _contract_final_block(ttndo: SymmetricTTNDO,
+def _contract_final_block(ttndo: 'SymmetricTTNDO',
                           final_block: ndarray
                           ) -> complex:
     """
@@ -154,7 +161,7 @@ def _contract_final_block(ttndo: SymmetricTTNDO,
                              axes=(root_legs, block_legs))
     return contraction_result[0]
 
-def _contract_ttno_root(ttndo: SymmetricTTNDO,
+def _contract_ttno_root(ttndo: 'SymmetricTTNDO',
                         ttno: TreeTensorNetworkOperator,
                         block_cache: PartialTreeCachDict
                         ) -> ndarray:
@@ -232,3 +239,433 @@ def _single_site_contraction(ket_tensor: ndarray,
     block = bra_tensor @ root_tensor @ ket_tensor.T
     # The transpose is needed, as we want the ket leg to be the first leg
     return block.T
+
+
+# fully intertwined TTNDO tracing
+def trace_contracted_fully_intertwined_ttndo(ttndo: 'IntertwinedTTNDO') -> complex:
+    """
+    Computes the trace of a contracted intertwined TTNDO.
+    
+    This function is used for TTNDOs that have been processed through 
+    contract_intertwined_ttndo() and have each tensor with two open physical
+    legs representing density matrix indices.
+    
+    Args:
+        ttndo (TreeTensorNetworkState): The contracted intertwined TTNDO to compute the trace of.
+        
+    Returns:
+        complex: The trace of the TTNDO.
+    """
+    
+    # Create a cache dictionary to store intermediate results
+    dictionary = PartialTreeCachDict()
+    
+    # Process in bottom-up order using linearise
+    nodes_to_process = ttndo.linearise()
+    
+    # Process all nodes except root
+    for node_id in nodes_to_process[:-1]:
+        node, tensor = ttndo[node_id]
+        parent_id = node.parent
+        
+        traced_tensor = trace_subtrees_using_dictionary(parent_id, node, tensor, dictionary)
+        dictionary.add_entry(node_id, parent_id, traced_tensor)
+        
+        # Delete child entries that are no longer needed
+        for child_id in node.children:
+            dictionary.delete_entry(child_id, node_id)
+    
+    # Process the root node
+    root_id = ttndo.root_id
+    root_node, root_tensor = ttndo[root_id]
+    if not root_node.children or not any(dictionary.contains(child_id, root_id) for child_id in root_node.children):
+        result = trace(root_tensor, axis1=-2, axis2=-1)
+        return complex(result if np.isscalar(result) else result.item())
+    
+    # Process root with its children
+    final_result = trace_subtrees_using_dictionary(None, root_node, root_tensor, dictionary)
+    
+    # Convert the result to a complex number
+    if np.isscalar(final_result):
+        return complex(final_result)
+    elif hasattr(final_result, 'size') and final_result.size == 1:
+        return complex(final_result.item())
+
+def trace_subtrees_using_dictionary(parent_id, node, tensor, dictionary):
+    """
+    Traces a node with all its subtrees, retaining only one leg connection to parent.
+    
+    This function properly handles tensor leg indices using built-in node navigation functions
+    and ensures proper dimension reduction during contractions.
+    
+    Args:
+        parent_id: The ID of the parent node (can be None for root)
+        node: The current node being processed
+        tensor: The tensor for the current node
+        dictionary: Dictionary containing processed subtrees
+        
+    Returns:
+        np.ndarray: Tensor with all child contractions performed and traced
+    """
+    node_id = node.identifier
+    result_tensor = tensor
+    
+    # First trace the physical legs of the current tensor (last two dimensions)
+    if result_tensor.ndim >= 2:
+        result_tensor = trace(result_tensor, axis1=-2, axis2=-1)
+    
+    # Collect all children to process
+    children_to_process = []
+    for neighbour_id in node.neighbouring_nodes():
+        # Skip the parent leg - only contract with children
+        if neighbour_id == parent_id:
+            continue
+            
+        # Only include neighbours that exist in the dictionary
+        if dictionary.contains(neighbour_id, node_id):
+            # Get the correct tensor leg index for this neighbour
+            if parent_id is not None:
+                # If we have a parent, use determine_index_with_ignored_leg
+                tensor_index = determine_index_with_ignored_leg(
+                    node, neighbour_id, parent_id
+                )
+            else:
+                # For root nodes with no parent
+                tensor_index = node.neighbour_index(neighbour_id)
+                
+            children_to_process.append((neighbour_id, tensor_index))
+    
+    # Sort children by tensor_index in descending order
+    children_to_process.sort(key=lambda x: x[1], reverse=True)
+    
+    # Now process children in order (highest indices first)
+    for neighbour_id, original_tensor_index in children_to_process:
+        cached_neighbour_tensor = dictionary.get_entry(neighbour_id, node_id)
+        
+        # Calculate actual tensor index based on current tensor shape
+        actual_tensor_index = min(original_tensor_index, result_tensor.ndim - 1)
+        
+        # Check for dimension mismatch
+        if cached_neighbour_tensor.size > 0:
+            # Safety check for valid tensor indices
+            if actual_tensor_index >= result_tensor.ndim:
+                # For safety, use the last available dimension
+                actual_tensor_index = result_tensor.ndim - 1
+                
+        # Contract with this child 
+        if cached_neighbour_tensor.size > 0 and result_tensor.ndim > 0 and cached_neighbour_tensor.ndim > 0:
+            # Additional safety check before tensordot
+            if actual_tensor_index < result_tensor.ndim and 0 < cached_neighbour_tensor.ndim:
+                try:
+                    result_tensor = np.tensordot(
+                        result_tensor, 
+                        cached_neighbour_tensor, 
+                        axes=([actual_tensor_index], [0])
+                    )
+                except IndexError as e:
+                    # Fallback to saner values if dimensions don't match
+                    # In case of index error, try with safer indices
+                    if result_tensor.ndim > 0 and cached_neighbour_tensor.ndim > 0:
+                        # Use the last dimension of result_tensor and first of cached_neighbour_tensor
+                        result_tensor = np.tensordot(
+                            result_tensor,
+                            cached_neighbour_tensor,
+                            axes=([result_tensor.ndim-1], [0])
+                        )
+            
+    # Squeeze out any singleton dimensions (with size 1)
+    if hasattr(result_tensor, 'shape') and result_tensor.ndim > 0:
+        result_tensor = np.squeeze(result_tensor)
+    
+    # For root nodes (parent_id is None), ensure we return a scalar
+    if parent_id is None:
+        if np.isscalar(result_tensor):
+            return result_tensor
+        elif hasattr(result_tensor, 'size') and result_tensor.size == 1:
+            return result_tensor.item()
+        else:
+            return 0.0
+    
+    return result_tensor
+
+def contract_root_with_environment(ttndo: 'IntertwinedTTNDO', dictionary: PartialTreeCachDict) -> complex:
+    """
+    Contracts the root node with its environment in a contracted intertwined TTNDO.
+    
+    Args:
+        ttndo (TreeTensorNetworkState): The contracted intertwined TTNDO.
+        dictionary (PartialTreeCachDict): The cache dictionary storing results.
+        
+    Returns:
+        complex: The trace of the entire TTNDO.
+    """
+    node_id = ttndo.root_id
+    node, tensor = ttndo[node_id]
+    result_tensor = tensor
+    
+    # Contract with all children's traced results
+    for neighbour_id in node.neighbouring_nodes():
+            
+        cached_neighbour_tensor = dictionary.get_entry(neighbour_id, node_id)
+        tensor_leg_to_neighbour = node.neighbour_index(neighbour_id)
+        
+        # Check tensor dimensions before contracting
+        if tensor_leg_to_neighbour >= result_tensor.ndim:
+            continue
+            
+        neighbour_dim = result_tensor.shape[tensor_leg_to_neighbour]
+        if cached_neighbour_tensor.shape[0] != neighbour_dim:
+            
+            # Create a reshaped neighbor tensor if needed
+            min_dim = min(neighbour_dim, cached_neighbour_tensor.shape[0])
+            new_shape = list(cached_neighbour_tensor.shape)
+            new_shape[0] = neighbour_dim
+            new_tensor = np.zeros(tuple(new_shape), dtype=cached_neighbour_tensor.dtype)
+            
+            # Copy the data for the common dimensions
+            slices = tuple([slice(0, min_dim)] + [slice(None) for _ in range(cached_neighbour_tensor.ndim-1)])
+            if cached_neighbour_tensor.ndim == 1:
+                # Handle the 1D case separately
+                new_tensor[:min_dim] = cached_neighbour_tensor[:min_dim]
+            else:
+                new_tensor[slices] = cached_neighbour_tensor[slices[:cached_neighbour_tensor.ndim]]
+            
+            cached_neighbour_tensor = new_tensor
+        
+        # Contract with compatible dimensions
+        result_tensor = tensordot(result_tensor, cached_neighbour_tensor, axes=([tensor_leg_to_neighbour], [0]))
+    
+    # Trace over the physical legs (last two dimensions)
+    return complex(trace(result_tensor, axis1=-2, axis2=-1))
+
+# physical intertwined TTNDO tracing
+def trace_contracted_physically_intertwined_ttndo(ttndo: 'IntertwinedTTNDO') -> complex:
+    """
+    Computes the trace of a contracted physically intertwined TTNDO.
+    The trace is computed by first tracing out the physical legs at each leaf node,
+    then contracting up the tree, and finally taking the inner product with the 
+    conjugate of the remaining virtual nodes.
+    
+    Args:
+        ttndo (TreeTensorNetworkState): The contracted physically intertwined TTNDO 
+            to compute the trace of.
+        
+    Returns:
+        complex: The trace of the TTNDO.
+    """
+    nodes_to_process = ttndo.linearise()[:-1]
+    for node_id in nodes_to_process :
+        # Only trace out ical nodes
+        if node_id.startswith("qubit"):
+            node, tensor = ttndo[node_id]
+            parent_id = node.parent
+
+            tensor_trace = np.trace(tensor, axis1=-2, axis2=-1)
+
+            ttndo.tensors[node_id] = tensor_trace
+            ttndo.nodes[node_id].link_tensor(tensor_trace)
+
+            ttndo.contract_nodes(parent_id, node_id, parent_id)
+        else:    
+            node, tensor = ttndo[node_id]
+            parent_id = node.parent
+
+            new_shape = tensor.shape[:-1]
+            tensor = tensor.reshape(new_shape)
+            ttndo.tensors[node_id] = tensor
+            ttndo.nodes[node_id].link_tensor(tensor)
+
+            ttndo.contract_nodes(parent_id, node_id, parent_id)
+    
+    return ttndo.tensors[ttndo.root_id][0]
+
+# Fully intertwined TTNDO expectation value
+def fully_intertwined_ttndo_ttno_expectation_value(ttno: TreeTensorNetworkOperator, ttndo: 'IntertwinedTTNDO') -> complex:
+    """
+    Compute the expectation value of a TTNO with respect to a contracted intertwined TTNDO.
+    
+    This is the trace of the product of the TTNO and the TTNDO:
+    <TTNO> = Tr(TTNO @ TTNDO)
+    
+    The calculation is done in two steps:
+    1. Contract the TTNO with the TTNDO locally, creating an expanded TTNO 
+    2. Calculate the trace of the resulting expanded TTNO
+    
+    Args:
+        ttno: The tree tensor network operator
+        ttndo: The contracted intertwined TTNDO representing a density matrix
+    
+    Returns:
+        complex: The expectation value <TTNO>
+    """
+    # Step 1: Contract the TTNO with the TTNDO
+    expanded_ttno = contract_ttno_with_ttndo(ttno, ttndo)
+    
+    # Step 2: Calculate the trace of the resulting expanded TTNO
+    expectation_value = trace_contracted_fully_intertwined_ttndo(expanded_ttno)
+    return np.complex128(expectation_value)
+
+def contract_tensors_ttno_with_ttndo(A: np.ndarray, B: np.ndarray) -> np.ndarray:
+    """
+    Contract a TTNO tensor with a TTNDO tensor locally.
+    
+    The last open leg of the TTNO tensor (A) contracts with the second-to-last leg 
+    of the TTNDO tensor (B). This preserves the tensor network structure while 
+    increasing the effective dimension.
+    
+    Args:
+        A (np.ndarray): The tensor from the TTNO.
+        B (np.ndarray): The tensor from the TTNDO.
+    
+    Returns:
+        np.ndarray: The contracted tensor.
+    """
+    # Contract the last leg of TTNO with the second-to-last leg of TTNDO
+    C = np.tensordot(A, B, axes=((-1,), (-2,)))
+    
+    # Construct the permutation array for proper leg ordering
+    perm = []
+    for i in range(((C.ndim-1)//2)):
+        perm.append(i)
+        perm.append(i + ((A.ndim-1)))
+    perm.append((A.ndim-2))
+    perm.append((C.ndim-1))
+    
+    # Apply the permutation
+    C = np.transpose(C, tuple(perm))
+    
+    # Reshape to merge paired dimensions
+    original_shape = C.shape
+    new_shape = []
+    for i in range(0, len(original_shape)-2, 2):
+        new_shape.append(original_shape[i] * original_shape[i + 1])
+    new_shape.append(original_shape[-2])
+    new_shape.append(original_shape[-1])
+    
+    C = C.reshape(tuple(new_shape))
+    
+    return C
+
+def contract_tensors_ttno_with_ttns(A: np.ndarray, B: np.ndarray) -> np.ndarray:
+    """
+    Contract a TTNO tensor with a TTNS tensor locally.
+    
+    This function is used specifically for physically intertwined TTNDOs where virtual nodes
+    are represented by regular TTNS tensors. The function contracts the last leg of the 
+    TTNO tensor (A) with the last leg of the TTNS tensor (B), then reorders and reshapes
+    the resulting tensor to maintain the proper tensor network structure.
+    
+    Args:
+        A (np.ndarray): The tensor from the TTNO.
+        B (np.ndarray): The tensor from the TTNS (virtual node in physically intertwined TTNDO).
+    
+    Returns:
+        np.ndarray: The contracted tensor with properly rearranged legs and merged dimensions.
+    """
+    C = np.tensordot( B, A, axes=((-1,), (A.ndim-1,)))
+    perm = []
+    for i in range(((C.ndim-1)//2)): 
+        perm.append(i + ((C.ndim-1)//2) )
+        perm.append(i)   
+    perm.append((C.ndim-1))
+    C = np.transpose(C, tuple(perm))
+    original_shape = C.shape
+    new_shape = []
+    for i in range(0, len(original_shape)-2, 2):
+        new_shape += (original_shape[i] * original_shape[i + 1],)
+    new_shape += (original_shape[-1],)
+    C = C.reshape(new_shape)   
+    return C
+
+from pytreenet.contractions.contraction_util import get_equivalent_legs
+def cehck_two_ttn_compatibility(ttn1, ttn2):
+    for nodes in ttn1.nodes:
+        legs = get_equivalent_legs(ttn1.nodes[nodes], ttn2.nodes[nodes])
+        assert legs[0] == legs[1]
+        
+def adjust_ttn1_structure_to_ttn2(ttn1, ttn2):
+    try:
+        cehck_two_ttn_compatibility(ttn1, ttn2)
+        return ttn1
+    except AssertionError: 
+        ttn3 = deepcopy(ttn2)
+        for node_id in ttn3.nodes:
+            ttn1_neighbours = ttn1.nodes[node_id].neighbouring_nodes()
+            element_map = {elem: i for i, elem in enumerate(ttn1_neighbours)}
+            ttn1_neighbours = ttn2.nodes[node_id].neighbouring_nodes()
+            permutation = tuple(element_map[elem] for elem in ttn1_neighbours)
+            nneighbours = ttn2.nodes[node_id].nneighbours()
+            if len(ttn1.nodes[node_id].open_legs) == 1 :
+               ttn1_tensor = ttn1.tensors[node_id].transpose(permutation + (nneighbours,nneighbours))
+            elif len(ttn1.nodes[node_id].open_legs) == 2 :
+                ttn1_tensor = ttn1.tensors[node_id].transpose(permutation + (nneighbours,nneighbours+1))
+            ttn3.tensors[node_id] = ttn1_tensor
+            ttn3.nodes[node_id].link_tensor(ttn1_tensor)
+    return ttn3   
+
+def contract_ttno_with_ttndo(ttno: TreeTensorNetworkOperator, ttndo: 'IntertwinedTTNDO') -> TreeTensorNetworkOperator:
+    """
+    Contract a TTNO with a TTNDO, creating an expanded TTNO.
+    
+    This contracts each tensor in the TTNO with the corresponding tensor in the TTNDO
+    following a specified path order, creating an expanded operator.
+    
+    Args:
+        ttno (TreeTensorNetworkOperator): The tree tensor network operator
+        ttndo (TreeTensorNetworkState): The contracted intertwined TTNDO representing a density matrix
+    
+    Returns:
+        TreeTensorNetworkOperator: The expanded TTNO after contraction
+        
+    Raises:
+        ValueError: If the TTNO and TTNDO do not have the same structure.
+    """    
+    # Create a copy of the TTNO to modify
+    ttndo_copy = deepcopy(ttndo)
+    ttno = adjust_ttn1_structure_to_ttn2(ttno, ttndo)
+    # Get the path for contractions using TDVPUpdatePathFinder
+    all_nodes = ttndo.linearise()
+    
+    if ttndo.form == "full":
+        # Contract the TTNO tensors with the TTNDO tensors node by node
+        for node_id in all_nodes:
+            # Contract the tensors
+            ttno_ttndo_tensor = contract_tensors_ttno_with_ttndo(
+                ttno.tensors[node_id], 
+                ttndo.tensors[node_id])
+            # Update the expanded TTNO
+            ttndo_copy.tensors[node_id] = ttno_ttndo_tensor
+            ttndo_copy.nodes[node_id].link_tensor(ttno_ttndo_tensor)
+    elif ttndo.form == "physical":
+        # Contract the TTNO tensors with the TTNDO tensors node by node
+        for node_id in all_nodes:
+            # Contract the tensors
+            if node_id.startswith("qubit"):
+                ttno_ttndo_tensor = contract_tensors_ttno_with_ttndo(
+                    ttno.tensors[node_id], 
+                    ttndo.tensors[node_id])
+                
+                ttndo_copy.tensors[node_id] = ttno_ttndo_tensor
+                ttndo_copy.nodes[node_id].link_tensor(ttno_ttndo_tensor)
+            else:     
+                ttno_ttndo_tensor = contract_tensors_ttno_with_ttns(
+                    ttno.tensors[node_id], 
+                    ttndo.tensors[node_id])
+                
+                ttndo_copy.tensors[node_id] = ttno_ttndo_tensor
+                ttndo_copy.nodes[node_id].link_tensor(ttno_ttndo_tensor)
+    return ttndo_copy
+
+# physically intertwined TTNDO expectation value
+def physically_intertwined_ttndo_ttno_expectation_value(ttno: TreeTensorNetworkOperator, ttndo: 'IntertwinedTTNDO') -> complex:
+
+    """
+    Compute the expectation value of a TTNO with respect to a physically intertwined TTNDO.
+    
+    This is the trace of the product of the TTNO and the TTNDO:
+    <TTNO> = Tr(TTNO @ TTNDO)
+    
+    """
+    expanded_ttno = contract_ttno_with_ttndo(ttno, ttndo)
+    expectation_value = trace_contracted_physically_intertwined_ttndo(expanded_ttno)
+    return np.complex128(expectation_value)
