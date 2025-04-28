@@ -251,7 +251,7 @@ def update_node(node_id: str,
         mode = SplitMode.KEEP
     else:
         mode = SplitMode.REDUCED
-    current_state.move_orthogonalization_center(node_id, mode=mode)
+    current_state.move_orthogonalization_center(node_id, mode)
     current_cache = copy(parent_tensor_cache)
     current_cache.state = current_state
     # Since the orth center changed, we need to update that specific neighbour block

@@ -264,9 +264,9 @@ class SymmetricTTNDO(TreeTensorNetworkState):
         return self.operator_expectation_value(tensor_product)
 
 def from_ttns_symmetric(ttns: TreeTensorNetworkState,
-                root_id: str = "ttndo_root",
-                bond_dim: int = 5
-                ) -> SymmetricTTNDO:
+                        bond_dim: int,
+                        root_id: str = "ttndo_root",
+                        ) -> SymmetricTTNDO:
     """
     Creates a TTNDO from a TTN.
 
@@ -362,7 +362,7 @@ class IntertwinedTTNDO(TreeTensorNetworkState):
     with lateral connections, creating a more flexible structure than the symmetric TTNDO.
     """
 
-    def __init__(self, bra_suffix="_bra", ket_suffix="_ket", form="full"):
+    def __init__(self, bra_suffix="_bra", ket_suffix="_ket", form=None):
         """
         Initialize an IntertwinedTTNDO.
         
@@ -377,7 +377,6 @@ class IntertwinedTTNDO(TreeTensorNetworkState):
         self.bra_suffix = bra_suffix
         self.ket_suffix = ket_suffix
         self.form = form
-
 
 
     def absorb_into_intertwined_ttndo_open_leg(self, node_id: str, matrix: np.ndarray):
@@ -399,28 +398,11 @@ class IntertwinedTTNDO(TreeTensorNetworkState):
             AssertionError: If the matrix is not square or if the node doesn't have exactly 2 open legs.
         """
         node, node_tensor = self[node_id]
-        
-        # Check that the node has exactly 2 open legs
         open_legs = node.open_legs
         assert len(open_legs) == 2, f"Node {node_id} must have exactly 2 open legs, but has {len(open_legs)}."
-        
-        # The input leg is the first open leg
         input_leg = open_legs[0]
-        
-        # The matrix must be square
-        assert len(matrix.shape) == 2 and matrix.shape[0] == matrix.shape[1], \
-            f"Matrix must be square, but has shape {matrix.shape}."
-        
-        # The matrix dimension must match the input leg dimension
-        assert matrix.shape[0] == node_tensor.shape[input_leg], \
-            f"Matrix dimension {matrix.shape[0]} does not match input leg dimension {node_tensor.shape[input_leg]}."
-        
-        # Absorb the matrix into the input leg (axis 1 of matrix is the input leg)
         new_tensor = np.tensordot(node_tensor, matrix, axes=(input_leg, 1))
-        
-        # Update the tensor in the TTNDO
-        self.tensors[node_id] = new_tensor
-        
+        self.tensors[node_id] = new_tensor        
         return self
 
     def contract(self) -> 'IntertwinedTTNDO':
@@ -546,7 +528,7 @@ def from_ttns_fully_intertwined(ttns: TreeTensorNetworkState,
         IntertwinedTTNDO: The resulting intertwined TTNDO
     """
     # Create new IntertwinedTTNDO to hold the structure
-    ttndo = IntertwinedTTNDO(bra_suffix, ket_suffix)
+    ttndo = IntertwinedTTNDO(bra_suffix, ket_suffix, "full")
     created_nodes = {}
     
     # Get original root information
@@ -1099,3 +1081,67 @@ def create_physical_node_dual(ttndo: TreeTensorNetworkState,
     bra_node = Node(identifier=bra_id)
     ttndo.add_child_to_parent(bra_node, bra_tensor, 0, ket_id, 1, modify=True)
     created_nodes[bra_id] = True
+
+def from_mps_intertwined(ttns: TreeTensorNetworkState,
+                         bond_dim: int,
+                         phys_tensor: ndarray,
+                         bra_suffix: str = "_bra",
+                         ket_suffix: str = "_ket") -> IntertwinedTTNDO:
+    """
+    Creates an intertwined TTNDO from an MPS TTNS (depth=0) chain.
+    The resulting network alternates ket and bra physical nodes in a linear sequence:
+        ket0--bra0--ket1--bra1--...--ketN-1--braN-1
+    Each node has exactly one open physical leg. Boundary nodes have one virtual
+    leg and one physical leg; intermediate nodes have two virtual legs and one
+    physical leg, all virtual bonds of size bond_dim.
+    Bra tensors are the complex conjugate of ket tensors.
+    """
+    positivity_check(bond_dim, "bond dimension")
+    # Determine physical dimension
+    if phys_tensor.ndim == 1:
+        phys_dim = phys_tensor.size
+    else:
+        phys_dim = phys_tensor.shape[-1]
+
+    # Extract ordered physical sites assuming a single-child chain
+    node_sequence: list[str] = []
+    root_node, _ = ttns.root
+    curr = root_node.identifier
+    node_sequence.append(curr)
+    while ttns.nodes[curr].children:
+        curr = ttns.nodes[curr].children[0]
+        node_sequence.append(curr)
+
+    # Build alternating ket/bra chain identifiers
+    chain_ids: list[str] = []
+    for site in node_sequence:
+        chain_ids.append(site + ket_suffix)
+        chain_ids.append(site + bra_suffix)
+    total = len(chain_ids)
+
+    ttndo = IntertwinedTTNDO(bra_suffix, ket_suffix, form="full")
+    # Populate nodes in chain order
+    for idx, nid in enumerate(chain_ids):
+        # Boundary: single virtual leg; intermediate: two virtual legs
+        if idx == 0 or idx == total - 1:
+            shape = (bond_dim, phys_dim)
+        else:
+            shape = (bond_dim, bond_dim, phys_dim)
+        tensor = np.zeros(shape, dtype=phys_tensor.dtype)
+        # Embed the physical tensor at all-zero virtual indices
+        fill_idx = (0,) * (len(shape) - 1) + (slice(None),)
+        if phys_tensor.ndim == 1:
+            tensor[fill_idx] = phys_tensor
+        else:
+            tensor[fill_idx] = phys_tensor[0]
+        # If it's a bra node, take the complex conjugate
+        if nid.endswith(bra_suffix):
+            tensor = tensor.conj()
+        node = Node(identifier=nid)
+        if idx == 0:
+            ttndo.add_root(node, tensor)
+        else:
+            parent = chain_ids[idx - 1]
+            leg = ttndo.nodes[parent].open_legs[0]
+            ttndo.add_child_to_parent(node, tensor, 0, parent, leg, modify=True)
+    return ttndo

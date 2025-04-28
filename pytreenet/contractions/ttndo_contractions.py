@@ -288,104 +288,48 @@ def trace_contracted_fully_intertwined_ttndo(ttndo: 'IntertwinedTTNDO') -> compl
     # Convert the result to a complex number
     if np.isscalar(final_result):
         return complex(final_result)
-    elif hasattr(final_result, 'size') and final_result.size == 1:
-        return complex(final_result.item())
+    else:
+        raise ValueError(f"Final trace result is not a scalar")
 
 def trace_subtrees_using_dictionary(parent_id, node, tensor, dictionary):
     """
     Traces a node with all its subtrees, retaining only one leg connection to parent.
-    
-    This function properly handles tensor leg indices using built-in node navigation functions
-    and ensures proper dimension reduction during contractions.
-    
+
+    This function contracts child subtrees first, then traces the physical legs.
+
     Args:
         parent_id: The ID of the parent node (can be None for root)
         node: The current node being processed
         tensor: The tensor for the current node
         dictionary: Dictionary containing processed subtrees
-        
+
     Returns:
         np.ndarray: Tensor with all child contractions performed and traced
     """
     node_id = node.identifier
-    result_tensor = tensor
-    
-    # First trace the physical legs of the current tensor (last two dimensions)
-    if result_tensor.ndim >= 2:
-        result_tensor = trace(result_tensor, axis1=-2, axis2=-1)
-    
-    # Collect all children to process
+    result_tensor = np.copy(tensor)
+
     children_to_process = []
-    for neighbour_id in node.neighbouring_nodes():
-        # Skip the parent leg - only contract with children
-        if neighbour_id == parent_id:
-            continue
-            
-        # Only include neighbours that exist in the dictionary
-        if dictionary.contains(neighbour_id, node_id):
-            # Get the correct tensor leg index for this neighbour
-            if parent_id is not None:
-                # If we have a parent, use determine_index_with_ignored_leg
-                tensor_index = determine_index_with_ignored_leg(
-                    node, neighbour_id, parent_id
-                )
-            else:
-                # For root nodes with no parent
-                tensor_index = node.neighbour_index(neighbour_id)
-                
-            children_to_process.append((neighbour_id, tensor_index))
-    
-    # Sort children by tensor_index in descending order
+    child_ids = node.children
+    for neighbour_id in child_ids:
+        current_index = node.neighbour_index(neighbour_id)
+        children_to_process.append((neighbour_id, current_index))
+
     children_to_process.sort(key=lambda x: x[1], reverse=True)
-    
-    # Now process children in order (highest indices first)
-    for neighbour_id, original_tensor_index in children_to_process:
+
+    for neighbour_id, tensor_index in children_to_process:
         cached_neighbour_tensor = dictionary.get_entry(neighbour_id, node_id)
+        result_tensor = np.tensordot(result_tensor,
+                                    cached_neighbour_tensor,
+                                    axes=([tensor_index], [0]))
         
-        # Calculate actual tensor index based on current tensor shape
-        actual_tensor_index = min(original_tensor_index, result_tensor.ndim - 1)
-        
-        # Check for dimension mismatch
-        if cached_neighbour_tensor.size > 0:
-            # Safety check for valid tensor indices
-            if actual_tensor_index >= result_tensor.ndim:
-                # For safety, use the last available dimension
-                actual_tensor_index = result_tensor.ndim - 1
-                
-        # Contract with this child 
-        if cached_neighbour_tensor.size > 0 and result_tensor.ndim > 0 and cached_neighbour_tensor.ndim > 0:
-            # Additional safety check before tensordot
-            if actual_tensor_index < result_tensor.ndim and 0 < cached_neighbour_tensor.ndim:
-                try:
-                    result_tensor = np.tensordot(
-                        result_tensor, 
-                        cached_neighbour_tensor, 
-                        axes=([actual_tensor_index], [0])
-                    )
-                except IndexError as e:
-                    # Fallback to saner values if dimensions don't match
-                    # In case of index error, try with safer indices
-                    if result_tensor.ndim > 0 and cached_neighbour_tensor.ndim > 0:
-                        # Use the last dimension of result_tensor and first of cached_neighbour_tensor
-                        result_tensor = np.tensordot(
-                            result_tensor,
-                            cached_neighbour_tensor,
-                            axes=([result_tensor.ndim-1], [0])
-                        )
-            
-    # Squeeze out any singleton dimensions (with size 1)
-    if hasattr(result_tensor, 'shape') and result_tensor.ndim > 0:
-        result_tensor = np.squeeze(result_tensor)
-    
-    # For root nodes (parent_id is None), ensure we return a scalar
+    result_tensor = trace(result_tensor, axis1=-2, axis2=-1)
+
     if parent_id is None:
         if np.isscalar(result_tensor):
             return result_tensor
-        elif hasattr(result_tensor, 'size') and result_tensor.size == 1:
-            return result_tensor.item()
         else:
-            return 0.0
-    
+            raise ValueError(f"Error: Root node {node_id} trace resulted in non-scalar shape: {getattr(result_tensor, 'shape', 'N/A')}")
     return result_tensor
 
 def contract_root_with_environment(ttndo: 'IntertwinedTTNDO', dictionary: PartialTreeCachDict) -> complex:
@@ -476,6 +420,9 @@ def trace_contracted_physically_intertwined_ttndo(ttndo: 'IntertwinedTTNDO') -> 
             ttndo.nodes[node_id].link_tensor(tensor)
 
             ttndo.contract_nodes(parent_id, node_id, parent_id)
+
+    if not ttndo.tensors[ttndo.root_id].ndim == 1:
+        raise ValueError(f"Root node {ttndo.root_id} has non-scalar trace")
     
     return ttndo.tensors[ttndo.root_id][0]
 
@@ -596,9 +543,12 @@ def adjust_ttn1_structure_to_ttn2(ttn1, ttn2):
             permutation = tuple(element_map[elem] for elem in ttn1_neighbours)
             nneighbours = ttn2.nodes[node_id].nneighbours()
             if len(ttn1.nodes[node_id].open_legs) == 1 :
-               ttn1_tensor = ttn1.tensors[node_id].transpose(permutation + (nneighbours,nneighbours))
+               ttn1_tensor = ttn1.tensors[node_id].transpose(permutation + (nneighbours,))
             elif len(ttn1.nodes[node_id].open_legs) == 2 :
                 ttn1_tensor = ttn1.tensors[node_id].transpose(permutation + (nneighbours,nneighbours+1))
+            else:
+                # Handle cases with unexpected number of open legs
+                raise ValueError(f"Node {node_id} in ttn1 has an unexpected number of open legs: {len(ttn1.nodes[node_id].open_legs)}")
             ttn3.tensors[node_id] = ttn1_tensor
             ttn3.nodes[node_id].link_tensor(ttn1_tensor)
     return ttn3   

@@ -41,6 +41,66 @@ def generate_binary_ttns(num_phys: int,
     if num_phys == 0:
         return TreeTensorNetworkState()
     
+    # Special case: depth=0 -> generate a chain (MPS) with no virtual nodes
+    if depth == 0:
+        # Depth 0: build a pure MPS chain of physical nodes with no unconnected virtual legs
+        ttns = TreeTensorNetworkState()
+        # One-site case: just the physical tensor as a single open leg
+        if num_phys == 1:
+            single_id = f"{phys_prefix}0"
+            single_node = Node(identifier=single_id)
+            # Use phys_tensor directly if 1D or squeeze last dim if needed
+            if phys_tensor.ndim == 1:
+                single_tensor = phys_tensor.copy()
+            else:
+                single_tensor = phys_tensor.squeeze(0)
+            ttns.add_root(single_node, single_tensor)
+            return ttns
+
+        # Multi-site chain
+        # First boundary node: shape (bond_dim, phys_dim)
+        phys_dim = phys_tensor.size if phys_tensor.ndim == 1 else phys_tensor.shape[-1]
+        first_id = f"{phys_prefix}0"
+        first_node = Node(identifier=first_id)
+        first_tensor = np.zeros((bond_dim, phys_dim), dtype=phys_tensor.dtype)
+        # embed physical tensor at trivial virtual index
+        if phys_tensor.ndim == 1:
+            first_tensor[0, :] = phys_tensor
+        else:
+            first_tensor[0, :] = phys_tensor[0, :]
+        ttns.add_root(first_node, first_tensor)
+
+        # Middle nodes (1 to num_phys-2)
+        for i in range(1, num_phys - 1):
+            node_id = f"{phys_prefix}{i}"
+            node = Node(identifier=node_id)
+            mid_tensor = np.zeros((bond_dim, bond_dim, phys_dim), dtype=phys_tensor.dtype)
+            # embed physical tensor at trivial virtual indices
+            if phys_tensor.ndim == 1:
+                mid_tensor[0, 0, :] = phys_tensor
+            else:
+                mid_tensor[0, 0, :] = phys_tensor[0, :]
+            # connect to previous
+            prev_id = f"{phys_prefix}{i-1}"
+            # prev is boundary for i==1, interior otherwise
+            parent_leg = 0 if i == 1 else 1
+            ttns.add_child_to_parent(node, mid_tensor, 0, prev_id, parent_leg)
+
+        # Last boundary node: shape (bond_dim, phys_dim)
+        last_id = f"{phys_prefix}{num_phys-1}"
+        last_node = Node(identifier=last_id)
+        last_tensor = np.zeros((bond_dim, phys_dim), dtype=phys_tensor.dtype)
+        if phys_tensor.ndim == 1:
+            last_tensor[0, :] = phys_tensor
+        else:
+            last_tensor[0, :] = phys_tensor[0, :]
+        # connect to previous node
+        prev_id = f"{phys_prefix}{num_phys-2}"
+        # prev is interior only if num_phys > 2
+        parent_leg = 1 if num_phys > 2 else 0
+        ttns.add_child_to_parent(last_node, last_tensor, 0, prev_id, parent_leg)
+        return ttns
+    
     # Calculate required depth if not provided
     if depth is None:
         # Calculate min depth needed to support all physical nodes

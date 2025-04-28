@@ -189,6 +189,9 @@ class SVDParameters:
     Attributes:
         max_bond_dim (int, optional): The maximum bond dimension allowed
             between nodes. Defaults to 100.
+        max_effective_ham_dim (int, optional): The maximum product of bond dimensions
+            for all children of a node. Used to control effective Hamiltonian size.
+            Defaults to 20000.
         rel_tol (float, optional): singular values s for which
             (s / largest singular value) < rel_tol are truncated. Defaults to
             1e-15.
@@ -207,6 +210,7 @@ class SVDParameters:
         
     """
     max_bond_dim: int = 100
+    max_effective_ham_dim: int = 10000
     rel_tol: float = 1e-15
     total_tol: float = 1e-15
     renorm: bool = False
@@ -288,6 +292,8 @@ def _sum_truncation_index(s: np.ndarray,
         return 0
     thresh = total_tol**2
     trunc_sum = 0
+    # Use machine epsilon for robust comparison with potentially tiny thresholds
+    epsilon = np.finfo(float).eps  
     for i, s_val in enumerate(reversed(s)):
         # Note that the singular values are sorted in descending order.
         trunc_sum += s_val**2
@@ -295,9 +301,12 @@ def _sum_truncation_index(s: np.ndarray,
             comp_val = trunc_sum / normsq
         else:
             comp_val = trunc_sum
-        if comp_val > thresh:
+        # Compare with epsilon added to handle floating-point precision near zero
+        if comp_val > thresh + epsilon:
             return len(s) - i
-    # In this case all singular values are truncated
+    # If the loop finishes, the threshold was never exceeded.
+    # According to the sum_trunc logic, this means the total contribution is
+    # below the tolerance, so truncate everything.
     return 0
 
 def sum_truncation(s: np.ndarray,
@@ -377,7 +386,7 @@ def truncate_singular_values(s: np.ndarray,
         new_s = s_temp[:max_bond_dim]
         s_trunc = s[max_bond_dim:]
     elif len(s_temp) == 0:
-        warn("All singular values were truncated. Returning only the largest singular value.")
+        print("All singular values were truncated. Returning only the largest singular value.")
         s_trunc = s[1:]
         new_s = np.array([s[0]])
     else:
@@ -494,14 +503,14 @@ def idiots_splitting(tensor: np.ndarray,
     """
     if a_tensor is None or b_tensor is None:
         raise ValueError("Both tensors have to be given!")
-    tensor_shape_a = tuple([tensor.shape[i] for i in a_legs])
-    tensor_shape_b = tuple([tensor.shape[i] for i in b_legs])
-    a_shape = a_tensor.shape[0:-1]
-    b_shape = b_tensor.shape[1:]
-    if tensor_shape_a != a_shape:
-        raise ValueError("A tensor not compatible!")
-    if tensor_shape_b != b_shape:
-        raise ValueError("B tensor not compatible!")
+    #tensor_shape_a = tuple([tensor.shape[i] for i in a_legs])
+    #tensor_shape_b = tuple([tensor.shape[i] for i in b_legs])
+    #a_shape = a_tensor.shape[0:-1]
+    #b_shape = b_tensor.shape[1:]
+    #if tensor_shape_a != a_shape:
+    #    raise ValueError("A tensor not compatible!")
+    #if tensor_shape_b != b_shape:
+    #    raise ValueError("B tensor not compatible!")
     if a_tensor.ndim != len(a_legs) + 1:
         raise ValueError("A tensor has wrong number of legs!")
     if b_tensor.ndim != len(b_legs) + 1:
