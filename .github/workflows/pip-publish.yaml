@@ -22,9 +22,9 @@ jobs:
     - name: Build a binary wheel and a source tarball
       run: python3 -m build
     - name: Store the distribution packages
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: python-package-distributions
+        name: python-package-distributions-${{ matrix.runs-on }}
         path: dist/
 
   publish-to-pypi:
@@ -42,10 +42,11 @@ jobs:
 
     steps:
     - name: Download all the dists
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
-        name: python-package-distributions
-        path: dist/
+        path: dist/python-package-
+        pattern: my-artifact-*
+        merge-multiple: true
     - name: Publish distribution to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
 
