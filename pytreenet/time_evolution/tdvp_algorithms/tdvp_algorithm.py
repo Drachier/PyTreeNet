@@ -32,7 +32,7 @@ class TDVPConfig(TTNTimeEvolutionConfig):
             TTNS has to be orthogonalised between each node update.
     """
     time_evo_mode: TimeEvoMode = TimeEvoMode.FASTEST
-    main_path_mode: PathFinderMode = PathFinderMode.LeafToLeaf
+    main_path_mode: PathFinderMode = PathFinderMode.LeafToRoot
 
 
 class TDVPAlgorithm(TTNTimeEvolution):
