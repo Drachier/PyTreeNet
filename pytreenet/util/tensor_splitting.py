@@ -90,8 +90,8 @@ def tensor_qr_decomposition(tensor: np.ndarray,
     shape = tensor.shape
     q_shape = _determine_tensor_shape(shape, q, q_legs, output=True)
     r_shape = _determine_tensor_shape(shape, r, r_legs, output=False)
-    q = np.reshape(q, q_shape)
-    r = np.reshape(r, r_shape)
+    q = q.reshape(q_shape)
+    r = r.reshape(r_shape)
     if mode is SplitMode.KEEP:
         orig_bond_dim = np.prod(r.shape[1:])
         diff = orig_bond_dim - q.shape[-1]
@@ -141,8 +141,8 @@ def tensor_svd(tensor: np.ndarray,
     shape = tensor.shape
     u_shape = _determine_tensor_shape(shape, u, u_legs, output=True)
     vh_shape = _determine_tensor_shape(shape, vh, v_legs, output=False)
-    u = np.reshape(u, u_shape)
-    vh = np.reshape(vh, vh_shape)
+    u = u.reshape(u_shape)
+    vh = vh.reshape(vh_shape)
     return u, s, vh
 
 def _determine_tensor_shape(old_shape: Tuple[int,...],
