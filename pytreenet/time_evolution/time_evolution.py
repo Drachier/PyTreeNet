@@ -514,5 +514,5 @@ def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
         exponent = rhs_matrix * time_difference
         result_vector = fast_exp_action(exponent, psi.flatten(),
                                         mode=mode.value)
-    return result_vector.reshape(
-                      psi.shape)
+    return np.reshape(result_vector,
+                      shape=psi.shape)

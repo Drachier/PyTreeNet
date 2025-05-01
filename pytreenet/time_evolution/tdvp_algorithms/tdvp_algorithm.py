@@ -19,7 +19,6 @@ from ...operators.tensorproduct import TensorProduct
 from ...contractions.sandwich_caching import SandwichCache
 from ..time_evo_util.effective_time_evolution import single_site_time_evolution
 from ..time_evo_util.update_path import TDVPUpdatePathFinder
-from ...time_evolution.time_evo_util import PathFinderMode
 
 @dataclass
 class TDVPConfig(TTNTimeEvolutionConfig):
@@ -32,8 +31,6 @@ class TDVPConfig(TTNTimeEvolutionConfig):
             TTNS has to be orthogonalised between each node update.
     """
     time_evo_mode: TimeEvoMode = TimeEvoMode.FASTEST
-    main_path_mode: PathFinderMode = PathFinderMode.LeafToLeaf
-
 
 class TDVPAlgorithm(TTNTimeEvolution):
     """
@@ -136,7 +133,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
             List[str]: The order in which the nodes in the TTN should be time
                 evolved.
         """
-        return TDVPUpdatePathFinder(self.initial_state , self.config.main_path_mode).find_path()
+        return TDVPUpdatePathFinder(self.initial_state).find_path()
 
     def _init_partial_tree_cache(self) -> SandwichCache:
         """
