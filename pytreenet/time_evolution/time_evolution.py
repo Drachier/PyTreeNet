@@ -444,6 +444,9 @@ class TimeEvolution:
         self.state = deepcopy(self._initial_state)
 
 class TimeEvoMode(Enum):
+    """
+    Mode for the time evolution of a matrix.
+    """
 
     FASTEST = "fastest"
     EXPM = "expm"
