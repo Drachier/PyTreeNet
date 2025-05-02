@@ -193,9 +193,9 @@ class TestAddJumpOperatorTerms(TestCase):
         self.assertEqual(len(linbladian.terms), 4)
         # test prefactors
         self.assertEqual(linbladian.terms[0][0], -1*self.factors[0] / 2)
-        self.assertEqual(linbladian.terms[1][0], self.factors[0] / 2)
+        self.assertEqual(linbladian.terms[1][0], -1*self.factors[0] / 2)
         self.assertEqual(linbladian.terms[2][0], -1*self.factors[1] / 2)
-        self.assertEqual(linbladian.terms[3][0], self.factors[1] / 2)
+        self.assertEqual(linbladian.terms[3][0], -1*self.factors[1] / 2)
         self.assertEqual(linbladian.terms[0][1], self.symb_factors[0] + "*j")
         self.assertEqual(linbladian.terms[1][1], self.symb_factors[0] + "*j")
         self.assertEqual(linbladian.terms[2][1], self.symb_factors[1] + "*j")
@@ -287,10 +287,7 @@ class TestLindbladianGeneration(TestCase):
         self.assertEqual(lindbladian.terms[5][2]["node3"+bra_suff], "Dj_conj")
         # Jump operator products
         for i, term in enumerate(lindbladian.terms[6:]):
-            if i % 2 == 0:
-                self.assertEqual(term[0], -1*factorsj[i//2] / 2)
-            else:
-                self.assertEqual(term[0], factorsj[i//2] / 2)
+            self.assertEqual(term[0], -1*factorsj[i//2] / 2)
             self.assertEqual(term[1], symb_factorsj[i//2] + "*j")
         self.assertEqual(lindbladian.terms[6][2]["node1"+ket_suff], "Aj_H_mult_Aj")
         self.assertEqual(lindbladian.terms[6][2]["node2"+ket_suff], "Bj")
@@ -361,7 +358,7 @@ class TestAgainstExact(TestCase):
                                   coeffs_mapping=coeff_map)
         hamiltonian.include_identities([1,2])
         lindbladian = generate_lindbladian(hamiltonian, [], {}, {})
-        found, order = self._full_tensor(lindbladian)
+        found, _ = self._full_tensor(lindbladian)
         # Generate exact solution
         # The qubits in the contracted tree have order q1, q2, q0
         term1 = kron(conv_dict["B"], eye(2))
@@ -400,9 +397,8 @@ class TestAgainstExact(TestCase):
         term1 = term1
         coeff = jump_op[0] * jump_coeff_map["gjump"]
         exact = exact_lindbladian(zeros_like(term1),
-                                  [(coeff,term1)])
+                                  [(sqrt(coeff),term1)])
         # Testing
-        print(order)
         self.assertTrue(allclose(exact,found))
 
 
