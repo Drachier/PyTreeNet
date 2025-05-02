@@ -476,9 +476,41 @@ class TimeEvoMode(Enum):
                         TimeEvoMode.DOP853,
                         TimeEvoMode.BDF]
 
+class EvoDirection(Enum):
+    """
+    Enum for the direction of time evolution.
+    """
+    FORWARD = -1
+    BACKWARD = 1
+
+    def __str__(self) -> str:
+        return self.name.lower()
+
+    @staticmethod
+    def from_bool(forward: bool) -> EvoDirection:
+        """
+        Converts a boolean to a EvoDirection enum.
+
+        Args:
+            forward (bool): If True, FORWARD is returned. Otherwise BACKWARD.
+
+        Returns:
+            EvoDirection: The corresponding EvoDirection enum.
+        """
+        return EvoDirection.FORWARD if forward else EvoDirection.BACKWARD
+
+    def exp_sign(self) -> int:
+        """
+        Returns the sign of the exponent for the time evolution.
+
+        Returns:
+            int: The sign of the exponent.
+        """
+        return self.value
+
 def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
                 time_difference: float,
-                forward: bool = True,
+                forward: EvoDirection| bool = EvoDirection.FORWARD,
                 mode: TimeEvoMode = TimeEvoMode.FASTEST) -> np.ndarray:
     """
     Time evolves a state psi via a Hamiltonian.
@@ -493,14 +525,16 @@ def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
         hamiltonian (np.ndarray): The Hamiltonian determining the dynamics as
             a matrix.
         time_difference (float): The duration of the time-evolution
-        forward (bool, optional): If the time evolution should be forward or
-            backward in time. Defaults to True.
+        forward (EvoDirection|bool, optional): The direction of the time evolution.
+                Defaults to EvoDirection.FORWARD.
         mode (TimeEvoMode, optional): The mode to use for the time evolution.
 
     Returns:
         np.ndarray: The time evolved state
     """
-    sign = -2 * forward + 1  # forward=True -> -1; forward=False -> +1
+    if isinstance(forward, bool):
+        forward = EvoDirection.from_bool(forward)
+    sign = forward.exp_sign()
     rhs_matrix = sign * 1.0j * hamiltonian
     if mode.is_scipy():
         def ode_rhs(_, y_vec):
