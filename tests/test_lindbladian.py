@@ -9,7 +9,6 @@ from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.operators.common_operators import ket_i
 from pytreenet.special_ttn.binary import generate_binary_ttns
 from pytreenet.ttns.ttndo import from_ttns
-from pytreenet.random import crandn
 from pytreenet.operators.exact_operators import exact_lindbladian
 from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
 from pytreenet.operators.lindbladian import (_find_real_operators,
@@ -389,12 +388,11 @@ class TestAgainstExact(TestCase):
                                            [jump_op],
                                            jump_dict,
                                            jump_coeff_map)
-        found, order = self._full_tensor(lindbladian)
+        found, _ = self._full_tensor(lindbladian)
         # Generate exact solution
         # The qubits in the contracted tree have order q1, q2, q0
         term1 = kron(jump_dict["B"],eye(2))
         term1 = kron(term1,jump_dict["A"])
-        term1 = term1
         coeff = jump_op[0] * jump_coeff_map["gjump"]
         exact = exact_lindbladian(zeros_like(term1),
                                   [(sqrt(coeff),term1)])
