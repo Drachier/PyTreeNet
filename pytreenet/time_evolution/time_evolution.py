@@ -115,6 +115,14 @@ class TimeEvolution:
         """
         return self._time_step_size
 
+    @time_step_size.setter
+    def time_step_size(self, value: float):
+        """
+        Sets the size of one time step. Includes positivity check.
+        """
+        positivity_check(value, "size of one time step")
+        self._time_step_size = value
+
     @property
     def results(self) -> np.ndarray:
         """
@@ -516,7 +524,7 @@ def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
         #                                mode=mode.value)
         exponent = hamiltonian
         t = sign * 1.0j  * time_difference
-        parameters = {"Krylov_tol" : 1e-5, "krylov_dim" : 6}
+        parameters = {"Krylov_tol" : 1e-8, "krylov_dim" : 30}
         result_vector = np.reshape(fast_exp_action(t,exponent, psi.flatten(), parameters),newshape=psi.shape)
                  
     return np.reshape(result_vector,

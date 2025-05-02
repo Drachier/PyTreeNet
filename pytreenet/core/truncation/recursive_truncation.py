@@ -377,7 +377,6 @@ def recursive_truncation(tree: TreeTensorNetwork,
     # 2: Post-truncation with max_effective_ham_dim
     post_svd_params = copy(svd_params)
     post_svd_params.sum_trunc = False
-    post_svd_params.total_tol = float('inf')
     post_svd_params.rel_tol = float('-inf')
     post_svd_params.total_tol = float('-inf')
 

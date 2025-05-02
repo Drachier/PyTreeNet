@@ -1,4 +1,3 @@
-
 from typing import Dict, List, Union
 from dataclasses import dataclass
 
@@ -8,8 +7,9 @@ from ..core.truncation.recursive_truncation import recursive_truncation
 from ..ttns.ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TreeTensorNetworkOperator
 from ..util.tensor_splitting import SVDParameters
-
+from copy import copy
 from .time_evo_util.common_bug import root_update, CommonBUGConfig
+from ..core.truncation.recursive_truncation import truncate_node, post_truncate_node
 
 @dataclass
 class BUGConfig(CommonBUGConfig, SVDParameters):
@@ -80,9 +80,33 @@ class BUG(TTNTimeEvolution):
         The method is based on the rank-adaptive BUG method introduced in
         https://www.doi.org/10.1137/22M1473790 .
 
+        If the configured time step is >= 0.1, it performs two internal updates
+        each with half the time step for potentially better stability/accuracy.
+
         Args:
             kwargs: Additional keyword arguments for the time step.
 
         """
-        self.recursive_update()
-        self.truncation()
+        if self.time_step_size >= 0.1 :
+            # Temporarily set the halved time step for internal updates
+            self.time_step_size /= 2
+
+            self.recursive_update()
+
+            post_svd_params = copy(self.config)
+            post_svd_params.sum_trunc = False
+            post_svd_params.total_tol = float('-inf')
+            post_svd_params.rel_tol = float('-inf')
+            post_truncate_node(self.state.root_id, self.state, post_svd_params)
+            if self.state.orthogonality_center_id != self.state.root_id:
+                self.state.move_orthogonalization_center(self.state.root_id)
+
+            self.recursive_update() # Second update with halved step size
+            self.truncation() # Final truncation for the full original step
+
+            self.time_step_size *= 2
+
+        else:
+            # Standard single update for small time steps
+            self.recursive_update()
+            self.truncation()
