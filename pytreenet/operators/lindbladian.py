@@ -150,7 +150,7 @@ def _add_jump_operators(lindbladian: Hamiltonian,
     lindbladian.conversion_dictionary.update(conjugate_dict)
     lindbladian.conversion_dictionary.update(jump_operator_dict)
     # Add we need to add the numerical values of the coefficients
-    i_coeffs = {label + "*j": 1j*value
+    i_coeffs = {label + "*j": 1j* (value**2)
                 for label, value in jump_coeff_mapping.items()}
     lindbladian.coeffs_mapping.update(i_coeffs)
 

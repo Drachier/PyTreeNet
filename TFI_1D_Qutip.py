@@ -245,12 +245,12 @@ class TFI_1D_Qutip:
             if relaxation_rate != 0.0:
                 op_list = [qt.qeye(2)] * self.n_sites
                 op_list[i] = qt.destroy(2)  
-                c_ops.append(np.sqrt(relaxation_rate) * qt.tensor(op_list))
+                c_ops.append(relaxation_rate * qt.tensor(op_list))
 
             if dephasing_rate != 0.0:
                 op_list = [qt.qeye(2)] * self.n_sites
                 op_list[i] = qt.sigmaz()
-                c_ops.append(np.sqrt(dephasing_rate) * qt.tensor(op_list))
+                c_ops.append(dephasing_rate * qt.tensor(op_list))
 
         return c_ops
     
