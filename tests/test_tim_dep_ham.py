@@ -4,7 +4,7 @@ and functions.
 """
 import unittest
 from copy import deepcopy
-from math import sin, cos, pi, exp
+from math import sin, pi
 
 import numpy as np
 
