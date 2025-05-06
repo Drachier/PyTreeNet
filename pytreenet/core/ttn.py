@@ -1292,13 +1292,21 @@ class TreeTensorNetwork(TreeStructure):
         Brings the TTN in canonical form with respect to a given orthogonality
          center.
 
+        Only moves the orthogonality center if there is one already. To reset
+        the canonical form for sure, use the function
+        `canonical_form.canonical_form`.
+
         Args:
             orthogonality_center_id (str): The new orthogonality center of the
                 TTN.
             mode: The mode to be used for the QR decomposition. For details
                 refer to `tensor_util.tensor_qr_decomposition`.
         """
-        canonical_form(self, orthogonality_center_id, mode=mode)
+        if self.orthogonality_center_id is None:
+            canonical_form(self, orthogonality_center_id, mode=mode)
+        else:
+            self.move_orthogonalization_center(orthogonality_center_id,
+                                               mode=mode)
 
     def orthogonalize(self, orthogonality_center_id: str,
                       mode: SplitMode = SplitMode.REDUCED):
