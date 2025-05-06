@@ -133,7 +133,7 @@ class TestTensorProduct(unittest.TestCase):
                                     [2,3]])
         identifier = "ID, Please"
         tensor_prod = TensorProduct({identifier: simple_matrix})
-        
+
         # Without factor
         correct_matrix = expm(simple_matrix)
         found_operator = tensor_prod.exp()
