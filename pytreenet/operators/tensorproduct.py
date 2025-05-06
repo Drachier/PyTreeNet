@@ -90,6 +90,12 @@ class TensorProduct(UserDict):
         new_dict = {node_id + suffix: operator for node_id, operator in self.items()}
         return TensorProduct(new_dict)
 
+    def num_sites(self) -> int:
+        """
+        The number of sites explicitely contained in this tensor product.
+        """
+        return len(self)
+
     def allclose(self, other: TensorProduct) -> bool:
         """
         Returns, whether the two tensor products are close to each other.

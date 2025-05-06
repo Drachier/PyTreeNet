@@ -65,6 +65,16 @@ class TestTensorProduct(unittest.TestCase):
     Test basic tensor product methods.
     """
 
+    def test_num_sites(self):
+        """
+        Test the number of sites in a TensorProduct object.
+        """
+        tensor_prod = TensorProduct({"site1": crandn((2,2)),
+                                     "site2": crandn((3,3))})
+        self.assertEqual(2, tensor_prod.num_sites())
+        tensor_prod = TensorProduct()
+        self.assertEqual(0, tensor_prod.num_sites())
+
     def test_from_operator(self):
         """
         Test obtaining a TensorProduct from a single operator.
