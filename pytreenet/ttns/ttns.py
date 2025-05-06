@@ -79,7 +79,8 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         return norm
 
     def single_site_operator_expectation_value(self, node_id: str,
-                                               operator: np.ndarray) -> complex:
+                                               operator: np.ndarray,
+                                               move_orth_center: bool = False) -> complex:
         """
         The expectation value with regards to a single-site operator.
 
@@ -91,10 +92,16 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             operator (np.ndarray): The operator of which we determine the
                 expectation value. Note that the state will be contracted with
                 axis/leg 1 of this operator.
+            move_orth_center (bool, optional): Whether to move the
+                orthogonalization center to the node before computing the
+                expectation value. This is usually faster, but may destroy the
+                expected orthogonalization center. Defaults to False.
 
         Returns:
             complex: The resulting expectation value < TTNS| Operator| TTN >.
         """
+        if move_orth_center:
+            self.canonical_form(node_id)
         if self.orthogonality_center_id == node_id:
             tensor = deepcopy(self.tensors[node_id])
             tensor_op = np.tensordot(tensor, operator, axes=(-1,1))
@@ -103,7 +110,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             return complex(np.tensordot(tensor_op, tensor_conj, axes=(legs,legs)))
 
         tensor_product = TensorProduct({node_id: operator})
-        return self.operator_expectation_value(tensor_product)
+        return self.tensor_product_expectation_value(tensor_product)
 
     def tensor_product_expectation_value(self,
                                          operator: TensorProduct
@@ -166,7 +173,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
 
     def is_in_canonical_form(self, node_id: Union[None,str] = None) -> bool:
         """
-        Returns whether the TTNS is in canonical form.
+        Returns whether the TTNS is actually in canonical form.
         
         If a node is specified, it will check as if that node is the
         orthogonalisation center. If no node is given, the current
