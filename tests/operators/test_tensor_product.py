@@ -1,3 +1,7 @@
+"""
+This module contains unit tests for the TensorProduct class.
+"""
+
 import unittest
 
 import numpy as np
@@ -9,12 +13,21 @@ from pytreenet.core import Node, TreeTensorNetwork
 from pytreenet.random import crandn
 
 class TestTensorProductInit(unittest.TestCase):
+    """
+    Test the initialization of the TensorProduct class.
+    """
 
     def test_init_empty(self):
+        """
+        Test the initialization of an empty TensorProduct object.
+        """
         empty_tp = TensorProduct()
         self.assertEqual(0, len(empty_tp))
 
     def test_init_numerical(self):
+        """
+        Test the initialization with numerical arrays.
+        """
         array_dict = {"site1": crandn((2,2)),
                       "site2": crandn((3,3))}
         tensor_prod = TensorProduct(array_dict)
@@ -24,6 +37,9 @@ class TestTensorProductInit(unittest.TestCase):
         self.assertTrue(np.allclose(array_dict["site2"], tensor_prod["site2"]))
 
     def test_init_symbolic(self):
+        """
+        Test the initialization with symbolic operators.
+        """
         str_dict = {"site1": "a^dagger",
                       "site2": "a"}
         tensor_prod = TensorProduct(str_dict)
@@ -33,6 +49,9 @@ class TestTensorProductInit(unittest.TestCase):
         self.assertEqual(str_dict["site2"], tensor_prod["site2"])
 
     def test_init_mixed(self):
+        """
+        Test the initialization with a mix of numerical and symbolic operators.
+        """
         dictionary = {"site1": crandn((2,2)),
                       "site2": "a"}
         tensor_prod = TensorProduct(dictionary)
@@ -42,8 +61,14 @@ class TestTensorProductInit(unittest.TestCase):
         self.assertEqual(dictionary["site2"], tensor_prod["site2"])
 
 class TestTensorProduct(unittest.TestCase):
+    """
+    Test basic tensor product methods.
+    """
 
     def test_from_operator(self):
+        """
+        Test obtaining a TensorProduct from a single operator.
+        """
         rand = crandn((2,2))
         operators = [NumericOperator(rand, ["site1"]),
                      NumericOperator(rand, ["site2"])]
@@ -59,6 +84,9 @@ class TestTensorProduct(unittest.TestCase):
                           operators)
 
     def test_into_operator_numeric(self):
+        """
+        Test the transformation of a TensorProduct into a numeric operator.
+        """
         random_arrays = [crandn((2,2)),
                          crandn((3,3))]
         operators = [NumericOperator(random_arrays[i], "site" + str(i))
@@ -70,6 +98,9 @@ class TestTensorProduct(unittest.TestCase):
         self.assertEqual(["site0", "site1"], new_operator.node_identifiers)
 
     def test_into_operator_symbolic(self):
+        """
+        Test the transformation of a TensorProduct into a symbolic operator.
+        """
         conversion_dict = {"op0": crandn((2,2)),
                            "op1": crandn((3,3))}
         tensor_prod = TensorProduct({"site0": "op0", "site1": "op1"})
@@ -83,6 +114,11 @@ class TestTensorProduct(unittest.TestCase):
         self.assertRaises(TypeError, tensor_prod.into_operator)
 
     def test_exp_matrix(self):
+        """
+        Test the exponentiaton of a tensor product with only one factor.
+
+        This is equivalent to the matrix exponential.
+        """
         simple_matrix = np.asarray([[1,2],
                                     [2,3]])
         identifier = "ID, Please"
@@ -102,6 +138,9 @@ class TestTensorProduct(unittest.TestCase):
         self.assertEqual(identifier, found_operator.node_identifiers[0])
 
     def test_exp_two_factors(self):
+        """
+        Test the exponentiation of a tensor product with two factors.
+        """
         matrix1 = np.array([[1, 2],
                             [3, 4]])
         matrix2 = np.array([[0.1, 0.2, 0.3],
@@ -142,6 +181,9 @@ class TestTensorProductNaming(unittest.TestCase):
         self.assertEqual(tp, tp_suffix)
 
 class TestTensorProductArithmetic(unittest.TestCase):
+    """
+    Test the arithmetic operations of the TensorProduct class.
+    """
 
     def test_transpose(self):
         """
@@ -287,6 +329,11 @@ class TestTensorProductArithmetic(unittest.TestCase):
         self.assertEqual("D", tp_multiply["node3"])
 
 class TestTensorProductWithTTN(unittest.TestCase):
+    """
+    Test the interaction of the TensorProduct class with the TreeTensorNetwork
+    class.
+    """
+
     def setUp(self):
         self.ttn = TreeTensorNetwork()
         self.ttn.add_root(Node(identifier="root"),
@@ -301,12 +348,18 @@ class TestTensorProductWithTTN(unittest.TestCase):
                          "c2": "H"}
 
     def test_pad_with_identity_no_pad_needed(self):
+        """
+        Test the padding with identities, when no padding is needed.
+        """
         ten_prod = TensorProduct(self.symbolic_dict)
         padded_tp = ten_prod.pad_with_identities(self.ttn)
         # Since no padding is needed, nothing should change
         self.assertEqual(ten_prod, padded_tp)
 
     def test_pad_with_identity_new_node_numeric(self):
+        """
+        Test the padding for numeric operators.
+        """
         del self.symbolic_dict["c2"]
         ten_prod = TensorProduct(self.symbolic_dict)
         padded_tp = ten_prod.pad_with_identities(self.ttn)
@@ -314,6 +367,9 @@ class TestTensorProductWithTTN(unittest.TestCase):
         self.assertTrue(np.allclose(np.eye(4), padded_tp["c2"]))
 
     def test_pad_with_identity_new_node_symbolic(self):
+        """
+        Test the padding for symbolic operators.
+        """
         del self.symbolic_dict["c2"]
         ten_prod = TensorProduct(self.symbolic_dict)
         padded_tp = ten_prod.pad_with_identities(self.ttn, symbolic=True)
@@ -321,6 +377,9 @@ class TestTensorProductWithTTN(unittest.TestCase):
         self.assertEqual("I4", padded_tp["c2"])
 
     def test_pad_with_identity_node_not_in_ttn(self):
+        """
+        Test the padding for a node that is not in the TTN.
+        """
         self.symbolic_dict["wronged"] = "P"
         ten_prod = TensorProduct(self.symbolic_dict)
         self.assertRaises(KeyError, ten_prod.pad_with_identities, self.ttn)
