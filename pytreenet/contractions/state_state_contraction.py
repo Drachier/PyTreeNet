@@ -10,15 +10,18 @@ Using explicit imports from this module provides utility functions to contract
 subtrees and leaf nodes of two states.
 """
 from __future__ import annotations
-from typing import Union, Callable
+from typing import Union, Callable, TYPE_CHECKING
 
 import numpy as np
 
 from .tree_cach_dict import PartialTreeCachDict
-from ..core.node import Node
 from .contraction_util import (contract_all_but_one_neighbour_block_to_ket,
                                contract_all_neighbour_blocks_to_ket,
                                get_equivalent_legs)
+
+if TYPE_CHECKING:
+    from ..core.node import Node
+    from ..ttns.ttns import TreeTensorNetworkState
 
 __all__ = ['contract_two_ttns']
 
