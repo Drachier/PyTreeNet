@@ -1194,31 +1194,36 @@ class TreeTensorNetwork(TreeStructure):
         if self.orthogonality_center_id is None:
             errstr = "The TTN is not in canonical form, so the orth. center cannot be moved!"
             raise AssertionError(errstr)
-        if self.orthogonality_center_id == new_center_id:
-            # In this case we are done already.
-            return
-        orth_path = self.path_from_to(self.orthogonality_center_id,
-                                      new_center_id)
-        for node_id in orth_path[1:]:
-            self._move_orth_center_to_neighbour(node_id, mode=mode)
+        self.qr_from_to(self.orthogonality_center_id, new_center_id, mode=mode)
 
-    def _move_orth_center_to_neighbour(self, new_center_id: str,
-                                       mode: SplitMode = SplitMode.REDUCED):
+    def qr_from_to(self,
+                   start_id: str,
+                   end_id: str,
+                   mode: SplitMode = SplitMode.REDUCED):
         """
-        Moves the orthogonality center to a neighbour of the current center.
+        Perform a chain of QR decompositions from one node to another.
 
         Args:
-            new_center_id (str): The identifier of a neighbour of the current
-                orthogonality center.
+            start_id (str): The identifier of the starting node.
+            end_id (str): The identifier of the ending node.
             mode: The mode to be used for the QR decomposition. For details refer to
                 `tensor_util.tensor_qr_decomposition`.
+        
         """
-        assert self.orthogonality_center_id is not None
-        split_qr_contract_r_to_neighbour(self,
-                                         self.orthogonality_center_id,
-                                         new_center_id,
-                                         mode=mode)
-        self.orthogonality_center_id = new_center_id
+        if start_id == end_id:
+            # We are done already.
+            return
+        path = self.path_from_to(start_id, end_id)
+        pairs = zip(path[:-1], path[1:])
+        for current_id, next_id in pairs:
+            split_qr_contract_r_to_neighbour(self,
+                                    current_id,
+                                    next_id,
+                                    mode=mode)
+        if self.orthogonality_center_id in path:
+            self.orthogonality_center_id = end_id
+        elif self.orthogonality_center_id is not None:
+            self.orthogonality_center_id = None
 
     def assert_orth_center(self, node_id: str,
                            object_name: str = "node"):
@@ -1237,7 +1242,7 @@ class TreeTensorNetwork(TreeStructure):
         if self.orthogonality_center_id != node_id:
             errstr = f"The {object_name} {node_id} is not the orthogonality center!"
             raise AssertionError(errstr)
-  
+
     def ensure_orth_center(self, node_id: str,
                            mode: SplitMode = SplitMode.REDUCED
                            ) -> bool:
