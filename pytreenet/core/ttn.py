@@ -569,7 +569,9 @@ class TreeTensorNetwork(TreeStructure):
         neighbour_leg = node.neighbour_index(neighbour_id)
         self.absorb_matrix(node_id, tensor, tensor_leg, neighbour_leg)
 
-    def absorb_into_open_legs(self, node_id: str, tensor: np.ndarray):
+    def absorb_into_open_legs(self, node_id: str,
+                              tensor: np.ndarray,
+                              unitary: bool = False):
         """
         Absorb a tensor into the open legs of the tensor of a node.
 
@@ -586,6 +588,9 @@ class TreeTensorNetwork(TreeStructure):
             node_id (str): The identifier of the node which is to be contracted
                 with the tensor
             tensor (np.ndarray): The tensor to be contracted.
+            unitary (bool, optional): If True, the tensor is assumed to be
+                Otherwise, the orthogonality centre is removed. Defaults to
+                False.
         """
         node, node_tensor = self[node_id]
         nopen_legs = node.nopen_legs()
@@ -598,6 +603,8 @@ class TreeTensorNetwork(TreeStructure):
                                   axes=(node.open_legs, tensor_legs))
         # The leg ordering was not changed here
         self.tensors[node_id] = new_tensor
+        if not unitary and self.orthogonality_center_id != node_id:
+            self.orthogonality_center_id = None
 
     def change_node_identifier(self, new_node_id: str, old_node_id: str):
         """
