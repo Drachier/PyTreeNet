@@ -29,7 +29,8 @@ class RandomTTNSMode(Enum):
     SAMEPHYS = "same_phys_dim"
     TRIVIALVIRTUAL = "trivial_virtual"
 
-def random_small_ttns(mode: RandomTTNSMode = RandomTTNSMode.DIFFVIRT) -> TreeTensorNetworkState:
+def random_small_ttns(mode: RandomTTNSMode = RandomTTNSMode.DIFFVIRT,
+                      ids: Union[List[str]|None] = None) -> TreeTensorNetworkState:
     """
     Generates a small TreeTensorNetworkState of three nodes:
     The root (`"root"`) and its two children (`"c1"` and `"c2"`). The associated 
@@ -49,33 +50,41 @@ def random_small_ttns(mode: RandomTTNSMode = RandomTTNSMode.DIFFVIRT) -> TreeTen
 
             Otherwise all virtual bond dimensions default to 2. If the mode is
             SAMEPHYS all phyiscal dimensions will default to 2.
+        ids (List[str]|None): A list of identifiers for the nodes. If None, the
+            the identifiers will be set to `"root"`, `"c1"` and `"c2"`. If a
+            list is provided, the identifiers will be set in that order.
 
     Returns:
         TreeTensorNetwork: A tree tensor network with the above topology and
             randomly filled tensors.
     """
+    if ids is None:
+        ids = ["root", "c1", "c2"]
+    root_id = ids[0]
+    c1_id = ids[1]
+    c2_id = ids[2]
     random_ttns = TreeTensorNetworkState()
     if mode == RandomTTNSMode.DIFFVIRT:
-        root_node, root_tensor = random_tensor_node((5,6,2),"root")
+        root_node, root_tensor = random_tensor_node((5,6,2),root_id)
         random_ttns.add_root(root_node, root_tensor)
-        c1_node, c1_tensor = random_tensor_node((5,3),"c1")
-        random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, "root", 0)
-        c2_node, c2_tensor = random_tensor_node((6,4),"c2")
-        random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, "root", 1)
+        c1_node, c1_tensor = random_tensor_node((5,3),c1_id)
+        random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, root_id, 0)
+        c2_node, c2_tensor = random_tensor_node((6,4),c2_id)
+        random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, root_id, 1)
     elif mode == RandomTTNSMode.SAMEPHYS:
-        root_node, root_tensor = random_tensor_node((5,6,2),"root")
+        root_node, root_tensor = random_tensor_node((5,6,2),root_id)
         random_ttns.add_root(root_node, root_tensor)
-        c1_node, c1_tensor = random_tensor_node((5,2),"c1")
-        random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, "root", 0)
-        c2_node, c2_tensor = random_tensor_node((6,2),"c2")
-        random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, "root", 1)
+        c1_node, c1_tensor = random_tensor_node((5,2),c1_id)
+        random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, root_id, 0)
+        c2_node, c2_tensor = random_tensor_node((6,2),c2_id)
+        random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, root_id, 1)
     else:
-        root_node, root_tensor = random_tensor_node((2,2,2),"root")
+        root_node, root_tensor = random_tensor_node((2,2,2),root_id)
         random_ttns.add_root(root_node, root_tensor)
-        c1_node, c1_tensor = random_tensor_node((2,3),"c1")
-        random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, "root", 0)
-        c2_node, c2_tensor = random_tensor_node((2,4),"c2")
-        random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, "root", 1)
+        c1_node, c1_tensor = random_tensor_node((2,3),c1_id)
+        random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, root_id, 0)
+        c2_node, c2_tensor = random_tensor_node((2,4),c2_id)
+        random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, root_id, 1)
     return random_ttns
 
 def random_big_ttns(mode: RandomTTNSMode = RandomTTNSMode.SAME) -> TreeTensorNetworkState:
