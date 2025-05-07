@@ -1,14 +1,17 @@
 from unittest import TestCase, main as unitmain
 
-from numpy import allclose, tensordot
+from numpy import allclose, tensordot, eye
 
 from pytreenet.random.random_matrices import crandn
 from pytreenet.core.node import Node
 from pytreenet.random.random_node import random_tensor_node
+from pytreenet.random.random_ttns import (random_small_ttns)
+from pytreenet.contractions.tree_cach_dict import PartialTreeCachDict
 
 from pytreenet.contractions.state_operator_contraction import (single_node_expectation_value,
                                                                contract_operator_tensor_ignoring_one_leg,
-                                                               contract_bra_tensor_ignore_one_leg)
+                                                               contract_bra_tensor_ignore_one_leg,
+                                                               contract_single_site_operator_env)
 
 class TestSingleNodeExpectationValue(TestCase):
     """
@@ -340,6 +343,87 @@ class TestContractBraTensorIgnoreOneLeg(TestCase):
                                                           neighbour_ids[0],
                                                           id_trafo=id_trafo)
         self.assertTrue(allclose(ref_result, found_result))
+
+class TestContractSingleSiteOperatorEnv(TestCase):
+    """
+    Tests the function contract_single_site_operator_env.
+    """
+
+    def test_simple_root(self):
+        """
+        Tests the contraction of a single site operator on a simple TTNS
+        structure.
+        """
+        ttns = random_small_ttns()
+        root_id = ttns.root_id
+        ttns.canonical_form(root_id)
+        # Create a single site operator
+        op = crandn((2,2))
+        # We know that the environments are the identity
+        env_dict = PartialTreeCachDict()
+        root_node, root_tensor = ttns[root_id]
+        c1_id, c2_id = tuple(root_node.children)
+        dims = [root_node.neighbour_dim(c1_id),
+                root_node.neighbour_dim(c2_id)]
+        env_dict.add_entry(c1_id,
+                           root_id,
+                            eye(dims[0], dtype=complex))     
+        env_dict.add_entry(c2_id,
+                            root_id,
+                             eye(dims[1], dtype=complex))
+        found = contract_single_site_operator_env(root_node,
+                                                  root_tensor,
+                                                  root_node,
+                                                  root_tensor.conj(),
+                                                  op,
+                                                  env_dict)
+        root_open_leg = root_node.open_legs[0]
+        ref = tensordot(root_tensor,
+                          op,
+                          axes=(root_open_leg, 1))
+        ref = tensordot(ref,
+                          root_tensor.conj(),
+                          axes=([0,1,2],
+                                 [0,1,2]))
+        # Compare the results
+        assert allclose(ref, found)
+
+    def test_simple_non_root(self):
+        """
+        Test the contraction of a single site operator on a simple TTNS
+        structure, where the operator is not applied to the root node.
+        """
+        ttns = random_small_ttns()
+        node_id = "c1"
+        ttns.canonical_form(node_id)
+        # Create a single site operator
+        op = crandn((3,3))
+        # We know that the environments are the identity
+        env_dict = PartialTreeCachDict()
+        node, tensor = ttns[node_id]
+        parent_id = node.parent
+        dim = node.parent_leg_dim()
+        env_dict.add_entry(parent_id,
+                           node_id,
+                            eye(dim, dtype=complex))
+        # Contract the operator
+        found = contract_single_site_operator_env(node,
+                                                  tensor,
+                                                  node,
+                                                  tensor.conj(),
+                                                  op,
+                                                  env_dict)
+        # Reference
+        node_open_leg = node.open_legs[0]
+        ref = tensordot(tensor,
+                          op,
+                          axes=(node_open_leg, 1))
+        ref = tensordot(ref,
+                        tensor.conj(),
+                        axes=([0,1],
+                               [0,1]))
+        # Compare the results
+        assert allclose(ref, found)
 
 if __name__ == "__main__":
     unitmain()

@@ -3,20 +3,25 @@ This module provides functions to contract a TTNS with a TTNO
 """
 
 from __future__ import annotations
-from typing import Union, Callable
+from typing import Union, Callable, TYPE_CHECKING
 
 import numpy as np
 
-from ..core.node import Node
 from .tree_cach_dict import PartialTreeCachDict
 from .contraction_util import (contract_all_but_one_neighbour_block_to_ket,
                                contract_all_neighbour_blocks_to_ket,
                                get_equivalent_legs)
+from .state_state_contraction import contract_node_with_environment_nodes as env_contract_node_state
+
+if TYPE_CHECKING:
+    from ..core.node import Node
+    from ..ttns.ttns import TreeTensorNetworkState
+    from ..ttno.ttno_class import TreeTensorNetworkOperator
 
 __all__ = ['expectation_value', 'single_node_expectation_value']
 
 def expectation_value(state: TreeTensorNetworkState,
-                      operator: TTNO) -> complex:
+                      operator: TreeTensorNetworkOperator) -> complex:
     """
     Computes the Expecation value of a state with respect to an operator.
 
@@ -26,7 +31,7 @@ def expectation_value(state: TreeTensorNetworkState,
 
     Args:
         state (TreeTensorNetworkState): The TTNS representing the state.
-        operator (TTNO): The TTNO representing the Operator.
+        operator (TreeTensorNetworkOperator): The TTNO representing the Operator.
 
     Returns:
         complex: The expectation value.
@@ -56,7 +61,7 @@ def expectation_value(state: TreeTensorNetworkState,
 
 def contract_node_with_environment(node_id: str,
                                    state: TreeTensorNetworkState,
-                                   operator: TTNO,
+                                   operator: TreeTensorNetworkOperator,
                                    dictionary: PartialTreeCachDict) -> np.ndarray:
     """
     Contracts a node with its environment.
@@ -67,7 +72,7 @@ def contract_node_with_environment(node_id: str,
     Args:
         node_id (str): The identifier of the node.
         state (TreeTensorNetworkState): The TTNS representing the state.
-        operator (TTNO): The TTNO representing the Hamiltonian.
+        operator (TreeTensorNetworkOperator): The TTNO representing the Hamiltonian.
         dictionary (PartialTreeCacheDict): The dictionary containing the
          already contracted subtrees.
     
@@ -110,9 +115,68 @@ def contract_node_with_environment(node_id: str,
     return np.tensordot(bra_tensor, kethamblock,
                         axes=(state_legs,state_legs))
 
+def contract_single_site_operator_env(ket_node: Node,
+                                      ket_tensor: np.ndarray,
+                                      bra_node: Node,
+                                      bra_tensor: np.ndarray,
+                                      operator: np.ndarray,
+                                      dictionary: PartialTreeCachDict,
+                                      id_trafo: Union[Callable,None] = None
+                                      ) -> complex:
+    """
+    Contract a node to which a single-site operator is applied with given
+    environment tensors.
+
+    Args:
+        ket_node (Node): The ket node.
+        ket_tensor (np.ndarray): The ket tensor.
+        bra_node (Node): The bra node.
+        bra_tensor (np.ndarray): The bra tensor.
+        operator (np.ndarray): The single-site operator.
+        dictionary (PartialTreeCacheDict): The dictionary containing the
+            already contracted subtrees.
+        id_trafo (Union[None,Callable]): A function to transform the node
+            identifiers of the ket node into the node identifiers of the bra
+            node. If None, it is assumed that the identifiers are the same.
+            Defaults to None.
+
+    Returns:
+        complex: The contraction result.
+                            ______
+                 _____     |      |      _____
+                |     |____|  B   |_____|     |
+                |     |    |______|     |     |
+                |     |        |        |     |
+                |     |     ___|__      |     |
+                |     |    |      |     |     |
+                |     |    |      |     |     |
+                |  C1 |    |  O   |     |  C2 |
+                |     |    |______|     |     |
+                |     |        |        |     |
+                |     |     ___|__      |     |
+                |     |    |      |     |     |
+                |     |____|  K   |_____|     |
+                |_____|    |______|     |_____|
+    
+    """
+    # Contract the operator with the ket tensor
+    # The ket's open leg is the last leg and the operators
+    # input leg as well.
+    ket_leg = ket_node.open_legs
+    if len(ket_leg) != 1:
+        raise ValueError("The ket node must have exactly one open leg!")
+    ket_leg = ket_leg[0]
+    new_ket_tensor = np.tensordot(ket_tensor, operator,
+                                  axes=(ket_leg,1))
+    return env_contract_node_state(ket_node, new_ket_tensor,
+                                   bra_node, bra_tensor,
+                                   dictionary,
+                                   id_trafo=id_trafo)
+
+
 def contract_any(node_id: str, next_node_id: str,
                  state: TreeTensorNetworkState,
-                 operator: TTNO,
+                 operator: TreeTensorNetworkOperator,
                  dictionary: PartialTreeCachDict) -> np.ndarray:
     """
     Contracts any node. 
@@ -128,7 +192,7 @@ def contract_any(node_id: str, next_node_id: str,
         next_node_id (str): Identifier of the node towards which the open
             legs will point.
         state (TreeTensorNetworkState): The TTNS representing the state.
-        operator (TTNO): The TTNO representing the Hamiltonian.
+        operator (TreeTensorNetworkOperator): The TTNO representing the Hamiltonian.
         dictionary (PartialTreeCachDict): The dictionary containing the
             already contracted subtrees.
         
