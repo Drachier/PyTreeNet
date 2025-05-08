@@ -71,6 +71,15 @@ class PartialTreeCachDict(dict):
         """
         self[node_id, next_node_id] = cached_tensor
 
+    def copy(self) -> PartialTreeCachDict:
+        """
+        Returns a shallow copy of the dictionary.
+
+        Returns:
+            PartialTreeCachDict: A shallow copy of the dictionary.
+        """
+        return PartialTreeCachDict(super().copy())
+
     def change_next_id_for_entry(self, node_id: str, old_next_id,
                                  new_next_id: str):
         """
