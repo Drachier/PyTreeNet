@@ -122,6 +122,21 @@ class TestTreeTensorNetworkStateSimple(unittest.TestCase):
 
         self.assertAlmostEqual(reference_result, found_result)
 
+    def test_multi_single_site_expectation_value(self):
+        """Test the multi single site expectation value."""
+        found_result = self.initial_state.multi_single_site_expectation_value(
+            self.operators[2])
+        print(found_result)
+        state_vector, _ = self.initial_state.to_vector(to_copy=True)
+        op_root = np.kron(self.operators[2]["root"], np.eye(3 * 4))
+        ref_root = state_vector.conj().T @ op_root @ state_vector
+        self.assertTrue(np.allclose(ref_root, found_result["root"][0]))
+        c1_op = np.kron(np.eye(2), np.kron(self.operators[2]["c1"], np.eye(4)))
+        ref_c1 = state_vector.conj().T @ c1_op @ state_vector
+        self.assertTrue(np.allclose(ref_c1, found_result["c1"][0]))
+        c2_op = np.kron(np.eye(2 * 3), self.operators[2]["c2"])
+        ref_c2 = state_vector.conj().T @ c2_op @ state_vector
+        self.assertTrue(np.allclose(ref_c2, found_result["c2"][0]))
 
 if __name__ == "__main__":
     unittest.main()
