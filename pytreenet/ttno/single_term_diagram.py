@@ -81,7 +81,7 @@ class SingleTermDiagram():
 
         Args:
             term (Dict[str,str]): The term the new state diagram should 
-                represent. The leys are identifiers of nodes to which the
+                represent. The keys are identifiers of nodes to which the
                 value, a symbolic operator, is to be applied.
             reference_tree (TreeStructure): Provides the underlying tree
                 structure and the identifiers of all nodes.
