@@ -166,6 +166,24 @@ class TDVPAlgorithm(TTNTimeEvolution):
         """
         self.partial_tree_cache.update_tree_cache(node_id, next_node_id)
 
+    def print_tree_cache(self):
+        """
+        Prints the partial_tree_cache in a readable format.
+        
+        For each entry in the cache, displays the format:
+        node_id_1 -----> node_id_2 : environment shape
+        """
+        if not hasattr(self, 'partial_tree_cache') or self.partial_tree_cache is None:
+            print("No cache available")
+            return
+            
+        print("Environment tensor cache:")
+        print("-------------------")
+        shapes = self.partial_tree_cache.shapes()
+        for (node_id1, node_id2), shape in shapes.items():
+            print(f"{node_id1} -----> {node_id2} : {shape}")
+        print("-------------------")
+    
     def _update_site(self, node_id: str,
                      time_step_factor: float = 1):
         """
