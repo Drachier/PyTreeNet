@@ -534,7 +534,7 @@ class TreeTensorNetwork(TreeStructure):
 
         """
         m_shape = absorbed_matrix.shape
-        if len(absorbed_matrix) != 2 or m_shape[0] != m_shape[1]:
+        if len(m_shape) != 2 or m_shape[0] != m_shape[1]:
             errstr = self._absorption_warning()
             raise AssertionError(errstr)
         node_tensor = self.tensors[node_id]
@@ -567,7 +567,7 @@ class TreeTensorNetwork(TreeStructure):
         """
         node = self.nodes[node_id]
         neighbour_leg = node.neighbour_index(neighbour_id)
-        self.absorb_matrix(node_id, tensor, tensor_leg, neighbour_leg)
+        self.absorb_matrix(node_id, tensor, neighbour_leg, tensor_leg)
 
     def absorb_into_open_legs(self, node_id: str,
                               tensor: np.ndarray,
