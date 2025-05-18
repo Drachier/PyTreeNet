@@ -617,10 +617,11 @@ class TreeTensorNetwork(TreeStructure):
     def replace_tensor(self,
                        node_id: str,
                        new_tensor: np.ndarray,
-                       permutation: Union[None, List[int]] = None):
+                       permutation: Union[None, List[int]] = None,
+                       new_shape = False):
         """
         Replaces the tensor associated with a node.
-
+    
         Args:
             node_id (str): The identifier of the node.
             new_tensor (np.ndarray): The new tensor to be associated with the
@@ -628,8 +629,13 @@ class TreeTensorNetwork(TreeStructure):
             permutation (Union[None, List[int]], optional): A permutation to
                 be applied to the new tensor to match the leg ordering of the
                 node. Defaults to None.
+            new_shape (bool, optional): Whether the shape of the node should be
+                updated to the new tensor. Defaults to False.
 
         """
+        if new_shape:
+            self._nodes[node_id]._shape = new_tensor.shape 
+
         self._nodes[node_id].replace_tensor(new_tensor,
                                             permutation=permutation)
         self._tensors[node_id] = new_tensor
