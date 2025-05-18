@@ -189,6 +189,9 @@ class SVDParameters:
     Attributes:
         max_bond_dim (int, optional): The maximum bond dimension allowed
             between nodes. Defaults to 100.
+        max_effective_ham_dim (int, optional): The maximum product of bond dimensions
+            for all children of a node. Used to control effective Hamiltonian size.
+            Defaults to 20000.
         rel_tol (float, optional): singular values s for which
             (s / largest singular value) < rel_tol are truncated. Defaults to
             1e-15.
@@ -207,6 +210,7 @@ class SVDParameters:
         
     """
     max_bond_dim: int = 100
+    max_effective_ham_dim: int = 10000
     rel_tol: float = 1e-15
     total_tol: float = 1e-15
     renorm: bool = False
