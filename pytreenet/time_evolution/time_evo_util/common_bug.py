@@ -186,7 +186,8 @@ def update_non_leaf_node(node_id: str,
         old_tensor = new_state.tensors[node_id]
         new_basis_tensor = compute_new_basis_tensor(new_state_node,
                                                     old_tensor,
-                                                    updated_tensor)
+                                                    updated_tensor,
+                                                    new_state_node.parent)
     old_basis_node, old_basis_tensor = parent_state[node_id]
     basis_change_tensor = compute_basis_change_tensor(old_basis_node,
                                                         new_state_node,
