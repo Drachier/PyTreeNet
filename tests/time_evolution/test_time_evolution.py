@@ -1,9 +1,13 @@
 import unittest
 
 import numpy as np
+from scipy.linalg import expm
+import pytest
 
 import pytreenet as ptn
+from pytreenet.time_evolution.time_evolution import EvoDirection, TimeEvoMode
 from pytreenet.random import crandn
+from pytreenet.random.random_matrices import random_hermitian_matrix
 
 class TestTimeEvolutionInit(unittest.TestCase):
 
@@ -208,6 +212,98 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         results = crandn(self.time_evol.results.shape)
         self.time_evol._results = results
         self.assertTrue(np.allclose(np.real(results[0:-1]), self.time_evol.operator_results(realise=True)))
+
+
+### Test EvoDirection Enum Class
+@pytest.mark.parametrize("test_input,expected", [(True, EvoDirection.FORWARD),
+                                                (False, EvoDirection.BACKWARD)])
+def test_from_bool(test_input, expected):
+    """
+    Test the from_bool method of the EvoDirection enum class.
+    """
+    assert EvoDirection.from_bool(test_input) == expected
+
+@pytest.mark.parametrize("test_input,expected", [(EvoDirection.FORWARD, -1),
+                                                (EvoDirection.BACKWARD, 1)])
+def test_exp_sign(test_input, expected):
+    """
+    Test the exp_sign method of the EvoDirection enum class.
+    """
+    assert EvoDirection.exp_sign(test_input) == expected
+
+
+### Test TimeEvoMode Enum Class
+def test_fastest_equivalent():
+    """
+    Test that the 'fastest' mode is equivalent to 'chebyshev'.
+    """
+    assert TimeEvoMode.fastest_equivalent() == TimeEvoMode.CHEBYSHEV
+
+@pytest.mark.parametrize("mode,expected", [
+    (TimeEvoMode.EXPM, False),
+    (TimeEvoMode.CHEBYSHEV, False),
+    (TimeEvoMode.SPARSE, False),
+    (TimeEvoMode.RK45, True),
+    (TimeEvoMode.RK23, True),
+    (TimeEvoMode.DOP853, True),
+    (TimeEvoMode.BDF, True),
+])
+def test_is_scipy(mode, expected):
+    """
+    Test the is_scipy method of the TimeEvoMode enum class.
+    """
+    assert mode.is_scipy() == expected
+
+@pytest.mark.parametrize("mode", [
+    TimeEvoMode.RK45,
+    TimeEvoMode.RK23,
+    TimeEvoMode.DOP853,
+    TimeEvoMode.BDF,
+])
+def test_is_scipy_raises(mode):
+    """
+    Test that is_scipy raises an error for non-scipy modes.
+    """
+    shape = (2, 3, 4)
+    psi_init = crandn(shape)
+    dt = 0.1
+    exponent_mat = -1j * random_hermitian_matrix(np.prod(shape).item())
+    exponent_tens = exponent_mat.reshape(2*list(shape))
+    def multiply_fn(_, x):
+        return np.tensordot(exponent_tens, x, axes=([3,4,5], [0,1,2]))
+    found = mode.time_evolve_action(psi_init, multiply_fn, dt,
+                                    atol = 1e-9, rtol = 1e-9)
+    # Referemce is the exponentiation of the matrix
+    reference = expm(exponent_mat * dt) @ psi_init.flatten()
+    # Check if the results are close
+    assert shape == found.shape
+    np.testing.assert_allclose(found.flatten(), reference)
+
+@pytest.mark.parametrize("mode", [
+    TimeEvoMode.EXPM,
+    TimeEvoMode.CHEBYSHEV,
+    TimeEvoMode.SPARSE,
+    TimeEvoMode.RK45,
+    TimeEvoMode.RK23,
+    TimeEvoMode.DOP853,
+    TimeEvoMode.BDF
+])
+def test_time_evolve(mode):
+    """
+    Test the time_evolve method of the TimeEvoMode enum class that simply uses
+    the full Hamiltonian matrix.
+    """
+    shape = (2, 3, 4)
+    psi_init = crandn(shape)
+    dt = 0.1
+    exponent_mat = random_hermitian_matrix(np.prod(shape).item())
+    found = mode.time_evolve(psi_init, exponent_mat, dt,
+                             atol = 1e-9, rtol = 1e-9)
+    # Referemce is the exponentiation of the matrix
+    reference = expm(-1j * exponent_mat * dt) @ psi_init.flatten()
+    # Check if the results are close
+    assert shape == found.shape
+    np.testing.assert_allclose(found.flatten(), reference)
 
 if __name__ == "__main__":
     unittest.main()

@@ -2,7 +2,7 @@
 This module provides the abstract TimeEvolution class
 """
 from __future__ import annotations
-from typing import List, Union, Any, Dict, Iterable
+from typing import List, Union, Any, Dict, Iterable, Callable
 from enum import Enum
 from copy import deepcopy
 from math import modf
@@ -443,42 +443,6 @@ class TimeEvolution:
         """
         self.state = deepcopy(self._initial_state)
 
-class TimeEvoMode(Enum):
-    """
-    Mode for the time evolution of a matrix.
-    """
-
-    FASTEST = "fastest"
-    EXPM = "expm"
-    EIGSH = "eigsh"
-    CHEBYSHEV = "chebyshev"
-    SPARSE = "sparse"
-    RK45 = "RK45"
-    RK23 = "RK23"
-    DOP853 = "DOP853"
-    BDF = "BDF"
-
-    def __str__(self) -> str:
-        return self.value
-
-    @staticmethod
-    def fastest_equivalent() -> TimeEvoMode:
-        """
-        Selects the mode that is equivalent to the fastest.
-        """
-        return TimeEvoMode.CHEBYSHEV
-
-    def is_scipy(self) -> bool:
-        """
-        Determines, if this mode is a scipy ODE solver.
-        """
-        if self == TimeEvoMode.FASTEST:
-            return self.fastest_equivalent().is_scipy()
-        return self in [TimeEvoMode.RK45,
-                        TimeEvoMode.RK23,
-                        TimeEvoMode.DOP853,
-                        TimeEvoMode.BDF]
-
 class EvoDirection(Enum):
     """
     Enum for the direction of time evolution.
@@ -510,6 +474,113 @@ class EvoDirection(Enum):
             int: The sign of the exponent.
         """
         return self.value
+
+class TimeEvoMode(Enum):
+    """
+    Mode for the time evolution of a matrix.
+    """
+
+    FASTEST = "fastest"
+    EXPM = "expm"
+    CHEBYSHEV = "chebyshev"
+    SPARSE = "sparse"
+    RK45 = "RK45"
+    RK23 = "RK23"
+    DOP853 = "DOP853"
+    BDF = "BDF"
+
+    def __str__(self) -> str:
+        return self.value
+
+    @staticmethod
+    def fastest_equivalent() -> TimeEvoMode:
+        """
+        Selects the mode that is equivalent to the fastest.
+        """
+        return TimeEvoMode.CHEBYSHEV
+
+    def is_scipy(self) -> bool:
+        """
+        Determines, if this mode is a scipy ODE solver.
+        """
+        if self == TimeEvoMode.FASTEST:
+            return self.fastest_equivalent().is_scipy()
+        return self in [TimeEvoMode.RK45,
+                        TimeEvoMode.RK23,
+                        TimeEvoMode.DOP853,
+                        TimeEvoMode.BDF]
+
+    def time_evolve_action(self,
+                           psi: np.ndarray,
+                           time_evo_action: Callable,
+                           time_difference: float,
+                           **options: dict[str, Any]
+                           ) -> np.ndarray:
+        """
+        Performs the time evolution of a tensor from an action.
+
+        Args:
+            psi (np.ndarray): The initial state as an arbitrary tensor.
+            time_evo_action (Callable): The action to be performed on the
+                right hand side of the effective Schrödinger equation. Takes
+                the time and the state as arguments.
+            time_difference (float): The duration of the time-evolution.
+            **options (dict[str, Any]): Additional options for the solver
+                underlying the time evolution. See the scipy documentation for
+                the available options of the specific solver.
+
+        Returns:
+            np.ndarray: The time-evolved state.
+        """
+        if self.is_scipy():
+            orig_shape = psi.shape
+            def ode_rhs(t, y_vec):
+                orig_array = y_vec.reshape(orig_shape)
+                return time_evo_action(t, orig_array).flatten()
+            t_span = (0, time_difference)
+            res = solve_ivp(ode_rhs, t_span, psi.flatten(),
+                            method=self.value,
+                            t_eval=[time_difference],
+                            **options)
+            return res.y[:, 0].reshape(orig_shape)
+        raise NotImplementedError(
+            "The time evolution via action is not implemented for this mode: "
+            + str(self.value)
+        )
+
+    def time_evolve(self,
+                    psi: np.ndarray,
+                    hamiltonian: np.ndarray,
+                    time_difference: float,
+                    forward: EvoDirection| bool = EvoDirection.FORWARD,
+                    **options: dict[str, Any]) -> np.ndarray:
+        """
+        Time evolves a state psi via a Hamiltonian matrix.
+
+        Args:
+            psi (np.ndarray): The initial state as a vector.
+            hamiltonian (np.ndarray): The Hamiltonian determining the dynamics as
+                a matrix.
+            time_difference (float): The duration of the time-evolution
+            forward (EvoDirection|bool, optional): The direction of the time evolution.
+                    Defaults to EvoDirection.FORWARD.
+            **options (dict[str, Any]): Additional options for the solver
+                underlying the time evolution. See the scipy documentation for
+                the available options of the specific solver.
+        
+        Returns:
+            np.ndarray: The time evolved state
+        """
+        if isinstance(forward, bool):
+            forward = EvoDirection.from_bool(forward)
+        if self.is_scipy():
+            return self.time_evolve_action(psi,
+                                           lambda t, y: forward.exp_sign() * 1.0j * hamiltonian @ y.flatten(),
+                                           time_difference,
+                                           **options)
+        exponent = forward.exp_sign() * 1.0j * hamiltonian * time_difference
+        return fast_exp_action(exponent, psi.flatten(),
+                               mode=self.value).reshape(psi.shape)
 
 def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
                 time_difference: float,
