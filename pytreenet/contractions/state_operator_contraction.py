@@ -100,20 +100,65 @@ def contract_node_with_environment(node_id: str,
     
     """
     ket_node, ket_tensor = state[node_id]
-    ket_neigh_block = contract_all_neighbour_blocks_to_ket(ket_tensor,
-                                                           ket_node,
-                                                           dictionary)
     op_node, op_tensor = operator[node_id]
-    state_legs, ham_legs = get_equivalent_legs(ket_node, op_node)
-    ham_legs.append(_node_operator_input_leg(op_node))
-    block_legs = list(range(1,2*ket_node.nneighbours(),2))
-    block_legs.append(0)
-    kethamblock = np.tensordot(ket_neigh_block, op_tensor,
-                               axes=(block_legs, ham_legs))
+    kethamblock = contract_ket_ham_with_envs(ket_node,
+                                             ket_tensor,
+                                             op_node,
+                                             op_tensor,
+                                             dictionary)
     bra_tensor = ket_tensor.conj()
+    # TODO: Getting legs can also be done smarter, but works well enough for now.
+    state_legs, _ = get_equivalent_legs(ket_node, op_node)
     state_legs.append(len(state_legs))
     return np.tensordot(bra_tensor, kethamblock,
                         axes=(state_legs,state_legs))
+
+def contract_ket_ham_with_envs(ket_node: Node,
+                              ket_tensor: np.ndarray,
+                              ham_node: Node,
+                              ham_tensor: np.ndarray,
+                              dictionary: PartialTreeCachDict
+                              ) -> np.ndarray:
+    """
+    Contract a state node and a Hamiltonian node with their environments.
+
+    Args:
+        ket_node (Node): The ket node.
+        ket_tensor (np.ndarray): The ket tensor.
+        ham_node (Node): The Hamiltonian node.
+        ham_tensor (np.ndarray): The Hamiltonian tensor.
+        dictionary (PartialTreeCachDict): The dictionary containing the
+            already contracted subtrees.
+
+    Returns:
+        np.ndarray: The contracted tensor.
+
+                 _____                   _____
+                |     |____        _____|     |
+                |     |                 |     |
+                |     |        |        |     |
+                |     |     ___|__      |     |
+                |     |    |      |     |     |
+                |     |____|      |_____|     |
+                |  C1 |    |   H  |     |  C2 |
+                |     |    |______|     |     |
+                |     |        |        |     |
+                |     |     ___|__      |     |
+                |     |    |      |     |     |
+                |     |____|  A   |_____|     |
+                |_____|    |______|     |_____|
+    
+    """
+    ket_neigh_block = contract_all_neighbour_blocks_to_ket(ket_tensor,
+                                                           ket_node,
+                                                           dictionary)
+    _, ham_legs = get_equivalent_legs(ket_node, ham_node)
+    ham_legs.append(_node_operator_input_leg(ham_node))
+    block_legs = list(range(1,2*ket_node.nneighbours(),2))
+    block_legs.append(0)
+    kethamblock = np.tensordot(ket_neigh_block, ham_tensor,
+                               axes=(block_legs, ham_legs))
+    return kethamblock
 
 def contract_single_site_operator_env(ket_node: Node,
                                       ket_tensor: np.ndarray,
