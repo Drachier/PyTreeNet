@@ -198,7 +198,9 @@ def contract_all_but_one_neighbour_block_to_ket(ket_tensor: np.ndarray,
 
 def contract_all_neighbour_blocks_to_ket(ket_tensor: np.ndarray,
                                          ket_node: Node,
-                                         partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
+                                         partial_tree_cache: PartialTreeCachDict,
+                                         order: Union[None,List[str]]=None
+                                         ) -> np.ndarray:
     """
     Contract all neighbour blocks to the ket tensor.
 
@@ -207,6 +209,9 @@ def contract_all_neighbour_blocks_to_ket(ket_tensor: np.ndarray,
         ket_node (Node): The ket node.
         partial_tree_cache (PartialTreeCacheDict): The dictionary containing the
             already contracted subtrees.
+        order (Union[None,List[str]]): The order in which the neighbour blocks
+            should be contracted. If None, the order is simply pulled from the
+            node's neighbouring nodes.
 
     Returns:
         np.ndarray: The resulting tensor::
@@ -223,8 +228,13 @@ def contract_all_neighbour_blocks_to_ket(ket_tensor: np.ndarray,
             |______|    |_____|    |______|
 
         """
+    if order is None:
+        order = ket_node.neighbouring_nodes()
+    elif isinstance(order, str):
+        if len(order) != ket_node.nneighbours():
+            raise ValueError(f"Order given does not match the number of neighbours {ket_node.nneighbours()}!")
     result_tensor = ket_tensor
-    for neighbour_id in ket_node.neighbouring_nodes():
+    for neighbour_id in order:
         # A the neighbours are the same as the leg order, the tensor_leg_to_neighbour
         # is always 0.
         result_tensor = contract_neighbour_block_to_ket(result_tensor,
