@@ -510,6 +510,15 @@ class TimeEvoMode(Enum):
                         TimeEvoMode.DOP853,
                         TimeEvoMode.BDF]
 
+    def action_evolvable(self) -> bool:
+        """
+        Determines, if this mode can be used for time evolution via an action.
+
+        Returns:
+            bool: True if the mode is suitable for time evolution via an action.
+        """
+        return self.is_scipy()
+
     def time_evolve_action(self,
                            psi: np.ndarray,
                            time_evo_action: Callable,
