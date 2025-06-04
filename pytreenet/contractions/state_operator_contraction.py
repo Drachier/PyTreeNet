@@ -686,11 +686,29 @@ def contract_bond_tensor(
         state_node (Node): The node of the state tensor.
         tensor_cache (SandwichCache): The cache for the neighbour blocks.
 
+    Returns:
+        NDArray[np.complex128]: The contracted tensor. The ket tensor and the
+            neighbouring blocks are contracted with each other.
+
+                 _____                   _____
+                |     |____        _____|     |
+                |     |                 |     |
+                |     |                 |     |
+                |     |                 |     |
+                |     |                 |     |
+                |     |_________________|     |
+                |  C1 |                 |  C2 |
+                |     |                 |     |
+                |     |        |        |     |
+                |     |     ___|__      |     |
+                |     |    |      |     |     |
+                |     |____|  A   |_____|     |
+                |_____|    |______|     |_____|
     """
     if ket_node.nneighbours()!= 2:
         errstr = "The node must have exactly two neighbours to perform " \
                 "effective bond time evolution!"
-        errstr += f" Node {ket_node.id} has {len(ket_node.nneighbours())} neighbours."
+        errstr += f" Node {ket_node.identifier} has {ket_node.nneighbours()} neighbours."
         raise ValueError(errstr)
     # We want to ensure the order of the legs
     order = [ket_node.parent,ket_node.children[0]]
