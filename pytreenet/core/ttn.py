@@ -63,6 +63,7 @@ from .leg_specification import LegSpecification
 from .canonical_form import (canonical_form,
                              split_qr_contract_r_to_neighbour)
 from ..contractions.tree_contraction import completely_contract_tree
+from ..contractions.node_contraction import contract_nodes
 from ..util.ttn_exceptions import NotCompatibleException
 
 
@@ -734,87 +735,22 @@ class TreeTensorNetwork(TreeStructure):
             Otherwise defaults to `node_id1 + "contr" + node_id2`.
         
         """
-        if new_identifier == "":
-            new_identifier = node_id1 + "contr" + node_id2
-        parent_id, child_id = self.determine_parentage(node_id1, node_id2)
-        new_tensor = self._data_contraction(parent_id, child_id, new_identifier)
-        new_node = self._create_contracted_node(new_tensor, new_identifier,
-                                                parent_id, child_id, node_id1)
-        # Change connectivity. This deletes the old nodes.
-        self.replace_node_in_neighbours(new_identifier, parent_id)
-        self.replace_node_in_neighbours(new_identifier, child_id)
-        self._nodes[new_identifier] = new_node
-
-    def _data_contraction(self, parent_id: str, child_id: str,
-                          new_id: str) -> np.ndarray:
-        """
-        Performs the actual contraction of the tensors.
-
-        The parent tensor is the first argument, to have a consisten leg
-        convention. Note that after running this method, the original tensors
-        are deleted and the new tensor is available.
-
-        Args:
-            parent_id (str): Identifier of the parent tensor
-            child_id (str): Identifier of the child tensor
-            new_id (str): Identifier of the new tensor
-        
-        Returns:
-            np.ndarray: The tensor resulting from the contraction.
-        """
-        parent_node = self.nodes[parent_id]
-        ## Contracting tensors
-        parent_tensor = self.tensors[parent_id]
-        child_tensor = self.tensors[child_id]
-        axes = (parent_node.neighbour_index(child_id), 0)
-        new_tensor = np.tensordot(parent_tensor, child_tensor, # This order for leg convention
-                                  axes=axes)
+        node1, tensor1 = self[node_id1]
+        node2, tensor2 = self[node_id2]
+        new_node, new_tensor = contract_nodes(node1, tensor1,
+                                              node2, tensor2,
+                                              new_identifier=new_identifier)
+        new_identifier = new_node.identifier
+        # Deal with tensor data
         ## Remove old tensors
-        self.tensors.pop(parent_id)
-        self.tensors.pop(child_id)
+        self.tensors.pop(node_id1)
+        self.tensors.pop(node_id2)
         ## Add new tensor
-        self.tensors[new_id] = new_tensor
-        return new_tensor
-
-    def _create_contracted_node(self, new_tensor: np.ndarray,
-                                new_identifier: str,
-                                parent_id: str, child_id: str,
-                                node_id1: str) -> Node:
-        """
-        Creates the new node after the contraction.
-
-        This means all neighbours and the permutation are set correctly.
-        """
-        parent_node = self.nodes[parent_id]
-        child_node = self.nodes[child_id]
-        # Create new node
-        new_node = Node(tensor=new_tensor,
-                        identifier=new_identifier)
-
-        # Actual tensor leg of new_tensor now have the form
-        # (parent_of_parent, remaining_children_of_parent, open_of_parent,
-        # children_of_child, open_of_child)
-        # However, the newly created node is basically a node with only open legs.
-        if not parent_node.is_root():
-            new_node.open_leg_to_parent(parent_node.parent, 0)
-        parent_children = copy(parent_node.children)
-        parent_children.remove(child_id)
-        parent_child_dict = {identifier: leg_value + parent_node.nparents()
-                             for leg_value, identifier in enumerate(parent_children)}
-        child_children_dict = {identifier: leg_value + parent_node.nlegs() - 1
-                               for leg_value, identifier in enumerate(child_node.children)}
-        if parent_id == node_id1:
-            parent_child_dict.update(child_children_dict)
-            new_node.open_legs_to_children(parent_child_dict)
-        else:
-            child_children_dict.update(parent_child_dict)
-            new_node.open_legs_to_children(child_children_dict)
-        if node_id1 != parent_id:
-            new_nvirt = new_node.nvirt_legs()
-            range_parent = range(new_nvirt, new_nvirt + parent_node.nopen_legs())
-            range_child = range(new_nvirt + parent_node.nopen_legs(), new_node.nlegs())
-            new_node.exchange_open_leg_ranges(range_parent, range_child)
-        return new_node
+        self.tensors[new_identifier] = new_tensor
+        # Change connectivity. This deletes the old nodes.
+        self.replace_node_in_neighbours(new_identifier, node_id1)
+        self.replace_node_in_neighbours(new_identifier, node_id2)
+        self._nodes[new_identifier] = new_node
 
     def contract_all_children(self, node_id: str,
                               new_identifier: Union[str,None] = None):

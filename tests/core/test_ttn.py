@@ -267,6 +267,7 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
 
         self.tensortree.contract_nodes("c2", "root")
         new_id = "c2contrroot"
+        print(self.tensortree.nodes)
         # The new node should be in the TTN
         self.assertTrue(new_id in self.tensortree.nodes)
         # And it should be the root
@@ -566,6 +567,7 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
 
     def test_tensor_contraction_leaf_only_child(self):
         self.ttn.contract_nodes("id8", "id9")
+        print(self.ttn.nodes)
         contracted_node, contracted_tensor = self.ttn["id8contrid9"]
 
         # Test Node
