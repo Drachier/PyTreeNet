@@ -238,7 +238,7 @@ class TestContractionUtil(unittest.TestCase):
                                                                       self.dictionary)
         self.assertTrue(np.allclose(correct_tensor, found_tensor))
 
-    def test_contract_all_but_one_neihgbour_block_to_ket_parent(self):
+    def test_contract_all_but_one_neighbour_block_to_ket_parent(self):
         """
         We contract all but one neighbour block to the ket tensor.
         """
@@ -264,7 +264,7 @@ class TestContractionUtil(unittest.TestCase):
                                                                    self.dictionary)
         self.assertTrue(np.allclose(correct_tensor, found_tensor))
 
-    def test_contract_all_but_one_neihgbour_block_to_ket_child1(self):
+    def test_contract_all_but_one_neighbour_block_to_ket_child1(self):
         """
         We contract all but one neighbour block to the ket tensor.
         """
@@ -317,6 +317,26 @@ class TestContractionUtil(unittest.TestCase):
                                                             self.node,
                                                             self.dictionary)
         self.assertTrue(np.allclose(correct_tensor, found_tensor))
+
+    def test_contract_all_neighbour_blocks_to_ket_diff_order(self):
+        """
+        Contract all neighbour blocks to the ket tensor, but with a custom
+        order of the neighbours.
+        """
+        order = ["child1", "child2", "parent", "child0"]
+        found = contract_all_neighbour_blocks_to_ket(self.tensor,
+                                                     self.node,
+                                                     self.dictionary,
+                                                     order=order)
+        # Reference
+        correct_tensor = contract_all_neighbour_blocks_to_ket(self.tensor,
+                                                              self.node,
+                                                              self.dictionary)
+        correct_tensor = correct_tensor.transpose(0,3,4,1,2)
+        # Test
+        correct_shape = (2,5,4,2,3)
+        self.assertEqual(correct_shape, found.shape)
+        self.assertTrue(np.allclose(correct_tensor, found))
 
 
 class TestGetEquivalentLegs(unittest.TestCase):

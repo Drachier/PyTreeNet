@@ -12,6 +12,7 @@ import numpy as np
 
 from ..core.node import Node
 from .tree_cach_dict import PartialTreeCachDict
+from ..util.std_utils import find_permutation
 
 def determine_index_with_ignored_leg(node: Node,
                                      neighbour_id: str,
@@ -82,7 +83,8 @@ def contract_neighbour_block_to_ket(ket_tensor: np.ndarray,
                                     ket_node: Node,
                                     neighbour_id: str,
                                     partial_tree_cache: PartialTreeCachDict,
-                                    tensor_leg_to_neighbour: Union[None,int]=None) -> np.ndarray:
+                                    tensor_leg_to_neighbour: Union[None,int]=None
+                                    ) -> np.ndarray:
     """
     Contracts the ket tensor with one neighbouring block.
 
@@ -127,7 +129,8 @@ def contract_neighbour_block_to_ket_ignore_one_leg(ket_tensor: np.ndarray,
                                                    ket_node: Node,
                                                    neighbour_id: str,
                                                    ignoring_node_id: str,
-                                                   partial_tree_cache: PartialTreeCachDict) -> np.ndarray:
+                                                   partial_tree_cache: PartialTreeCachDict
+                                                   ) -> np.ndarray:
     """
     Contracts the ket tensor with one neighbouring block, ignoring one leg.
 
@@ -168,7 +171,7 @@ def contract_neighbour_block_to_ket_ignore_one_leg(ket_tensor: np.ndarray,
     return contract_neighbour_block_to_ket(ket_tensor, ket_node,
                                            neighbour_id,
                                            partial_tree_cache,
-                                           tensor_leg_to_neighbour=tensor_index_to_neighbour)        
+                                           tensor_leg_to_neighbour=tensor_index_to_neighbour)
 
 def contract_all_but_one_neighbour_block_to_ket(ket_tensor: np.ndarray,
                                                 ket_node: Node,
@@ -228,20 +231,41 @@ def contract_all_neighbour_blocks_to_ket(ket_tensor: np.ndarray,
             |______|    |_____|    |______|
 
         """
-    if order is None:
-        order = ket_node.neighbouring_nodes()
-    elif isinstance(order, str):
-        if len(order) != ket_node.nneighbours():
-            raise ValueError(f"Order given does not match the number of neighbours {ket_node.nneighbours()}!")
+    if order is not None:
+        num_neighbours = ket_node.nneighbours()
+        if len(order) != num_neighbours:
+            raise ValueError(f"Order given does not match the number of neighbours {num_neighbours}!")
     result_tensor = ket_tensor
-    for neighbour_id in order:
-        # A the neighbours are the same as the leg order, the tensor_leg_to_neighbour
+    neighbour_ids = ket_node.neighbouring_nodes()
+    for neighbour_id in neighbour_ids:
+        # As the neighbours are the same as the leg order, the tensor_leg_to_neighbour
         # is always 0.
         result_tensor = contract_neighbour_block_to_ket(result_tensor,
                                                         ket_node,
                                                         neighbour_id,
                                                         partial_tree_cache,
                                                         tensor_leg_to_neighbour=0)
+    if order is not None:
+        # We have to transpose the resulting tensor to match the order
+        # given by the order list.
+        tensor_perm = list(range(ket_node.nopen_legs()))
+        added = len(tensor_perm)
+        old_indices = {}
+        # Find the indices corresponding to a neighbour block in the freshly
+        # contracted tensor.
+        for neighbour_id in neighbour_ids:
+            num_new_legs = partial_tree_cache.num_legs(neighbour_id, ket_node.identifier) - 1
+            old_indices[neighbour_id] = range(added, added + num_new_legs)
+            added += num_new_legs
+        # Now we can simply add the im the desired order.
+        for neighbour_id in order:
+            try:
+                indices = old_indices[neighbour_id]
+            except KeyError as e:
+                errstr = f"Neighbour {neighbour_id} from given order is not a neighbour of the ket node!"
+                raise KeyError(errstr) from e
+            tensor_perm.extend(indices)
+        result_tensor = np.transpose(result_tensor, axes=tensor_perm)
     return result_tensor
 
 def contract_neighbour_block_to_hamiltonian(hamiltonian_tensor: np.ndarray,
