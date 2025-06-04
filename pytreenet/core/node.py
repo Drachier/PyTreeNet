@@ -132,6 +132,24 @@ class Node(GraphNode):
         self._leg_permutation = list(range(tensor.ndim))
         self._shape = tensor.shape
 
+    def transpose_tensor(self,
+                         tensor: ndarray
+                         ) -> ndarray:
+        """
+        Transpose the tensor linked to this node.
+
+        This will reset this node's permutation to the standard.
+
+        Args:
+            tensor (ndarray): The tensor to be transposed.
+        
+        Returns:
+            ndarray: The transposed tensor according to the leg permutation.
+        """
+        transp_tensor = tensor.transpose(self._leg_permutation)
+        self._reset_permutation()
+        return transp_tensor
+
     def _reset_permutation(self):
         """
         Resets the permutation to the standard.

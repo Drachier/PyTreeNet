@@ -106,10 +106,9 @@ class TensorDict(UserDict):
             np.ndarray: The tensor associated with the node transposed to the
                 correct leg ordering. (parent_leg, children_legs, open_legs)
         """
-        permutation = self.nodes[node_id].leg_permutation
         tensor = super().__getitem__(node_id)
-        transposed_tensor = tensor.transpose(permutation)
-        self.nodes[node_id]._reset_permutation()
+        node = self.nodes[node_id]
+        transposed_tensor = node.transpose_tensor(tensor)
         super().__setitem__(node_id, transposed_tensor)
         return transposed_tensor
 
