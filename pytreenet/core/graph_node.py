@@ -273,19 +273,37 @@ class GraphNode:
         """
         return self.has_x_children(0)
 
-    def is_child_of(self, other_node_id: str) -> bool:
+    def is_child_of(self, other_node: str| GraphNode) -> bool:
         """
-        Determines whether this node is a child of the node with identifier 'other_node_id'.
+        Determines whether this node is a child of the a given node.
+
+        Args:
+            other_node_id (str|GraphNode): The identifier of the node to check
+                against or the GraphNode itself.
+        
+        Returns:
+            bool: True if this node is a child of the given node, False otherwise.
         """
         if self.is_root():
             return False
-        return self.parent == other_node_id
+        if isinstance(other_node, GraphNode):
+            other_node = other_node.identifier
+        return self.parent == other_node
 
-    def is_parent_of(self, other_node_id: str) -> bool:
+    def is_parent_of(self, other_node: str | GraphNode) -> bool:
         """
-        Determines whether this node is a parent of the node with identifier 'other_node_id'.
+        Determines whether this node is a parent of a given node.
+
+        Args:
+            other_node (str|GraphNode): The identifier of the node to check
+                against or the GraphNode itself.
+            
+        Returns:
+            bool: True if this node is a parent of the given node, False otherwise.
         """
-        return other_node_id in self.children
+        if isinstance(other_node, GraphNode):
+            other_node = other_node.identifier
+        return other_node in self.children
 
     def nparents(self) -> int:
         """
@@ -329,6 +347,31 @@ class GraphNode:
             neighbour_ids = [self.parent]
         neighbour_ids.extend(self.children)
         return neighbour_ids
+
+## Functions to using two or more GraphNodes together
+def determine_parentage(node1: GraphNode,
+                        node2: GraphNode
+                        ) -> tuple[GraphNode, GraphNode]:
+    """
+    Sorts two nodes by parentage.
+
+    Args:
+        node1 (GraphNode): The first node.
+        node2 (GraphNode): The second node.
+
+    Returns:
+        tuple[GraphNode, GraphNode]: A tuple containing the parent node first
+            and the child node second.
+    
+    Raises:
+        ValueError: If the nodes are not connected.
+    """
+    if node2.is_child_of(node1):
+        return (node1, node2)
+    if node1.is_child_of(node2):
+        return (node2, node1)
+    errstr = f"Nodes {node1.identifier} and {node2.identifier} are no neighbours!"
+    raise NoConnectionException(errstr)
 
 def find_children_permutation(old_node: GraphNode,
                               new_node: GraphNode,
