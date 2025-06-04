@@ -371,7 +371,7 @@ def find_children_permutation(old_node: GraphNode,
 def find_child_permutation_neighbour_index(old_node: GraphNode,
                                             new_node: GraphNode,
                                             modify_function: Union[Callable,None] = None
-                                            ) -> List[str]:
+                                            ) -> List[int]:
     """
     Finds a permutation of children of one node to the other according to their
     neighbour indices.
