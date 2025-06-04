@@ -475,6 +475,15 @@ class EvoDirection(Enum):
         """
         return self.value
 
+    def exp_factor(self) -> complex:
+        """
+        Returns the factor for the exponent in the time evolution.
+
+        Returns:
+            complex: The factor for the exponent.
+        """
+        return 1.0j * self.exp_sign()
+
 class TimeEvoMode(Enum):
     """
     Mode for the time evolution of a matrix.
@@ -523,6 +532,7 @@ class TimeEvoMode(Enum):
                            psi: np.ndarray,
                            time_evo_action: Callable,
                            time_difference: float,
+                           forward: EvoDirection| bool = EvoDirection.FORWARD,
                            **options: dict[str, Any]
                            ) -> np.ndarray:
         """
@@ -534,6 +544,7 @@ class TimeEvoMode(Enum):
                 right hand side of the effective Schrödinger equation. Takes
                 the time and the state as arguments.
             time_difference (float): The duration of the time-evolution.
+            forward (EvoDirection|bool, optional): The direction of the time evolution.
             **options (dict[str, Any]): Additional options for the solver
                 underlying the time evolution. See the scipy documentation for
                 the available options of the specific solver.
@@ -542,10 +553,14 @@ class TimeEvoMode(Enum):
             np.ndarray: The time-evolved state.
         """
         if self.is_scipy():
+            if isinstance(forward, bool):
+                forward = EvoDirection.from_bool(forward)
+            exp_factor = forward.exp_factor()
             orig_shape = psi.shape
             def ode_rhs(t, y_vec):
                 orig_array = y_vec.reshape(orig_shape)
-                return time_evo_action(t, orig_array).flatten()
+                action_result = time_evo_action(t, orig_array).flatten()
+                return exp_factor * action_result
             t_span = (0, time_difference)
             res = solve_ivp(ode_rhs, t_span, psi.flatten(),
                             method=self.value,
@@ -584,8 +599,9 @@ class TimeEvoMode(Enum):
             forward = EvoDirection.from_bool(forward)
         if self.is_scipy():
             return self.time_evolve_action(psi,
-                                           lambda t, y: forward.exp_sign() * 1.0j * hamiltonian @ y.flatten(),
+                                           lambda t, y: hamiltonian @ y.flatten(),
                                            time_difference,
+                                           forward=forward,
                                            **options)
         exponent = forward.exp_sign() * 1.0j * hamiltonian * time_difference
         return fast_exp_action(exponent, psi.flatten(),

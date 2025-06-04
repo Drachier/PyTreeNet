@@ -18,7 +18,7 @@ from pytreenet.contractions.sandwich_caching import SandwichCache
 from pytreenet.contractions.effective_hamiltonians import (get_effective_single_site_hamiltonian_nodes,
                                                            get_effective_bond_hamiltonian_nodes,
                                                            get_effective_single_site_hamiltonian)
-from pytreenet.time_evolution.time_evolution import time_evolve, TimeEvoMode
+from pytreenet.time_evolution.time_evolution import time_evolve, TimeEvoMode, EvoDirection
 from pytreenet.core.node import Node
 from pytreenet.contractions.state_operator_contraction import (contract_ket_ham_with_envs,
                                                                contract_bond_tensor)
@@ -71,7 +71,7 @@ def effective_bond_evolution(
         time_step_size: float,
         tensor_cache: SandwichCache,
         mode: TimeEvoMode = TimeEvoMode.FASTEST,
-        forward: bool = True,
+        forward: EvoDirection = EvoDirection.FORWARD,
         **options: dict[str, Any]
     ) -> NDArray[np.complex128]:
     """
@@ -90,8 +90,8 @@ def effective_bond_evolution(
         mode (TimeEvoMode, optional): The mode of the time evolution. Defaults
             to TimeEvoMode.FASTEST. If possible, the time evolution is
             performed without constructing the full effective Hamiltonian.
-        forward (bool, optional): Whether to time evolve forward or backward.
-            Defaults to True.
+        forward (EvoDirection, optional): Whether to time evolve forward or backward.
+            Defaults to EvoDirection.FORWARD.
         **options: Additional options for the time evolution. See the
             documentation of the `TimeEvoMode`-class for more
             information.
@@ -100,7 +100,7 @@ def effective_bond_evolution(
     if mode.action_evolvable():
         def contraction_action(t,y):
             """Defines the contraction to be used for the time evolution."""
-            return contract_bond_tensor(state_node, y, tensor_cache)
+            return contract_bond_tensor(y, state_node, tensor_cache)
         updated_tensor = mode.time_evolve_action(state_tensor,
                                                  contraction_action,
                                                  time_step_size,
@@ -125,7 +125,7 @@ def effective_single_site_evolution(
         time_step_size: float,
         tensor_cache: SandwichCache,
         mode: TimeEvoMode = TimeEvoMode.FASTEST,
-        forward: bool = True,
+        forward: EvoDirection = EvoDirection.FORWARD,
         **options: dict[str, Any]
     ) -> NDArray[np.complex128]:
     """
@@ -148,8 +148,8 @@ def effective_single_site_evolution(
         mode (TimeEvoMode, optional): The mode of the time evolution. Defaults
             to TimeEvoMode.FASTEST. If possible, the time evolution is
             performed without constructing the full effective Hamiltonian.
-        forward (bool, optional): Whether to time evolve forward or backward.
-            Defaults to True.
+        forward (EvoDirection, optional): Whether to time evolve forward or backward.
+            Defaults to EvoDirection.FORWARD.
         **options: Additional options for the time evolution. See the
             documentation of the `TimeEvoMode`-class for more
             information.
@@ -185,4 +185,3 @@ def effective_single_site_evolution(
                                         **options
                                         )
     return updated_tensor
-

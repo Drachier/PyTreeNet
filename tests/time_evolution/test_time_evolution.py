@@ -231,6 +231,14 @@ def test_exp_sign(test_input, expected):
     """
     assert EvoDirection.exp_sign(test_input) == expected
 
+@pytest.mark.parametrize("test_input,expected", [(EvoDirection.FORWARD, -1j),
+                                                (EvoDirection.BACKWARD, 1j)])
+def test_exp_factor(test_input, expected):
+    """
+    Test the exp_factor method of the EvoDirection enum class.
+    """
+    assert EvoDirection.exp_factor(test_input) == expected
+
 
 ### Test TimeEvoMode Enum Class
 def test_fastest_equivalent():
@@ -267,14 +275,14 @@ def test_is_scipy_raises(mode):
     shape = (2, 3, 4)
     psi_init = crandn(shape)
     dt = 0.1
-    exponent_mat = -1j * random_hermitian_matrix(np.prod(shape).item())
+    exponent_mat = random_hermitian_matrix(np.prod(shape).item())
     exponent_tens = exponent_mat.reshape(2*list(shape))
     def multiply_fn(_, x):
         return np.tensordot(exponent_tens, x, axes=([3,4,5], [0,1,2]))
     found = mode.time_evolve_action(psi_init, multiply_fn, dt,
                                     atol = 1e-9, rtol = 1e-9)
     # Referemce is the exponentiation of the matrix
-    reference = expm(exponent_mat * dt) @ psi_init.flatten()
+    reference = expm(-1j * exponent_mat * dt) @ psi_init.flatten()
     # Check if the results are close
     assert shape == found.shape
     np.testing.assert_allclose(found.flatten(), reference)
