@@ -508,16 +508,26 @@ class TimeEvoMode(Enum):
         """
         return TimeEvoMode.CHEBYSHEV
 
+    @staticmethod
+    def scipy_modes() -> List[TimeEvoMode]:
+        """
+        Returns a list of all modes that are scipy ODE solvers.
+        
+        Returns:
+            List[TimeEvoMode]: The list of scipy modes.
+        """
+        return [TimeEvoMode.RK45,
+                TimeEvoMode.RK23,
+                TimeEvoMode.DOP853,
+                TimeEvoMode.BDF]
+
     def is_scipy(self) -> bool:
         """
         Determines, if this mode is a scipy ODE solver.
         """
         if self == TimeEvoMode.FASTEST:
             return self.fastest_equivalent().is_scipy()
-        return self in [TimeEvoMode.RK45,
-                        TimeEvoMode.RK23,
-                        TimeEvoMode.DOP853,
-                        TimeEvoMode.BDF]
+        return self in self.scipy_modes()
 
     def action_evolvable(self) -> bool:
         """
@@ -533,7 +543,7 @@ class TimeEvoMode(Enum):
                            time_evo_action: Callable,
                            time_difference: float,
                            forward: EvoDirection| bool = EvoDirection.FORWARD,
-                           **options: dict[str, Any]
+                           **options
                            ) -> np.ndarray:
         """
         Performs the time evolution of a tensor from an action.
@@ -545,7 +555,7 @@ class TimeEvoMode(Enum):
                 the time and the state as arguments.
             time_difference (float): The duration of the time-evolution.
             forward (EvoDirection|bool, optional): The direction of the time evolution.
-            **options (dict[str, Any]): Additional options for the solver
+            **options: Additional options for the solver
                 underlying the time evolution. See the scipy documentation for
                 the available options of the specific solver.
 
