@@ -720,10 +720,20 @@ def contract_bond_tensor(
         raise ValueError(errstr)
     # We want to ensure the order of the legs
     order = [ket_node.parent,ket_node.children[0]]
+    # The environments in the cache point to the other neighbour
+    # Thus, we have to add keys to the cache
+    ket_id = ket_node.identifier
+    tensor_cache.add_entry(order[0], ket_id,
+                           tensor_cache.get_entry(order[0], order[1]))
+    tensor_cache.add_entry(order[1], ket_id,
+                            tensor_cache.get_entry(order[1], order[0]))
     ketandblocks = contract_all_neighbour_blocks_to_ket(ket_tensor,
                                                         ket_node,
                                                         tensor_cache,
                                                         order=order)
+    # Delete the new keys from the cache again
+    for node_id in order:
+        tensor_cache.delete_entry(node_id, ket_id)
     # Now we connect the Hamiltonian legs of the two neighbours.
     return np.einsum("ijil -> jl", ketandblocks)
 
