@@ -14,6 +14,7 @@ from numpy.typing import NDArray
 
 from pytreenet.ttns import TreeTensorNetworkState
 from pytreenet.ttno import TreeTensorNetworkOperator
+from pytreenet.contractions.tree_cach_dict import PartialTreeCachDict
 from pytreenet.contractions.sandwich_caching import SandwichCache
 from pytreenet.contractions.effective_hamiltonians import (get_effective_single_site_hamiltonian_nodes,
                                                            get_effective_bond_hamiltonian_nodes,
@@ -70,10 +71,10 @@ def effective_bond_evolution(
         state_tensor: NDArray[np.complex128],
         state_node: Node,
         time_step_size: float,
-        tensor_cache: SandwichCache,
+        tensor_cache: PartialTreeCachDict,
         mode: TimeEvoMode = TimeEvoMode.FASTEST,
         forward: EvoDirection = EvoDirection.FORWARD,
-        **options: dict[str, Any]
+        **options
     ) -> NDArray[np.complex128]:
     """
     Perform the effective bond time evolution.
@@ -87,7 +88,7 @@ def effective_bond_evolution(
             updated, representing a bond in the TTNS.
         state_node (Node): The node of the state tensor.
         time_step_size (float): The time step size.
-        tensor_cache (SandwichCache): The cache for the neighbour blocks.
+        tensor_cache (PartialTreeCachDict): The cache for the neighbour blocks.
         mode (TimeEvoMode, optional): The mode of the time evolution. Defaults
             to TimeEvoMode.FASTEST. If possible, the time evolution is
             performed without constructing the full effective Hamiltonian.
@@ -124,10 +125,10 @@ def effective_single_site_evolution(
         hamiltonian_tensor: NDArray[np.complex128],
         hamiltonian_node: Node,
         time_step_size: float,
-        tensor_cache: SandwichCache,
+        tensor_cache: PartialTreeCachDict,
         mode: TimeEvoMode = TimeEvoMode.FASTEST,
         forward: EvoDirection = EvoDirection.FORWARD,
-        **options: dict[str, Any]
+        **options
     ) -> NDArray[np.complex128]:
     """
     Perform the effective single site time evolution.
@@ -145,7 +146,7 @@ def effective_single_site_evolution(
             Hamiltonian.
         hamiltonian_node (Node): The node of the Hamiltonian tensor.
         time_step_size (float): The time step size.
-        tensor_cache (SandwichCache): The cache for the neighbour blocks.
+        tensor_cache (PartialTreeCachDict): The cache for the neighbour blocks.
         mode (TimeEvoMode, optional): The mode of the time evolution. Defaults
             to TimeEvoMode.FASTEST. If possible, the time evolution is
             performed without constructing the full effective Hamiltonian.
@@ -193,10 +194,10 @@ def effective_two_site_evolution(
         hamiltonian_tensors: NDArray[np.complex128] | tuple[NDArray[np.complex128], NDArray[np.complex128]],
         hamiltonian_nodes: Node | tuple[Node, Node],
         time_step_size: float,
-        tensor_cache: SandwichCache,
+        tensor_cache: PartialTreeCachDict,
         mode: TimeEvoMode = TimeEvoMode.FASTEST,
         forward: EvoDirection = EvoDirection.FORWARD,
-        **options: dict[str, Any]
+        **options
     ) -> NDArray[np.complex128]:
     """
     Perform the effective two site time evolution.
@@ -225,7 +226,7 @@ def effective_two_site_evolution(
             contracted in this function. If the contraction result is already
             available, a single node can be provided.
         time_step_size (float): The time step size.
-        tensor_cache (SandwichCache): The cache for the neighbour blocks.
+        tensor_cache (PartialTreeCachDict): The cache for the neighbour blocks.
         mode (TimeEvoMode, optional): The mode of the time evolution. Defaults
             to TimeEvoMode.FASTEST. If possible, the time evolution is
             performed without constructing the full effective Hamiltonian.
