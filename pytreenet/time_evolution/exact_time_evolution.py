@@ -37,7 +37,8 @@ class ExactTimeEvolution(TimeEvolution):
     def __init__(self, initial_state: np.ndarray, hamiltonian: np.ndarray,
                  time_step_size: float, final_time: float,
                  operators: Union[List[np.ndarray], Dict[str,np.ndarray],np.ndarray],
-                 config: Union[ExactTimeEvolutionConfig,None] = None
+                 config: Union[ExactTimeEvolutionConfig,None] = None,
+                 solver_options: Union[Dict[str, Any], None] = None
                  ) -> None:
         """
         An exact time evolution for a given Hamiltonian.
@@ -52,9 +53,22 @@ class ExactTimeEvolution(TimeEvolution):
                 single operator or a list of operators.
             config (Union[ExactTimeEvolutionConfig,None]): The configuration of
                 the time evolution. Defaults to None.
+            solver_options (Union[Dict[str, Any], None], optional): Most time
+                evolutions algorithms use some kind of solver to resolve a
+                partial differential equation. This dictionary can be used to
+                pass additional options to the solver. Refer to the
+                documentation of `ptn.time_evolution.TimeEvoMode` for further
+                information. Defaults to None.
+                solver_options (Union[Dict[str, Any], None], optional): Most time
+                evolutions algorithms use some kind of solver to resolve a
+                partial differential equation. This dictionary can be used to
+                pass additional options to the solver. Refer to the
+                documentation of `ptn.time_evolution.TimeEvoMode` for further
+                information. Defaults to None.
         """
         super().__init__(initial_state, time_step_size,
-                         final_time, operators)
+                         final_time, operators,
+                         solver_options=solver_options)
         self.hamiltonian = hamiltonian
         self._time_evolution_operator = self._compute_time_evolution_operator()
         if config is None:

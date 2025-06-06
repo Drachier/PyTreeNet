@@ -35,7 +35,8 @@ class TimeEvolution:
     """
 
     def __init__(self, initial_state: Any, time_step_size: float,
-                 final_time: float, operators: Union[List[Any], Dict[str, Any], Any]):
+                 final_time: float, operators: Union[List[Any], Dict[str, Any], Any],
+                 solver_options: Union[Dict[str, Any], None] = None):
         """
         Initialises a TimeEvoluion object.
         
@@ -47,6 +48,12 @@ class TimeEvolution:
                 for which to compute the expectation values. Can be a single
                 operator or a list of operators. If a dictionary is given, the
                 results can be called by using the keys of the dictionary.
+            solver_options (Union[Dict[str, Any], None], optional): Most time
+                evolutions algorithms use some kind of solver to resolve a
+                partial differential equation. This dictionary can be used to
+                pass additional options to the solver. Refer to the
+                documentation of `ptn.time_evolution.TimeEvoMode` for further
+                information. Defaults to None.
         """
         self._initial_state = initial_state
         self.state = deepcopy(initial_state)
@@ -64,6 +71,10 @@ class TimeEvolution:
             # A single operator was provided
             self.operators = [operators]
         self._results = None
+        if solver_options is None:
+            self.solver_options = {}
+        else:
+            self.solver_options = solver_options
 
     def _compute_num_time_steps(self) -> int:
         """

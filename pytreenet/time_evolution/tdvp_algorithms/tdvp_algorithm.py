@@ -7,7 +7,7 @@ Reference:
         Tensor Networks", DOI: 10.21468/SciPostPhys.8.2.024
 """
 from __future__ import annotations
-from typing import Union, List
+from typing import Union, List, Any
 from dataclasses import dataclass
 
 from ..time_evolution import TimeEvoMode
@@ -60,7 +60,9 @@ class TDVPAlgorithm(TTNTimeEvolution):
                  hamiltonian: TTNO,
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
-                 config: Union[TDVPConfig,None] = None) -> None:
+                 config: Union[TDVPConfig,None] = None,
+                 solver_options: Union[dict[str, Any], None] = None
+                 ) -> None:
         """
         Initilises an instance of a TDVP algorithm.
 
@@ -74,13 +76,28 @@ class TDVPAlgorithm(TTNTimeEvolution):
                 evolution.
             operators (Union[TensorProduct, List[TensorProduct]]): Operators
                 to be measured during the time-evolution.
+            config (Union[TDVPConfig,None]): The configuration of
+                time evolution. Defaults to None.
+            solver_options (Union[Dict[str, Any], None], optional): Most time
+                evolutions algorithms use some kind of solver to resolve a
+                partial differential equation. This dictionary can be used to
+                pass additional options to the solver. Refer to the
+                documentation of `ptn.time_evolution.TimeEvoMode` for further
+                information. Defaults to None.
+                solver_options (Union[Dict[str, Any], None], optional): Most time
+                evolutions algorithms use some kind of solver to resolve a
+                partial differential equation. This dictionary can be used to
+                pass additional options to the solver. Refer to the
+                documentation of `ptn.time_evolution.TimeEvoMode` for further
+                information. Defaults to None.
         """
         assert len(initial_state.nodes) == len(hamiltonian.nodes)
         self.hamiltonian = hamiltonian
         super().__init__(initial_state,
                          time_step_size, final_time,
                          operators,
-                         config)
+                         config=config,
+                         solver_options=solver_options)
         self.config: TDVPConfig
         self.update_path = self._finds_update_path()
         self.orthogonalization_path = self._find_tdvp_orthogonalization_path(self.update_path)

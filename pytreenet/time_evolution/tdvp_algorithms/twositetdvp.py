@@ -4,10 +4,10 @@ Implements the mother class for all two-site TDVP algorithms.
 This class mostly contains functions to contract the effective Hamiltonian
 and to update the sites in the two site scheme.
 """
-from typing import List, Union, Tuple
+from typing import List, Union, Tuple, Any
 import numpy as np
 
-from .tdvp_algorithm import TDVPAlgorithm
+from .tdvp_algorithm import TDVPAlgorithm, TDVPConfig
 from ..ttn_time_evolution import TTNTimeEvolutionConfig
 from ..time_evolution import time_evolve
 from ...ttns.ttns import TreeTensorNetworkState
@@ -34,7 +34,9 @@ class TwoSiteTDVP(TDVPAlgorithm):
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
                  svd_parameters: Union[SVDParameters,None] = None,
-                 config: Union[TTNTimeEvolutionConfig,None] = None) -> None:
+                 config: Union[TDVPConfig,None] = None,
+                 solver_options: Union[dict[str, Any], None] = None
+                 ) -> None:
         """
         Initialises an instance of a two-site TDVP algorithm.
 
@@ -51,11 +53,26 @@ class TwoSiteTDVP(TDVPAlgorithm):
                 parameters to use during the time-evolution. Can be used to set
                 the maximum bond dimension, the absolute tolerance, and the
                 relative tolerance.
+            config (Union[TDVPConfig,None]): The configuration of
+                time evolution. Defaults to None.
+            solver_options (Union[Dict[str, Any], None], optional): Most time
+                evolutions algorithms use some kind of solver to resolve a
+                partial differential equation. This dictionary can be used to
+                pass additional options to the solver. Refer to the
+                documentation of `ptn.time_evolution.TimeEvoMode` for further
+                information. Defaults to None.
+                solver_options (Union[Dict[str, Any], None], optional): Most time
+                evolutions algorithms use some kind of solver to resolve a
+                partial differential equation. This dictionary can be used to
+                pass additional options to the solver. Refer to the
+                documentation of `ptn.time_evolution.TimeEvoMode` for further
+                information. Defaults to None.
         """
         super().__init__(initial_state, hamiltonian,
                          time_step_size, final_time,
                          operators,
-                         config)
+                         config=config,
+                         solver_options=solver_options)
         if svd_parameters is None:
             self.svd_parameters = SVDParameters()
         else:
