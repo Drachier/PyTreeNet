@@ -581,7 +581,6 @@ def contract_operator_tensor_ignoring_one_leg(current_tensor: np.ndarray,
     # Adding the physical legs
     block_open_legs = [index + num_ignored for index in range(ket_nopen)]
     tensor_legs.extend(block_open_legs)
-    print(tensor_legs, op_legs)
     return np.tensordot(current_tensor, op_tensor,
                         axes=(tensor_legs, op_legs))
 
