@@ -7,6 +7,7 @@ TTNO Hamiltonian with a TTNS and its conjugate.
 """
 from __future__ import annotations
 from typing import Any
+from uuid import uuid4
 
 from numpy import ndarray
 import numpy as np
@@ -15,31 +16,68 @@ from numpy.typing import NDArray
 from pytreenet.ttns import TreeTensorNetworkState
 from pytreenet.ttno import TreeTensorNetworkOperator
 from pytreenet.contractions.tree_cach_dict import PartialTreeCachDict
-from pytreenet.contractions.sandwich_caching import SandwichCache
 from pytreenet.contractions.effective_hamiltonians import (get_effective_single_site_hamiltonian_nodes,
-                                                           get_effective_bond_hamiltonian_nodes,
-                                                           get_effective_single_site_hamiltonian)
-from pytreenet.time_evolution.time_evolution import time_evolve, TimeEvoMode, EvoDirection
+                                                           get_effective_bond_hamiltonian_nodes)
+from pytreenet.time_evolution.time_evolution import TimeEvoMode, EvoDirection
 from pytreenet.core.node import Node
 from pytreenet.contractions.state_operator_contraction import (contract_ket_ham_with_envs,
                                                                contract_bond_tensor)
 from pytreenet.contractions.node_contraction import contract_nodes
 
-# TODO: Rewrite this to use the new time evolution interface
+# Evolution functions using TTN
+def bond_time_evolution(node_id: str,
+                        state: TreeTensorNetworkState,
+                        time_step_size: float,
+                        tensor_cache: PartialTreeCachDict,
+                        forward: EvoDirection = EvoDirection.FORWARD,
+                        mode: TimeEvoMode = TimeEvoMode.FASTEST,
+                        solver_options: dict[str, Any] | None = None
+                        ) -> ndarray:
+    """
+    Perform the time evolution for a bond.
+
+    Args:
+        node_id (str): The id of the node to be updated.
+        state (TreeTensorNetworkState): The state of the system.
+        time_step_size (float): The time step size.
+        tensor_cache (PartialTreeCachDict): The cache for the neighbour blocks.
+        forward (EvoDirection, optional): Whether to time evolve forward or
+            backward. Defaults to EvoDirection.FORWARD.
+        mode (TimeEvoMode): The mode of the time evolution. Defaults to
+            TimeEvoMode.FASTEST
+        solver_options (dict[str, Any] | None, optional): Additional options
+            for the time evolution. See the documentation of the
+            `TimeEvoMode`-class for more information. Defaults to None.
+
+    Returns:
+        ndarray: The updated tensor.
+
+    """
+    if solver_options is None:
+        solver_options = {}
+    state_node, state_tensor = state[node_id]
+    updated_tensor = effective_bond_evolution(
+        state_tensor,
+        state_node,
+        time_step_size,
+        tensor_cache,
+        mode=mode,
+        forward=forward,
+        **solver_options
+    )
+    return updated_tensor
+
 def single_site_time_evolution(node_id: str,
                                state: TreeTensorNetworkState,
                                hamiltonian: TreeTensorNetworkOperator,
                                time_step_size: float,
-                               tensor_cache: SandwichCache,
-                               forward: bool = True,
-                               mode: TimeEvoMode = TimeEvoMode.FASTEST
+                               tensor_cache: PartialTreeCachDict,
+                               forward: EvoDirection = EvoDirection.FORWARD,
+                               mode: TimeEvoMode = TimeEvoMode.FASTEST,
+                               solver_options: dict[str, Any] | None = None
                                ) -> ndarray:
     """
     Perform the time evolution for a single site.
-
-    For this the effective Hamiltonian is build and the time evolution is
-    performed by exponentiating the effective Hamiltonian and applying it
-    to the current node.
 
     Args:
         node_id (str): The id of the node to be updated.
@@ -47,26 +85,91 @@ def single_site_time_evolution(node_id: str,
         hamiltonian (TreeTensorNetworkOperator): The Hamiltonian of the system.
         time_step_size (float): The time step size.
         tensor_cache (SandwichCache): The cache for the neighbour blocks.
-        forward (bool): Whether to time evolve forward or backward. Defaults to
-            True.
+        forward (EvoDirection, optional): Whether to time evolve forward or
+            backward.
         mode (TimeEvoMode): The mode of the time evolution. Defaults to
             TimeEvoMode.FASTEST
+        solver_options (dict[str, Any] | None, optional): Additional options
+            for the time evolution. See the documentation of the
+            `TimeEvoMode`-class for more information. Defaults to None.
 
     Returns:
         ndarray: The updated tensor.
 
     """
-    ham_eff = get_effective_single_site_hamiltonian(node_id,
-                                                    state,
-                                                    hamiltonian,
-                                                    tensor_cache)
-    updated_tensor = time_evolve(state.tensors[node_id],
-                                 ham_eff,
-                                 time_step_size,
-                                 forward=forward,
-                                 mode=mode)
+    if solver_options is None:
+        solver_options = {}
+    state_node, state_tensor = state[node_id]
+    ham_node, ham_tensor = hamiltonian[node_id]
+    updated_tensor = effective_single_site_evolution(
+        state_tensor,
+        state_node,
+        ham_tensor,
+        ham_node,
+        time_step_size,
+        tensor_cache,
+        mode=mode,
+        forward=forward,
+        **solver_options
+    )
     return updated_tensor
 
+def two_site_time_evolution(node_id: str,
+                            next_node_id: str,
+                            contracted_id: str,
+                            state: TreeTensorNetworkState,
+                            hamiltonian: TreeTensorNetworkOperator,
+                            time_step_size: float,
+                            tensor_cache: PartialTreeCachDict,
+                            forward: EvoDirection = EvoDirection.FORWARD,
+                            mode: TimeEvoMode = TimeEvoMode.FASTEST,
+                            solver_options: dict[str, Any] | None = None
+                            ) -> ndarray:
+    """
+    Perform the time evolution for two sites.
+
+    Args:
+        node_id (str): The id of the node to be updated. Should be represented
+            by the first leg in the state tensor.
+        next_node_id (str): The id of the other node to be updated. Should be
+            represented by the second leg in the state tensor.
+        contracted_id (str): The id of the node that represents the
+            contraction of the two nodes.
+        state (TreeTensorNetworkState): The state of the system with the two
+            nodes representing the two sites already contracted.
+        hamiltonian (TreeTensorNetworkOperator): The Hamiltonian of the system.
+        time_step_size (float): The time step size.
+        tensor_cache (SandwichCache): The cache for the neighbour blocks.
+        forward (EvoDirection, optional): Whether to time evolve forward or
+            backward.
+        mode (TimeEvoMode): The mode of the time evolution. Defaults to
+            TimeEvoMode.FASTEST
+        solver_options (dict[str, Any] | None, optional): Additional options
+            for the time evolution. See the documentation of the
+            `TimeEvoMode`-class for more information. Defaults to None.
+
+    Returns:
+        ndarray: The updated tensor.
+    """
+    if solver_options is None:
+        solver_options = {}
+    state_node, state_tensor = state[node_id]
+    ham1_node, ham1_tensor = hamiltonian[node_id]
+    ham2_node, ham2_tensor = hamiltonian[next_node_id]
+    updated_tensor = effective_two_site_evolution(
+        state_tensor,
+        state_node,
+        (ham1_tensor, ham2_tensor),
+        (ham1_node, ham2_node),
+        time_step_size,
+        tensor_cache,
+        mode=mode,
+        forward=forward,
+        **solver_options
+    )
+    return updated_tensor
+
+# Evolution functions using nodes and tensors
 def effective_bond_evolution(
         state_tensor: NDArray[np.complex128],
         state_node: Node,

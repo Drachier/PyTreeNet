@@ -6,15 +6,13 @@ and to update the link tensors.
 """
 from copy import deepcopy
 
-import numpy as np
-
 from .tdvp_algorithm import TDVPAlgorithm
-from ..time_evolution import time_evolve
-from ...util.tensor_util import tensor_matricisation_half
+from ..time_evolution import EvoDirection
 from ...util.tensor_splitting import SplitMode
 from ...core.leg_specification import LegSpecification
 from ...util.ttn_exceptions import NoConnectionException
 from ...contractions.state_operator_contraction import contract_any
+from ..time_evo_util.effective_time_evolution import bond_time_evolution
 
 class OneSiteTDVP(TDVPAlgorithm):
     """
@@ -27,57 +25,6 @@ class OneSiteTDVP(TDVPAlgorithm):
     extended with a time step running method, defining the order of the
     Trotter decomposition.
     """
-
-    def _get_effective_link_hamiltonian(self, node_id: str,
-                                        next_node_id: str) -> np.ndarray:
-        """
-        Obtains the effective link Hamiltonian.
-
-        Args:
-            node_id (str): The last node that was centered in the effective
-                Hamiltonian.
-            next_node_id (str): The next node to go to. The link for which
-                this effective Hamiltonian is constructed is between the two
-                nodes.
-
-        Returns:
-            np.ndarray: The effective link Hamiltonian::
-
-                 _____       out         _____
-                |     |____1      0_____|     |
-                |     |                 |     |
-                |     |                 |     |
-                |     |                 |     |
-                |     |                 |     |
-                |     |_________________|     |
-                |     |                 |     |
-                |     |                 |     |
-                |     |                 |     |
-                |     |                 |     |
-                |     |                 |     |
-                |     |_____       _____|     |
-                |_____|  2         3    |_____|
-                              in
-            
-        """
-        link_id = self.create_link_id(node_id, next_node_id)
-        target_node = self.state.nodes[link_id]
-        assert not target_node.is_root()
-        assert len(target_node.children) == 1
-        new_cache_tensor = self.partial_tree_cache.get_entry(node_id, next_node_id)
-        # We get the cached tensor of the other neighbour of the link
-        other_cache_tensor = self.partial_tree_cache.get_entry(next_node_id, node_id)
-        # Contract the Hamiltonian legs
-        if target_node.is_parent_of(node_id):
-            tensor = np.tensordot(other_cache_tensor,
-                                  new_cache_tensor,
-                                  axes=(1,1))
-        else:
-            tensor = np.tensordot(new_cache_tensor,
-                                  other_cache_tensor,
-                                  axes=(1,1))
-        tensor = np.transpose(tensor, axes=[1,3,0,2])
-        return tensor_matricisation_half(tensor)
 
     def _time_evolve_link_tensor(self, node_id: str,
                                 next_node_id: str,
@@ -95,14 +42,15 @@ class OneSiteTDVP(TDVPAlgorithm):
                 multiplied with the internal time step size. Defaults to 1.
         """
         link_id = self.create_link_id(node_id, next_node_id)
-        link_tensor = self.state.tensors[link_id]
-        hamiltonian_eff_link = self._get_effective_link_hamiltonian(node_id,
-                                                                    next_node_id)
-        self.state.tensors[link_id] = time_evolve(link_tensor,
-                                                  hamiltonian_eff_link,
-                                                  self.time_step_size * time_step_factor,
-                                                  forward=False,
-                                                  mode=self.config.time_evo_mode)
+        updated_tensor = bond_time_evolution(link_id,
+                                             self.state,
+                                             time_step_factor * self.time_step_size,
+                                             self.partial_tree_cache,
+                                             forward=EvoDirection.BACKWARD,
+                                             mode=self.config.time_evo_mode,
+                                             solver_options=self.solver_options
+                                             )
+        self.state.tensors[link_id] = updated_tensor
 
     def _update_cache_after_split(self, node_id: str, next_node_id: str):
         """

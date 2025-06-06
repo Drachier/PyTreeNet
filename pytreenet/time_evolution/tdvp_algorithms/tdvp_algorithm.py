@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Union, List, Any
 from dataclasses import dataclass
 
-from ..time_evolution import TimeEvoMode
+from ..time_evolution import TimeEvoMode, EvoDirection
 from ..ttn_time_evolution import TTNTimeEvolution, TTNTimeEvolutionConfig
 from ...util.tensor_splitting import SplitMode
 from ...ttns import TreeTensorNetworkState
@@ -198,8 +198,9 @@ class TDVPAlgorithm(TTNTimeEvolution):
                                                     self.hamiltonian,
                                                     self.time_step_size * time_step_factor,
                                                     self.partial_tree_cache,
-                                                    forward=True,
-                                                    mode=self.config.time_evo_mode)
+                                                    forward=EvoDirection.FORWARD,
+                                                    mode=self.config.time_evo_mode,
+                                                    solver_options=self.solver_options)
         self.state.tensors[node_id] = updated_tensor
 
     def _move_orth_and_update_cache_for_path(self, path: List[str]):
