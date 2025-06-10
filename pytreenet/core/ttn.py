@@ -505,6 +505,17 @@ class TreeTensorNetwork(TreeStructure):
         bond_dims = self.bond_dims()
         return sum(bond_dims.values())/len(bond_dims)
 
+    def size(self) -> int:
+        """
+        Returns the size of the TTN.
+
+        The size is the total number of elements in all tensors.
+
+        Returns:
+            int: The size of the TTN.
+        """
+        return sum(tensor.size for tensor in self.tensors.values())
+
     @staticmethod
     def _absorption_warning() -> str:
         errstr = "Only square Matrices can be absorbed!\n"
