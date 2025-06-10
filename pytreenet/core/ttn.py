@@ -47,10 +47,10 @@ from __future__ import annotations
 from typing import Tuple, Callable, Union, List, Dict, Self
 from copy import copy, deepcopy
 from collections import UserDict
+from uuid import uuid1
 
 import numpy as np
 from numpy import eye
-from uuid import uuid1
 
 from .tree_structure import TreeStructure
 from .node import Node, relative_leg_permutation
@@ -515,6 +515,70 @@ class TreeTensorNetwork(TreeStructure):
             int: The size of the TTN.
         """
         return sum(tensor.size for tensor in self.tensors.values())
+
+    def pad_bond_dimension(self,
+                           node1_id: str,
+                           node2_id: str,
+                           new_bond_dim: int):
+        """
+        Pads the bond dimension between two nodes to a given value.
+
+        Args:
+            node1_id (str): The identifier of the first node.
+            node2_id (str): The identifier of the second node.
+            new_bond_dim (int): The new bond dimension to be set between the
+                two nodes.
+        
+        """
+        old_dim = self.bond_dim(node1_id, node2_id)
+        parent_id, child_id = self.determine_parentage(node1_id, node2_id)
+        id_id = str(uuid1())
+        self.insert_identity(child_id, parent_id,
+                             new_identifier=id_id)
+        # Build the projector to the larger bond_dimension
+        projector = np.zeros((old_dim, new_bond_dim))
+        projector[:old_dim, :old_dim] = np.eye(old_dim)
+        # Replace the identity node with two projectors
+        proj_id_pa = str(uuid1())
+        proj_id_ch = str(uuid1())
+        id_node = self.nodes[id_id]
+        proj_pa_legs = LegSpecification(id_node.parent,
+                                        [],
+                                        [])
+        proj_ch_legs = LegSpecification(None,
+                                        id_node.children,
+                                        [])
+        self.split_node_replace(id_id,
+                                projector,
+                                projector.T,
+                                identifier_a=proj_id_pa,
+                                identifier_b=proj_id_ch,
+                                legs_a=proj_pa_legs,
+                                legs_b=proj_ch_legs
+                                )
+        print(self.nodes[parent_id].neighbouring_nodes())
+        print(self.nodes[child_id].neighbouring_nodes())
+        # Contract the projectors with the original nodes
+        self.contract_nodes(parent_id, proj_id_pa, new_identifier=parent_id)
+        self.contract_nodes(child_id, proj_id_ch, new_identifier=child_id)
+
+    def pad_bond_dimensions(self,
+                            new_bond_dim: int):
+        """
+        Pads all bond dimensions in the TTN to a given value.
+
+        Only smaller bond dimensions are padded, larger ones are left
+        unchanged.
+
+        Args:
+            new_bond_dim (int): The new bond dimension to be set between all
+                neighbouring nodes.
+        """
+        for node_id, node in self.nodes.items():
+            if not node.is_root():
+                parent_id = node.parent
+                if self.bond_dim(node_id, parent_id) < new_bond_dim:
+                    self.pad_bond_dimension(node_id, parent_id, new_bond_dim)
 
     @staticmethod
     def _absorption_warning() -> str:

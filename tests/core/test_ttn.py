@@ -1149,5 +1149,37 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         expected_size = 9*(2*3*4*5)
         self.assertEqual(expected_size, self.ttn.size())
 
+    def test_pad_bond_dim(self):
+        """
+        Test the function padding the bond dimension of a ttn.
+        """
+        ref_ttn = deepcopy(self.ttn)
+
+        # Bond 1-2
+        self.ttn.pad_bond_dimension("id1", "id2", 6)
+        self.assertEqual(6, self.ttn.bond_dim("id1", "id2"))
+        self.assertIn(6, self.ttn.nodes["id1"].shape)
+        self.assertIn(6, self.ttn.nodes["id2"].shape)
+        self.assertIn(6, self.ttn.tensors["id1"].shape)
+        self.assertIn(6, self.ttn.tensors["id2"].shape)
+
+        # Bond 5-6
+        self.ttn.pad_bond_dimension("id6", "id5", 6)
+        self.assertEqual(6, self.ttn.bond_dim("id6", "id5"))
+        self.assertIn(6, self.ttn.nodes["id6"].shape)
+        self.assertIn(6, self.ttn.nodes["id5"].shape)
+        self.assertIn(6, self.ttn.tensors["id6"].shape)
+        self.assertIn(6, self.ttn.tensors["id5"].shape)
+
+        # The contraction value of the tensors should not change
+        ref_ttn.contract_nodes("id1", "id2", new_identifier="abc")
+        ref_ttn.contract_nodes("id6", "id5", new_identifier="def")
+        self.ttn.contract_nodes("id1", "id2", new_identifier="abc")
+        self.ttn.contract_nodes("id6", "id5", new_identifier="def")
+        self.assertTrue(np.allclose(ref_ttn.tensors["abc"],
+                                    self.ttn.tensors["abc"]))
+        self.assertTrue(np.allclose(ref_ttn.tensors["def"],
+                                    self.ttn.tensors["def"]))
+
 if __name__ == "__main__":
     unittest.main()
