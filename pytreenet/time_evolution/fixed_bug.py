@@ -86,7 +86,8 @@ class FixedBUG(TTNTimeEvolution):
         self.state = root_update(self.state,
                                  self.hamiltonian,
                                  self.time_step_size,
-                                 bug_config=self.config)
+                                 bug_config=self.config,
+                                 solver_options=self.solver_options)
 
     def run_one_time_step(self, **kwargs):
         """
