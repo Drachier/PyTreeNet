@@ -46,6 +46,13 @@ class TimeEvoAlg(Enum):
         return self in {TimeEvoAlg.FIXEDBUG,
                         TimeEvoAlg.BUG}
 
+    def requires_svd(self) -> bool:
+        """
+        Returns True if the algorithm requires SVD.
+        """
+        return self in {TimeEvoAlg.SITE2ORDER2TDVP,
+                        TimeEvoAlg.BUG}
+
     def get_class(self) -> type:
         """
         Returns the class of the time evolution algorithm.
