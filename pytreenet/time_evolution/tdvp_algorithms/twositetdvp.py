@@ -5,6 +5,7 @@ This class mostly contains functions to contract the effective Hamiltonian
 and to update the sites in the two site scheme.
 """
 from typing import List, Union, Any
+from dataclasses import dataclass
 
 from .tdvp_algorithm import TDVPAlgorithm, TDVPConfig
 from ..time_evolution import EvoDirection
@@ -13,6 +14,17 @@ from ...ttns.ttns import TreeTensorNetworkState
 from ...ttno.ttno_class import TTNO
 from ...operators.tensorproduct import TensorProduct
 from ...util.tensor_splitting import SVDParameters
+
+@dataclass
+class TwoSiteTDVPConfig(TDVPConfig, SVDParameters):
+    """
+    Configuration for the two-site TDVP algorithm.
+
+    In this configuration class additional parameters for the two-site TDVP
+    algorithm can be specified and entered. This allows for the same
+    extendability as `**kwargs` but with the added benefit of type hints
+    and better documentation.
+    """
 
 class TwoSiteTDVP(TDVPAlgorithm):
     """
@@ -24,13 +36,13 @@ class TwoSiteTDVP(TDVPAlgorithm):
     Attributes:
         svd_parameters: Contains values for the SVD truncation.
     """
+    config_class = TwoSiteTDVPConfig
 
     def __init__(self, initial_state: TreeTensorNetworkState,
                  hamiltonian: TTNO,
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
-                 svd_parameters: Union[SVDParameters,None] = None,
-                 config: Union[TDVPConfig,None] = None,
+                 config: Union[TwoSiteTDVPConfig,None] = None,
                  solver_options: Union[dict[str, Any], None] = None
                  ) -> None:
         """
@@ -49,7 +61,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
                 parameters to use during the time-evolution. Can be used to set
                 the maximum bond dimension, the absolute tolerance, and the
                 relative tolerance.
-            config (Union[TDVPConfig,None]): The configuration of
+            config (Union[TwoSiteTDVPConfig,None]): The configuration of
                 time evolution. Defaults to None.
             solver_options (Union[Dict[str, Any], None], optional): Most time
                 evolutions algorithms use some kind of solver to resolve a
@@ -69,10 +81,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
                          operators,
                          config=config,
                          solver_options=solver_options)
-        if svd_parameters is None:
-            self.svd_parameters = SVDParameters()
-        else:
-            self.svd_parameters = svd_parameters
+        self.config: TwoSiteTDVPConfig
 
     def _update_two_site_nodes(self,
                                target_node_id: str,
@@ -110,7 +119,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
         self.state.split_node_svd(new_id, u_legs, v_legs,
                                   u_identifier=target_node_id,
                                   v_identifier=next_node_id,
-                                  svd_params=self.svd_parameters)
+                                  svd_params=self.config)
         self.state.orthogonality_center_id = next_node_id
         self.update_tree_cache(target_node_id, next_node_id)
 
