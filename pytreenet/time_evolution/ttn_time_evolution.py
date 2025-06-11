@@ -32,6 +32,8 @@ class TTNTimeEvolutionConfig:
     record_max_bdim: bool = False
     record_average_bdim: bool = False
     record_total_size: bool = False
+    record_norm: bool = False
+    record_loschmidt_amplitude: bool = False
 
 class TTNTimeEvolution(TimeEvolution):
     """
@@ -107,6 +109,10 @@ class TTNTimeEvolution(TimeEvolution):
             diction[AVERAGE_BOND_DIM_ID] = float
         if self.config.record_total_size:
             diction[TOTAL_SIZE_ID] = int
+        if self.config.record_norm:
+            diction["norm"] = float
+        if self.config.record_loschmidt_amplitude:
+            diction["loschmidt_amplitude"] = complex
         return diction
 
     def obtain_bond_dims(self) -> Dict[Tuple[str,str], int]:
@@ -137,7 +143,7 @@ class TTNTimeEvolution(TimeEvolution):
         Returns:
             int: The total size of the current state.
         """
-        return self.state.total_size()
+        return self.state.size()
 
     def record_bond_dimensions(self, index):
         """
@@ -163,6 +169,17 @@ class TTNTimeEvolution(TimeEvolution):
             total_size = self.obtain_total_size()
             self.results.set_element(TOTAL_SIZE_ID, index, total_size)
 
+    def obtain_loschmidt_amplitude(self) -> complex:
+        """
+        Obtain the Loschmidt amplitude of the current state.
+
+        Returns:
+            float: The Loschmidt amplitude of the current state.
+        """
+        init = self.initial_state
+        lo_amp = self.state.scalar_product(other=init)
+        return lo_amp
+
     def evaluate_operators(self, index: int):
         """
         Evaluates the operator including the recording of bond dimensions.
@@ -172,6 +189,14 @@ class TTNTimeEvolution(TimeEvolution):
         """
         super().evaluate_operators(index)
         self.record_bond_dimensions(index)
+        if self.config.record_norm:
+            norm = self.state.norm()
+            self.results.set_element("norm", index, norm)
+        if self.config.record_loschmidt_amplitude:
+            los_amp = self.obtain_loschmidt_amplitude()
+            self.results.set_element("loschmidt_amplitude",
+                                     index,
+                                     los_amp)
 
     def evaluate_operator(self, operator: Union[TensorProduct,TTNO]) -> complex:
         """
