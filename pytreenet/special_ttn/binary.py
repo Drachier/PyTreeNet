@@ -36,11 +36,7 @@ def generate_binary_ttns(num_phys: int,
     """
     positivity_check(num_phys, "number of physical sites")
     positivity_check(bond_dim, "bond dimension")
-    
-    # Handle edge cases
-    if num_phys == 0:
-        return TreeTensorNetworkState()
-    
+
     # Special case: depth=0 -> generate a chain (MPS) with no virtual nodes
     if depth == 0:
         # Depth 0: build a pure MPS chain of physical nodes with no unconnected virtual legs
@@ -113,9 +109,6 @@ def generate_binary_ttns(num_phys: int,
     # Create an empty TTNS
     ttns = TreeTensorNetworkState()
     
-    # Create balanced tree structure
-    # The approach is to build a balanced binary tree with careful distribution
-    # of physical nodes to maintain the 3-connection limit
     
     # Initialize the root node
     root_id = f"{virtual_prefix}0_0"
@@ -204,9 +197,6 @@ def generate_binary_ttns(num_phys: int,
     # Ensure all tensor dimensions are correct before returning
     ttns = fix_tensor_dimensions(ttns, bond_dim, phys_prefix)
     
-    # Final verification: ensure all connections have compatible dimensions
-    # This is critical for problematic configurations like 41 qubits at depth 4
-    
     # First, scan for all dimensional mismatches
     mismatches = []
     
@@ -293,7 +283,6 @@ def generate_binary_ttns(num_phys: int,
         ttns.tensors[parent_id] = new_parent_tensor
     
     # Do one final check to verify everything is fixed
-    # If there are still dimension mismatches, make one more attempt with a more aggressive approach
     remaining_mismatches = []
     
     for node_id, node in ttns.nodes.items():
@@ -339,7 +328,6 @@ def generate_binary_ttns(num_phys: int,
             new_tensor = np.zeros(new_shape, dtype=old_tensor.dtype)
             
             # Copy physical data from the original tensor
-            # Try to preserve the tensor content
             if old_tensor.ndim == 2:  # Standard case
                 try:
                     # Copy data for the smallest common dimension
@@ -380,7 +368,7 @@ def generate_binary_ttns(num_phys: int,
             ttns.nodes[child_id] = new_node
         
         # Only update parent tensor if it's not already been updated in this loop
-        if not parent_id.startswith(phys_prefix):  # Only fix virtual parent nodes
+        if not parent_id.startswith(phys_prefix): 
             # Create new parent tensor only if it's a virtual node
             old_tensor = ttns.tensors[parent_id]
             num_legs = len(old_tensor.shape)
@@ -1054,7 +1042,6 @@ def clean_inefficient_paths(ttns: TreeTensorNetworkState,
             orig_shape = tensor.shape
             
             # Create a new tensor with one additional dimension
-            # We keep the trivial dimension at the end and add a new dimension
             new_shape = list(orig_shape[:-1]) + [bond_dim, orig_shape[-1]]
             
             # Create new tensor filled with zeros
@@ -1125,7 +1112,6 @@ def clean_inefficient_paths(ttns: TreeTensorNetworkState,
             
         if is_physical_child:
             # Handle case where inefficient node has a single physical child
-            # Get the physical child
             phys_node = ttns.nodes[child_id]
             phys_tensor = ttns.tensors[child_id]
             
@@ -1157,7 +1143,6 @@ def clean_inefficient_paths(ttns: TreeTensorNetworkState,
                 ttns.tensors[child_id] = new_tensor
         else:
             # Handle case where inefficient node has a single virtual child
-            # Get the child node of the inefficient node
             child_node = ttns.nodes[child_id]
             
             # Get all the grandchildren (the children of the child node)
@@ -1244,11 +1229,10 @@ def clean_inefficient_paths(ttns: TreeTensorNetworkState,
                 del ttns.tensors[node_id]
             del ttns.nodes[node_id]
     
-    # Before returning, ensure all virtual nodes have proper dimensions
+    # Ensure all virtual nodes have proper dimensions
     ttns = validate_fix_tensor_dimensions(ttns, bond_dim, virtual_prefix)
     
     # Additional validation to ensure all connections have compatible dimensions
-    # This specifically targets problematic connections like node2_7 and node1_3
     for node_id in list(ttns.nodes.keys()):
         node = ttns.nodes[node_id]
         if node.parent is not None:
