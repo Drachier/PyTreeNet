@@ -151,3 +151,91 @@ def get_effective_single_site_hamiltonian(node_id: str,
                                                        hamiltonian_node,
                                                        hamiltonian_tensor,
                                                        tensor_cache)
+
+def get_effective_bond_hamiltonian_tensor(
+                                         state_node: GraphNode,
+                                         tensor_cache: PartialTreeCachDict
+                                         ) -> ndarray:
+    """
+    Obtains the effective bond Hamiltonian as a matrix.
+
+    Args:
+        state_node (GraphNode): The node of the state tensor, representing the
+            bond for which no equivalent node exists in the TTNO.
+        tensor_cache (PartialTreeCachDict): The cache of environment tensors.
+
+    Returns:
+        ndarray: The effective bond Hamiltonian
+
+             _____        out        _____
+            |     |____0      1_____|     |
+            |     |                 |     |
+            |     |                 |     |
+            |     |                 |     |
+            |     |                 |     |
+            |     |_________________|     |
+            |     |                 |     |
+            |     |                 |     |
+            |     |                 |     |
+            |     |                 |     |
+            |     |                 |     |
+            |     |_____       _____|     |
+            |_____|  2         3    |_____|
+                            in    
+    
+    """
+    neighbours = state_node.neighbouring_nodes()
+    if len(neighbours) != 2:
+        raise ValueError("The effective bond Hamiltonian can only be "
+                         "computed for a bond with two neighbours.")
+    nghbrp = state_node.parent
+    nghbrc = state_node.children[0]
+    tensorp = tensor_cache.get_entry(nghbrp,
+                                     nghbrc)
+    tensorc = tensor_cache.get_entry(nghbrc,
+                                     nghbrp)
+    # Contract the Hamiltonian legs
+    tensor = tensordot(tensorp,
+                       tensorc,
+                       axes=(1, 1))
+    tensor = transpose(tensor, axes=[1, 3, 0, 2])
+    return tensor
+
+def get_effective_bond_hamiltonian_nodes(
+                                         state_node: GraphNode,
+                                         tensor_cache: PartialTreeCachDict
+                                         ) -> ndarray:
+    """
+    Obtains the effective bond Hamiltonian as a matrix.
+
+    Args:
+        state_node (GraphNode): The node of the state tensor, representing the
+            bond for which no equivalent node exists in the TTNO.
+        tensor_cache (PartialTreeCachDict): The cache of environment tensors.
+
+    Returns:
+        ndarray: The effective bond Hamiltonian as a matrix.
+    
+    """
+    tensor = get_effective_bond_hamiltonian_tensor(state_node,
+                                                    tensor_cache)
+    return tensor_matricisation_half(tensor)
+
+def get_effective_bond_hamiltonian(bond_node_id: str,
+                                   state: TreeTensorNetworkState,
+                                   tensor_cache: PartialTreeCachDict
+                                   ) -> ndarray:
+    """
+    Obtains the effective bond Hamiltonian as a matrix.
+
+    Args:
+        bond_node_id (str): The identifier of the node representing the bond
+            for which the effective Hamiltonian is to be found.
+        state (TreeTensorNetworkState): The state of the system.
+        tensor_cache (PartialTreeCachDict): The cache of environment tensors.
+
+    Returns:
+        ndarray: The effective bond Hamiltonian as a matrix.
+    """
+    state_node = state.nodes[bond_node_id]
+    return get_effective_bond_hamiltonian_nodes(state_node, tensor_cache)

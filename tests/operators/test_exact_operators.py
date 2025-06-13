@@ -510,9 +510,9 @@ class TestExactLindbladian(TestCase):
         """
         jump_operator = asarray([[0,3+2j], [0,0]])
         correct = asarray([[0, 0, 0, 13j],
-                           [0,13j / 2, 0, 0],
+                           [0, -13j / 2, 0, 0],
                            [0,0, -13j / 2,0],
-                           [0,0,0,0]])
+                           [0,0,0,-13j]])
         found = _jump_operator_terms(jump_operator)
         self.assertTrue(allclose(correct, found))
 
@@ -524,9 +524,9 @@ class TestExactLindbladian(TestCase):
         jump_operator = asarray([[0,(3+2j) / 2], [0,0]])
         coeff = 2
         correct = asarray([[0, 0, 0, 13j],
-                           [0,13j / 2, 0, 0],
+                           [0,-13j / 2, 0, 0],
                            [0,0, -13j / 2,0],
-                           [0,0,0,0]])
+                           [0,0,0,-13j]])
         found = _jump_operator_terms((coeff,jump_operator))
         self.assertTrue(allclose(correct, found))
 

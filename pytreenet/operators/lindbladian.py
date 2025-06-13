@@ -187,7 +187,7 @@ def _add_jump_operator_products(lindbladian: Hamiltonian,
             jop_conv_dict[op+"_H"] = op_value.conj().T
             id_dict[op+"_H"] = False
     for jump_operator in jump_operators:
-        frac = -1 * jump_operator[0] / 2
+        frac = Fraction(-1, 2) * jump_operator[0]
         coeff = jump_operator[1] + "*j"
         op = jump_operator[2]
         op_adj = op.conjugate_transpose(herm_dict=herm_dict)
@@ -196,15 +196,14 @@ def _add_jump_operator_products(lindbladian: Hamiltonian,
                                   conversion_dict=jop_conv_dict)
         sym_dict = _find_symmetric_operators(jop_conv_dict)
         op_mult_transp = op_mult.transpose(sym_dict)
-        new_frac = -1 * frac
         ket_tp = op_mult.add_suffix(ket_suffix)
         bra_tp = op_mult_transp.add_suffix(bra_suffix)
         lindbladian.add_term((frac, coeff, ket_tp))
-        lindbladian.add_term((new_frac, coeff, bra_tp))
+        lindbladian.add_term((frac, coeff, bra_tp))
         lindbladian.conversion_dictionary.update(jop_conv_dict)
         transpose_dict = {label + "_T": operator.T
-                        for label, operator in jop_conv_dict.items()
-                        if not sym_dict[label]}
+                          for label, operator in jop_conv_dict.items()
+                          if not sym_dict[label]}
         lindbladian.conversion_dictionary.update(transpose_dict)
     return lindbladian
 

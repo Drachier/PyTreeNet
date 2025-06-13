@@ -13,6 +13,7 @@ from ..ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
 from ..contractions.state_state_contraction import contract_two_ttns
 from ..contractions.state_operator_contraction import expectation_value
+from .ttns_util import multi_single_site_expectation_value
 
 class TreeTensorNetworkState(TreeTensorNetwork):
     """
@@ -21,6 +22,24 @@ class TreeTensorNetworkState(TreeTensorNetwork):
     A TTNS is a TTN representing a quantum state. This means that every node
     has exactly one physical leg. That leg can be trivial, i.e. of dimension 1.
     """
+
+    def to_vector(self, to_copy: bool = False) -> tuple[np.ndarray, list[str]]:
+        """
+        Converts the TTNS to a vector representation.
+
+        Args:
+            to_copy (bool, optional): Whether to return a copy of the vector.
+                Defaults to False.
+
+        Returns:
+            tuple[np.ndarray, list[str]]: The vector representation of the TTNS
+                and the order in which the nodes were contracted.
+        """
+        full_tensor, order = self.completely_contract_tree(to_copy=to_copy)
+        full_dim = np.prod(full_tensor.shape)
+        # Reshape the tensor to a vector
+        vector = full_tensor.reshape(full_dim)
+        return vector, order
 
     def scalar_product(self,
                        other: Union[TreeTensorNetworkState,None] = None,
@@ -79,7 +98,8 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         return norm
 
     def single_site_operator_expectation_value(self, node_id: str,
-                                               operator: np.ndarray) -> complex:
+                                               operator: np.ndarray,
+                                               move_orth_center: bool = False) -> complex:
         """
         The expectation value with regards to a single-site operator.
 
@@ -91,10 +111,16 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             operator (np.ndarray): The operator of which we determine the
                 expectation value. Note that the state will be contracted with
                 axis/leg 1 of this operator.
+            move_orth_center (bool, optional): Whether to move the
+                orthogonalization center to the node before computing the
+                expectation value. This is usually faster, but may destroy the
+                expected orthogonalization center. Defaults to False.
 
         Returns:
             complex: The resulting expectation value < TTNS| Operator| TTN >.
         """
+        if move_orth_center:
+            self.canonical_form(node_id)
         if self.orthogonality_center_id == node_id:
             tensor = deepcopy(self.tensors[node_id])
             tensor_op = np.tensordot(tensor, operator, axes=(-1,1))
@@ -103,7 +129,30 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             return complex(np.tensordot(tensor_op, tensor_conj, axes=(legs,legs)))
 
         tensor_product = TensorProduct({node_id: operator})
-        return self.operator_expectation_value(tensor_product)
+        return self.tensor_product_expectation_value(tensor_product)
+
+    def multi_single_site_expectation_value(
+        self,
+        operators: TensorProduct | list[TensorProduct] | dict[str, TensorProduct | list[TensorProduct]],
+        move_orth: bool = False
+
+        ) -> dict[str, list[complex]]:
+        """
+        Computes the expectation value of multiple single-site operators.
+
+        Args:
+            operators (TensorProduct | list[TensorProduct] | dict[str, TensorProduct | list[TensorProduct]]):
+                The single-site operators to be prepared. This can be a single
+                operator, a list of operators, or a dictionary mapping node IDs to
+                operators. If a single operator is provided, it will be converted to
+                multiple single-site operators.
+            move_orth (bool): If True, the orthogonality center will be moved to the
+                root at the end of this computation. Default is False.
+
+        Returns:
+            dict[str, list[complex]]: The resulting expectation values < TTNS | operator | TTNS>
+        """
+        return multi_single_site_expectation_value(self, operators, move_orth=move_orth)
 
     def tensor_product_expectation_value(self,
                                          operator: TensorProduct
@@ -166,7 +215,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
 
     def is_in_canonical_form(self, node_id: Union[None,str] = None) -> bool:
         """
-        Returns whether the TTNS is in canonical form.
+        Returns whether the TTNS is actually in canonical form.
         
         If a node is specified, it will check as if that node is the
         orthogonalisation center. If no node is given, the current

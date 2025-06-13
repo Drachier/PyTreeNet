@@ -71,6 +71,15 @@ class PartialTreeCachDict(dict):
         """
         self[node_id, next_node_id] = cached_tensor
 
+    def copy(self) -> PartialTreeCachDict:
+        """
+        Returns a shallow copy of the dictionary.
+
+        Returns:
+            PartialTreeCachDict: A shallow copy of the dictionary.
+        """
+        return PartialTreeCachDict(super().copy())
+
     def change_next_id_for_entry(self, node_id: str, old_next_id,
                                  new_next_id: str):
         """
@@ -107,6 +116,19 @@ class PartialTreeCachDict(dict):
         Checks if the dictionary contains a given entry.
         """
         return super().__contains__((node_id, next_node_id))
+
+    def num_legs(self, node_id: str, next_node_id: str) -> int:
+        """
+        Returns the number of legs of the cached tensor.
+
+        Args:
+            node_id (str): The identifier where the subtree ends.
+            next_node_id (str): The identifier to which the open legs point.
+
+        Returns:
+            int: The number of legs of the cached tensor.
+        """
+        return self.get_entry(node_id,next_node_id).ndim
 
     def close_to(self, other: PartialTreeCachDict) -> bool:
         """

@@ -95,7 +95,7 @@ def create_non_root_virt_tensor(bond_dim: int) -> ndarray:
 def add_all_nodes(num_phys: int,
                   bond_dim: int,
                   virtual_prefix: str
-                  ) -> list[Node, TreeTensorNetworkState]:
+                  ) -> tuple[list[Node], TreeTensorNetworkState]:
     """
     Adds all nodes as virtual nodes to the tree tensor network state.
 

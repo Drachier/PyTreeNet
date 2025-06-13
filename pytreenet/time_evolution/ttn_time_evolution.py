@@ -1,13 +1,22 @@
-from __future__ import annotations
-from typing import List, Union, Dict, Tuple
-from dataclasses import dataclass
+"""
+This module implements an abstract time evolution for tree tensor networks.
 
-from numpy import ndarray, asarray, max as arrmax
+It mostly deals with the recording of bond dimensions.
+"""
+
+from __future__ import annotations
+from typing import List, Union, Dict, Tuple, Any
+from dataclasses import dataclass
 
 from .time_evolution import TimeEvolution
 from ..ttns import TreeTensorNetworkState
 from ..ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
+
+MAX_BOND_DIM_ID = "max_bond_dim"
+AVERAGE_BOND_DIM_ID = "average_bond_dim"
+TOTAL_SIZE_ID = "total_size"
+BOND_DIM_ATRR = "bond_dim"
 
 @dataclass
 class TTNTimeEvolutionConfig:
@@ -20,6 +29,11 @@ class TTNTimeEvolutionConfig:
     and better documentation.
     """
     record_bond_dim: bool = False
+    record_max_bdim: bool = False
+    record_average_bdim: bool = False
+    record_total_size: bool = False
+    record_norm: bool = False
+    record_loschmidt_amplitude: bool = False
 
 class TTNTimeEvolution(TimeEvolution):
     """
@@ -27,12 +41,7 @@ class TTNTimeEvolution(TimeEvolution):
     
     Provides functionality to compute expectation values of operators during
     the time evolution and record bond dimensions of the current state.
-
-    Attributes:
-        bond_dims (Union[None,Dict[str,int]]): If a recording of the bond
-            dimension is intended, they are recorded here.
     """
-    bond_dim_id = "bond_dim"
     config_class = TTNTimeEvolutionConfig
 
     def __init__(self, initial_state: TreeTensorNetworkState,
@@ -41,7 +50,9 @@ class TTNTimeEvolution(TimeEvolution):
                                   Dict[str, Union[TensorProduct, TTNO]],
                                   TensorProduct,
                                   TTNO],
-                 config: Union[TTNTimeEvolutionConfig,None] = None) -> None:
+                 config: Union[TTNTimeEvolutionConfig,None] = None,
+                 solver_options: Union[Dict[str, Any], None] = None
+                 ) -> None:
         """
         A time evolution for a tree tensor network state.
 
@@ -57,26 +68,52 @@ class TTNTimeEvolution(TimeEvolution):
                 during the time evolution.
             config (Union[TTNTimeEvolutionConfig,None]): The configuration of
                 time evolution. Defaults to None.
+            solver_options (Union[Dict[str, Any], None], optional): Most time
+                evolutions algorithms use some kind of solver to resolve a
+                partial differential equation. This dictionary can be used to
+                pass additional options to the solver. Refer to the
+                documentation of `ptn.time_evolution.TimeEvoMode` for further
+                information. Defaults to None.
+                solver_options (Union[Dict[str, Any], None], optional): Most time
+                evolutions algorithms use some kind of solver to resolve a
+                partial differential equation. This dictionary can be used to
+                pass additional options to the solver. Refer to the
+                documentation of `ptn.time_evolution.TimeEvoMode` for further
+                information. Defaults to None.
         """
-        super().__init__(initial_state, time_step_size, final_time, operators)
+        super().__init__(initial_state, time_step_size, final_time, operators,
+                         solver_options=solver_options)
         self._initial_state: TreeTensorNetworkState
         self.state: TreeTensorNetworkState
 
-        if config is not None and config.record_bond_dim:
-            self.bond_dims = {}
-        else:
-            self.bond_dims = None
         if config is None:
             self.config = self.config_class()
         else:
             self.config = config
 
-    @property
-    def records_bond_dim(self) -> bool:
+    def result_init_dictionary(self):
         """
-        Are the bond dimensions recorded or not.
+        Initializes the result dictionary for the time evolution.
+
+        This method adds entries for the bond dimension recording.
         """
-        return self.bond_dims is not None
+        diction = super().result_init_dictionary()
+        if self.config.record_bond_dim:
+            bond_dims = self.obtain_bond_dims()
+            for key in bond_dims.keys():
+                diction[key] = int
+                self.results.set_attribute(key, BOND_DIM_ATRR)
+        if self.config.record_max_bdim:
+            diction[MAX_BOND_DIM_ID] = int
+        if self.config.record_average_bdim:
+            diction[AVERAGE_BOND_DIM_ID] = float
+        if self.config.record_total_size:
+            diction[TOTAL_SIZE_ID] = int
+        if self.config.record_norm:
+            diction["norm"] = float
+        if self.config.record_loschmidt_amplitude:
+            diction["loschmidt_amplitude"] = complex
+        return diction
 
     def obtain_bond_dims(self) -> Dict[Tuple[str,str], int]:
         """
@@ -84,60 +121,82 @@ class TTNTimeEvolution(TimeEvolution):
         """
         return self.state.bond_dims()
 
-    def bond_dim_matrix(self) -> ndarray:
-        """
-        Obtain the bond dimensions as a matrix.
-        """
-        bond_dims = self.operator_result(self.bond_dim_id)
-        matrix = asarray(list(bond_dims.values()))
-        return matrix
-
-    def max_bond_dim(self) -> ndarray:
+    def obtain_max_bond_dim(self) -> int:
         """
         Obtain the maximum bond dimension over time.
         """
-        return arrmax(self.bond_dim_matrix(),axis=0)
+        return self.state.max_bond_dim()
 
-    def record_bond_dimensions(self):
+    def obtain_average_bond_dim(self) -> float:
         """
-        Records the bond dimensions of the current state, if desired to do so.
-        """
-        if self.records_bond_dim:
-            if len(self.bond_dims) == 0:
-                self.bond_dims = {key: [value] for key, value in self.obtain_bond_dims().items()}
-            else:
-                for key, value in self.obtain_bond_dims().items():
-                    self.bond_dims[key].append(value)
-
-    def operator_result(self,
-                        operator_id: str | int,
-                        realise: bool = False) -> ndarray:
-        """
-        Includes the possibility to obtain the bond dimension from the results.
-
-        Args:
-            operator_id (Union[str,int]): The identifier or position of the
-                operator, whose expectation value results should be returned.
-            realise (bool, optional): Whether the results should be
-                transformed into real numbers.
+        Obtain the average bond dimension over time.
 
         Returns:
-            ndarray: The expectation value results over time.
+            float: The average bond dimension of the current state.
         """
-        if isinstance(operator_id, str) and operator_id == self.bond_dim_id:
-            if self.records_bond_dim is not None:
-                return self.bond_dims
-            errstr = "Bond dimensions are not being recorded."
-            raise ValueError(errstr)
-        return super().operator_result(operator_id, realise)
+        return self.state.avg_bond_dim()
 
-    def evaluate_operators(self) -> ndarray:
+    def obtain_total_size(self) -> int:
+        """
+        Obtain the total size of the current state.
+
+        Returns:
+            int: The total size of the current state.
+        """
+        return self.state.size()
+
+    def record_bond_dimensions(self, index):
+        """
+        Records the bond dimensions of the current state.
+
+        This method is called after each time step to record the bond
+        dimensions of the current state if recording is enabled.
+
+        Args:
+            index (int): The index at which to record the bond dimensions.
+
+        """
+        if self.config.record_bond_dim:
+            for key, value in self.obtain_bond_dims().items():
+                self.results.set_element(key, index, value)
+        if self.config.record_max_bdim:
+            max_bond_dim = self.obtain_max_bond_dim()
+            self.results.set_element(MAX_BOND_DIM_ID, index, max_bond_dim)
+        if self.config.record_average_bdim:
+            average_bond_dim = self.obtain_average_bond_dim()
+            self.results.set_element(AVERAGE_BOND_DIM_ID, index, average_bond_dim)
+        if self.config.record_total_size:
+            total_size = self.obtain_total_size()
+            self.results.set_element(TOTAL_SIZE_ID, index, total_size)
+
+    def obtain_loschmidt_amplitude(self) -> complex:
+        """
+        Obtain the Loschmidt amplitude of the current state.
+
+        Returns:
+            float: The Loschmidt amplitude of the current state.
+        """
+        init = self.initial_state
+        lo_amp = self.state.scalar_product(other=init)
+        return lo_amp
+
+    def evaluate_operators(self, index: int):
         """
         Evaluates the operator including the recording of bond dimensions.
+
+        Args:
+            index (int): The index at which to evaluate the operators.
         """
-        current_results = super().evaluate_operators()
-        self.record_bond_dimensions()
-        return current_results
+        super().evaluate_operators(index)
+        self.record_bond_dimensions(index)
+        if self.config.record_norm:
+            norm = self.state.norm()
+            self.results.set_element("norm", index, norm)
+        if self.config.record_loschmidt_amplitude:
+            los_amp = self.obtain_loschmidt_amplitude()
+            self.results.set_element("loschmidt_amplitude",
+                                     index,
+                                     los_amp)
 
     def evaluate_operator(self, operator: Union[TensorProduct,TTNO]) -> complex:
         """

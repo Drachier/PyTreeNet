@@ -13,7 +13,8 @@ from ..core.tree_structure import TreeStructure
 def single_site_operators(operator: Union[str,ndarray],
                           node_identifiers: Union[TreeStructure,List[str]],
                           factor: Union[List[tuple[Fraction,str]],tuple[Fraction,str],None]=None,
-                          operator_names: Union[List[str],None]=None
+                          operator_names: Union[List[str],None]=None,
+                          with_factor: bool = True
                           ) -> Dict[str,Tuple[Fraction,str,TensorProduct]]:
     """
     Define a constant operator on each node.
@@ -29,6 +30,8 @@ def single_site_operators(operator: Union[str,ndarray],
             If None, the factor isset to 1.
         operator_names (Union[List[str],None]): The names of the operators.
             If None, the operator names are set to the node identifiers.
+        with_factor (bool): If True, the factor is included in the operator.
+            If False, the factor is not included in the operator.
         
     Returns:
         Dict[str,TensorProduct]: The operators.
@@ -48,8 +51,12 @@ def single_site_operators(operator: Union[str,ndarray],
         operator_names = node_identifiers
     else:
         assert len(operator_names) == len(node_identifiers)
-    operators = {operator_names[i]: (factor[i][0],factor[i][1],TensorProduct({node_identifiers[i]: operator}))
-                 for i in range(len(node_identifiers))}
+    if with_factor:
+        operators = {operator_names[i]: (factor[i][0],factor[i][1],TensorProduct({node_identifiers[i]: operator}))
+                     for i in range(len(node_identifiers))}
+    else:
+        operators = {operator_names[i]: TensorProduct({node_identifiers[i]: operator})
+                     for i in range(len(node_identifiers))}
     return operators
 
 def create_nearest_neighbour_hamiltonian(structure: Union[TreeStructure,List[Tuple[str,str]]],

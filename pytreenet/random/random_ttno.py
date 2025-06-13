@@ -28,7 +28,7 @@ def generate_three_layer_ttno() -> TreeTensorNetworkOperator:
         TreeTensorNetworkOperator: The generated TTNO.
 
                         4
-                    K0------K13---2
+                    K0------K12---2
                 5  5/ \\6 
                 --K10   K11
                   /4     |2

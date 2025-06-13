@@ -62,21 +62,21 @@ def compare_lists_by_value(list1: List, list2: List) -> bool:
     return False
 
 def compare_lists_by_identity(list1: List, list2: List) -> bool:
-        """
-        Compares two lists by their identity (memory address) The elements and their orders should match.
+    """
+    Compares two lists by their identity (memory address) The elements and their orders should match.
 
-        Args:
-            list1 (List): First list
-            list2 (List): Second list
+    Args:
+        list1 (List): First list
+        list2 (List): Second list
 
-        Returns:
-            bool: Whether the two lists have the same elements in the same order.
-        """
-        # Check if the lengths are the same
-        if len(list1) != len(list2):
-            return False
-        # Compare the identity (memory address) of each object in the lists
-        return all(id(obj1) == id(obj2) for obj1, obj2 in zip(list1, list2))
+    Returns:
+        bool: Whether the two lists have the same elements in the same order.
+    """
+    # Check if the lengths are the same
+    if len(list1) != len(list2):
+        return False
+    # Compare the identity (memory address) of each object in the lists
+    return all(id(obj1) == id(obj2) for obj1, obj2 in zip(list1, list2))
 
 def permute_iterator(it: Iterator, permutation: List[int]) -> Iterator:
     """
@@ -92,6 +92,44 @@ def permute_iterator(it: Iterator, permutation: List[int]) -> Iterator:
     assert len(it) == len(permutation)
     return it.__class__(it[i] for i in permutation)
 
+def find_permutation(list1: List, list2: List) -> List[int]:
+    """
+    Find the permutation of the elements of list1 to match list2.
+
+    Args:
+        list1 (List): The first list.
+        list2 (List): The second list.
+    
+    Returns:
+        List[int]: The permutation of the elements of list1 to match list2,
+            i.e. list2[i] = list1[permutation[i]] for all i.
+    """
+    assert len(list1) == len(list2)
+    return [list2.index(x) for x in list1]
+
+def is_broadcastable(shp1: Iterator, shp2: Iterator) -> bool:
+    """
+    Check if two shapes are broadcastable.
+    """
+    for a, b in zip(shp1[::-1], shp2[::-1]):
+        if a == 1 or b == 1 or a == b:
+            pass
+        else:
+            return False
+    return True
+
+def int_to_slice(index: int) -> slice:
+    """
+    Convert an integer to a slice object.
+
+    Args:
+        index (int): The index to convert.
+
+    Returns:
+        slice: The slice object.
+    """
+    return slice(index, index+1)
+
 def fast_exp_action(exponent: np.ndarray,
                     vector: np.ndarray,
                     mode: str = "fastest") -> np.ndarray:
@@ -102,7 +140,6 @@ def fast_exp_action(exponent: np.ndarray,
     is the default mode. The modes are:
 
     - "expm": Use the scipy expm function.
-    - "eigsh": Use the scipy eigsh function. Only valid for hermitian matrices.
     - "chebyshev": Use the scipy expm_multiply function.
     - "sparse": Use the scipy sparse expm function. Only valid for sparse
         matrices.
@@ -124,12 +161,6 @@ def fast_exp_action(exponent: np.ndarray,
         mode = "chebyshev"
     if mode == "expm":
         return expm(exponent) @ vector
-    if mode == "eigsh":
-        if exponent.shape[0] < 4:
-            return expm(exponent) @ vector
-        k = min(exponent.shape[0]-2, 8)
-        w, v, = eigsh(exponent, k=k)
-        return v @ np.diag(np.exp(w)) @ np.linalg.pinv(v) @ vector
     if mode == "chebyshev":
         return expm_multiply(exponent, vector,
                              traceA=np.trace(exponent))

@@ -287,8 +287,8 @@ def _jump_operator_terms(jump_operator: tuple[float, ndarray] | ndarray
     if isinstance(jump_operator, tuple):
         assert len(jump_operator) == 2, \
             "The jump operator must be a tuple with a coefficient and the operator!"
-        coefficient = jump_operator[0] 
-        jump_operator = jump_operator[1] 
+        coefficient = jump_operator[0] ** 2
+        jump_operator = jump_operator[1]
     else:
         coefficient = 1
     assert_square_matrix(jump_operator)

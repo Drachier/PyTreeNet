@@ -51,7 +51,8 @@ def update_leaf_node(node_id: str,
                 current_cache: SandwichCache,
                 hamiltonian: TreeTensorNetworkOperator,
                 time_step_size: float,
-                bug_config: CommonBUGConfig
+                bug_config: CommonBUGConfig,
+                solver_options: dict = None
                 ) -> Tuple[TreeTensorNetworkState, ndarray, ndarray]:
     """
     Updates a leaf node according to the fixed rank BUG.
@@ -70,6 +71,12 @@ def update_leaf_node(node_id: str,
         time_step_size (float): The time step size.
         fixed_rank (bool): Whether to use the fixed rank BUG or the standard
             BUG.
+        solver_options (Union[Dict[str, Any], None], optional): Most time
+            evolutions algorithms use some kind of solver to resolve a
+            partial differential equation. This dictionary can be used to
+            pass additional options to the solver. Refer to the
+            documentation of `ptn.time_evolution.TimeEvoMode` for further
+            information. Defaults to None.
 
     Returns:
         TreeTensorNetworkState: The updated new state.
@@ -83,7 +90,8 @@ def update_leaf_node(node_id: str,
                                                 hamiltonian,
                                                 time_step_size,
                                                 current_cache,
-                                                mode=bug_config.time_evo_mode)
+                                                mode=bug_config.time_evo_mode,
+                                                solver_options=solver_options)
     old_basis_tensor = parent_state.tensors[node_id]
     if bug_config.fixed_rank:
         new_basis_tensor, _ = tensor_qr_decomposition(updated_tensor,
@@ -121,7 +129,8 @@ def update_non_leaf_node(node_id: str,
                          current_cache: SandwichCache,
                          hamiltonian: TreeTensorNetworkOperator,
                          time_step_size: float,
-                         bug_config: CommonBUGConfig
+                         bug_config: CommonBUGConfig,
+                         solver_options: dict = None
                          ) -> Tuple[TreeTensorNetworkState, ndarray, ndarray]:
     """
     Updates a non-leaf node according to the fixed rank BUG.
@@ -139,6 +148,12 @@ def update_non_leaf_node(node_id: str,
             model as a TTNO.
         time_step_size (float): The time step size.
         bug_config (CommonBUGConfig): The configuration for the BUG method.
+        solver_options (Union[Dict[str, Any], None], optional): Most time
+            evolutions algorithms use some kind of solver to resolve a
+            partial differential equation. This dictionary can be used to
+            pass additional options to the solver. Refer to the
+            documentation of `ptn.time_evolution.TimeEvoMode` for further
+            information. Defaults to None.
 
     Returns:
         TreeTensorNetworkState: The updated new state.
@@ -177,7 +192,8 @@ def update_non_leaf_node(node_id: str,
                                                 hamiltonian,
                                                 time_step_size,
                                                 current_cache,
-                                                mode=bug_config.time_evo_mode)
+                                                mode=bug_config.time_evo_mode,
+                                                solver_options=solver_options)
     new_state_node = new_state.nodes[node_id]
     if bug_config.fixed_rank:
         new_basis_tensor = compute_fixed_size_new_basis_tensor(new_state_node,
@@ -215,7 +231,8 @@ def update_node(node_id: str,
                 parent_tensor_cache: SandwichCache,
                 hamiltonian: TreeTensorNetworkOperator,
                 time_step_size: float,
-                bug_config: CommonBUGConfig
+                bug_config: CommonBUGConfig,
+                solver_options: dict = None
                 ) -> Tuple[TreeTensorNetworkState, ndarray, ndarray]:
     """
     Updates a node according to the fixed rank BUG.
@@ -232,6 +249,12 @@ def update_node(node_id: str,
             model as a TTNO.
         time_step_size (float): The time step size.
         bug_config (CommonBUGConfig): The configuration for the BUG method.
+        solver_options (Union[Dict[str, Any], None], optional): Most time
+            evolutions algorithms use some kind of solver to resolve a
+            partial differential equation. This dictionary can be used to
+            pass additional options to the solver. Refer to the
+            documentation of `ptn.time_evolution.TimeEvoMode` for further
+            information. Defaults to None.
 
     Returns:
         TreeTensorNetworkState: The updated new state.
@@ -267,7 +290,8 @@ def update_node(node_id: str,
                                 current_cache,
                                 hamiltonian,
                                 time_step_size,
-                                bug_config=bug_config)
+                                bug_config=bug_config,
+                                solver_options=solver_options)
     else:
         return update_non_leaf_node(node_id,
                                     current_state,
@@ -276,12 +300,14 @@ def update_node(node_id: str,
                                     current_cache,
                                     hamiltonian,
                                     time_step_size,
-                                    bug_config=bug_config)
+                                    bug_config=bug_config,
+                                    solver_options=solver_options)
 
 def root_update(current_state: TreeTensorNetworkState,
                 hamiltonian: TreeTensorNetworkOperator,
                 time_step_size: float,
-                bug_config: CommonBUGConfig
+                bug_config: CommonBUGConfig,
+                solver_options: dict = None
                 ) -> TreeTensorNetworkState:
     """
     Updates the root node of the state according to the fixed rank BUG.
@@ -293,6 +319,12 @@ def root_update(current_state: TreeTensorNetworkState,
             model as a TTNO.
         time_step_size (float): The time step size.
         bug_config (CommonBUGConfig): The configuration for the BUG method.
+        solver_options (Union[Dict[str, Any], None], optional): Most time
+            evolutions algorithms use some kind of solver to resolve a
+            partial differential equation. This dictionary can be used to
+            pass additional options to the solver. Refer to the
+            documentation of `ptn.time_evolution.TimeEvoMode` for further
+            information. Defaults to None.
     
     Returns:
         TreeTensorNetworkState: The updated state.
@@ -314,7 +346,8 @@ def root_update(current_state: TreeTensorNetworkState,
                                                 current_cache,
                                                 hamiltonian,
                                                 time_step_size,
-                                                bug_config=bug_config)
+                                                bug_config=bug_config,
+                                                solver_options=solver_options)
         child_environment_cache.add_entry(child_id, root_id, child_block)
     # If we update it inside the loop, the cache changed after the first child, but
     # we need the old cache for the other children updates.
@@ -334,6 +367,7 @@ def root_update(current_state: TreeTensorNetworkState,
                                                 hamiltonian,
                                                 time_step_size,
                                                 current_cache,
-                                                mode=bug_config.time_evo_mode)
+                                                mode=bug_config.time_evo_mode,
+                                                solver_options=solver_options)
     new_state.replace_tensor(root_id, updated_tensor)
     return new_state
