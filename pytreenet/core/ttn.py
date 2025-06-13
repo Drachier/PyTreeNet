@@ -642,7 +642,7 @@ class TreeTensorNetwork(TreeStructure):
         """
         node = self.nodes[node_id]
         neighbour_leg = node.neighbour_index(neighbour_id)
-        self.absorb_matrix(node_id, tensor, tensor_leg, neighbour_leg)
+        self.absorb_matrix(node_id, tensor, neighbour_leg, tensor_leg)
 
     def absorb_into_open_legs(self, node_id: str,
                               tensor: np.ndarray,
