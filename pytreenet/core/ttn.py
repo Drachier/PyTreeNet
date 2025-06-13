@@ -609,7 +609,7 @@ class TreeTensorNetwork(TreeStructure):
 
         """
         m_shape = absorbed_matrix.shape
-        if len(absorbed_matrix) != 2 or m_shape[0] != m_shape[1]:
+        if len(m_shape) != 2:
             errstr = self._absorption_warning()
             raise AssertionError(errstr)
         node_tensor = self.tensors[node_id]
