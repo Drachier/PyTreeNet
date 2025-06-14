@@ -333,11 +333,15 @@ class TreeTensorNetwork(TreeStructure):
         tensors_equal = np.allclose(test_tensor, tensor)
         return tensors_equal
 
+
+
     def ensure_shape_matching(self, new_tensor: np.ndarray, tensor_leg: int,
                               old_node: Node, old_leg: int,
-                              new_node_id: Union[str,None] = None):
+                              new_node_id: Union[str,None] = None,
+                              adapt_shape: bool = False):
         """
         Ensures that the dimensions of the legs of two tensors are compatible.
+        If dimensions don't match, it will modify the new_tensor in-place to match.
 
         Args:
             new_tensor (np.ndarray): The tensor with the new leg.
@@ -347,19 +351,53 @@ class TreeTensorNetwork(TreeStructure):
             new_node_id (Union[str,None], optional): The identifier of the new
                 node. Defaults to None.
 
-        Raises:
-            NotCompatibleException: If the dimensions of the legs of the two
-                tensors are not compatible.
+        Returns:
+            np.ndarray: The modified tensor with compatible dimensions in modify mode.
         """
         if new_node_id is None:
-            new_node_id = "the new node"
-        new_dimension = new_tensor.shape[tensor_leg]
-        old_dimension = old_node.shape[old_leg]
-        if new_dimension != old_dimension:
-            errstr = f"Dimensionality of leg {tensor_leg} of {new_node_id}"
-            errstr += " is not compatible with"
-            errstr += f" leg {old_leg} of {old_node.identifier}"
-            raise NotCompatibleException(errstr)
+           new_node_id = "the new node"
+
+        if not adapt_shape:
+            new_dimension = new_tensor.shape[tensor_leg]
+            old_dimension = old_node.shape[old_leg]
+            if new_dimension != old_dimension:
+                errstr = f"Dimensionality of leg {tensor_leg} of {new_node_id}"
+                errstr += " is not compatible with"
+                errstr += f" leg {old_leg} of {old_node.identifier}"
+                raise NotCompatibleException(errstr)
+        else :            
+            new_dimension = new_tensor.shape[tensor_leg]
+            old_dimension = old_node.shape[old_leg]
+            
+            # If dimensions match, no action needed
+            if new_dimension == old_dimension:
+                return new_tensor
+            
+            # Create a new shape with the matching dimension
+            new_shape = list(new_tensor.shape)
+            new_shape[tensor_leg] = old_dimension
+            
+            # Create a new tensor with the modified shape
+            modified_tensor = np.zeros(tuple(new_shape), dtype=new_tensor.dtype)
+            
+            # Copy data from the original tensor, up to the minimum dimension
+            min_dim = min(new_dimension, old_dimension)
+            
+            # Prepare slices for copying data
+            source_slices = []
+            target_slices = []
+            
+            for i in new_tensor.shape:
+                if i == tensor_leg:
+                    source_slices.append(slice(0, min_dim))
+                    target_slices.append(slice(0, min_dim))
+                else:
+                    source_slices.append(slice(None))
+                    target_slices.append(slice(None))
+            
+            # Copy the data
+            modified_tensor[tuple(target_slices)] = new_tensor[tuple(source_slices)]
+            return modified_tensor
 
     def add_root(self, node: Node, tensor: np.ndarray):
         """
@@ -374,7 +412,8 @@ class TreeTensorNetwork(TreeStructure):
         self.tensors[node.identifier] = tensor
 
     def add_child_to_parent(self, child: Node, tensor: np.ndarray,
-                            child_leg: int, parent_id: str, parent_leg: int):
+                            child_leg: int, parent_id: str, parent_leg: int,
+                            compatible: bool = True):
         """
         Adds a child node to a parent node in the TTN.
 
@@ -389,23 +428,38 @@ class TreeTensorNetwork(TreeStructure):
             parent_id (str): The identifier of the parent node.
             parent_leg (int): The leg of the parent tensor to be connected to the
                 child tensor.
-
+            compatible (bool): If False, the child tensor will be modified (padded with zero or truncated) 
+            to match the dimensions of the parent tensor.
         Raises:
             NotCompatibleException: If the dimensions of the legs of the child
-                and parent are not the same.
+                and parent are not the same.            
         """
         self.ensure_existence(parent_id)
         parent_node = self._nodes[parent_id]
         child_id = child.identifier
-        self.ensure_shape_matching(tensor, child_leg,
-                                   parent_node, parent_leg,
-                                   child_id)
-        child.link_tensor(tensor)
-        self._add_node(child)
-        child.open_leg_to_parent(parent_id, child_leg)
-        parent_node.open_leg_to_child(child_id, parent_leg)
-        self.tensors[child_id] = tensor
-
+        
+        if not compatible:
+            # Get the modified tensor with compatible dimensions
+            modified_tensor = self.ensure_shape_matching(tensor, child_leg,
+                                                        parent_node, parent_leg,
+                                                        child_id, True)
+            
+            # Use the modified tensor instead of the original
+            child.link_tensor(modified_tensor)
+            self._add_node(child)
+            child.open_leg_to_parent(parent_id, child_leg)
+            parent_node.open_leg_to_child(child_id, parent_leg)
+            self.tensors[child_id] = modified_tensor
+        else:
+            self.ensure_shape_matching(tensor, child_leg,
+                                    parent_node, parent_leg,
+                                    child_id)
+            child.link_tensor(tensor)
+            self._add_node(child)
+            child.open_leg_to_parent(parent_id, child_leg)
+            parent_node.open_leg_to_child(child_id, parent_leg)
+            self.tensors[child_id] = tensor
+       
     def add_parent_to_root(self, root_leg: int, parent: Node,
                            tensor: np.ndarray, parent_leg: int):
         """

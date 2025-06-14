@@ -152,7 +152,7 @@ def generate_binary_ttns(num_phys: int,
                 0,  # Chain node's parent leg
                 current_chain_id,
                 2 if i == 1 else 1,  # Previous node's chain leg
-                modify=True
+                compatible= False
             )
             
             current_chain_id = chain_id
@@ -472,7 +472,7 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
                 0,  # Physical node's parent leg
                 parent_id,
                 parent_leg  # Parent's open leg
-                , modify=True
+                , compatible= False
             )
         
         # Return early if we connected all physical nodes
@@ -503,7 +503,7 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
             if grandparent_node.open_legs:
                 grandparent_leg = grandparent_node.open_legs[0]
                 
-                # Create sibling tensor with compatible dimensions
+                # Create sibling tensor with compatible  Falsensions
                 sibling_tensor = constant_bd_trivial_node(bond_dim, 3)  # 1 for its parent + 1 for child + 1 open leg
                 
                 # Connect sibling to grandparent
@@ -513,7 +513,7 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
                     0,  # Sibling's parent leg
                     grandparent_id,
                     grandparent_leg  # Grandparent's open leg
-                    , modify=True
+                    , compatible= False
                 )
                 
                 # Now get sibling's tensor to check dimensions
@@ -530,14 +530,14 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
                     0,  # Intermediate node's parent leg
                     sibling_id,
                     sibling_leg  # Sibling's child leg
-                    , modify=True
+                    , compatible= False
                 )
             else:
                 # Create a new link in the chain
                 next_chain_id = f"{virtual_prefix}0_{len([n for n in ttns.nodes if n.startswith(f'{virtual_prefix}0_')])}"
                 next_chain_node = Node(identifier=next_chain_id)
                 
-                # Create tensors with compatible dimensions
+                # Create tensors with compatible  Falsensions
                 chain_tensor = constant_bd_trivial_node(bond_dim, 3)  # 1 for previous chain + 1 for intermediate + 1 open leg
                 
                 # Find parent of last chain node
@@ -556,7 +556,7 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
                         0,  # Chain node's parent leg
                         last_chain_parent,
                         1  # Previous chain node's leg
-                        , modify=True
+                        , compatible= False
                     )
                     
                     # Now create intermediate tensor with compatible dimensions
@@ -569,7 +569,7 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
                         0,  # Intermediate node's parent leg
                         next_chain_id,
                         1  # Chain node's leg
-                        , modify=True
+                        , compatible= False
                     )
                 else:
                     # Fallback to creating a new root
@@ -587,7 +587,7 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
                         0,  # Chain node's parent leg
                         new_root_id,
                         0  # New root's first leg
-                        , modify=True
+                        , compatible= False
                     )
                     
                     # Now create intermediate tensor with compatible dimensions
@@ -600,7 +600,7 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
                         0,  # Intermediate node's parent leg
                         next_chain_id,
                         1  # Chain node's leg for intermediate
-                        , modify=True
+                        , compatible= False
                     )
         else:
             # Parent is root, create a new root
@@ -621,7 +621,7 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
                 0,  # Old root's parent leg
                 new_root_id,
                 0  # New root's first leg
-                , modify=True
+                , compatible= False
             )
             
             # Create sibling tensor with compatible dimensions
@@ -634,10 +634,10 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
                 0,  # Sibling's parent leg
                 new_root_id,
                 1  # New root's second leg
-                , modify=True
+                , compatible= False
             )
             
-            # Now create intermediate tensor with compatible dimensions 
+            # Now create intermediate tensor with compatible  Falsensions 
             sibling_tensor = ttns.tensors[sibling_id]
             
             intermediate_tensor = constant_bd_trivial_node(bond_dim, intermediate_legs)
@@ -649,7 +649,7 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
                 0,  # Intermediate node's parent leg
                 sibling_id,
                 1  # Sibling's child leg
-                , modify=True
+                , compatible= False
             )
         
         # Now connect physical nodes to intermediate node
@@ -689,7 +689,7 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
                 0,  # Physical node's parent leg
                 intermediate_id,
                 leg_idx  # Intermediate node's child leg
-                , modify=True
+                , compatible= False
             )
         
         # If there are still physical nodes remaining, build a subtree from the intermediate node
@@ -827,7 +827,7 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
             0,  # Child's parent leg
             parent_id,
             parent_leg  # Parent's open leg
-            , modify=True
+            , compatible= False
         )
         
         # Recursively build subtree from this child
