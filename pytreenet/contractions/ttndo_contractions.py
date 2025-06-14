@@ -404,34 +404,23 @@ def contract_ttno_with_ttndo(ttno: TreeTensorNetworkOperator, ttndo: 'BINARYTTND
     # Get the path for contractions using TDVPUpdatePathFinder
     all_nodes = ttndo.linearise()
     
-    if ttndo.form == "full":
-        # Contract the TTNO tensors with the TTNDO tensors node by node
-        for node_id in all_nodes:
-            # Contract the tensors
+    # Contract the TTNO tensors with the TTNDO tensors node by node
+    for node_id in all_nodes:
+        # Contract the tensors
+        if node_id.startswith("qubit"):
             ttno_ttndo_tensor = contract_tensors_ttno_with_ttndo(
                 ttno.tensors[node_id], 
                 ttndo.tensors[node_id])
-            # Update the expanded TTNO
+            
             ttndo_copy.tensors[node_id] = ttno_ttndo_tensor
             ttndo_copy.nodes[node_id].link_tensor(ttno_ttndo_tensor)
-    elif ttndo.form == "physical":
-        # Contract the TTNO tensors with the TTNDO tensors node by node
-        for node_id in all_nodes:
-            # Contract the tensors
-            if node_id.startswith("qubit"):
-                ttno_ttndo_tensor = contract_tensors_ttno_with_ttndo(
-                    ttno.tensors[node_id], 
-                    ttndo.tensors[node_id])
-                
-                ttndo_copy.tensors[node_id] = ttno_ttndo_tensor
-                ttndo_copy.nodes[node_id].link_tensor(ttno_ttndo_tensor)
-            else:     
-                ttno_ttndo_tensor = contract_tensors_ttno_with_ttns(
-                    ttno.tensors[node_id], 
-                    ttndo.tensors[node_id])
-                
-                ttndo_copy.tensors[node_id] = ttno_ttndo_tensor
-                ttndo_copy.nodes[node_id].link_tensor(ttno_ttndo_tensor)
+        else:     
+            ttno_ttndo_tensor = contract_tensors_ttno_with_ttns(
+                ttno.tensors[node_id], 
+                ttndo.tensors[node_id])
+            
+            ttndo_copy.tensors[node_id] = ttno_ttndo_tensor
+            ttndo_copy.nodes[node_id].link_tensor(ttno_ttndo_tensor)
     return ttndo_copy
 
 def contract_tensors_ttno_with_ttndo(A: ndarray, B: ndarray) -> ndarray:
