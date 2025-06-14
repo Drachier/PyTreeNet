@@ -231,10 +231,9 @@ class SymmetricTTNDO(TreeTensorNetworkState):
         """
         if len(operator) == 0:
             return self.scalar_product()
+        ttn = deepcopy(self)
         for node_id, single_site_operator in operator.items():
             ket_id = self.ket_id(node_id)
-            # Can be improved once shallow copying is possible
-            ttn = deepcopy(self)
             ttn.absorb_into_open_legs(ket_id, single_site_operator)
         return ttn.trace()
 
