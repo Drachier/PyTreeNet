@@ -5,7 +5,7 @@ from numpy import allclose
 
 from pytreenet.ttns.ttns import TreeTensorNetworkState
 from pytreenet.ttns.ttndo import (SymmetricTTNDO,
-                                  from_ttns)
+                                  Symmetric_ttndo_from_binary_ttns)
 from pytreenet.random import crandn
 from pytreenet.random.random_ttns import (random_small_ttns,
                                           random_big_ttns_two_root_children)
@@ -249,7 +249,7 @@ class TestFromTTNS(TestCase):
         ttns = random_small_ttns()
         ref_ttns = deepcopy(ttns)
         root_id = "ttndo_root"
-        ttndo = from_ttns(ttns, root_id=root_id)
+        ttndo = Symmetric_ttndo_from_binary_ttns(ttns, root_id=root_id)
         self.correctness(ref_ttns, ttndo)
 
     def test_random_big_tree(self):
@@ -259,7 +259,7 @@ class TestFromTTNS(TestCase):
         ttns = random_big_ttns_two_root_children()
         ref_ttns = deepcopy(ttns)
         root_id = "ttndo_root"
-        ttndo = from_ttns(ttns, root_id=root_id)
+        ttndo = Symmetric_ttndo_from_binary_ttns(ttns, root_id=root_id)
         self.correctness(ref_ttns, ttndo)
 
 if __name__ == '__main__':
