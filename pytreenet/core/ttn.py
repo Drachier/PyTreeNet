@@ -1441,7 +1441,12 @@ def pull_tensor_from_different_ttn(old_ttn: TreeTensorNetwork,
     perm = relative_leg_permutation(old_node, new_node,
                                     modify_function=mod_fct)
     old_tensor = old_ttn.tensors[node_id]
+
+    new_node._shape = old_tensor.shape 
+    new_node._leg_permutation = perm
+
     new_ttn.replace_tensor(node_id, deepcopy(old_tensor), perm)
+
 
 def get_tensor_from_different_ttn(old_ttn: TreeTensorNetwork,
                                   new_ttn: TreeTensorNetwork,

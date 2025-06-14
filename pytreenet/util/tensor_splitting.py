@@ -469,11 +469,11 @@ def contr_truncated_svd_splitting(tensor: np.ndarray,
         return us, svh
     raise ValueError("Invalid contraction mode!")
 
-def idiots_splitting(tensor: np.ndarray,
-                     a_legs: Tuple[int,...],
+def idiots_splitting(a_legs: Tuple[int,...],
                      b_legs: Tuple[int,...],
                      a_tensor: Union[np.ndarray,None] = None,
-                     b_tensor: Union[np.ndarray,None] = None) -> Tuple[np.ndarray,np.ndarray]:
+                     b_tensor: Union[np.ndarray,None] = None,
+                     ) -> Tuple[np.ndarray,np.ndarray]:
     """
     An idiots splitting of a tensor by two given compatible tensors.
 
@@ -492,16 +492,6 @@ def idiots_splitting(tensor: np.ndarray,
         Tuple[np.ndarray,np.ndarray]: (A, B), the two split tensors.
 
     """
-    if a_tensor is None or b_tensor is None:
-        raise ValueError("Both tensors have to be given!")
-    tensor_shape_a = tuple([tensor.shape[i] for i in a_legs])
-    tensor_shape_b = tuple([tensor.shape[i] for i in b_legs])
-    a_shape = a_tensor.shape[0:-1]
-    b_shape = b_tensor.shape[1:]
-    if tensor_shape_a != a_shape:
-        raise ValueError("A tensor not compatible!")
-    if tensor_shape_b != b_shape:
-        raise ValueError("B tensor not compatible!")
     if a_tensor.ndim != len(a_legs) + 1:
         raise ValueError("A tensor has wrong number of legs!")
     if b_tensor.ndim != len(b_legs) + 1:
