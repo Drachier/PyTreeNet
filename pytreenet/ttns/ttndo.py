@@ -467,7 +467,7 @@ def binary_ttndo_for_product_state(ttns: TreeTensorNetworkState,
     Args:
         ttns: Original TTNS structure
         bond_dim: Bond dimension for the TTNDO
-        phys_tensor: Physical tensor template for leaf nodes
+        phys_tensor: Physical tensor for leaf nodes
         bra_suffix: Suffix for bra nodes
         ket_suffix: Suffix for ket nodes
         
@@ -628,3 +628,71 @@ def create_physical_node_dual(ttndo: TreeTensorNetworkState,
     ttndo.add_child_to_parent(bra_node, bra_tensor, 0, ket_id, 1, compatible= False)
     created_nodes[bra_id] = True
 
+
+def MPS_ttndo_for_product_state(ttns: TreeTensorNetworkState,
+                                bond_dim: int,
+                                phys_tensor: ndarray,
+                                bra_suffix: str = "_bra",
+                                ket_suffix: str = "_ket") -> BINARYTTNDO:
+    """
+    Creates a MPS TTNDO for a product state. 
+
+    Args:
+        ttns (TreeTensorNetworkState): MPS TTNS.
+        bond_dim (int): The bond dimension of the new TTNDO.
+        phys_tensor (ndarray): The physical tensor.
+        bra_suffix (str, optional): Suffix for bra nodes. Defaults to "_bra".
+        ket_suffix (str, optional): Suffix for ket nodes. Defaults to "_ket".
+
+    Returns:
+        BINARYTTNDO: The resulting physically binary TTNDO 
+    """
+    positivity_check(bond_dim, "bond dimension")
+    # Determine physical dimension
+    if phys_tensor.ndim == 1:
+        phys_dim = phys_tensor.size
+    else:
+        phys_dim = phys_tensor.shape[-1]
+
+    # Extract ordered physical sites assuming a single-child chain
+    node_sequence: list[str] = []
+    root_node, _ = ttns.root
+    curr = root_node.identifier
+    node_sequence.append(curr)
+    while ttns.nodes[curr].children:
+        curr = ttns.nodes[curr].children[0]
+        node_sequence.append(curr)
+
+    # Build alternating ket/bra chain identifiers
+    chain_ids: list[str] = []
+    for site in node_sequence:
+        chain_ids.append(site + ket_suffix)
+        chain_ids.append(site + bra_suffix)
+    total = len(chain_ids)
+
+    ttndo = BINARYTTNDO(bra_suffix, ket_suffix)
+    # Populate nodes in chain order
+    for idx, nid in enumerate(chain_ids):
+        # Boundary: single virtual leg; intermediate: two virtual legs
+        if idx == 0 or idx == total - 1:
+            shape = (bond_dim, phys_dim)
+        else:
+            shape = (bond_dim, bond_dim, phys_dim)
+        tensor = zeros(shape, dtype=phys_tensor.dtype)
+        # Embed the physical tensor at all-zero virtual indices
+        fill_idx = (0,) * (len(shape) - 1) + (slice(None),)
+        if phys_tensor.ndim == 1:
+            tensor[fill_idx] = phys_tensor
+        else:
+            tensor[fill_idx] = phys_tensor[0]
+        # If it's a bra node, take the complex conjugate
+        if nid.endswith(bra_suffix):
+            tensor = tensor.conj()
+        node = Node(identifier=nid)
+        if idx == 0:
+            ttndo.add_root(node, tensor)
+        else:
+            parent = chain_ids[idx - 1]
+            leg = ttndo.nodes[parent].open_legs[0]
+            ttndo.add_child_to_parent(node, tensor, 0, parent, leg, compatible= False)
+    return ttndo
