@@ -109,7 +109,10 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
 
         for he in state_diagram.get_all_hyperedges():
             position = he.find_tensor_position(reference_tree)
-            operator = conversion_dict[he.label].astype(complex)
+            operator = conversion_dict[he.label].copy()
+            # Make sure operator is of complex type before the multiplication
+            if not np.issubdtype(operator.dtype, np.complexfloating):
+                operator = operator.astype(complex)
             operator *= complex(he.lambda_coeff) * coeffs_mapping[he.gamma_coeff]
             ttno.tensors[he.corr_node_id][position] += operator
 

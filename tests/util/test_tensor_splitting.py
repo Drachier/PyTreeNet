@@ -515,47 +515,39 @@ class TestSingularValueDecompositions(unittest.TestCase):
 class TestIdiotsSplitting(unittest.TestCase):
 
     def test_idiots_splitting_valid(self):
-        shape = (2,5,6,7,3,4)
-        tensor = crandn(shape)
         a_tensor = crandn((2,6,4,8))
         b_tensor = crandn((8,5,7,3))
         legs_a = (0,2,5)
         legs_b = (1,3,4)
         a_copy, b_copy = deepcopy(a_tensor), deepcopy(b_tensor)
-        a, b = idiots_splitting(tensor, legs_a, legs_b,
+        a, b = idiots_splitting(legs_a, legs_b,
                                 a_tensor=a_tensor,
                                 b_tensor=b_tensor)
         self.assertTrue(allclose(a_copy,a))
         self.assertTrue(allclose(b_copy,b))
 
     def test_idiots_splitting_Nones(self):
-        shape = (2,5,6,7,3,4)
-        tensor = crandn(shape)
         a_tensor = None
         b_tensor = None
         legs_a = ()
         legs_b = ()
-        self.assertRaises(ValueError,idiots_splitting,tensor,legs_a,legs_b,
+        self.assertRaises(ValueError,idiots_splitting, legs_a,legs_b,
                           a_tensor=a_tensor,b_tensor=b_tensor)
 
     def test_idiots_splitting_aNone(self):
-        shape = (2,5,6,7,3,4)
-        tensor = crandn(shape)
         a_tensor = None
         b_tensor = crandn((5,7,3))
         legs_a = ()
         legs_b = (1,3,4)
-        self.assertRaises(ValueError,idiots_splitting,tensor,legs_a,legs_b,
+        self.assertRaises(ValueError,idiots_splitting,legs_a,legs_b,
                           a_tensor=a_tensor,b_tensor=b_tensor)
 
     def test_idiots_splitting_bNone(self):
-        shape = (2,5,6,7,3,4)
-        tensor = crandn(shape)
         a_tensor = crandn((2,6,4))
         b_tensor = None
         legs_a = (0,2,5)
         legs_b = ()
-        self.assertRaises(ValueError,idiots_splitting,tensor,legs_a,legs_b,
+        self.assertRaises(ValueError,idiots_splitting,legs_a,legs_b,
                           a_tensor=a_tensor,b_tensor=b_tensor)
 
 if __name__ == "__main__":

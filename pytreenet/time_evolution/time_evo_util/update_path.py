@@ -2,12 +2,13 @@
 Module to find the update path of a TDVP algorithm.
 """
 from __future__ import annotations
-from typing import List
+from typing import List, Tuple
 from ...core.tree_structure import TreeStructure
 from enum import Enum
 
 class PathFinderMode(Enum):
-      LeafToLeaf = "LeafToLeaf"
+      LeafToLeaf_Forward = "LeafToLeaf_Forward"
+      LeafToLeaf_Backward = "LeafToLeaf_Backward"
       LeafToRoot = "LeafToRoot"
 
 class TDVPUpdatePathFinder():
@@ -19,17 +20,16 @@ class TDVPUpdatePathFinder():
         mode (PathFinderMode): The update path strategy mode.
                                Can be either `LeafToLeaf` or `LeafToRoot`.
     """
-    def __init__(self, state: TreeStructure,
-                 mode: PathFinderMode = PathFinderMode.LeafToLeaf) -> None:
+    def __init__(self, state: TreeStructure, mode: PathFinderMode = PathFinderMode.LeafToRoot) -> None:
         self.state = state
         self.mode = mode
 
         if self.mode == PathFinderMode.LeafToRoot:
             self._finder = TDVPUpdatePathFinder_LeafToRoot(self.state)
-        elif self.mode == PathFinderMode.LeafToLeaf:
-            self._finder = TDVPUpdatePathFinder_LeafToLeaf(self.state)
-        else:
-            raise ValueError(f"Unsupported mode: {self.mode}")
+        elif self.mode == PathFinderMode.LeafToLeaf_Forward:
+            self._finder = TDVPUpdatePathFinder_LeafToLeaf(self.state, forward = True)
+        elif self.mode == PathFinderMode.LeafToLeaf_Backward:
+            self._finder = TDVPUpdatePathFinder_LeafToLeaf(self.state, forward = False)
 
     def find_path(self) -> List[str]:
         """
@@ -249,10 +249,13 @@ class TDVPUpdatePathFinder_LeafToLeaf():
         main_path (List[str]): The direct path from L_A to L_B.
     """
 
-    def __init__(self, state) -> None:
+    def __init__(self, state, forward: bool) -> None:
         self.state = state
         self.start, self.end = self._find_two_diameter_leaves()
-        self.main_path = self.state.path_from_to(self.start, self.end)
+        if forward:
+            self.main_path = self.state.path_from_to(self.start, self.end)
+        else:
+            self.main_path = self.state.path_from_to(self.end, self.start)
 
     def _find_two_diameter_leaves(self) -> Tuple[str, str]:
         """
