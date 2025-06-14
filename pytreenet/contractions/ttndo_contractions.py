@@ -2,7 +2,7 @@
 This module contains functions to contrac a TTNDO.
 """
 from __future__ import annotations
-from typing import List
+from typing import List, TYPE_CHECKING
 from re import match
 
 from numpy import tensordot, ndarray
@@ -15,7 +15,10 @@ from .state_state_contraction import contract_any_nodes as contract_any_nodes_st
 from .state_operator_contraction import (contract_any_node_environment_but_one as contract_any_nodes_operator,
                                          contract_operator_tensor_ignoring_one_leg)
 
-def ttndo_contraction_order(ttndo: SymmetricTTNDO) -> List[str]:
+if TYPE_CHECKING:
+    from ..ttns.ttndo import BINARYTTNDO, SymmetricTTNDO
+
+def ttndo_contraction_order(ttndo: 'SymmetricTTNDO') -> List[str]:
     """
     Returns the contraction order of a TTNDO.
 
@@ -35,7 +38,7 @@ def ttndo_contraction_order(ttndo: SymmetricTTNDO) -> List[str]:
                     if match(r".*"+ttndo.ket_suffix, node_id)]
     return bra_node_ids
 
-def trace_ttndo(ttndo: SymmetricTTNDO) -> complex:
+def trace_symmetric_ttndo(ttndo: 'SymmetricTTNDO') -> complex:
     """
     Computes the trace of a TTNDO.
 
@@ -76,7 +79,7 @@ def trace_ttndo(ttndo: SymmetricTTNDO) -> complex:
                                         ttndo.root_id)
     return _contract_final_block(ttndo, final_block)
 
-def ttndo_ttno_expectation_value(ttndo: SymmetricTTNDO,
+def symmetric_ttndo_ttno_expectation_value(ttndo: 'SymmetricTTNDO',
                                  ttno: TreeTensorNetworkOperator
                                  ) -> complex:
     """
@@ -127,7 +130,7 @@ def ttndo_ttno_expectation_value(ttndo: SymmetricTTNDO,
     # Now we need to contract the final block to the root of the TTNDO
     return _contract_final_block(ttndo, final_block)
 
-def _contract_final_block(ttndo: SymmetricTTNDO,
+def _contract_final_block(ttndo: 'SymmetricTTNDO',
                           final_block: ndarray
                           ) -> complex:
     """
@@ -154,7 +157,7 @@ def _contract_final_block(ttndo: SymmetricTTNDO,
                              axes=(root_legs, block_legs))
     return contraction_result[0]
 
-def _contract_ttno_root(ttndo: SymmetricTTNDO,
+def _contract_ttno_root(ttndo: 'SymmetricTTNDO',
                         ttno: TreeTensorNetworkOperator,
                         block_cache: PartialTreeCachDict
                         ) -> ndarray:

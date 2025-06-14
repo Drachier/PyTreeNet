@@ -14,7 +14,8 @@ from .ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TreeTensorNetworkOperator
 from ..util.ttn_exceptions import positivity_check
 from ..operators.tensorproduct import TensorProduct
-from ..contractions.ttndo_contractions import trace_ttndo, ttndo_ttno_expectation_value
+from ..contractions.ttndo_contractions import trace_symmetric_ttndo, symmetric_ttndo_ttno_expectation_value
+
 
 class SymmetricTTNDO(TreeTensorNetworkState):
     """
@@ -187,7 +188,7 @@ class SymmetricTTNDO(TreeTensorNetworkState):
         Returns:
             complex: The trace of the TTNDO.
         """
-        return trace_ttndo(self)
+        return trace_symmetric_ttndo(self)
 
     def norm(self) -> complex:
         """
@@ -208,7 +209,7 @@ class SymmetricTTNDO(TreeTensorNetworkState):
             complex: The expectation value of the TTNDO with respect to the TTNO.
 
         """
-        return ttndo_ttno_expectation_value(self, operator)
+        return symmetric_ttndo_ttno_expectation_value(self, operator)
 
     def tensor_product_expectation_value(self,
                                          operator: TensorProduct
@@ -251,8 +252,7 @@ class SymmetricTTNDO(TreeTensorNetworkState):
         """
         tensor_product = TensorProduct({node_id: operator})
         return self.operator_expectation_value(tensor_product)
-
-def from_ttns(ttns: TreeTensorNetworkState,
+def from_symmetric_ttns(ttns: TreeTensorNetworkState,
                 root_id: str = "ttndo_root",
                 root_bond_dim: int = 2
                 ) -> SymmetricTTNDO:
