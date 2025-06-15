@@ -60,7 +60,7 @@ from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      SplitMode,
                                      SVDParameters)
 from .leg_specification import LegSpecification
-from .QR_canonical_form import (QR_canonical_form,
+from .canonical_form import (QR_canonical_form,
                              split_qr_contract_r_to_neighbour)
 from ..contractions.tree_contraction import completely_contract_tree
 from ..contractions.node_contraction import contract_nodes
