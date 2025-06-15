@@ -480,7 +480,6 @@ def idiots_splitting(a_legs: Tuple[int,...],
     Performs checks if the given tensors are compatible with the given legs.
 
     Args:
-        tensor (np.ndarray): Tensor to be split.
         a_legs (Tuple[int]): Legs of tensor that are to be associated to A.
         b_legs (Tuple[int]): Legs of tensor that are to be associated to B.
         a_tensor (Union[np.ndarray,None], optional): Given tensor A. Leg
@@ -492,6 +491,8 @@ def idiots_splitting(a_legs: Tuple[int,...],
         Tuple[np.ndarray,np.ndarray]: (A, B), the two split tensors.
 
     """
+    if a_tensor is None or b_tensor is None:
+       raise ValueError("Both tensors have to be given!")
     if a_tensor.ndim != len(a_legs) + 1:
         raise ValueError("A tensor has wrong number of legs!")
     if b_tensor.ndim != len(b_legs) + 1:
