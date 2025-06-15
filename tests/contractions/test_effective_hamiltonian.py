@@ -505,7 +505,7 @@ class TestContractionMethodsSimple(unittest.TestCase):
 class TestContractionMethodsBig(unittest.TestCase):
     def setUp(self) -> None:
         self.state, self.hamiltonian = big_ttns_and_ttno(mode=RandomTTNSMode.DIFFVIRT)
-        self.state.canonical_form("site4") # To have some nodes with differeing child ordering
+        self.state.QR_canonical_form("site4") # To have some nodes with differeing child ordering
         self.cache = SandwichCache(self.state, self.hamiltonian)
         # To correctly compute the contractions we need all potential cached tensors
         non_init_pairs = [("site4","site3"),("site5","site3"),("site3","site1"),

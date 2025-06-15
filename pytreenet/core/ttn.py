@@ -60,7 +60,7 @@ from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      SplitMode,
                                      SVDParameters)
 from .leg_specification import LegSpecification
-from .canonical_form import (canonical_form,
+from .QR_canonical_form import (QR_canonical_form,
                              split_qr_contract_r_to_neighbour)
 from ..contractions.tree_contraction import completely_contract_tree
 from ..contractions.node_contraction import contract_nodes
@@ -1328,7 +1328,7 @@ class TreeTensorNetwork(TreeStructure):
         """
         self.ensure_existence(node_id)
         if self.orthogonality_center_id is None:
-            self.canonical_form(node_id, mode = mode)
+            self.QR_canonical_form(node_id, mode = mode)
             return False
         if self.orthogonality_center_id != node_id:
             self.move_orthogonalization_center(node_id, mode=mode)
@@ -1362,7 +1362,7 @@ class TreeTensorNetwork(TreeStructure):
     # The additional structure allows for more efficent algorithms than the
     # general case.
 
-    def canonical_form(self, orthogonality_center_id: str,
+    def QR_canonical_form(self, orthogonality_center_id: str,
                        mode: SplitMode = SplitMode.REDUCED):
         """
         Brings the TTN in canonical form with respect to a given orthogonality
@@ -1370,7 +1370,7 @@ class TreeTensorNetwork(TreeStructure):
 
         Only moves the orthogonality center if there is one already. To reset
         the canonical form for sure, use the function
-        `canonical_form.canonical_form`.
+        `QR_canonical_form.QR_canonical_form`.
 
         Args:
             orthogonality_center_id (str): The new orthogonality center of the
@@ -1379,7 +1379,7 @@ class TreeTensorNetwork(TreeStructure):
                 refer to `tensor_util.tensor_qr_decomposition`.
         """
         if self.orthogonality_center_id is None:
-            canonical_form(self, orthogonality_center_id, mode=mode)
+            QR_canonical_form(self, orthogonality_center_id, mode=mode)
         else:
             self.move_orthogonalization_center(orthogonality_center_id,
                                                mode=mode)
@@ -1395,7 +1395,7 @@ class TreeTensorNetwork(TreeStructure):
             mode: The mode to be used for the QR decomposition. For details
                 refer to `tensor_util.tensor_qr_decomposition`.
         """
-        self.canonical_form(orthogonality_center_id, mode=mode)
+        self.QR_canonical_form(orthogonality_center_id, mode=mode)
 
     def completely_contract_tree(self,
                                  to_copy: bool=False) -> Tuple[np.ndarray, List[str]]:

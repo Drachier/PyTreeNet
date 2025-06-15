@@ -120,7 +120,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             complex: The resulting expectation value < TTNS| Operator| TTN >.
         """
         if move_orth_center:
-            self.canonical_form(node_id)
+            self.QR_canonical_form(node_id)
         if self.orthogonality_center_id == node_id:
             tensor = deepcopy(self.tensors[node_id])
             tensor_op = np.tensordot(tensor, operator, axes=(-1,1))
