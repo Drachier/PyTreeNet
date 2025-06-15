@@ -16,11 +16,6 @@ from .leg_specification import LegSpecification
 from .node import Node
 from ..util.tensor_splitting import SplitMode
 from ..util.tensor_splitting import SVDParameters
-
-class CanonicalMode(Enum):
-    QR = "qr"
-    SVD = "svd"
-
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
