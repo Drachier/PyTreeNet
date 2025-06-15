@@ -123,7 +123,7 @@ def multi_single_site_expectation_value(
     root_id = ttns.root_id
     # We want to keep the bond dimensions for this, if this is undesired, the
     # TTNS should be truncated first.
-    ttns.canonical_form(root_id, mode=SplitMode.KEEP)
+    ttns.QR_canonical_form(root_id, mode=SplitMode.KEEP)
     # Now we can precompute all the environments
     results = {node_id: [] for node_id in prepared_operators.keys()}
     env_dict = _trivial_env_dict(ttns)

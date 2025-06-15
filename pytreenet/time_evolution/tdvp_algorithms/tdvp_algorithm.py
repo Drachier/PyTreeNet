@@ -119,7 +119,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
                 Defaults to False.
         """
         if self.state.orthogonality_center_id is None or force_new:
-            self.state.canonical_form(self.update_path[0],
+            self.state.QR_canonical_form(self.update_path[0],
                                       mode=SplitMode.KEEP)
         else:
             self.state.move_orthogonalization_center(self.update_path[0],

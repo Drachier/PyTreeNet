@@ -79,7 +79,7 @@ class TestSVDSplitting(TestCase):
         ref_tree.add_child_to_parent(Node(identifier=node_id(4)), tensors[node_id(4)],
                                         0, node_id(2), 1)
         ref_tree.contract_nodes("svals", node_id(0), new_identifier=node_id(0))
-        ref_tree.canonical_form(node_id(0))
+        ref_tree.QR_canonical_form(node_id(0))
         svd_params = SVDParameters(rel_tol=0.15)
         ref_tree = svd_truncation(ref_tree, svd_params)
         self.assertEqual(set([2,4]), set(ref_tree.nodes[node_id(0)].shape))

@@ -12,7 +12,7 @@ Submodules
 pytreenet.core.canonical\_form module
 -------------------------------------
 
-.. automodule:: pytreenet.core.canonical_form
+.. automodule:: pytreenet.core.QR_canonical_form
    :members:
    :undoc-members:
    :show-inheritance:

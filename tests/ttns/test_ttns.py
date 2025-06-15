@@ -72,7 +72,7 @@ class TestTreeTensorNetworkStateSimple(unittest.TestCase):
 
     def test_single_site_expectation_value_canon_form(self):
         """Test the single site expectation value with canonical form."""
-        self.initial_state.canonical_form("root")
+        self.initial_state.QR_canonical_form("root")
         found_result = self.initial_state.single_site_operator_expectation_value("root",
             self.operators[0]["root"])
 
