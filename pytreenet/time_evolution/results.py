@@ -13,17 +13,22 @@ TIMES_ID = "times"
 class Results:
     """
     Class to store the simulation results of a time evolution algorithm.
+
+    Attributes:
+        results (dict[Hashable, NDArray]): A dictionary where keys are operator
+            names and values are their corresponding results as NumPy arrays.
+        attributes (dict[str, tuple[str, Any]]): A dictionary to store additional
+            attributes for each operator. The keys are operator names and the
+            values are lists of tuples, where each tuple contains an attribute
+            name and its corresponding value.
     """
 
     def __init__(self) -> None:
         """
         Initializes the Results object with the number of time steps.
-
-        Args:
-            num_time_steps (int): The number of time steps in the simulation.
         """
         self.results: dict[Hashable, NDArray] = {}
-        self.attributes: dict[str, Any] = {}
+        self.attributes: dict[str, list[tuple[str,Any]]] = {}
 
     def is_initialized(self) -> bool:
         """
@@ -74,6 +79,7 @@ class Results:
 
     def set_attribute(self,
                       operator_id: str,
+                      attribute_name: str,
                       value: Any) -> None:
         """
         Sets an attribute in the results object.
@@ -82,8 +88,9 @@ class Results:
             operator_id (str): The name of the attribute.
             value (Any): The value of the attribute.
         """
-
-        self.attributes[operator_id] = value
+        if operator_id not in self.results:
+            self.attributes[operator_id] = []
+        self.attributes[operator_id].append((attribute_name,value))
 
     def set_element(self,
                      operator: Hashable,
@@ -236,12 +243,17 @@ class Results:
                 self.save_to_h5(h5file)
         else:
             for key, value in self.results.items():
-                dset = h5file.create_dataset(key, data=value)
+                if not isinstance(key, str):
+                    key_str = str(key)
+                else:
+                    key_str = key
+                dset = file.create_dataset(key_str, data=value)
                 if key in self.attributes:
-                    for attr_key, attr_value in self.attributes.items():
+                    for attr in self.attributes[key]:
+                        attr_key, attr_value = attr
                         dset.attrs[attr_key] = attr_value
-            h5file.attrs[TIMES_ID] = self.results[TIMES_ID]
-            h5file.attrs["num_time_steps"] = len(self.results[TIMES_ID]) - 1
+            file.attrs[TIMES_ID] = self.results[TIMES_ID]
+            file.attrs["num_time_steps"] = len(self.results[TIMES_ID]) - 1
 
     @classmethod
     def load_from_h5(cls,

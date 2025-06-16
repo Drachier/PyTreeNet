@@ -156,7 +156,6 @@ class TestTTNDOExpectationValue(TestCase):
         ref_expectation = (ttno_tensor @ density_matrix).trace()
         # Test
         found_expectation = ttndo_ttno_expectation_value(ttndo, ttno)
-        print(found_expectation, ref_expectation)
         self.assertTrue(allclose(found_expectation, ref_expectation))
 
 if __name__ == "__main__":

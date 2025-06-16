@@ -393,8 +393,6 @@ class StateDiagram():
         """
         he = self.hyperedge_colls[node_id].contained_hyperedges[0]
         operator_label = he.label
-        if operator_label not in conversion_dict:
-            print(self)
         operator = conversion_dict[operator_label]
         # Should be square operators
         assert operator.shape[0] == operator.shape[1]

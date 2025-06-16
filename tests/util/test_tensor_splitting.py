@@ -290,7 +290,6 @@ class TestSingularValueTruncation(unittest.TestCase):
         """
         threshold = 0.001
         found_s = sum_truncation(deepcopy(self.s_values), threshold)
-        print(found_s)
         self.assertTrue(allclose(self.s_values,found_s))
 
     def test_sum_truncation(self):
