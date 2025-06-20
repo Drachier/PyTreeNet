@@ -82,20 +82,40 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         assert scal_prod.imag == 0
         return sqrt(scal_prod.real)
 
-    def normalise(self) -> float:
+    def normalise(self, norm: float | None = None) -> float:
         """
         Normalises the MPS in place.
+
+        Args:
+            norm (float | None, optional): The norm to normalise the state
+                with. If None, the norm is computed. Defaults to None.
 
         Returns:
             float: The norm of the state before normalisation.
         """
-        norm = self.norm()
+        if norm is None:
+            norm = self.norm()
         if self.orthogonality_center_id is not None:
             # Avoids destroying the orthogonality center
             self.tensors[self.orthogonality_center_id] /= norm
         else:
+            if self.root_id is None:
+                raise ValueError("Cannot normalise TTNS without nodes!")
             self.tensors[self.root_id] /= norm
         return norm
+
+    def normalize(self, norm: float | None = None) -> float:
+        """
+        Normalises the TTNS in place.
+
+        Args:
+            norm (float | None, optional): The norm to normalise the state
+                with. If None, the norm is computed. Defaults to None.
+
+        Returns:
+            float: The norm of the state before normalisation.
+        """
+        return self.normalise(norm)
 
     def single_site_operator_expectation_value(self, node_id: str,
                                                operator: np.ndarray,
