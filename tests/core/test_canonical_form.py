@@ -5,7 +5,7 @@ from copy import deepcopy
 
 import pytreenet as ptn
 
-from pytreenet.core.QR_canonical_form import _find_smallest_distance_neighbour
+from pytreenet.core.canonical_form import _find_smallest_distance_neighbour
 from pytreenet.util.tensor_util import compute_transfer_tensor
 from pytreenet.random import (random_small_ttns,
                               random_big_ttns_two_root_children)
