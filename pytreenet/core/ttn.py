@@ -60,7 +60,7 @@ from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      SplitMode,
                                      SVDParameters)
 from .leg_specification import LegSpecification
-from .canonical_form import (QR_canonical_form,
+from .canonical_form import (canonical_form,
                              split_qr_contract_r_to_neighbour)
 from ..contractions.tree_contraction import completely_contract_tree
 from ..contractions.node_contraction import contract_nodes
@@ -1242,7 +1242,8 @@ class TreeTensorNetwork(TreeStructure):
 
 
     def move_orthogonalization_center(self, new_center_id: str,
-                                      mode: SplitMode = SplitMode.REDUCED):
+                                      split_function = split_qr_contract_r_to_neighbour,
+                                      *args):
         """
         Moves the orthogonalization center to a different node.
 
@@ -1250,29 +1251,35 @@ class TreeTensorNetwork(TreeStructure):
         there should already be an orthogonalisation center.
 
         Args:
-            new_center (str): The identifier of the new orthogonalisation
+            new_center_id (str): The identifier of the new orthogonalisation
                 center.
-            mode: The mode to be used for the QR decomposition. For details refer to
-                `tensor_util.tensor_qr_decomposition`.
+            split_function: The function to use for splitting nodes (QR or SVD).
+                Defaults to split_qr_contract_r_to_neighbour.
+            *args: Additional arguments to pass to the splitting function.
+                For QR: mode parameter (SplitMode, optional)
+                For SVD: svd_params parameter (SVDParameters, required)
         """
         if self.orthogonality_center_id is None:
             errstr = "The TTN is not in canonical form, so the orth. center cannot be moved!"
             raise AssertionError(errstr)
-        self.qr_from_to(self.orthogonality_center_id, new_center_id, mode=mode)
+        self.orth_from_to(self.orthogonality_center_id, new_center_id,                         split_function, *args)
 
-    def qr_from_to(self,
-                   start_id: str,
-                   end_id: str,
-                   mode: SplitMode = SplitMode.REDUCED):
+    def orth_from_to(self,
+                     start_id: str,
+                     end_id: str,
+                     split_function = split_qr_contract_r_to_neighbour,
+                     *args):
         """
-        Perform a chain of QR decompositions from one node to another.
+        Perform a chain of decompositions from one node to another.
 
         Args:
             start_id (str): The identifier of the starting node.
             end_id (str): The identifier of the ending node.
-            mode: The mode to be used for the QR decomposition. For details refer to
-                `tensor_util.tensor_qr_decomposition`.
-        
+            split_function: The function to use for splitting nodes (QR or SVD).
+                Defaults to split_qr_contract_r_to_neighbour.
+            *args: Additional arguments to pass to the splitting function.
+                For QR: mode parameter (SplitMode, optional)
+                For SVD: svd_params parameter (SVDParameters, required)
         """
         if start_id == end_id:
             # We are done already.
@@ -1280,14 +1287,11 @@ class TreeTensorNetwork(TreeStructure):
         path = self.path_from_to(start_id, end_id)
         pairs = zip(path[:-1], path[1:])
         for current_id, next_id in pairs:
-            split_qr_contract_r_to_neighbour(self,
-                                    current_id,
-                                    next_id,
-                                    mode=mode)
+            split_function(self, current_id, next_id, *args)
         if self.orthogonality_center_id in path:
             self.orthogonality_center_id = end_id
-        elif self.orthogonality_center_id is not None:
-            self.orthogonality_center_id = None
+        elif self.orthogonality_center_id is not None:            self.orthogonality_center_id = None
+
 
     def assert_orth_center(self, node_id: str,
                            object_name: str = "node"):
@@ -1328,7 +1332,7 @@ class TreeTensorNetwork(TreeStructure):
         """
         self.ensure_existence(node_id)
         if self.orthogonality_center_id is None:
-            self.QR_canonical_form(node_id, mode = mode)
+            self.canonical_form(node_id, mode = mode)
             return False
         if self.orthogonality_center_id != node_id:
             self.move_orthogonalization_center(node_id, mode=mode)
@@ -1362,15 +1366,17 @@ class TreeTensorNetwork(TreeStructure):
     # The additional structure allows for more efficent algorithms than the
     # general case.
 
-    def QR_canonical_form(self, orthogonality_center_id: str,
-                       mode: SplitMode = SplitMode.REDUCED):
+    def canonical_form(self, 
+                       orthogonality_center_id: str,
+                       split_function: callable = split_qr_contract_r_to_neighbour ,
+                       *args):
         """
         Brings the TTN in canonical form with respect to a given orthogonality
          center.
 
         Only moves the orthogonality center if there is one already. To reset
         the canonical form for sure, use the function
-        `QR_canonical_form.QR_canonical_form`.
+        `canonical_form.canonical_form`.
 
         Args:
             orthogonality_center_id (str): The new orthogonality center of the
@@ -1379,13 +1385,14 @@ class TreeTensorNetwork(TreeStructure):
                 refer to `tensor_util.tensor_qr_decomposition`.
         """
         if self.orthogonality_center_id is None:
-            QR_canonical_form(self, orthogonality_center_id, mode=mode)
+            canonical_form(self, orthogonality_center_id, split_function, args)
         else:
-            self.move_orthogonalization_center(orthogonality_center_id,
-                                               mode=mode)
+            self.move_orthogonalization_center(orthogonality_center_id, split_function, args)
 
-    def orthogonalize(self, orthogonality_center_id: str,
-                      mode: SplitMode = SplitMode.REDUCED):
+    def orthogonalize(self, 
+                      orthogonality_center_id: str,
+                      split_function: callable = split_qr_contract_r_to_neighbour ,
+                      *args):
         """
         Wrapper of canonical form.
 
@@ -1395,7 +1402,7 @@ class TreeTensorNetwork(TreeStructure):
             mode: The mode to be used for the QR decomposition. For details
                 refer to `tensor_util.tensor_qr_decomposition`.
         """
-        self.QR_canonical_form(orthogonality_center_id, mode=mode)
+        self.canonical_form(orthogonality_center_id, split_function, *args)
 
     def completely_contract_tree(self,
                                  to_copy: bool=False) -> Tuple[np.ndarray, List[str]]:

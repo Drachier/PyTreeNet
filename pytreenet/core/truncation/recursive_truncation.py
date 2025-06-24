@@ -150,6 +150,6 @@ def recursive_truncation(tree: TreeTensorNetwork,
     """
     root_id = tree.root_id
     if root_id != tree.orthogonality_center_id or tree.orthogonality_center_id is None:
-        tree.QR_canonical_form(root_id)
+        tree.canonical_form(root_id)
     truncate_node(root_id, tree, svd_params)
     return tree

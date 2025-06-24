@@ -542,7 +542,7 @@ class TestContractSingleSiteOperatorEnv(TestCase):
         """
         ttns = random_small_ttns()
         root_id = ttns.root_id
-        ttns.QR_canonical_form(root_id)
+        ttns.canonical_form(root_id)
         # Create a single site operator
         op = crandn((2,2))
         # We know that the environments are the identity
@@ -581,7 +581,7 @@ class TestContractSingleSiteOperatorEnv(TestCase):
         """
         ttns = random_small_ttns()
         node_id = "c1"
-        ttns.QR_canonical_form(node_id)
+        ttns.canonical_form(node_id)
         # Create a single site operator
         op = crandn((3,3))
         # We know that the environments are the identity

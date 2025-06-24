@@ -196,7 +196,7 @@ ttn.add_child_to_parent(node3, tensor3, 0, "node1", 2)
 ttn.add_child_to_parent(node6, tensor6, 0, "node5", 1)
 
 ## Canonicalizing the TTN
-ttn.QR_canonical_form("root")
+ttn.canonical_form("root")
 
 # Move the Orthogonality Centre
 # -----------------------------

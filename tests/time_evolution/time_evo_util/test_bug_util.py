@@ -309,7 +309,7 @@ class Test_compute_basis_change_tensor_Complicated(unittest.TestCase):
                       (3,3),(3,3),(5,2,3),(2,2)]
         self.new_ttns = random_big_ttns_two_root_children(mode=shapes_new)
         # Mix up the leg order a bit
-        self.new_ttns.QR_canonical_form("site5")
+        self.new_ttns.canonical_form("site5")
         self.basis_change_cache = PartialTreeCachDict()
 
     def test_on_leaf_site2(self):
