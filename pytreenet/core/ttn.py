@@ -338,10 +338,15 @@ class TreeTensorNetwork(TreeStructure):
     def ensure_shape_matching(self, new_tensor: np.ndarray, tensor_leg: int,
                               old_node: Node, old_leg: int,
                               new_node_id: Union[str,None] = None,
-                              adapt_shape: bool = False):
+                              adapt_shape: bool = False) -> Union[np.ndarray, None]:
         """
         Ensures that the dimensions of the legs of two tensors are compatible.
-        If dimensions don't match, it will modify the new_tensor in-place to match.
+        
+        This function has two modes of operation based on the adapt_shape parameter:
+        - If adapt_shape=False (default): Only checks compatibility and raises an 
+          exception if dimensions don't match. Returns None.
+        - If adapt_shape=True: Returns a modified tensor with compatible dimensions,
+          padding with zeros or truncating as needed.
 
         Args:
             new_tensor (np.ndarray): The tensor with the new leg.
@@ -349,10 +354,18 @@ class TreeTensorNetwork(TreeStructure):
             old_node (Node): The node with the old leg.
             old_leg (int): The leg of the old node to be compared.
             new_node_id (Union[str,None], optional): The identifier of the new
-                node. Defaults to None.
+                node for error messages. Defaults to None.
+            adapt_shape (bool, optional): If False, only check compatibility and 
+                raise exception on mismatch. If True, return a modified tensor
+                with compatible dimensions. Defaults to False.
 
         Returns:
-            np.ndarray: The modified tensor with compatible dimensions in modify mode.
+            Union[np.ndarray, None]: 
+                - None if adapt_shape=False (only performs compatibility check)
+                - Modified np.ndarray if adapt_shape=True (tensor with compatible dimensions)
+                
+        Raises:
+            NotCompatibleException: If adapt_shape=False and dimensions don't match.
         """
         if new_node_id is None:
            new_node_id = "the new node"
@@ -365,7 +378,9 @@ class TreeTensorNetwork(TreeStructure):
                 errstr += " is not compatible with"
                 errstr += f" leg {old_leg} of {old_node.identifier}"
                 raise NotCompatibleException(errstr)
-        else :            
+            return None  # Compatibility check passed, return None
+        else:
+            # Adapt shape mode: return modified tensor
             new_dimension = new_tensor.shape[tensor_leg]
             old_dimension = old_node.shape[old_leg]
             
@@ -428,11 +443,14 @@ class TreeTensorNetwork(TreeStructure):
             parent_id (str): The identifier of the parent node.
             parent_leg (int): The leg of the parent tensor to be connected to the
                 child tensor.
-            compatible (bool): If False, the child tensor will be modified (padded with zero or truncated) 
-            to match the dimensions of the parent tensor.
+            compatible (bool, optional): Controls shape compatibility behavior.
+                - If True (default): Only checks dimensions match and raises exception on mismatch.
+                - If False: Automatically adapts the child tensor dimensions to match the parent,
+                  padding with zeros or truncating as needed. Defaults to True.
+                  
         Raises:
-            NotCompatibleException: If the dimensions of the legs of the child
-                and parent are not the same.            
+            NotCompatibleException: If compatible=True and the dimensions of the child
+                and parent legs don't match.            
         """
         self.ensure_existence(parent_id)
         parent_node = self._nodes[parent_id]
@@ -475,6 +493,10 @@ class TreeTensorNetwork(TreeStructure):
             tensor (np.ndarray): The tensor associated with the parent node.
             parent_leg (int): The leg of the parent tensor to be connected to the
                 root tensor.
+                
+        Raises:
+            NotCompatibleException: If the dimensions of the parent and root 
+                legs don't match.
         """
         self.ensure_existence(self.root_id)
         former_root_node = self.root[0]
