@@ -5,13 +5,14 @@ import sys
 import os
 import json
 import subprocess
+import logging
 from enum import Enum
 
-from .sim_script import (run_one_simulation,
-                         SimulationParameters,
-                         TimeEvolutionParameters,
-                         get_param_hash,
+from sim_script import (get_param_hash,
                          CURRENT_PARAM_FILENAME)
+from parameters import generate_parameter_set
+
+LOG_FILE_NAME = "log.txt"
 
 class Status(Enum):
     """
@@ -20,11 +21,12 @@ class Status(Enum):
     SUCCESS = "success"
     FAILED = "failed"
     RUNNING = "running"
+    TIMEOUT = "timeout"
     UNKNOWN = "unknown"
 
 def params_to_dict(params):
-    sim_params = parameters[0]
-    time_evo_params = parameters[1]
+    sim_params = params[0]
+    time_evo_params = params[1]
     dictionary = sim_params.to_dict()
     dictionary.update(time_evo_params.to_dict())
     return dictionary
@@ -44,16 +46,23 @@ if SKIP_EXISTING and os.path.exists(INDEX_FILE):
 else:
     param_index = {}
 
-parameter_set = []
+# Configure logging
+log_path = os.path.join(save_directory, LOG_FILE_NAME)
+logging.basicConfig(
+    filename=log_path,
+    level=logging.INFO
+)
 
-for i, parameters in enumerate(parameter_set):
+# You will want to adjust parameters in the parameters.py file
+PARAMETER_SET = generate_parameter_set()
+for i, parameters in enumerate(PARAMETER_SET):
 
     PARAM_HASH = get_param_hash(parameters[0], parameters[1])
     if SKIP_EXISTING and PARAM_HASH in param_index:
-        print(f"Skipping existing simulation for parameters {i}")
+        logging.info("### Skipping existing simulation for parameters %d", i)
         continue
 
-    print(f"Running simulation {i}")
+    logging.info("### Running simulation %d with hash %s", i, PARAM_HASH)
 
     with open(os.path.join(save_directory, CURRENT_PARAM_FILENAME), "w") as f:
         dictionary = params_to_dict(parameters)
@@ -62,7 +71,7 @@ for i, parameters in enumerate(parameter_set):
     status = Status.UNKNOWN
     try:
         result = subprocess.run(
-            ["python", "run_simulation.py", save_directory],
+            ["python", "experiments/time_evolution/sim_script.py", save_directory],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -74,7 +83,13 @@ for i, parameters in enumerate(parameter_set):
         else:
             status = Status.FAILED
     except subprocess.TimeoutExpired:
-        status = Status.FAILED
+        status = Status.TIMEOUT
+
+    logging.info("Return code: %s", status.value)
+    if result.stdout:
+        logging.info("STDOUT:\n%s", result.stdout)
+    if result.stderr:
+        logging.error("STDERR:\n%s", result.stderr)
 
     # Update the index file with the status
     dictionary = params_to_dict(parameters)

@@ -102,7 +102,7 @@ class TTNTimeEvolution(TimeEvolution):
             bond_dims = self.obtain_bond_dims()
             for key in bond_dims.keys():
                 diction[key] = int
-                self.results.set_attribute(key, BOND_DIM_ATRR)
+                self.results.set_attribute(key, BOND_DIM_ATRR, True)
         if self.config.record_max_bdim:
             diction[MAX_BOND_DIM_ID] = int
         if self.config.record_average_bdim:
