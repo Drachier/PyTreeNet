@@ -632,8 +632,6 @@ class TreeTensorNetwork(TreeStructure):
                                 legs_a=proj_pa_legs,
                                 legs_b=proj_ch_legs
                                 )
-        print(self.nodes[parent_id].neighbouring_nodes())
-        print(self.nodes[child_id].neighbouring_nodes())
         # Contract the projectors with the original nodes
         self.contract_nodes(parent_id, proj_id_pa, new_identifier=parent_id)
         self.contract_nodes(child_id, proj_id_ch, new_identifier=child_id)
