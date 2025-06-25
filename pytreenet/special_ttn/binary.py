@@ -1,5 +1,5 @@
 """
-Implements a generation function to generate binary TTNS.
+Implements a generation function to generate binary Tree Tensor Network States (TTNS).
 """
 import math
 import numpy as np
@@ -7,10 +7,29 @@ import numpy as np
 from numpy import ndarray
 from ..ttns import TreeTensorNetworkState
 from ..core.node import Node
-from ..util.ttn_exceptions import positivity_check
 from .special_nodes import constant_bd_trivial_node
 
 __all__ = ["generate_binary_ttns"]
+
+def _create_trivial_tensor_node(node_id: str, bond_dim: int, num_legs: int, dtype=None) -> tuple[Node, ndarray]:
+    """
+    Args:
+        node_id: Identifier for the new node
+        bond_dim: Bond dimension for all legs
+        num_legs: Number of legs for the tensor
+        dtype: Data type for the tensor (defaults to the dtype of constant_bd_trivial_node)
+        
+    Returns:
+        A tuple containing the created Node and its associated tensor
+    """
+    node = Node(identifier=node_id)
+    tensor = constant_bd_trivial_node(bond_dim, num_legs)
+    
+    if dtype is not None:
+        tensor = tensor.astype(dtype)
+        
+    return node, tensor
+
 
 def generate_binary_ttns(num_phys: int,
                          bond_dim: int,
@@ -18,149 +37,92 @@ def generate_binary_ttns(num_phys: int,
                          depth: int | None = None,
                          phys_prefix: str = "qubit",
                          virtual_prefix: str = "node") -> TreeTensorNetworkState:
-    """
-    Generates a balanced binary tree tensor network state with connection limits.
-    If depth is None, uses the maximum possible depth based on num_phys.
+    """Generate a balanced binary tree tensor network state.
+    
+    This function creates a binary Tree Tensor Network State (TTNS) with physical
+    sites at the leaves and virtual nodes arranged in a binary tree structure.
+    If depth is specified, it controls the maximum depth of the binary tree.
     
     Args:
-        num_phys (int): The number of physical sites.
-        bond_dim (int): The bond dimension of the tree tensor network state.
-        phys_tensor (ndarray): The tensor for the physical sites.
-        depth (int | None, optional): The depth of binary tree. 
-            If None, uses maximum possible depth. Defaults to None.
-        phys_prefix (str, optional): The prefix for the physical nodes. Defaults to "qubit".
-        virtual_prefix (str, optional): The prefix for the virtual nodes. Defaults to "node".
+        num_phys: Number of physical sites
+        bond_dim: Bond dimension of the tree tensor network
+        phys_tensor: Tensor for physical sites
+        depth: Maximum depth of binary tree (if None, uses max possible depth)
+        phys_prefix: Prefix for physical node identifiers
+        virtual_prefix: Prefix for virtual node identifiers
     
     Returns:
-        TreeTensorNetworkState: The generated tree tensor network state.
+        A TreeTensorNetworkState object representing the generated TTNS
     """
-    positivity_check(num_phys, "number of physical sites")
-    positivity_check(bond_dim, "bond dimension")
-
     # Special case: depth=0 -> generate a chain (MPS) with no virtual nodes
     if depth == 0:
-        # Depth 0: build a pure MPS chain of physical nodes with no unconnected virtual legs
-        ttns = TreeTensorNetworkState()
-        # One-site case: just the physical tensor as a single open leg
-        if num_phys == 1:
-            single_id = f"{phys_prefix}0"
-            single_node = Node(identifier=single_id)
-            # Use phys_tensor directly if 1D or squeeze last dim if needed
-            if phys_tensor.ndim == 1:
-                single_tensor = phys_tensor.copy()
-            else:
-                single_tensor = phys_tensor.squeeze(0)
-            ttns.add_root(single_node, single_tensor)
-            return ttns
-
-        # Multi-site chain
-        # First boundary node: shape (bond_dim, phys_dim)
-        phys_dim = phys_tensor.size if phys_tensor.ndim == 1 else phys_tensor.shape[-1]
-        first_id = f"{phys_prefix}0"
-        first_node = Node(identifier=first_id)
-        first_tensor = np.zeros((bond_dim, phys_dim), dtype=phys_tensor.dtype)
-        # embed physical tensor at trivial virtual index
-        if phys_tensor.ndim == 1:
-            first_tensor[0, :] = phys_tensor
-        else:
-            first_tensor[0, :] = phys_tensor[0, :]
-        ttns.add_root(first_node, first_tensor)
-
-        # Middle nodes (1 to num_phys-2)
-        for i in range(1, num_phys - 1):
-            node_id = f"{phys_prefix}{i}"
-            node = Node(identifier=node_id)
-            mid_tensor = np.zeros((bond_dim, bond_dim, phys_dim), dtype=phys_tensor.dtype)
-            # embed physical tensor at trivial virtual indices
-            if phys_tensor.ndim == 1:
-                mid_tensor[0, 0, :] = phys_tensor
-            else:
-                mid_tensor[0, 0, :] = phys_tensor[0, :]
-            # connect to previous
-            prev_id = f"{phys_prefix}{i-1}"
-            # prev is boundary for i==1, interior otherwise
-            parent_leg = 0 if i == 1 else 1
-            ttns.add_child_to_parent(node, mid_tensor, 0, prev_id, parent_leg)
-
-        # Last boundary node: shape (bond_dim, phys_dim)
-        last_id = f"{phys_prefix}{num_phys-1}"
-        last_node = Node(identifier=last_id)
-        last_tensor = np.zeros((bond_dim, phys_dim), dtype=phys_tensor.dtype)
-        if phys_tensor.ndim == 1:
-            last_tensor[0, :] = phys_tensor
-        else:
-            last_tensor[0, :] = phys_tensor[0, :]
-        # connect to previous node
-        prev_id = f"{phys_prefix}{num_phys-2}"
-        # prev is interior only if num_phys > 2
-        parent_leg = 1 if num_phys > 2 else 0
-        ttns.add_child_to_parent(last_node, last_tensor, 0, prev_id, parent_leg)
-        return ttns
+        return _generate_mps_chain(
+            num_phys, phys_tensor, phys_prefix, bond_dim
+        )
     
     # Calculate required depth if not provided
     if depth is None:
-        # Calculate min depth needed to support all physical nodes
         # For a binary tree, we need depth = ceil(log2(num_phys))
         depth = max(1, math.ceil(math.log2(num_phys)))
-    else:
-        # Ensure depth is at least 1
-        depth = max(1, depth)
     
     # Create an empty TTNS
     ttns = TreeTensorNetworkState()
     
-    
     # Initialize the root node
     root_id = f"{virtual_prefix}0_0"
-    root_node = Node(identifier=root_id)
     
-    # Calculate number of branch levels needed
+    # Calculate number of physical sites a binary tree of this depth can hold
     max_phys_in_binary_tree = 2 ** depth
     
-    # Determine if we need a chain structure at level 0
+    # Determine if we need a chain structure at level 0 (for many physical sites)
     need_chain = num_phys > max_phys_in_binary_tree
     
     if need_chain:
-        # Chain structure is needed for many physical sites
         # Calculate number of level-0 chain nodes needed
         num_chain_nodes = math.ceil(num_phys / max_phys_in_binary_tree)
         
-        # Root node needs connections to level 1 nodes and next chain node
-        root_tensor = constant_bd_trivial_node(bond_dim, 3)  # 2 for binary branch + 1 for chain
+        # Root node connects to level 1 nodes and the next chain node
+        root_node, root_tensor = _create_trivial_tensor_node(
+            root_id, 1, 3,  # 2 for binary branch + 1 for chain
+            dtype=phys_tensor.dtype
+        )
         ttns.add_root(root_node, root_tensor)
         
         # Create chain nodes at level 0
-        current_chain_id = root_id
+        current_chain_id = root_id        
         phys_per_branch = [min(max_phys_in_binary_tree, num_phys - i * max_phys_in_binary_tree) 
                           for i in range(num_chain_nodes)]
         
         for i in range(1, num_chain_nodes):
             chain_id = f"{virtual_prefix}0_{i}"
-            chain_node = Node(identifier=chain_id)
             
-            # Middle chain nodes have 3 legs: prev + next + branch
-            # Last chain node has 2 legs: prev + branch
+            # Last chain node has 2 legs (prev + branch), middle chain nodes have 3 legs (prev + next + branch)
             is_last = (i == num_chain_nodes - 1)
             num_legs = 2 if is_last else 3
             
-            chain_tensor = constant_bd_trivial_node(bond_dim, num_legs)
+            chain_node, chain_tensor = _create_trivial_tensor_node(
+                chain_id, 1, num_legs,
+                dtype=phys_tensor.dtype
+            )
             
-            # Connect to previous chain node
+            # Connect to previous chain node - using compatible=False to ignore dimension checks 
             ttns.add_child_to_parent(
                 chain_node,
                 chain_tensor,
                 0,  # Chain node's parent leg
                 current_chain_id,
                 2 if i == 1 else 1,  # Previous node's chain leg
-                compatible= False
+                compatible=False
             )
             
             current_chain_id = chain_id
     else:
-        # No chain needed, just use the root node with appropriate legs
-        # Root tensor has legs for its children
-        num_legs = min(2, num_phys)  # At least 1, at most 2 legs for children
-        root_tensor = constant_bd_trivial_node(bond_dim, num_legs)
+        # No chain needed, just use the root node for a simple binary tree
+        num_legs = min(2, num_phys)  # At most 2 legs for children
+        root_node, root_tensor = _create_trivial_tensor_node(
+            root_id, 1, num_legs,
+            dtype=phys_tensor.dtype
+        )
         ttns.add_root(root_node, root_tensor)
         
         # Simple case - one branch from root
@@ -176,13 +138,13 @@ def generate_binary_ttns(num_phys: int,
         if num_phys_this_branch == 0:
             continue
         
-        # Build a balanced binary subtree
+        # Build a balanced binary subtree using bond_dim=1 for initial construction
         ttns = build_balanced_binary_subtree(
             ttns,
             chain_id,
             num_phys_this_branch,
             depth,
-            bond_dim,
+            1,  # Use bond_dim=1 for initial construction
             phys_tensor,
             phys_prefix,
             virtual_prefix,
@@ -191,226 +153,106 @@ def generate_binary_ttns(num_phys: int,
         
         current_phys_idx += num_phys_this_branch
     
-    # Clean up any remaining inefficient paths
-    ttns = clean_inefficient_paths(ttns, bond_dim, phys_prefix, virtual_prefix)
+    # Clean up inefficient nodes (particularly virtual nodes with only one child)
+    ttns = clean_inefficient_paths(ttns, phys_prefix, virtual_prefix)
     
-    # Ensure all tensor dimensions are correct before returning
-    ttns = fix_tensor_dimensions(ttns, bond_dim, phys_prefix)
-    
-    # First, scan for all dimensional mismatches
-    mismatches = []
-    
-    for node_id, node in ttns.nodes.items():
-        if node.parent is not None:
-            parent_id = node.parent
-            parent_node = ttns.nodes[parent_id]
-            
-            # Get connection legs
-            child_leg = 0  # Always the first leg for parent connection
-            try:
-                parent_leg = parent_node.children.index(node_id)
-            except ValueError:
-                # Orphaned node reference, clean it up
-                node.parent = None
-                continue
-                
-            # Verify dimensions match
-            if node_id in ttns.tensors and parent_id in ttns.tensors:
-                child_tensor = ttns.tensors[node_id]
-                parent_tensor = ttns.tensors[parent_id]
-                
-                if child_leg < len(child_tensor.shape) and parent_leg < len(parent_tensor.shape):
-                    if child_tensor.shape[child_leg] != parent_tensor.shape[parent_leg]:
-                        mismatches.append((node_id, parent_id, child_leg, parent_leg))
-    
-    # Fix dimension mismatches using a consistent approach
-    for child_id, parent_id, child_leg, parent_leg in mismatches:
-        # Get tensors
-        child_tensor = ttns.tensors[child_id]
-        parent_tensor = ttns.tensors[parent_id]
-        
-        # Use bond_dim as the target dimension consistently 
-        target_dim = bond_dim
-        
-        # Fix child tensor
-        child_shape = list(child_tensor.shape)
-        child_shape[child_leg] = target_dim
-        new_child_tensor = np.zeros(tuple(child_shape), dtype=child_tensor.dtype)
-        
-        # Copy existing data where possible
-        min_dim = min(child_tensor.shape[child_leg], target_dim)
-        if min_dim > 0:  # Prevent slicing errors
-            # Create slices that copy data from the smaller dimension to the larger
-            child_slices = tuple([slice(0, min_dim) if i == child_leg else slice(None) 
-                                for i in range(len(child_shape))])
-            try:
-                new_child_tensor[child_slices] = child_tensor[child_slices]
-            except ValueError:
-                # If there's a problem with the slicing, just ensure the tensor is valid
-                pass
-        
-        # Ensure the tensor is not all zeros by setting first element to 1.0
-        zeros_indices = tuple([0 for _ in range(len(child_shape))])
-        if np.count_nonzero(new_child_tensor) == 0:
-            new_child_tensor[zeros_indices] = 1.0
-        
-        # Update child tensor
-        ttns.tensors[child_id] = new_child_tensor
-        
-        # Fix parent tensor
-        parent_shape = list(parent_tensor.shape)
-        parent_shape[parent_leg] = target_dim
-        new_parent_tensor = np.zeros(tuple(parent_shape), dtype=parent_tensor.dtype)
-        
-        # Copy existing data where possible
-        min_dim = min(parent_tensor.shape[parent_leg], target_dim)
-        if min_dim > 0:  # Prevent slicing errors
-            # Create slices that copy data from the smaller dimension to the larger
-            parent_slices = tuple([slice(0, min_dim) if i == parent_leg else slice(None) 
-                                 for i in range(len(parent_shape))])
-            try:
-                new_parent_tensor[parent_slices] = parent_tensor[parent_slices]
-            except ValueError:
-                # If there's a problem with the slicing, just ensure the tensor is valid
-                pass
-        
-        # Ensure the tensor is not all zeros by setting first element to 1.0
-        zeros_indices = tuple([0 for _ in range(len(parent_shape))])
-        if np.count_nonzero(new_parent_tensor) == 0:
-            new_parent_tensor[zeros_indices] = 1.0
-        
-        # Update parent tensor
-        ttns.tensors[parent_id] = new_parent_tensor
-    
-    # Do one final check to verify everything is fixed
-    remaining_mismatches = []
-    
-    for node_id, node in ttns.nodes.items():
-        if node.parent is not None:
-            parent_id = node.parent
-            parent_node = ttns.nodes[parent_id]
-            
-            # Get connection legs
-            child_leg = 0  # Always the first leg for parent connection
-            try:
-                parent_leg = parent_node.children.index(node_id)
-            except ValueError:
-                # Orphaned node reference, clean it up
-                node.parent = None
-                continue
-                
-            # Verify dimensions match
-            if node_id in ttns.tensors and parent_id in ttns.tensors:
-                child_tensor = ttns.tensors[node_id]
-                parent_tensor = ttns.tensors[parent_id]
-                
-                if child_leg < len(child_tensor.shape) and parent_leg < len(parent_tensor.shape):
-                    if child_tensor.shape[child_leg] != parent_tensor.shape[parent_leg]:
-                        remaining_mismatches.append((node_id, parent_id, child_leg, parent_leg))
-    
-    # If there are still mismatches, replace both tensors with brand new tensors
-    for child_id, parent_id, child_leg, parent_leg in remaining_mismatches:
-        # For problematic nodes, create entirely new tensors with consistent dimensions
-        child_node = ttns.nodes[child_id]
-        parent_node = ttns.nodes[parent_id]
-        
-        # Create new child tensor
-        is_physical = child_id.startswith(phys_prefix)
-        
-        if is_physical:
-            # For physical nodes, create a tensor with correct parent dimension
-            # While preserving the physical dimension
-            old_tensor = ttns.tensors[child_id]
-            phys_dim = old_tensor.shape[-1]  # Assuming last dim is physical
-            
-            # Create a tensor with parent dimension = bond_dim
-            new_shape = (bond_dim, phys_dim)
-            new_tensor = np.zeros(new_shape, dtype=old_tensor.dtype)
-            
-            # Copy physical data from the original tensor
-            if old_tensor.ndim == 2:  # Standard case
-                try:
-                    # Copy data for the smallest common dimension
-                    min_dim = min(bond_dim, old_tensor.shape[0])
-                    min_phys = min(phys_dim, old_tensor.shape[1])
-                    for i in range(min_dim):
-                        for j in range(min_phys):
-                            new_tensor[i, j] = old_tensor[i, j]
-                except:
-                    # Fallback - just set the first element
-                    new_tensor[0, 0] = 1.0
-            else:
-                # For non-standard tensors, just set first element to 1
-                new_tensor[0, 0] = 1.0
-            
-            ttns.tensors[child_id] = new_tensor
-            
-            # Update the node with the new tensor
-            new_node = Node(identifier=child_id)
-            new_node.link_tensor(new_tensor)
-            new_node.parent = child_node.parent
-            new_node.children = child_node.children.copy()
-            ttns.nodes[child_id] = new_node
-        else:
-            # For virtual nodes, create a completely new tensor
-            old_tensor = ttns.tensors[child_id]
-            num_legs = len(old_tensor.shape)
-            
-            # Create a new tensor with consistent bond dimensions
-            new_tensor = constant_bd_trivial_node(bond_dim, num_legs)
-            ttns.tensors[child_id] = new_tensor
-            
-            # Update the node with the new tensor
-            new_node = Node(identifier=child_id)
-            new_node.link_tensor(new_tensor)
-            new_node.parent = child_node.parent
-            new_node.children = child_node.children.copy()
-            ttns.nodes[child_id] = new_node
-        
-        # Only update parent tensor if it's not already been updated in this loop
-        if not parent_id.startswith(phys_prefix): 
-            # Create new parent tensor only if it's a virtual node
-            old_tensor = ttns.tensors[parent_id]
-            num_legs = len(old_tensor.shape)
-            
-            # Create a new tensor with consistent bond dimensions
-            new_tensor = constant_bd_trivial_node(bond_dim, num_legs)
-            ttns.tensors[parent_id] = new_tensor
-            
-            # Update the node with the new tensor
-            new_node = Node(identifier=parent_id)
-            new_node.link_tensor(new_tensor)
-            new_node.parent = parent_node.parent
-            new_node.children = parent_node.children.copy()
-            ttns.nodes[parent_id] = new_node
+    # Final step: pad all bonds to the desired bond dimension
+    ttns.pad_bond_dimensions(bond_dim)
     
     return ttns
 
+
+def _generate_mps_chain(num_phys: int, phys_tensor: ndarray, phys_prefix: str, bond_dim: int) -> TreeTensorNetworkState:
+    """Generate a simple Matrix Product State (MPS) chain with no virtual nodes."""
+    ttns = TreeTensorNetworkState()
+    
+    # One-site case: just the physical tensor as a single node
+    if num_phys == 1:
+        single_id = f"{phys_prefix}0"
+        single_node = Node(identifier=single_id)
+        # Use phys_tensor directly if 1D or squeeze last dim if needed
+        if phys_tensor.ndim == 1:
+            single_tensor = phys_tensor.copy()
+        else:
+            single_tensor = phys_tensor.squeeze(0)
+        ttns.add_root(single_node, single_tensor)
+        return ttns
+
+    # First boundary node: shape (1, phys_dim)
+    phys_dim = phys_tensor.size if phys_tensor.ndim == 1 else phys_tensor.shape[-1]
+    first_id = f"{phys_prefix}0"
+    first_node = Node(identifier=first_id)
+    first_tensor = np.zeros((1, phys_dim), dtype=phys_tensor.dtype)
+    
+    # Embed physical tensor at trivial virtual index
+    if phys_tensor.ndim == 1:
+        first_tensor[0, :] = phys_tensor
+    else:
+        first_tensor[0, :] = phys_tensor[0, :]
+    ttns.add_root(first_node, first_tensor)
+
+    # Middle nodes (1 to num_phys-2)
+    for i in range(1, num_phys - 1):
+        node_id = f"{phys_prefix}{i}"
+        node = Node(identifier=node_id)
+        mid_tensor = np.zeros((1, 1, phys_dim), dtype=phys_tensor.dtype)
+        # Embed physical tensor at trivial virtual indices
+        if phys_tensor.ndim == 1:
+            mid_tensor[0, 0, :] = phys_tensor
+        else:
+            mid_tensor[0, 0, :] = phys_tensor[0, :]
+        # Connect to previous
+        prev_id = f"{phys_prefix}{i-1}"
+        # prev is boundary for i==1, interior otherwise
+        parent_leg = 0 if i == 1 else 1
+        ttns.add_child_to_parent(node, mid_tensor, 0, prev_id, parent_leg)
+
+    # Last boundary node: shape (1, phys_dim)
+    last_id = f"{phys_prefix}{num_phys-1}"
+    last_node = Node(identifier=last_id)
+    last_tensor = np.zeros((1, phys_dim), dtype=phys_tensor.dtype)
+    if phys_tensor.ndim == 1:
+        last_tensor[0, :] = phys_tensor
+    else:
+        last_tensor[0, :] = phys_tensor[0, :]
+    # Connect to previous node
+    prev_id = f"{phys_prefix}{num_phys-2}"
+    # prev is interior only if num_phys > 2
+    parent_leg = 1 if num_phys > 2 else 0
+    ttns.add_child_to_parent(last_node, last_tensor, 0, prev_id, parent_leg)
+    
+    # Pad all bond dimensions to the requested size
+    ttns.pad_bond_dimensions(bond_dim)
+    return ttns
+
+
 def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
-                                parent_id: str,
-                                num_phys: int,
-                                max_depth: int,
-                                bond_dim: int,
-                                phys_tensor: ndarray,
-                                phys_prefix: str,
-                                virtual_prefix: str,
-                                phys_start_idx: int) -> TreeTensorNetworkState:
-    """
-    Builds a balanced binary subtree from a parent node.
+                               parent_id: str,
+                               num_phys: int,
+                               max_depth: int,
+                               bond_dim: int,
+                               phys_tensor: ndarray,
+                               phys_prefix: str,
+                               virtual_prefix: str,
+                               phys_start_idx: int) -> TreeTensorNetworkState:
+    """Build a balanced binary subtree from a parent node.
+    
+    This recursive function builds a balanced binary tree structure by distributing
+    physical nodes evenly across the tree branches.
     
     Args:
-        ttns: The tree tensor network state
+        ttns: The tree tensor network state to modify
         parent_id: ID of the parent node
         num_phys: Number of physical nodes to distribute in this subtree
         max_depth: Maximum depth allowed for the subtree
-        bond_dim: Bond dimension
+        bond_dim: Bond dimension (should be 1 for initial construction)
         phys_tensor: Tensor for physical nodes
         phys_prefix: Prefix for physical node IDs
         virtual_prefix: Prefix for virtual node IDs
         phys_start_idx: Starting index for physical node numbering
         
     Returns:
-        TreeTensorNetworkState: Updated TTNS with subtree added
+        Updated TTNS with subtree added
     """
     # Early exit if no physical nodes or parent doesn't exist
     if num_phys == 0 or parent_id not in ttns.nodes:
@@ -424,339 +266,29 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
         # Parent has no open legs for children
         return ttns
     
-    # Get parent tensor for dimension checking
-    parent_tensor = ttns.tensors[parent_id]
-    
     # Parse parent level and position
     parent_level = int(parent_id.split('_')[0].replace(virtual_prefix, ''))
     parent_pos = int(parent_id.split('_')[1])
     next_level = parent_level + 1
     
-    # Handle case where we can directly connect physical nodes to parent
+    # Case 1: Bottom of tree or few physical nodes - connect physical nodes directly
     if max_depth == 1 or num_phys <= 2:
-        # Connect physical nodes directly
-        phys_to_connect = min(len(parent_open_legs), num_phys)
-        
-        for i in range(phys_to_connect):
-            phys_id = f"{phys_prefix}{phys_start_idx + i}"
-            phys_node = Node(identifier=phys_id)
-            
-            # Get available leg from parent
-            parent_leg = parent_open_legs[i]
-            
-            # Get tensor dimension for this leg
-            parent_leg_dim = parent_tensor.shape[parent_leg]
-            
-            # Get physical dimension from the input tensor
-            if phys_tensor.ndim == 1:
-                # For 1D tensors
-                phys_dim = phys_tensor.size
-                new_tensor = np.zeros((parent_leg_dim, phys_dim), dtype=phys_tensor.dtype)
-                
-                # Set only the 0th index of the first dimension to encode the physical tensor
-                for j in range(phys_dim):
-                    new_tensor[0, j] = phys_tensor[j]  # Copy values from 1D tensor
-            else:
-                # For 2D+ tensors
-                phys_dim = phys_tensor.shape[-1]  # Assuming last dim is physical
-                new_tensor = np.zeros((parent_leg_dim, phys_dim), dtype=phys_tensor.dtype)
-                
-                # Set only the 0th index of the first dimension to encode the physical tensor
-                for j in range(phys_dim):
-                    new_tensor[0, j] = phys_tensor[0, j]  # Copy values from input tensor
-            
-            # Connect to parent
-            ttns.add_child_to_parent(
-                phys_node,
-                new_tensor,
-                0,  # Physical node's parent leg
-                parent_id,
-                parent_leg  # Parent's open leg
-                , compatible= False
-            )
-        
-        # Return early if we connected all physical nodes
-        if phys_to_connect == num_phys:
-            return ttns
+        return _connect_physical_nodes_to_parent(
+            ttns, parent_id, num_phys, bond_dim, phys_tensor,
+            phys_prefix, virtual_prefix, phys_start_idx, max_depth
+        )
     
-        # Otherwise, continue with remaining physical nodes that couldn't be connected
-        remaining_phys = num_phys - phys_to_connect
-        start_idx = phys_start_idx + phys_to_connect
-        
-        # Create an intermediate node to handle the remaining physical nodes
-        intermediate_id = f"{virtual_prefix}{next_level}_{2 * parent_pos}"
-        intermediate_node = Node(identifier=intermediate_id)
-        
-        # Create tensor with enough legs for the remaining physical nodes
-        intermediate_legs = 1 + min(2, remaining_phys)  # 1 for parent + up to 2 for children
-        
-        # No more open legs on parent, create a new node at the same level
-        sibling_id = f"{virtual_prefix}{parent_level}_{parent_pos + 1}"
-        sibling_node = Node(identifier=sibling_id)
-        
-        # Find parent's parent
-        if not parent_node.is_root():
-            grandparent_id = parent_node.parent
-            grandparent_node = ttns.nodes[grandparent_id]
-            
-            # Find an open leg on grandparent
-            if grandparent_node.open_legs:
-                grandparent_leg = grandparent_node.open_legs[0]
-                
-                # Create sibling tensor with compatible  Falsensions
-                sibling_tensor = constant_bd_trivial_node(bond_dim, 3)  # 1 for its parent + 1 for child + 1 open leg
-                
-                # Connect sibling to grandparent
-                ttns.add_child_to_parent(
-                    sibling_node,
-                    sibling_tensor,
-                    0,  # Sibling's parent leg
-                    grandparent_id,
-                    grandparent_leg  # Grandparent's open leg
-                    , compatible= False
-                )
-                
-                # Now get sibling's tensor to check dimensions
-                sibling_tensor = ttns.tensors[sibling_id]
-                sibling_leg = 1  # Use leg 1 for connection to intermediate
-                
-                # Create intermediate tensor with compatible dimensions
-                intermediate_tensor = constant_bd_trivial_node(bond_dim, intermediate_legs)
-                
-                # Connect intermediate node to sibling
-                ttns.add_child_to_parent(
-                    intermediate_node,
-                    intermediate_tensor,
-                    0,  # Intermediate node's parent leg
-                    sibling_id,
-                    sibling_leg  # Sibling's child leg
-                    , compatible= False
-                )
-            else:
-                # Create a new link in the chain
-                next_chain_id = f"{virtual_prefix}0_{len([n for n in ttns.nodes if n.startswith(f'{virtual_prefix}0_')])}"
-                next_chain_node = Node(identifier=next_chain_id)
-                
-                # Create tensors with compatible  Falsensions
-                chain_tensor = constant_bd_trivial_node(bond_dim, 3)  # 1 for previous chain + 1 for intermediate + 1 open leg
-                
-                # Find parent of last chain node
-                last_chain_parent = None
-                for node_id in ttns.nodes:
-                    if node_id.startswith(f'{virtual_prefix}0_'):
-                        node = ttns.nodes[node_id]
-                        if node.is_root():
-                            last_chain_parent = node_id
-                
-                if last_chain_parent:
-                    # Connect to last chain node
-                    ttns.add_child_to_parent(
-                        next_chain_node,
-                        chain_tensor,
-                        0,  # Chain node's parent leg
-                        last_chain_parent,
-                        1  # Previous chain node's leg
-                        , compatible= False
-                    )
-                    
-                    # Now create intermediate tensor with compatible dimensions
-                    intermediate_tensor = constant_bd_trivial_node(bond_dim, intermediate_legs)
-                    
-                    # Connect intermediate to chain
-                    ttns.add_child_to_parent(
-                        intermediate_node,
-                        intermediate_tensor,
-                        0,  # Intermediate node's parent leg
-                        next_chain_id,
-                        1  # Chain node's leg
-                        , compatible= False
-                    )
-                else:
-                    # Fallback to creating a new root
-                    new_root_id = f"{virtual_prefix}-1_0"  # Special level -1 for new root
-                    new_root = Node(identifier=new_root_id)
-                    
-                    # Create a simple tensor for the new root
-                    root_tensor = constant_bd_trivial_node(bond_dim, 3)  # 2 legs + 1 extra
-                    ttns.add_root(new_root, root_tensor)
-                    
-                    # Connect chain node to new root
-                    ttns.add_child_to_parent(
-                        next_chain_node,
-                        chain_tensor,
-                        0,  # Chain node's parent leg
-                        new_root_id,
-                        0  # New root's first leg
-                        , compatible= False
-                    )
-                    
-                    # Now create intermediate tensor with compatible dimensions
-                    intermediate_tensor = constant_bd_trivial_node(bond_dim, intermediate_legs)
-                    
-                    # Connect intermediate to chain
-                    ttns.add_child_to_parent(
-                        intermediate_node,
-                        intermediate_tensor,
-                        0,  # Intermediate node's parent leg
-                        next_chain_id,
-                        1  # Chain node's leg for intermediate
-                        , compatible= False
-                    )
-        else:
-            # Parent is root, create a new root
-            new_root_id = f"{virtual_prefix}{parent_level-1}_0"
-            new_root = Node(identifier=new_root_id)
-            
-            # Create a simple tensor for the new root
-            root_tensor = constant_bd_trivial_node(bond_dim, 3)  # 2 legs + 1 extra
-            ttns.add_root(new_root, root_tensor)
-            
-            # Get parent tensor dimensions
-            parent_leg_dim = parent_tensor.shape[0]  # First dimension
-            
-            # Connect old root to new root
-            ttns.add_child_to_parent(
-                parent_node,
-                parent_tensor,
-                0,  # Old root's parent leg
-                new_root_id,
-                0  # New root's first leg
-                , compatible= False
-            )
-            
-            # Create sibling tensor with compatible dimensions
-            sibling_tensor = constant_bd_trivial_node(bond_dim, 3)  # 1 for parent + 1 for child + 1 open leg
-            
-            # Connect sibling to new root
-            ttns.add_child_to_parent(
-                sibling_node,
-                sibling_tensor,
-                0,  # Sibling's parent leg
-                new_root_id,
-                1  # New root's second leg
-                , compatible= False
-            )
-            
-            # Now create intermediate tensor with compatible  Falsensions 
-            sibling_tensor = ttns.tensors[sibling_id]
-            
-            intermediate_tensor = constant_bd_trivial_node(bond_dim, intermediate_legs)
-            
-            # Connect intermediate node to sibling
-            ttns.add_child_to_parent(
-                intermediate_node,
-                intermediate_tensor,
-                0,  # Intermediate node's parent leg
-                sibling_id,
-                1  # Sibling's child leg
-                , compatible= False
-            )
-        
-        # Now connect physical nodes to intermediate node
-        intermediate_tensor = ttns.tensors[intermediate_id]
-        remaining_to_connect = min(intermediate_legs - 1, remaining_phys)
-        
-        for i in range(remaining_to_connect):
-            phys_id = f"{phys_prefix}{start_idx + i}"
-            phys_node = Node(identifier=phys_id)
-            
-            # Get leg dimension
-            leg_idx = i + 1  # Skip parent leg
-            leg_dim = intermediate_tensor.shape[leg_idx]
-            
-            # Get physical dimension from the input tensor
-            if phys_tensor.ndim == 1:
-                # For 1D tensors
-                phys_dim = phys_tensor.size
-                new_tensor = np.zeros((leg_dim, phys_dim), dtype=phys_tensor.dtype)
-                
-                # Set only the 0th index of the first dimension to encode the physical tensor
-                for j in range(phys_dim):
-                    new_tensor[0, j] = phys_tensor[j]  # Copy values from 1D tensor
-            else:
-                # For 2D+ tensors
-                phys_dim = phys_tensor.shape[-1]  # Assuming last dim is physical
-                new_tensor = np.zeros((leg_dim, phys_dim), dtype=phys_tensor.dtype)
-                
-                # Set only the 0th index of the first dimension to encode the physical tensor
-                for j in range(phys_dim):
-                    new_tensor[0, j] = phys_tensor[0, j]  # Copy values from input tensor
-            
-            # Connect to intermediate node
-            ttns.add_child_to_parent(
-                phys_node,
-                new_tensor,
-                0,  # Physical node's parent leg
-                intermediate_id,
-                leg_idx  # Intermediate node's child leg
-                , compatible= False
-            )
-        
-        # If there are still physical nodes remaining, build a subtree from the intermediate node
-        if remaining_phys > remaining_to_connect:
-            # Recursively build from intermediate node
-            return build_balanced_binary_subtree(
-                ttns,
-                intermediate_id,
-                remaining_phys - remaining_to_connect,
-                max_depth - 1,
-                bond_dim,
-                phys_tensor,
-                phys_prefix,
-                virtual_prefix,
-                start_idx + remaining_to_connect
-            )
-        
-        # Validate virtual node tensor dimensions
-        for node_id in list(ttns.nodes.keys()):
-            if node_id.startswith(virtual_prefix) and node_id in ttns.tensors:
-                tensor = ttns.tensors[node_id]
-                # Check if any virtual dimension is 1 (except the last trivial dimension)
-                if any(dim == 1 for i, dim in enumerate(tensor.shape) if i < len(tensor.shape)-1):
-                    # Create a new tensor with correct bond dimensions
-                    new_shape = [bond_dim] * (len(tensor.shape) - 1) + [tensor.shape[-1]]
-                    new_tensor = np.zeros(tuple(new_shape), dtype=tensor.dtype)
-                    
-                    # Set the first element to 1
-                    zeros_indices = tuple([0 for _ in range(len(new_shape))])
-                    new_tensor[zeros_indices] = 1
-                    
-                    # Replace the tensor
-                    ttns.tensors[node_id] = new_tensor
-                    
-                    # Update the node with the new tensor shape
-                    node = ttns.nodes[node_id]
-                    new_node = Node(identifier=node_id)
-                    new_node.link_tensor(new_tensor)
-                    new_node.parent = node.parent
-                    new_node.children = node.children.copy()
-                    ttns.nodes[node_id] = new_node
-        
-        # Before returning, ensure proper dimensions
-        ttns = validate_fix_tensor_dimensions(ttns, bond_dim, virtual_prefix)
-        
-        return ttns
+    # Case 2: For deeper trees, build a balanced binary structure
+    # Distribute physical nodes between left and right subtrees
+    num_children = min(2, len(parent_open_legs))
     
-    # For deeper trees, build a balanced binary structure
-    
-    # Determine number of children needed at this level
-    # We want to distribute physical nodes as evenly as possible
-    if num_phys <= 2:
-        # Simple case - at most one virtual node with up to 2 physical children
-        num_children = 1
+    if num_children == 1:
         phys_per_child = [num_phys]
     else:
-        # For more physical nodes, we need to distribute across subtrees
-        # Use at most 2 children to maintain binary structure
-        num_children = min(2, len(parent_open_legs))
-        
-        if num_children == 1:
-            phys_per_child = [num_phys]
-        else:
-            # Distribute evenly between the two subtrees
-            left_phys = num_phys // 2
-            right_phys = num_phys - left_phys
-            phys_per_child = [left_phys, right_phys]
+        # Distribute evenly between the two subtrees
+        left_phys = num_phys // 2
+        right_phys = num_phys - left_phys
+        phys_per_child = [left_phys, right_phys]
     
     # Create virtual child nodes
     current_phys_idx = phys_start_idx
@@ -768,66 +300,34 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
         # Calculate position for this child
         child_pos = 2 * parent_pos + i
         
-        # Create virtual node
+        # Create virtual node ID
         child_id = f"{virtual_prefix}{next_level}_{child_pos}"
-        child_node = Node(identifier=child_id)
-        
-        # Select an available parent leg, ensuring we don't go out of bounds
-        if i < len(parent_open_legs):
-            parent_leg = parent_open_legs[i]
-        else:
-            # Not enough legs on parent, use the last available one
-            parent_leg = parent_open_legs[-1]
-        
-        # Get parent leg dimension
-        parent_leg_dim = parent_tensor.shape[parent_leg]
         
         # Calculate how many legs the child tensor needs
         if max_depth == 2:
             # Leaf virtual node - parent + physical children
-            num_legs = 1 + min(2, phys_per_child[i])
+            child_legs = 1 + min(2, phys_per_child[i])
         else:
             # Internal node - parent + virtual children
-            num_legs = 1 + min(2, math.ceil(phys_per_child[i] / 2))
+            child_legs = 1 + min(2, math.ceil(phys_per_child[i] / 2))
         
-        # Special case for fixing dimension mismatch between levels 1 and 2
-        if (parent_level == 1 and next_level == 2) or (parent_id.startswith(f"{virtual_prefix}1_") and next_level == 2):
-            # Use bond_dim consistently for all connections in this problematic area
-            child_tensor = constant_bd_trivial_node(bond_dim, num_legs)
-            
-            # Check if we need to also fix the parent tensor dimension
-            if parent_leg_dim != bond_dim:
-                # Expand parent tensor dimension to match bond_dim
-                parent_shape = list(parent_tensor.shape)
-                parent_shape[parent_leg] = bond_dim
-                new_parent_tensor = np.zeros(tuple(parent_shape), dtype=parent_tensor.dtype)
-                
-                # Copy existing data
-                slices = tuple([slice(0, min(dim, parent_tensor.shape[i])) 
-                              for i, dim in enumerate(parent_shape)])
-                new_parent_tensor[slices] = parent_tensor[slices]
-                
-                # Ensure the first element is set to 1
-                zeros_indices = tuple([0 for _ in range(len(parent_shape))])
-                if np.count_nonzero(new_parent_tensor) == 0:
-                    new_parent_tensor[zeros_indices] = 1.0
-                    
-                # Update parent tensor
-                ttns.tensors[parent_id] = new_parent_tensor
-                parent_tensor = new_parent_tensor
-                parent_leg_dim = bond_dim
-        else:
-            # Normal case, create tensor with parent_leg_dim
-            child_tensor = constant_bd_trivial_node(parent_leg_dim, num_legs)
+        # Create node with bond_dim for all dimensions
+        child_node, child_tensor = _create_trivial_tensor_node(
+            child_id, bond_dim, child_legs,
+            dtype=phys_tensor.dtype
+        )
         
-        # Connect child to parent
+        # Get available parent leg
+        parent_leg = parent_open_legs[i if i < len(parent_open_legs) else -1]
+        
+        # Connect child to parent using compatible=False to ignore dimension checks
         ttns.add_child_to_parent(
             child_node,
             child_tensor,
             0,  # Child's parent leg
             parent_id,
-            parent_leg  # Parent's open leg
-            , compatible= False
+            parent_leg,
+            compatible=False
         )
         
         # Recursively build subtree from this child
@@ -845,454 +345,227 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
         
         current_phys_idx += phys_per_child[i]
     
-    # Validate virtual node tensor dimensions
-    for node_id in list(ttns.nodes.keys()):
-        if node_id.startswith(virtual_prefix) and node_id in ttns.tensors:
-            tensor = ttns.tensors[node_id]
-            # Check if any virtual dimension is 1 (except the last trivial dimension)
-            if any(dim == 1 for i, dim in enumerate(tensor.shape) if i < len(tensor.shape)-1):
-                # Create a new tensor with correct bond dimensions
-                new_shape = [bond_dim] * (len(tensor.shape) - 1) + [tensor.shape[-1]]
-                new_tensor = np.zeros(tuple(new_shape), dtype=tensor.dtype)
-                
-                # Set the first element to 1
-                zeros_indices = tuple([0 for _ in range(len(new_shape))])
-                new_tensor[zeros_indices] = 1
-                
-                # Replace the tensor
-                ttns.tensors[node_id] = new_tensor
-                
-                # Update the node with the new tensor shape
-                node = ttns.nodes[node_id]
-                new_node = Node(identifier=node_id)
-                new_node.link_tensor(new_tensor)
-                new_node.parent = node.parent
-                new_node.children = node.children.copy()
-                ttns.nodes[node_id] = new_node
+    return ttns
+
+
+def _connect_physical_nodes_to_parent(
+    ttns: TreeTensorNetworkState,
+    parent_id: str,
+    num_phys: int,
+    bond_dim: int,
+    phys_tensor: ndarray,
+    phys_prefix: str,
+    virtual_prefix: str,
+    phys_start_idx: int,
+    max_depth: int
+) -> TreeTensorNetworkState:
+    """Helper function to connect physical nodes directly to a parent node.
     
-    # Before returning, ensure proper dimensions
-    ttns = validate_fix_tensor_dimensions(ttns, bond_dim, virtual_prefix)
+    If there are more physical nodes than available parent legs, creates an 
+    intermediate node to handle the overflow.
+    """
+    parent_node = ttns.nodes[parent_id]
+    parent_open_legs = parent_node.open_legs
+    
+    # Connect physical nodes directly to parent if possible
+    phys_to_connect = min(len(parent_open_legs), num_phys)
+    
+    for i in range(phys_to_connect):
+        phys_id = f"{phys_prefix}{phys_start_idx + i}"
+        phys_node = Node(identifier=phys_id)
+        
+        # Get available leg from parent
+        parent_leg = parent_open_legs[i]
+        
+        # Create physical tensor with appropriate dimensions
+        if phys_tensor.ndim == 1:
+            # For 1D tensors
+            phys_dim = phys_tensor.size
+            new_tensor = np.zeros((bond_dim, phys_dim), dtype=phys_tensor.dtype)
+            new_tensor[0, :] = phys_tensor
+        else:
+            # For 2D+ tensors
+            phys_dim = phys_tensor.shape[-1]
+            new_tensor = np.zeros((bond_dim, phys_dim), dtype=phys_tensor.dtype)
+            new_tensor[0, :] = phys_tensor[0, :]
+        
+        # Connect to parent using compatible=False
+        ttns.add_child_to_parent(
+            phys_node,
+            new_tensor,
+            0,  # Physical node's parent leg
+            parent_id,
+            parent_leg,
+            compatible=False
+        )
+    
+    # Return if we connected all physical nodes
+    if phys_to_connect == num_phys:
+        return ttns
+    
+    # Handle remaining physical nodes that couldn't be connected directly
+    remaining_phys = num_phys - phys_to_connect
+    start_idx = phys_start_idx + phys_to_connect
+    
+    # Parse parent level and position
+    parent_level = int(parent_id.split('_')[0].replace(virtual_prefix, ''))
+    parent_pos = int(parent_id.split('_')[1])
+    next_level = parent_level + 1
+    
+    # Create an intermediate node to handle the remaining physical nodes
+    intermediate_id = f"{virtual_prefix}{next_level}_{2 * parent_pos}"
+    
+    # Create tensor with enough legs for the remaining physical nodes 
+    intermediate_legs = 1 + min(2, remaining_phys)  # 1 for parent + up to 2 for children
+    
+    # Create intermediate node and connect to parent
+    intermediate_node, intermediate_tensor = _create_trivial_tensor_node(
+        intermediate_id, bond_dim, intermediate_legs,
+        dtype=phys_tensor.dtype
+    )
+    
+    # Connect to parent - use first available open leg
+    ttns.add_child_to_parent(
+        intermediate_node,
+        intermediate_tensor,
+        0,  # Intermediate's parent leg
+        parent_id,
+        parent_open_legs[0] if parent_open_legs else 0,  # Use first available open leg
+        compatible=False
+    )
+    
+    # Connect physical nodes to intermediate node
+    for i in range(min(intermediate_legs - 1, remaining_phys)):
+        phys_id = f"{phys_prefix}{start_idx + i}"
+        phys_node = Node(identifier=phys_id)
+        
+        # Create physical tensor
+        if phys_tensor.ndim == 1:
+            phys_dim = phys_tensor.size
+            phys_tensor_node = np.zeros((bond_dim, phys_dim), dtype=phys_tensor.dtype)
+            phys_tensor_node[0, :] = phys_tensor
+        else:
+            phys_dim = phys_tensor.shape[-1]
+            phys_tensor_node = np.zeros((bond_dim, phys_dim), dtype=phys_tensor.dtype)
+            phys_tensor_node[0, :] = phys_tensor[0, :]
+        
+        # Connect to intermediate node
+        ttns.add_child_to_parent(
+            phys_node,
+            phys_tensor_node,
+            0,  # Physical node's parent leg
+            intermediate_id,
+            i + 1,  # Intermediate node's leg (skip parent leg)
+            compatible=False
+        )
+    
+    # Recursively handle any additional physical nodes if needed
+    if remaining_phys > intermediate_legs - 1:
+        return build_balanced_binary_subtree(
+            ttns,
+            intermediate_id,
+            remaining_phys - (intermediate_legs - 1),
+            max_depth - 1,
+            bond_dim,
+            phys_tensor,
+            phys_prefix,
+            virtual_prefix,
+            start_idx + (intermediate_legs - 1)
+        )
     
     return ttns
 
-def fix_tensor_dimensions(ttns: TreeTensorNetworkState, bond_dim: int, phys_prefix: str):
-    """
-    Ensure all nodes have tensor dimensions matching the specified bond dimension.
-    
-    Args:
-        ttns: The tree tensor network state to fix
-        bond_dim: The desired bond dimension for all virtual bonds
-        phys_prefix: Prefix for physical node IDs to identify virtual nodes
-        
-    Returns:
-        TreeTensorNetworkState: The TTNS with fixed dimensions
-    """
-    # First fix virtual nodes
-    for node_id in list(ttns.nodes.keys()):
-        # Skip physical nodes for this pass
-        if node_id.startswith(phys_prefix):
-            continue
-            
-        if node_id in ttns.tensors:
-            tensor = ttns.tensors[node_id]
-            
-            # Check if any dimension is 1 
-            needs_fix = any(dim == 1 for i, dim in enumerate(tensor.shape[:-1]))
-            
-            if needs_fix:
-                # Create a new shape with bond_dim for all dimensions except the last
-                new_shape = [bond_dim] * (len(tensor.shape) - 1) + [tensor.shape[-1]]
-                
-                # Create a new tensor with the correct dimensions
-                new_tensor = np.zeros(tuple(new_shape), dtype=tensor.dtype)
-                
-                # Set the first element to 1 to maintain trivial tensor property
-                zeros_indices = tuple([0 for _ in range(len(new_shape))])
-                new_tensor[zeros_indices] = 1
-                
-                # Replace the tensor
-                ttns.tensors[node_id] = new_tensor
-                
-                # Update the node with the new tensor shape
-                node = ttns.nodes[node_id]
-                new_node = Node(identifier=node_id)
-                new_node.link_tensor(new_tensor)
-                new_node.parent = node.parent
-                new_node.children = node.children.copy()
-                ttns.nodes[node_id] = new_node
-    
-    # Now fix physical nodes - ensure their first dimension (parent connection) is bond_dim
-    for node_id in list(ttns.nodes.keys()):
-        # Only process physical nodes
-        if not node_id.startswith(phys_prefix):
-            continue
-            
-        if node_id in ttns.tensors:
-            tensor = ttns.tensors[node_id]
-            
-            # Check if first dimension (parent connection) is not bond_dim
-            if tensor.shape[0] != bond_dim:
-                # Get original shape
-                orig_shape = tensor.shape
-                
-                # Create new shape with bond_dim for first dimension
-                new_shape = (bond_dim,) + orig_shape[1:]
-                
-                # Create a new tensor with the correct dimensions
-                new_tensor = np.zeros(new_shape, dtype=tensor.dtype)
-                
-                # Copy data for the smallest common dimension
-                min_dim = min(bond_dim, orig_shape[0])
-                slices = tuple([slice(0, min_dim)] + [slice(None) for _ in range(len(orig_shape)-1)])
-                
-                # Copy existing values
-                new_tensor[slices] = tensor[slices[:len(orig_shape)]]
-                
-                # If tensor is all zeros, set first element to 1
-                if np.count_nonzero(new_tensor) == 0:
-                    new_tensor[(0,) + (0,) * (len(new_shape) - 1)] = 1
-                
-                # Replace the tensor
-                ttns.tensors[node_id] = new_tensor
-                
-                # Update the node with the new tensor shape
-                node = ttns.nodes[node_id]
-                new_node = Node(identifier=node_id)
-                new_node.link_tensor(new_tensor)
-                new_node.parent = node.parent
-                new_node.children = node.children.copy()
-                ttns.nodes[node_id] = new_node
-    
-    return ttns
-
-def validate_fix_tensor_dimensions(ttns: TreeTensorNetworkState, 
-                                   bond_dim: int,
-                                   virtual_prefix: str) -> TreeTensorNetworkState:
-    """
-    Validate and fix tensor dimensions to ensure all virtual nodes have
-    tensor dimensions matching the specified bond dimension.
-    
-    Args:
-        ttns: The tree tensor network state
-        bond_dim: Target bond dimension
-        phys_prefix: Prefix for physical node IDs
-        virtual_prefix: Prefix for virtual node IDs
-        
-    Returns:
-        TreeTensorNetworkState: Updated TTNS with fixed tensor dimensions
-    """
-    for node_id in list(ttns.nodes.keys()):
-        if node_id.startswith(virtual_prefix) and node_id in ttns.tensors:
-            tensor = ttns.tensors[node_id]
-            # Check if any virtual dimension is 1 (except the last trivial dimension)
-            if any(dim == 1 for i, dim in enumerate(tensor.shape) if i < len(tensor.shape)-1):
-                # Create a new tensor with correct bond dimensions
-                new_shape = [bond_dim] * (len(tensor.shape) - 1) + [tensor.shape[-1]]
-                new_tensor = np.zeros(tuple(new_shape), dtype=tensor.dtype)
-                
-                # Set the first element to 1
-                zeros_indices = tuple([0 for _ in range(len(new_shape))])
-                new_tensor[zeros_indices] = 1
-                
-                # Replace the tensor
-                ttns.tensors[node_id] = new_tensor
-                
-                # Update the node with the new tensor shape
-                node = ttns.nodes[node_id]
-                new_node = Node(identifier=node_id)
-                new_node.link_tensor(new_tensor)
-                new_node.parent = node.parent
-                new_node.children = node.children.copy()
-                ttns.nodes[node_id] = new_node
-    
-    return ttns
 
 def clean_inefficient_paths(ttns: TreeTensorNetworkState, 
-                             bond_dim: int,
-                             phys_prefix: str,
-                             virtual_prefix: str) -> TreeTensorNetworkState:
-    """
-    Clean up any remaining inefficient single-path chains in the TTN.
-    This is especially needed for deep trees where inefficiencies might arise
-    from the top-down construction process.
+                          phys_prefix: str, 
+                          virtual_prefix: str) -> TreeTensorNetworkState:
+    """Clean up inefficient paths in the TTN structure.
     
-    This function also ensures all virtual nodes have at least one open leg.
+    This function:
+    1. Ensures all virtual nodes have at least one open leg
+    2. Removes inefficient virtual nodes with only one child (bypassing them)
     
     Args:
-        ttns: The TTN to clean up
-        bond_dim: Bond dimension for connections
+        ttns: The Tree Tensor Network State to clean up
         phys_prefix: Prefix for physical node IDs
         virtual_prefix: Prefix for virtual node IDs
         
     Returns:
-        TreeTensorNetworkState: The cleaned-up TTN
+        The cleaned up TreeTensorNetworkState
     """
-    # First pass: ensure all virtual nodes have at least one open leg
+    # Pass 1: Ensure all virtual nodes have at least one open leg
     for node_id in list(ttns.nodes.keys()):
-        # Skip physical nodes
         if node_id.startswith(phys_prefix):
-            continue
+            continue  # Skip physical nodes
             
         node = ttns.nodes[node_id]
         
         # Check if node has no open legs
         if not node.open_legs and node_id in ttns.tensors:
-            # Get current tensor
+            # Add an open leg to the tensor
             tensor = ttns.tensors[node_id]
-            orig_shape = tensor.shape
-            
-            # Create a new tensor with one additional dimension
-            new_shape = list(orig_shape[:-1]) + [bond_dim, orig_shape[-1]]
-            
-            # Create new tensor filled with zeros
-            new_tensor = np.zeros(new_shape, dtype=tensor.dtype)
-            
-            # Copy the data from the original tensor to maintain its values
-            # Get slices for all but the new dimension
-            slices = tuple([slice(None) for _ in range(len(orig_shape)-1)] + [0, slice(None)])
-            new_tensor[slices] = tensor
-            
-            # Ensure the first element is non-zero
-            if np.count_nonzero(new_tensor) == 0:
-                zeros_indices = tuple([0 for _ in range(len(new_shape))])
-                new_tensor[zeros_indices] = 1
-            
-            # Replace tensor in TTNS
+            new_shape = list(tensor.shape) + [1]  # Add a dimension of size 1
+            new_tensor = tensor.reshape(new_shape)
             ttns.tensors[node_id] = new_tensor
             
-            # Create a new node with the updated tensor shape
+            # Update the node
             new_node = Node(identifier=node_id)
             new_node.link_tensor(new_tensor)
-            
-            # Copy connections from old node
             new_node.parent = node.parent
             new_node.children = node.children.copy()
-            
-            # Update the node in the TTNS
             ttns.nodes[node_id] = new_node
     
-    # Second pass: identify inefficient nodes
+    # Pass 2: Identify inefficient nodes (virtual nodes with exactly one child and one parent)
     inefficient_nodes = []
     
-    # Process all virtual nodes
-    for node_id in list(ttns.nodes.keys()):  # Make a copy of the keys to avoid mutation issues
+    for node_id in list(ttns.nodes.keys()):
         if node_id.startswith(phys_prefix):
             continue  # Skip physical nodes
          
         node = ttns.nodes[node_id]
         
-        if len(node.children) == 1:
+        # Check if node has exactly one child and is not the root
+        if len(node.children) == 1 and node.parent is not None:
             child_id = node.children[0]
-            
-            # Identify virtual nodes with a single virtual child OR a single physical child
-            if not child_id.startswith(phys_prefix):
-                inefficient_nodes.append((node_id, child_id, False))  # False indicates virtual child
-            else:
-                inefficient_nodes.append((node_id, child_id, True))   # True indicates physical child
+            inefficient_nodes.append((node_id, child_id))
     
-    # Third pass: bypass inefficient nodes
-    for inefficient_id, child_id, is_physical_child in inefficient_nodes:
+    # Pass 3: Bypass inefficient nodes
+    for inefficient_id, child_id in inefficient_nodes:
+        # Skip if node has already been removed
+        if inefficient_id not in ttns.nodes:
+            continue
+            
         parent_id = ttns.nodes[inefficient_id].parent
-        if parent_id is None:  # Skip if this is the root
-            continue
+        if parent_id is None:
+            continue  # Skip if node is root
             
-        # Get the parent node
+        # Get the parent and child nodes
         parent_node = ttns.nodes[parent_id]
-        parent_tensor = ttns.tensors[parent_id]
+        child_node = ttns.nodes.get(child_id)
         
-        # Get the inefficient node
-        inefficient_node = ttns.nodes[inefficient_id]
-        
-        # Find the index of the inefficient node in the parent's child list
-        try:
-            parent_leg = parent_node.children.index(inefficient_id)
-        except ValueError:
-            # This inefficient node may have been removed already as part of another chain
+        if child_node is None:
             continue
             
-        if is_physical_child:
-            # Handle case where inefficient node has a single physical child
-            phys_node = ttns.nodes[child_id]
-            phys_tensor = ttns.tensors[child_id]
-            
-            # Remove the physical node from the inefficient node's children
-            inefficient_node.children.remove(child_id)
-            
-            # Set the physical node's parent to the parent node
-            phys_node.parent = parent_id
-            
-            # Add the physical node to the parent's children list
-            if child_id not in parent_node.children:
-                parent_node.children.append(child_id)
-                
-            # Update the tensor connection
-            parent_dim = parent_tensor.shape[parent_leg]
-            if phys_tensor.shape[0] != parent_dim:
-                # Get original tensor
-                orig_tensor = ttns.tensors[child_id]
-                orig_shape = orig_tensor.shape
-                
-                # Create tensor with correct parent leg dimension
-                new_tensor = np.zeros((parent_dim,) + orig_shape[1:], dtype=orig_tensor.dtype)
-                
-                # Copy as much of the original data as we can
-                min_dim = min(parent_dim, orig_shape[0])
-                slices = tuple([slice(0, min_dim)] + [slice(None) for _ in range(len(orig_shape)-1)])
-                new_tensor[slices] = orig_tensor[slices]
-                
-                ttns.tensors[child_id] = new_tensor
-        else:
-            # Handle case where inefficient node has a single virtual child
-            child_node = ttns.nodes[child_id]
-            
-            # Get all the grandchildren (the children of the child node)
-            grandchildren = list(child_node.children)
-            
-            # Reconnect all grandchildren directly to the parent node
-            for grandchild_id in grandchildren:
-                # Get the grandchild node
-                grandchild_node = ttns.nodes[grandchild_id]
-                
-                # Remove the grandchild from its current parent (the child node)
-                child_node.children.remove(grandchild_id)
-                
-                # Set the grandchild's parent to the parent node
-                grandchild_node.parent = parent_id
-                
-                # Add the grandchild to the parent's children list
-                if grandchild_id not in parent_node.children:
-                    parent_node.children.append(grandchild_id)
-                    
-                # Update the tensor connection based on whether the grandchild is physical or virtual
-                if grandchild_id.startswith(phys_prefix):
-                    # For physical nodes, we may need to update the tensor
-                    grandchild_tensor = ttns.tensors[grandchild_id]
-                    
-                    # Check if we need to reshape the tensor
-                    parent_dim = parent_tensor.shape[parent_leg]
-                    if grandchild_tensor.shape[0] != parent_dim:
-                        # Get original tensor
-                        orig_tensor = ttns.tensors[grandchild_id]
-                        orig_shape = orig_tensor.shape
-                        
-                        # Create tensor with correct parent leg dimension
-                        new_tensor = np.zeros((parent_dim,) + orig_shape[1:], dtype=orig_tensor.dtype)
-                        
-                        # Copy as much of the original data as we can
-                        min_dim = min(parent_dim, orig_shape[0])
-                        slices = tuple([slice(0, min_dim)] + [slice(None) for _ in range(len(orig_shape)-1)])
-                        new_tensor[slices] = orig_tensor[slices]
-                        
-                        ttns.tensors[grandchild_id] = new_tensor
-        
-        # Remove the inefficient node from the parent's children
+        # Remove inefficient node from parent's children
         if inefficient_id in parent_node.children:
             parent_node.children.remove(inefficient_id)
             
-        # Clean up the inefficient node
-        # Remove parent reference
-        inefficient_node.parent = None
+        # Set child's parent to parent_id
+        child_node.parent = parent_id
+            
+        # Add child to parent's children
+        if child_id not in parent_node.children:
+            parent_node.children.append(child_id)
         
-        # Clear children list
+        # Clean up the inefficient node
+        inefficient_node = ttns.nodes[inefficient_id]
+        inefficient_node.parent = None
         inefficient_node.children = []
         
-        # Remove tensor
+        # Remove the inefficient node from the TTN
         if inefficient_id in ttns.tensors:
             del ttns.tensors[inefficient_id]
-            
-        # Remove the node from the TTNS nodes dictionary
         if inefficient_id in ttns.nodes:
             del ttns.nodes[inefficient_id]
-            
-        # If dealing with a virtual child, clean it up too
-        if not is_physical_child:
-            # Clean up the child node
-            child_node.parent = None
-            child_node.children = []
-            
-            # Remove child's tensor and node from TTNS
-            if child_id in ttns.tensors:
-                del ttns.tensors[child_id]
-                
-            if child_id in ttns.nodes:
-                del ttns.nodes[child_id]
-    
-    # Final pass: remove any orphaned nodes (no parent and no children)
-    for node_id in list(ttns.nodes.keys()):
-        if node_id.startswith(phys_prefix):
-            continue  # Skip physical nodes
-            
-        node = ttns.nodes[node_id]
-        if (node.parent is None and len(node.children) == 0) and node_id != ttns.root_id:
-            # This is an orphaned node (not connected to anything and not the root)
-            if node_id in ttns.tensors:
-                del ttns.tensors[node_id]
-            del ttns.nodes[node_id]
-    
-    # Ensure all virtual nodes have proper dimensions
-    ttns = validate_fix_tensor_dimensions(ttns, bond_dim, virtual_prefix)
-    
-    # Additional validation to ensure all connections have compatible dimensions
-    for node_id in list(ttns.nodes.keys()):
-        node = ttns.nodes[node_id]
-        if node.parent is not None:
-            parent_id = node.parent
-            parent_node = ttns.nodes[parent_id]
-            
-            # Get connection legs
-            child_leg = 0  # Always the first leg
-            try:
-                parent_leg = parent_node.children.index(node_id)
-            except ValueError:
-                # Orphaned node reference, clean it up
-                node.parent = None
-                continue
-                
-            # Get tensors
-            child_tensor = ttns.tensors[node_id]
-            parent_tensor = ttns.tensors[parent_id]
-            
-            # Check if dimensions match
-            if child_tensor.shape[child_leg] != parent_tensor.shape[parent_leg]:
-                # Fix the mismatch by setting both to bond_dim
-                target_dim = bond_dim
-                
-                # Fix child tensor
-                child_shape = list(child_tensor.shape)
-                child_shape[child_leg] = target_dim
-                new_child_tensor = np.zeros(tuple(child_shape), dtype=child_tensor.dtype)
-                
-                # Copy existing data
-                min_dim = min(child_tensor.shape[child_leg], target_dim)
-                slices = tuple([slice(0, min_dim) if i == child_leg else slice(None) 
-                              for i in range(len(child_shape))])
-                new_child_tensor[slices] = child_tensor[slices]
-                
-                # Set first element to ensure tensor is not zero
-                zeros_indices = tuple([0 for _ in range(len(child_shape))])
-                if np.count_nonzero(new_child_tensor) == 0:
-                    new_child_tensor[zeros_indices] = 1.0
-                
-                # Update child tensor
-                ttns.tensors[node_id] = new_child_tensor
-                
-                # Fix parent tensor similarly
-                parent_shape = list(parent_tensor.shape)
-                parent_shape[parent_leg] = target_dim
-                new_parent_tensor = np.zeros(tuple(parent_shape), dtype=parent_tensor.dtype)
-                
-                min_dim = min(parent_tensor.shape[parent_leg], target_dim)
-                slices = tuple([slice(0, min_dim) if i == parent_leg else slice(None) 
-                              for i in range(len(parent_shape))])
-                new_parent_tensor[slices] = parent_tensor[slices]
-                
-                # Set first element to ensure tensor is not zero
-                zeros_indices = tuple([0 for _ in range(len(parent_shape))])
-                if np.count_nonzero(new_parent_tensor) == 0:
-                    new_parent_tensor[zeros_indices] = 1.0
-                
-                # Update parent tensor
-                ttns.tensors[parent_id] = new_parent_tensor
     
     return ttns
-
