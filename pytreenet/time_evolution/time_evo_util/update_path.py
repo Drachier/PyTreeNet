@@ -30,6 +30,9 @@ class TDVPUpdatePathFinder():
             self._finder = TDVPUpdatePathFinder_LeafToLeaf(self.state, forward = True)
         elif self.mode == PathFinderMode.LeafToLeaf_Backward:
             self._finder = TDVPUpdatePathFinder_LeafToLeaf(self.state, forward = False)
+        else:
+            raise ValueError(f"Unsupported mode: {self.mode}")
+
 
     def find_path(self) -> List[str]:
         """

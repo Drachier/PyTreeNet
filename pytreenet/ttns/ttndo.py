@@ -318,9 +318,7 @@ def _rec_add_children(ttns: TreeTensorNetworkState,
 class BINARYTTNDO(TreeTensorNetworkState):
     """
     A class representing an binary tree tensor network density operator (TTNDO) in vectorized form.
-    
-    The binary TTNDO structure distributes bra and ket nodes across the tree
-    with lateral connections, creating a more flexible structure than the symmetric TTNDO.
+    The binary TTNDO structure connects bra and ket physical directly on the leaves.
     """
 
     def __init__(self, bra_suffix="_bra", ket_suffix="_ket"):
@@ -335,20 +333,18 @@ class BINARYTTNDO(TreeTensorNetworkState):
         self.bra_suffix = bra_suffix
         self.ket_suffix = ket_suffix
 
-    def absorb_into_binary_ttndo_open_leg(self, node_id: str, matrix: ndarray):
-        """
-        Absorb a matrix into the input open leg of a node in the TTNDO.
+    def absorb_into_binary_ttndo_open_leg(self, node_id: str, matrix: ndarray) -> 'BINARYTTNDO':
         
-        For BINARYTTNDO, each node has exactly two open legs. The input leg
+        """
+        Absorb a matrix into the input open leg of a physical node in the TTNDO.
+        
+        For BINARYTTNDO, each physical node has exactly two open legs. The input leg
         is assumed to be the one before the other leg (first open leg). The matrix
         is applied to this input leg.
         
         Args:
             node_id (str): The identifier of the node to which the matrix is applied.
             matrix (ndarray): The matrix to absorb. Must be a square matrix.
-            
-        Returns:
-            BINARYTTNDO: The modified TTNDO for method chaining.
             
         Raises:
             AssertionError: If the matrix is not square or if the node doesn't have exactly 2 open legs.
@@ -361,9 +357,9 @@ class BINARYTTNDO(TreeTensorNetworkState):
         self.tensors[node_id] = new_tensor        
         return self
 
-    def contract(self, to_copy: bool = True) -> 'BINARYTTNDO':
+    def contract_physical_nodes(self, to_copy: bool = True) -> 'BINARYTTNDO':
         """
-        Contract this binary TTNDO into a regular TTNDO.
+        Contract physical nodes of BINARYTTNDO.
         
         Returns:
             BINARYTTNDO: A new contracted TTNDO structure.
@@ -381,8 +377,8 @@ class BINARYTTNDO(TreeTensorNetworkState):
         Returns:
             complex: The trace of the TTNDO.
         """
-        contracted_physically_binary_ttndo = self.contract()
-        return trace_contracted_binary_ttndo(contracted_physically_binary_ttndo)
+        contracted_binary_ttndo = self.contract_physical_nodes()
+        return trace_contracted_binary_ttndo(contracted_binary_ttndo)
 
 
     def norm(self) -> complex:
@@ -407,7 +403,7 @@ class BINARYTTNDO(TreeTensorNetworkState):
         Returns:
             complex: The expectation value of the TTNDO with respect to the TTNO.
         """
-        contracted_ttndo = self.contract()
+        contracted_ttndo = self.contract_physical_nodes()
         return binary_ttndo_ttno_expectation_value(operator, contracted_ttndo)
 
     def tensor_product_expectation_value(self, operator: TensorProduct) -> complex:
@@ -425,7 +421,7 @@ class BINARYTTNDO(TreeTensorNetworkState):
            return self.trace()
         
         # First contract to ensure we have the proper structure
-        ttndo_copy = self.contract()
+        ttndo_copy = self.contract_physical_nodes()
 
         # Apply operators 
         for node_id, single_site_operator in operator.items():
@@ -457,12 +453,9 @@ def binary_ttndo_for_product_state(ttns: TreeTensorNetworkState,
                                     bra_suffix: str = "_bra",
                                     ket_suffix: str = "_ket") -> BINARYTTNDO:
     """
-    Creates a physically binary TTNDO from a TTNS, where only physical nodes have dual representation.
-    Virtual nodes have a single tensor, while physical nodes maintain bra and ket parts.
-    
-    Note: Trace and expectation value calculations for physically binary TTNDOs are not yet implemented
-    and will be added in a future update. Currently, the structure supports contracting the dual nodes
-    correctly but not computing traces or expectation values.
+    Creates a binary TTNDO from a TTNS, where only physical nodes have dual representation.
+    Virtual nodes have are intialized with Identiry and have only one open leg and the structure 
+    of the BINARYTTNDO is reproduced with the input ttns. 
     
     Args:
         ttns: Original TTNS structure
@@ -472,7 +465,7 @@ def binary_ttndo_for_product_state(ttns: TreeTensorNetworkState,
         ket_suffix: Suffix for ket nodes
         
     Returns:
-        BINARYTTNDO: The resulting physically binary TTNDO
+        BINARYTTNDO: The resulting binary TTNDO
     """
     # Create new BINARYTTNDO to hold the structure
     ttndo = BINARYTTNDO(bra_suffix, ket_suffix)
@@ -515,7 +508,7 @@ def process_physical_branch(ttns: TreeTensorNetworkState,
                          bra_suffix: str, 
                          ket_suffix: str):
     """
-    Process a branch in physically binary TTNDO - creates single virtual nodes
+    Process a branch in binary TTNDO - creates single virtual nodes
     and dual physical nodes.
     """
     orig_node = ttns.nodes[orig_node_id]
@@ -645,7 +638,7 @@ def MPS_ttndo_for_product_state(ttns: TreeTensorNetworkState,
         ket_suffix (str, optional): Suffix for ket nodes. Defaults to "_ket".
 
     Returns:
-        BINARYTTNDO: The resulting physically binary TTNDO 
+        BINARYTTNDO: The resulting binary TTNDO 
     """
     positivity_check(bond_dim, "bond dimension")
     # Determine physical dimension
