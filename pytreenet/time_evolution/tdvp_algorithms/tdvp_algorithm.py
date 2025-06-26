@@ -120,10 +120,12 @@ class TDVPAlgorithm(TTNTimeEvolution):
         """
         if self.state.orthogonality_center_id is None or force_new:
             self.state.canonical_form(self.update_path[0],
-                                      mode=SplitMode.KEEP)
+                                      mode=SplitMode.KEEP,
+                                      preserve_legs_order=False)
         else:
             self.state.move_orthogonalization_center(self.update_path[0],
-                                                     mode=SplitMode.KEEP)
+                                                     mode=SplitMode.KEEP,
+                                                     preserve_legs_order=False)
 
     def _find_tdvp_orthogonalization_path(self,
                                           update_path: List[str]) -> List[List[str]]:
