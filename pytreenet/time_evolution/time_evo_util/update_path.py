@@ -248,8 +248,8 @@ class TDVPUpdatePathFinder_LeafToLeaf():
         end (str):   The other diameter leaf (L_B).
         main_path (List[str]): The direct path from L_A to L_B.
     """
-
-    def __init__(self, state, forward: bool) -> None:
+    
+    def __init__(self, state, forward: bool = True) -> None:
         self.state = state
         self.start, self.end = self._find_two_diameter_leaves()
         if forward:

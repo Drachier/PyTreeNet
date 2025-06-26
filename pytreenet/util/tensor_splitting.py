@@ -36,14 +36,13 @@ class SplitMode(Enum):
     FULL = "full"
     REDUCED = "reduced"
     KEEP = "keep"
-
     def numpy_qr_mode(self) -> str:
         """
         Returns the string required in the numpy QR decomposition.
         """
-        if self is SplitMode.REDUCED:
-            return "reduced"
-        return "complete"
+        if self is SplitMode.FULL:
+            return "complete"
+        return "reduced"
 
     def numpy_svd_mode(self) -> bool:
         """

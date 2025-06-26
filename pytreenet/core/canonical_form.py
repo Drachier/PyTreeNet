@@ -130,7 +130,7 @@ def canonical_form(ttn: TreeTensorNetwork,
                    orthogonality_center_id: str,
                    split_function = split_qr_contract_r_to_neighbour,
                    nodes_to_process: list = None,
-                   *args):
+                   **kwargs):
     """
     Modifies a TreeTensorNetwork into canonical form.
 
@@ -140,9 +140,13 @@ def canonical_form(ttn: TreeTensorNetwork,
         orthogonality_center_id (str): The identifier of the tensor node which
             is the orthogonality center for the canonical form.
         split_function: The function to use for splitting nodes (QR or SVD).
+            Defaults to split_qr_contract_r_to_neighbour.
         nodes_to_process: Optional list of node IDs to normalize. If provided,
             only these nodes will be normalized.
-        *args: Additional positional arguments to pass to the split function.
+        **kwargs: Additional keyword arguments that are passed to the split function.
+            Common parameters include:
+            - mode: The mode to use for QR decomposition (when using split_qr_contract_r_to_neighbour).
+            - svd_params: SVD parameters for SVD-based decomposition (when using split_svd_contract_sv_to_neighbour).
     """
     # Get full distance dictionary for all nodes
     full_distance_dict = ttn.distance_to_node(orthogonality_center_id)
@@ -165,7 +169,7 @@ def canonical_form(ttn: TreeTensorNetwork,
             minimum_distance_neighbour_id = _find_smallest_distance_neighbour(node,
                                                                            full_distance_dict)
             
-            split_function(ttn, node_id, minimum_distance_neighbour_id, *args)
+            split_function(ttn, node_id, minimum_distance_neighbour_id, *kwargs)
 
     ttn.orthogonality_center_id = orthogonality_center_id
 
