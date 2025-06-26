@@ -126,7 +126,6 @@ class TestTreeTensorNetworkStateSimple(unittest.TestCase):
         """Test the multi single site expectation value."""
         found_result = self.initial_state.multi_single_site_expectation_value(
             self.operators[2])
-        print(found_result)
         state_vector, _ = self.initial_state.to_vector(to_copy=True)
         op_root = np.kron(self.operators[2]["root"], np.eye(3 * 4))
         ref_root = state_vector.conj().T @ op_root @ state_vector

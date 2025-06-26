@@ -11,6 +11,7 @@ from time import time
 import hashlib
 import json
 import os
+import traceback
 
 import numpy as np
 from h5py import File
@@ -212,7 +213,7 @@ def generate_ising_hamiltonian(sim_params: SimulationParameters
     hamiltonian.conversion_dictionary = conv_dict
     hamiltonian.coeffs_mapping = coeff_map
     hamiltonian.include_identities([1,2])
-    if SimulationParameters.topology == Topology.CHAIN:
+    if sim_params.topology == Topology.CHAIN:
         qubits = [f"{NODE_PREFIX}{i}" for i in range(sim_params.num_sites)]
         single_site = create_single_site_hamiltonian(qubits,
                                                      "Z",
@@ -224,7 +225,7 @@ def generate_ising_hamiltonian(sim_params: SimulationParameters
             for j in range(sim_params.interaction_length):
                 ops[f"{NODE_PREFIX}{i + j}"] = "X"
             operator = TensorProduct(ops)
-            hamiltonian.add_term(((Fraction(-1), "J"), operator))
+            hamiltonian.add_term((Fraction(-1), "J", operator))
         return hamiltonian
     raise ValueError(f"Unsupported topology {sim_params.topology}.")
 
@@ -281,7 +282,7 @@ def run_one_simulation(sim_params: SimulationParameters,
     else:
         solver_options = None
     time_evo_alg_kind = time_evo_params.time_evo_algorithm
-    config = time_evo_alg_kind.config_class()
+    config = time_evo_alg_kind.get_class().config_class()
     config.record_bond_dim = True
     config.record_norm = True
     config.record_max_bdim = True
@@ -302,12 +303,13 @@ def run_one_simulation(sim_params: SimulationParameters,
                                                             solver_options=solver_options)
     # Run the time evolution
     start_time = time()
-    time_evo_alg.run()
+    time_evo_alg.run(pgbar=False)
     end_time = time()
     elapsed_time = end_time - start_time
     param_hash = get_param_hash(sim_params, time_evo_params)
     # Save the results
     save_file_path = os.path.join(save_file_root, f"simulation_{param_hash}.h5")
+    print(f"Saving results to {save_file_path}")
     with File(save_file_path, "w") as file:
         time_evo_alg.results.save_to_h5(file)
         sim_params.save_to_h5(file)
@@ -339,10 +341,12 @@ if __name__ == "__main__":
 
     try:
         save_directory = sys.argv[1]
-        sim_params, time_evo_params = load_params(CURRENT_PARAM_FILENAME)
-        runtime = run_one_simulation(sim_params, time_evo_params, save_directory)
+        PARAM_PATH = os.path.join(save_directory, CURRENT_PARAM_FILENAME)
+        SIM_PARAMS, TIME_EVO_PARAMS = load_params(PARAM_PATH)
+        runtime = run_one_simulation(SIM_PARAMS, TIME_EVO_PARAMS, save_directory)
         print(f"Simulation completed in {runtime:.2f} seconds.")
         sys.exit(0)
     except Exception as e:
         print(f"An error occurred: {e}", file=sys.stderr)
+        traceback.print_exc()
         sys.exit(1)

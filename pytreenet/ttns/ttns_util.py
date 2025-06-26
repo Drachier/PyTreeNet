@@ -19,7 +19,7 @@ def _operator_valid(operator: TensorProduct):
     """
     Raises an error if the operator is not a single-site operator.
     """
-    if operator.num_sites != 1:
+    if operator.num_sites() != 1:
         raise ValueError("Operator must be a single-site operator!")
 
 def prepare_single_site_operators(
