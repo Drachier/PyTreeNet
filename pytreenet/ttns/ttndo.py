@@ -256,7 +256,7 @@ class SymmetricTTNDO(TreeTensorNetworkState):
         """
         tensor_product = TensorProduct({node_id: operator})
         return self.operator_expectation_value(tensor_product)
-def Symmetric_ttndo_from_binary_ttns(ttns: TreeTensorNetworkState,
+def symmetric_ttndo_from_binary_ttns(ttns: TreeTensorNetworkState,
                 root_id: str = "ttndo_root",
                 root_bond_dim: int = 2
                 ) -> SymmetricTTNDO:
