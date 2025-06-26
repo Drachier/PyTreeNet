@@ -11,8 +11,8 @@ from pytreenet.random.random_ttno import (generate_single_site_ttno,
                                           generate_three_layer_ttno)
 
 from pytreenet.contractions.ttndo_contractions import (ttndo_contraction_order,
-                                                       trace_ttndo,
-                                                       ttndo_ttno_expectation_value)
+                                                       trace_symmetric_ttndo,
+                                                       symmetric_ttndo_ttno_expectation_value)
 
 class TestTTNDOContractionOrder(TestCase):
     """
@@ -59,7 +59,7 @@ class TestTTNDOContractionOrder(TestCase):
 
 class TestTraceTTNDO(TestCase):
     """
-    Test the function trace_ttndo.
+    Test the function trace_symmetric_ttndo.
     """
 
     def test_for_emtpy_ttndo(self):
@@ -67,7 +67,7 @@ class TestTraceTTNDO(TestCase):
         Test the trace of an empty TTNDO.
         """
         ttndo = SymmetricTTNDO()
-        self.assertEqual(trace_ttndo(ttndo), 0)
+        self.assertEqual(trace_symmetric_ttndo(ttndo), 0)
 
     def test_for_root_only(self):
         """
@@ -75,7 +75,7 @@ class TestTraceTTNDO(TestCase):
         """
         ttndo = SymmetricTTNDO()
         ttndo.add_trivial_root("root")
-        self.assertRaises(ValueError, trace_ttndo, ttndo)
+        self.assertRaises(ValueError, trace_symmetric_ttndo, ttndo)
 
     def test_for_one_child_layer(self):
         """
@@ -87,7 +87,7 @@ class TestTraceTTNDO(TestCase):
         density_marix, _ = ref_ttndo.completely_contract_tree()
         ref_trace = density_marix.reshape((3,3)).trace()
         # Test
-        found_trace = trace_ttndo(ttndo)
+        found_trace = trace_symmetric_ttndo(ttndo)
         self.assertTrue(allclose(found_trace, ref_trace))
 
     def test_for_three_child_layers(self):
@@ -106,12 +106,12 @@ class TestTraceTTNDO(TestCase):
         density_matrix = density_tensor.reshape((phys_dim, phys_dim))
         ref_trace = density_matrix.trace()
         # Test
-        found_trace = trace_ttndo(ttndo)
+        found_trace = trace_symmetric_ttndo(ttndo)
         self.assertTrue(allclose(found_trace, ref_trace))
 
 class TestTTNDOExpectationValue(TestCase):
     """
-    Test the function ttndo_ttno_expectation_value.
+    Test the function symmetric_ttndo_ttno_expectation_value.
     """
 
     def test_trivial_case(self):
@@ -120,7 +120,7 @@ class TestTTNDOExpectationValue(TestCase):
         """
         ttndo = SymmetricTTNDO()
         ttno = TreeTensorNetworkOperator()
-        self.assertEqual(ttndo_ttno_expectation_value(ttndo, ttno), 0)
+        self.assertEqual(symmetric_ttndo_ttno_expectation_value(ttndo, ttno), 0)
 
     def test_for_one_child_layer(self):
         """
@@ -136,7 +136,7 @@ class TestTTNDOExpectationValue(TestCase):
         ttno_tensor = ref_ttno.tensors[ref_ttno.root_id]
         ref_expectation = (ttno_tensor @ density_tensor_matrix).trace()
         # Test
-        found_expectation = ttndo_ttno_expectation_value(ttndo, ttno)
+        found_expectation = symmetric_ttndo_ttno_expectation_value(ttndo, ttno)
         self.assertTrue(allclose(found_expectation, ref_expectation))
 
     def test_for_three_child_layers(self):
@@ -155,7 +155,7 @@ class TestTTNDOExpectationValue(TestCase):
         ttno_tensor, _ = ref_ttno.as_matrix()
         ref_expectation = (ttno_tensor @ density_matrix).trace()
         # Test
-        found_expectation = ttndo_ttno_expectation_value(ttndo, ttno)
+        found_expectation = symmetric_ttndo_ttno_expectation_value(ttndo, ttno)
         self.assertTrue(allclose(found_expectation, ref_expectation))
 
 if __name__ == "__main__":

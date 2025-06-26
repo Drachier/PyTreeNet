@@ -54,6 +54,14 @@ def generate_binary_ttns(num_phys: int,
     Returns:
         A TreeTensorNetworkState object representing the generated TTNS
     """
+    # Special case for single node
+    if num_phys == 1:
+        ttns = TreeTensorNetworkState()
+        node_id = f"{phys_prefix}0"
+        node = Node(identifier=node_id)
+        ttns.add_root(node, phys_tensor.copy())
+        return ttns
+        
     # Special case: depth=0 -> generate a chain (MPS) with no virtual nodes
     if depth == 0:
         return _generate_mps_chain(
