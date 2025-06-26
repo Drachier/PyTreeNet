@@ -17,6 +17,7 @@ from .node import Node
 from ..util.tensor_splitting import SplitMode
 from ..util.tensor_splitting import SVDParameters
 from typing import TYPE_CHECKING
+from copy import deepcopy
 
 if TYPE_CHECKING:
     from ..ttns import TreeTensorNetwork
@@ -97,6 +98,9 @@ def split_qr_contract_r_to_neighbour(ttn: TreeTensorNetwork,
         mode: The mode to be used for the QR decomposition. For details refer to
             `tensor_util.tensor_qr_decomposition`.
     """
+    children_dict = {node_id      : deepcopy(ttn.nodes[node_id].children)}
+    children_dict[neighbour_id] = deepcopy(ttn.nodes[neighbour_id].children)
+
     node = ttn.nodes[node_id]
     q_legs, r_legs = _build_leg_specs(node, neighbour_id)
     r_tensor_id = str(uuid1()) # Avoid identifier duplication
@@ -107,11 +111,16 @@ def split_qr_contract_r_to_neighbour(ttn: TreeTensorNetwork,
     ttn.contract_nodes(neighbour_id, r_tensor_id,
                         new_identifier=neighbour_id)
 
+    ttn.update_children_and_leg_permutation(node_id, children_dict[node_id])
+    ttn.update_children_and_leg_permutation(neighbour_id, children_dict[neighbour_id]) 
 
 def split_svd_contract_sv_to_neighbour(ttn: TreeTensorNetwork,
                                      node_id: str,
                                      neighbour_id: str,
                                      svd_params: SVDParameters):
+
+    children_dict = {node_id      : deepcopy(ttn.nodes[node_id].children)}
+    children_dict[neighbour_id] = deepcopy(ttn.nodes[neighbour_id].children)
 
     node = ttn.nodes[node_id]
     u_legs, v_legs = _build_leg_specs(node, neighbour_id)
@@ -125,6 +134,8 @@ def split_svd_contract_sv_to_neighbour(ttn: TreeTensorNetwork,
     ttn.contract_nodes(neighbour_id, r_tensor_id,
                         new_identifier=neighbour_id)
 
+    ttn.update_children_and_leg_permutation(node_id, children_dict[node_id])
+    ttn.update_children_and_leg_permutation(neighbour_id, children_dict[neighbour_id]) 
 
 def canonical_form(ttn: TreeTensorNetwork,
                    orthogonality_center_id: str,

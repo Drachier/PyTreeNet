@@ -970,6 +970,29 @@ class TreeTensorNetwork(TreeStructure):
             spec2.is_root = True
         return (spec1, spec2)
 
+
+    def update_children_and_leg_permutation(self, node_id: str, new_children: List[str]):
+        """
+        Updates the shape and leg permutation of a node.
+
+        Args:
+            node_id (str): The identifier of the node to be updated.
+        """
+        
+        node , tensor = self[node_id]
+        node = self._nodes[node_id]
+        
+        element_map = {elem: i for i, elem in enumerate(node.children)}
+        permutation = tuple(element_map[elem] for elem in new_children)
+        node.children = new_children
+        if node.is_root():
+           # root has no parent leg
+           tensor_perm = permutation + (len(permutation) , )
+        else:
+           tensor_perm = (0,) + tuple(x + 1 for x in permutation) + (len(permutation) + 1,)
+
+        self._nodes[node_id].update_leg_permutation(tensor_perm , tensor.shape) 
+
     def split_nodes(self, node_id: str,
                      out_legs: LegSpecification, in_legs: LegSpecification,
                      splitting_function: Callable,
