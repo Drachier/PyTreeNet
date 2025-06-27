@@ -648,9 +648,19 @@ class TreeTensorNetwork(TreeStructure):
             new_bond_dim (int): The new bond dimension to be set between all
                 neighbouring nodes.
         """
-        for node_id, node in self.nodes.items():
-            if not node.is_root():
-                parent_id = node.parent
+        while True:
+            bonds_to_pad = []
+
+            for node_id, node in self.nodes.items():
+                if not node.is_root():
+                    parent_id = node.parent
+                    if self.bond_dim(node_id, parent_id) < new_bond_dim:
+                        bonds_to_pad.append((node_id, parent_id))
+
+            if not bonds_to_pad:
+                break
+
+            for node_id, parent_id in bonds_to_pad:
                 if self.bond_dim(node_id, parent_id) < new_bond_dim:
                     self.pad_bond_dimension(node_id, parent_id, new_bond_dim)
 
