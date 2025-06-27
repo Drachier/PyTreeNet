@@ -353,9 +353,10 @@ def trace_contracted_binary_ttndo(ttndo: 'BINARYTTNDO') -> complex:
     Returns:
         complex: The trace of the TTNDO.
     """
+    # First process all non-root nodes
     nodes_to_process = ttndo.linearise()[:-1]
-    for node_id in nodes_to_process :
-        if node_id.startswith("qubit"):
+    for node_id in nodes_to_process:
+        if node_id.startswith(ttndo.phys_prefix):
             node, tensor = ttndo[node_id]
             parent_id = node.parent
 
@@ -375,11 +376,30 @@ def trace_contracted_binary_ttndo(ttndo: 'BINARYTTNDO') -> complex:
             ttndo.nodes[node_id].link_tensor(tensor)
 
             ttndo.contract_nodes(parent_id, node_id, parent_id)
-
-    if not ttndo.tensors[ttndo.root_id].ndim == 1:
-        raise ValueError(f"Root node {ttndo.root_id} has non-scalar trace")
     
-    return ttndo.tensors[ttndo.root_id][0]
+    # Now process the root node if it's a physical node
+    root_id = ttndo.root_id
+    _, root_tensor = ttndo[root_id]
+
+    # Check if root node is a physical node (like in MPS structures)
+    if root_id.startswith(ttndo.phys_prefix) or root_tensor.ndim > 1:
+        # If the root tensor has physical legs (ndim > 1), trace them out
+        if root_tensor.ndim > 1:
+            root_tensor = trace(root_tensor, axis1=-2, axis2=-1)
+            ttndo.tensors[root_id] = root_tensor
+            ttndo.nodes[root_id].link_tensor(root_tensor)
+
+    # Verify that we have a scalar
+    if root_tensor.ndim == 0:
+        # Scalar result
+        return root_tensor.item()
+    elif root_tensor.ndim == 1 and root_tensor.shape[0] == 1:
+        # [value] format - extract the scalar
+        return root_tensor[0]
+    else:
+        print(f"Root tensor has shape {root_tensor.shape}")
+        raise ValueError(f"Root node {root_id} has non-scalar trace")
+
 
 def contract_ttno_with_ttndo(ttno: TreeTensorNetworkOperator, ttndo: 'BINARYTTNDO') -> TreeTensorNetworkOperator:
     """
@@ -407,7 +427,7 @@ def contract_ttno_with_ttndo(ttno: TreeTensorNetworkOperator, ttndo: 'BINARYTTND
     # Contract the TTNO tensors with the TTNDO tensors node by node
     for node_id in all_nodes:
         # Contract the tensors
-        if node_id.startswith("qubit"):
+        if node_id.startswith(ttndo.phys_prefix):
             ttno_ttndo_tensor = contract_tensors_ttno_with_ttndo(
                 ttno.tensors[node_id], 
                 ttndo.tensors[node_id])
