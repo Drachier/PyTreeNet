@@ -98,6 +98,8 @@ def split_qr_contract_r_to_neighbour(ttn: TreeTensorNetwork,
         neighbour_id (str): The identifier of the neigbour to which to split.
         mode: The mode to be used for the QR decomposition. For details refer to
             `tensor_util.tensor_qr_decomposition`.
+        preserve_legs_order (bool): If True, the leg permutation of sites corresponding to Q and R are updated 
+                                    such that the order of neighbours are preserved after beinng called.
     """
     if preserve_legs_order:
         children_dict = {node_id      : deepcopy(ttn.nodes[node_id].children)}
@@ -121,6 +123,18 @@ def split_svd_contract_sv_to_neighbour(ttn: TreeTensorNetwork,
                                      neighbour_id: str,
                                      svd_params: SVDParameters,
                                      preserve_legs_order: bool = False) -> None:
+    """ 
+    Takes a node and splits of the virtual leg to a neighbours via SVD
+     decomposition. The resulting S and V tensors are contracted with the neighbour.::
+    Args:
+        ttn (TreeTensorNetwork): The tree tensor network in which to perform
+            this action.
+        node_id (str): The identifier of the node to be split.
+        neighbour_id (str): The identifier of the neigbour to which to split.
+        svd_params (SVDParameters): Parameters for the SVD decomposition.
+        preserve_legs_order (bool): If True, the leg permutation of sites corresponding to U and V are updated 
+                                    such that the order of neighbours are preserved after beinng called.
+    """           
 
     if preserve_legs_order:
         children_dict = {node_id      : deepcopy(ttn.nodes[node_id].children)}
@@ -161,6 +175,7 @@ def canonical_form(ttn: TreeTensorNetwork,
             only these nodes will be normalized.
         **kwargs: Additional keyword arguments that are passed to the split function.
             Common parameters include:
+            - preserve_legs_order (bool) : If True, enforces the order of leg to be preserved after the split operation.
             - mode: The mode to use for QR decomposition (when using split_qr_contract_r_to_neighbour).
             - svd_params: SVD parameters for SVD-based decomposition (when using split_svd_contract_sv_to_neighbour).
     """

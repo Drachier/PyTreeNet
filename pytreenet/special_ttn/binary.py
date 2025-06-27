@@ -162,7 +162,7 @@ def generate_binary_ttns(num_phys: int,
         current_phys_idx += num_phys_this_branch
     
     # Clean up inefficient nodes (particularly virtual nodes with only one child)
-    ttns = clean_inefficient_paths(ttns, phys_prefix, virtual_prefix)
+    ttns = clean_inefficient_paths(ttns, phys_prefix)
     
     # Final step: pad all bonds to the desired bond dimension
     ttns.pad_bond_dimensions(bond_dim)
@@ -485,8 +485,7 @@ def _connect_physical_nodes_to_parent(
 
 
 def clean_inefficient_paths(ttns: TreeTensorNetworkState, 
-                          phys_prefix: str, 
-                          virtual_prefix: str) -> TreeTensorNetworkState:
+                            phys_prefix: str) -> TreeTensorNetworkState:
     """Clean up inefficient paths in the TTN structure.
     
     This function:
@@ -496,7 +495,6 @@ def clean_inefficient_paths(ttns: TreeTensorNetworkState,
     Args:
         ttns: The Tree Tensor Network State to clean up
         phys_prefix: Prefix for physical node IDs
-        virtual_prefix: Prefix for virtual node IDs
         
     Returns:
         The cleaned up TreeTensorNetworkState
