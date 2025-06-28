@@ -54,6 +54,9 @@ def generate_binary_ttns(num_phys: int,
     Returns:
         A TreeTensorNetworkState object representing the generated TTNS
     """
+    # Enforce complex128 dtype for physical tensor
+    phys_tensor = phys_tensor.astype(np.complex128) 
+
     # Special case for single node
     if num_phys == 1:
         ttns = TreeTensorNetworkState()
