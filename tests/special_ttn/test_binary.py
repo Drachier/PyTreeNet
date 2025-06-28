@@ -1,5 +1,5 @@
 import unittest
-import numpy as np, allclose
+from numpy import allclose, count_nonzero, isclose, array, ndarray, nonzero, testing
 from pytreenet.special_ttn.binary import generate_binary_ttns
 from pytreenet.operators.common_operators import ket_i
 
@@ -8,15 +8,15 @@ def is_virtual_node(node_id: str) -> bool:
     return not node_id.startswith("qubit")
 
 
-def has_sparse_identity(tensor: np.ndarray) -> bool:
+def has_sparse_identity(tensor: ndarray) -> bool:
     """
     Virtual nodes should contain only a single non-zero element equal to 1.0 at index [0,...,0].
     """
-    non_zero = np.count_nonzero(tensor)
+    non_zero = count_nonzero(tensor)
     if non_zero != 1:
         return False
     idx = tuple(0 for _ in range(tensor.ndim))
-    return np.isclose(tensor[idx], 1.0)
+    return isclose(tensor[idx], 1.0)
 
 
 class TestGenerateBinaryTTNS(unittest.TestCase):
@@ -35,7 +35,7 @@ class TestGenerateBinaryTTNS(unittest.TestCase):
             (12, 4, 2),   # Shallow tree with larger bond dimension
         ]
         # base physical tensor (simple 1D vector)
-        self.base_phys = np.array([1.0-2j, -1.0j +2], dtype=complex)
+        self.base_phys = array([1.0-2j, -1.0j +2], dtype=complex)
 
     def print_ttns_info(self, ttns):
         """Print general information about the TTNS structure."""
@@ -163,11 +163,11 @@ class TestGenerateBinaryTTNS(unittest.TestCase):
                     size = min(slice_vals.shape[0], self.base_phys.size)
                     
                     # Check if values match
-                    match = np.allclose(slice_vals[:size], self.base_phys[:size])
+                    match = allclose(slice_vals[:size], self.base_phys[:size])
                     status = "✓" if match else "✗"
                     print(f"  {status} {phys_id} tensor values at first slice: {slice_vals}")
                     
-                    np.testing.assert_allclose(
+                    testing.assert_allclose(
                         slice_vals[:size],
                         self.base_phys[:size],
                         err_msg=f"Physical tensor mismatch at {phys_id}"
@@ -187,7 +187,7 @@ class TestGenerateBinaryTTNS(unittest.TestCase):
                         sub = tensor[tuple(slicer)]
                         
                         # Check if all values are zero
-                        is_zero = np.allclose(sub, 0)
+                        is_zero = allclose(sub, 0)
                         status = "✓" if is_zero else "✗"
                         
                         if not is_zero:
@@ -221,13 +221,13 @@ class TestGenerateBinaryTTNS(unittest.TestCase):
                             print(f"  {status} {node_id} is not a sparse identity tensor")
                             
                             # Print more details to aid debugging
-                            non_zero_count = np.count_nonzero(tensor)
+                            non_zero_count = count_nonzero(tensor)
                             idx = tuple(0 for _ in range(tensor.ndim))
                             print(f"    - Non-zero elements: {non_zero_count}")
                             print(f"    - Value at [0,...,0]: {tensor[idx]}")
                             
                             # Find positions of non-zero elements
-                            non_zero_positions = np.nonzero(tensor)
+                            non_zero_positions = nonzero(tensor)
                             if len(non_zero_positions[0]) < 10:  # Only show if not too many
                                 positions = list(zip(*non_zero_positions))
                                 values = [tensor[pos] for pos in positions]
