@@ -4,7 +4,7 @@ in PyTreeNet.
 """
 from itertools import product
 
-from sim_script import (SimulationParameters,
+from experiments.time_evolution.closed_system.sim_script import (SimulationParameters,
                         TimeEvolutionParameters,
                         Topology,
                         TTNStructure,
