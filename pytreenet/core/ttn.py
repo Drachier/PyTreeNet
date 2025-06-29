@@ -783,10 +783,11 @@ class TreeTensorNetwork(TreeStructure):
     def replace_tensor(self,
                        node_id: str,
                        new_tensor: np.ndarray,
-                       permutation: Union[None, List[int]] = None):
+                       permutation: Union[None, List[int]] = None,
+                       new_shape = False):
         """
         Replaces the tensor associated with a node.
-
+    
         Args:
             node_id (str): The identifier of the node.
             new_tensor (np.ndarray): The new tensor to be associated with the
@@ -794,8 +795,13 @@ class TreeTensorNetwork(TreeStructure):
             permutation (Union[None, List[int]], optional): A permutation to
                 be applied to the new tensor to match the leg ordering of the
                 node. Defaults to None.
+            new_shape (bool, optional): Whether the shape of the node should be
+                updated to the new tensor. Defaults to False.
 
         """
+        if new_shape:
+            self._nodes[node_id]._shape = new_tensor.shape 
+
         self._nodes[node_id].replace_tensor(new_tensor,
                                             permutation=permutation)
         self._tensors[node_id] = new_tensor
@@ -930,6 +936,31 @@ class TreeTensorNetwork(TreeStructure):
         for child_id in copy(children):
             self.contract_nodes(node_id, child_id,
                                 new_identifier=new_identifier)
+
+    def contract_to_parent(self, node_id: str, new_identifier: Union[str,None] = None):
+        """
+        Contracts a node with its parent node.
+
+        This is done by contracting the node with its parent node, similar to
+        contract_all_children but in the opposite direction.
+
+        Args:
+            node_id (str): Identifier of the child node to be contracted with its parent.
+            new_identifier (str, optional): An identifier for the new tensor.
+                Defaults to the parent node identifier.
+        
+        Raises:
+            AssertionError: If the node is a root node (has no parent).
+        """
+        node = self.nodes[node_id]
+        if node.is_root():
+            raise AssertionError("Root node has no parent!")
+            
+        parent_id = node.parent
+        if new_identifier is None:
+            new_identifier = parent_id
+            
+        self.contract_nodes(parent_id, node_id, new_identifier=new_identifier)
 
     def legs_before_combination(self, node1_id: str,
                                 node2_id: str) -> Tuple[LegSpecification, LegSpecification]:
