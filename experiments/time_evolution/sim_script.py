@@ -31,6 +31,7 @@ from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
 
 NODE_PREFIX = "qubit"
 CURRENT_PARAM_FILENAME = "current_parameters.json"
+FILENAME_PREFIX = "simulation_"
 
 class TTNStructure(Enum):
     """
@@ -38,6 +39,28 @@ class TTNStructure(Enum):
     """
     MPS = "mps"
     BINARY = "binary"
+
+    def color(self) -> str:
+        """
+        Return a color representation for the TTN structure.
+        """
+        if self == TTNStructure.MPS:
+            return "green"
+        elif self == TTNStructure.BINARY:
+            return "blue"
+        else:
+            raise ValueError(f"Unknown TTN structure: {self.value}")
+        
+    def linestyle(self) -> str:
+        """
+        Return a linestyle representation for the TTN structure.
+        """
+        if self == TTNStructure.MPS:
+            return "-"
+        elif self == TTNStructure.BINARY:
+            return "--"
+        else:
+            raise ValueError(f"Unknown TTN structure: {self.value}")
 
 class Topology(Enum):
     """
@@ -308,7 +331,7 @@ def run_one_simulation(sim_params: SimulationParameters,
     elapsed_time = end_time - start_time
     param_hash = get_param_hash(sim_params, time_evo_params)
     # Save the results
-    save_file_path = os.path.join(save_file_root, f"simulation_{param_hash}.h5")
+    save_file_path = os.path.join(save_file_root, FILENAME_PREFIX + f"{param_hash}.h5")
     print(f"Saving results to {save_file_path}")
     with File(save_file_path, "w") as file:
         time_evo_alg.results.save_to_h5(file)

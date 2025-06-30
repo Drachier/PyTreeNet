@@ -32,7 +32,7 @@ def generate_parameter_set():
                       TimeEvoMode.RK23,
                       TimeEvoMode.BDF,
                       TimeEvoMode.DOP853]
-    evo_alg = TimeEvoAlg.BUG
+    evo_alg = TimeEvoAlg.SITE2ORDER2TDVP
     maximum_bond_dim = [1,2,5,10,20,25,50,75,100]
     rel_svalue = 1e-15
     abs_svalue = 1e-15

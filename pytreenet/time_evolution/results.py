@@ -23,12 +23,19 @@ class Results:
             name and its corresponding value.
     """
 
-    def __init__(self) -> None:
+    def __init__(self,
+                 metadata: dict[str,Any] | None = None
+                 ) -> None:
         """
         Initializes the Results object with the number of time steps.
+
+        Args:
+            metadata (dict[str, Any]): Metadata containing other information
+                about the simulation, not directly relevant to the results.
         """
         self.results: dict[Hashable, NDArray] = {}
         self.attributes: dict[str, list[tuple[str,Any]]] = {}
+        self.metadata = metadata if metadata is not None else {}
 
     def is_initialized(self) -> bool:
         """
@@ -257,7 +264,9 @@ class Results:
 
     @classmethod
     def load_from_h5(cls,
-                     file: str | File) -> None:
+                     file: str | File,
+                     loaded_ops: list[str] | None = None
+                     ) -> None:
         """
         Loads the results from an HDF5 file.
 
@@ -265,6 +274,8 @@ class Results:
             file (str | File): The path to the HDF5 file or an open h5py File
              object. If a string is provided, the file will be opened in read
              mode.
+            loaded_ops (list[str] | None): A list of operator names to load into
+                the results object. If None, all operators are loaded.
         
         Returns:
             Results: An instance of the Results class containing the loaded
@@ -273,11 +284,20 @@ class Results:
         """
         if isinstance(file, str):
             with File(file, "r") as h5file:
-                return cls.load_from_h5(h5file)
+                return cls.load_from_h5(h5file,
+                                        loaded_ops=loaded_ops)
         else:
-            results = cls()
-            for i, key in enumerate(file.keys()):
-                loaded_data = file[key][:]
+            results = cls(metadata=dict(file.attrs))
+            if loaded_ops is None:
+                iterator = file.keys()
+            else:
+                iterator = loaded_ops
+            for i, key in enumerate(iterator):
+                dset = file[key]
+                attrs = dset.attrs
+                for attr_key, attr_value in attrs.items():
+                    results.set_attribute(key, attr_key, attr_value)
+                loaded_data = dset[:]
                 if i == 0:
                     len_data = len(loaded_data)
                 else:
