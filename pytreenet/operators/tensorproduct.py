@@ -74,6 +74,19 @@ class TensorProduct(UserDict):
             tensor_product[operator.node_identifiers[0]] = operator.operator
         return tensor_product
 
+    def add_operator(self,
+                   node_id: str,
+                   operator: str | np.ndarray):
+        """
+        Add an additioinal operator to this tensor product.
+
+        Args:
+            node_id (str): The identifier of the node to which this operator
+                should be applied.
+            operator (str | np.ndarray): The operator to be added.
+        """
+        self[node_id] = operator
+
     def add_suffix(self,
                     suffix: str
                     ) -> TensorProduct:
