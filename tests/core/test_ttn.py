@@ -1042,5 +1042,144 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         found_tensor = self.ttn.tensors[new_id]
         self.assertTrue(np.allclose(np.eye(dim), found_tensor))
 
+    def test_bond_dim(self):
+        """
+        Test the function getting the bond dimension of a node.
+        """
+        # Node 1
+        self.assertEqual(2,
+                         self.ttn.bond_dim("id1",
+                                           neighbour_id="id2"))
+        self.assertEqual(3,
+                         self.ttn.bond_dim("id1",
+                                           neighbour_id="id8"))
+
+        # Node 2
+        self.assertEqual(2,
+                         self.ttn.bond_dim("id2",
+                                           neighbour_id="id1"))
+        self.assertEqual(5,
+                         self.ttn.bond_dim("id2",
+                                           neighbour_id="id3"))
+        self.assertEqual(4,
+                         self.ttn.bond_dim("id2",
+                                           neighbour_id="id5"))
+
+        # Node 3
+        self.assertEqual(5,
+                         self.ttn.bond_dim("id3",
+                                           neighbour_id="id2"))
+        self.assertEqual(2,
+                         self.ttn.bond_dim("id3",
+                                           neighbour_id="id4"))
+
+        # Node 4
+        self.assertEqual(2,
+                         self.ttn.bond_dim("id4",
+                                           neighbour_id="id3"))
+
+        # Node 5
+        self.assertEqual(4,
+                         self.ttn.bond_dim("id5",
+                                           neighbour_id="id2"))
+        self.assertEqual(2,
+                         self.ttn.bond_dim("id5",
+                                           neighbour_id="id6"))
+        self.assertEqual(3,
+                         self.ttn.bond_dim("id5",
+                                         neighbour_id="id7"))
+
+        # Node 6
+        self.assertEqual(2,
+                         self.ttn.bond_dim("id6",
+                                           neighbour_id="id5"))
+
+        # Node 7
+        self.assertEqual(3,
+                         self.ttn.bond_dim("id7",
+                                           neighbour_id="id5"))
+
+        # Node 8
+        self.assertEqual(3,
+                         self.ttn.bond_dim("id8",
+                                           neighbour_id="id1"))
+        self.assertEqual(4,
+                         self.ttn.bond_dim("id8",
+                                           neighbour_id="id9"))
+
+        # Node 9
+        self.assertEqual(4,
+                         self.ttn.bond_dim("id9",
+                                           neighbour_id="id8"))
+
+    def test_max_bond_dim(self):
+        """
+        Test the function getting the maximum bond dimension of a ttn.
+        """
+        self.assertEqual(5, self.ttn.max_bond_dim())
+
+    def test_bond_dims(self):
+        """
+        Test the function getting the bond dimensions of a ttn.
+        """
+        expected_bond_dims = {
+            ("id1", "id2"): 2,
+            ("id1", "id8"): 3,
+            ("id2", "id3"): 5,
+            ("id2", "id5"): 4,
+            ("id3", "id4"): 2,
+            ("id5", "id6"): 2,
+            ("id5", "id7"): 3,
+            ("id8", "id9"): 4,
+        }
+        self.assertEqual(expected_bond_dims, self.ttn.bond_dims())
+
+    def test_avg_bond_dim(self):
+        """
+        Test the function getting the average bond dimension of a ttn.
+        """
+        expected_avg_bond_dim = 3.125
+        self.assertEqual(expected_avg_bond_dim,
+                         self.ttn.avg_bond_dim())
+
+    def test_size(self):
+        """
+        Test the function getting the size of a ttn.
+        """
+        expected_size = 9*(2*3*4*5)
+        self.assertEqual(expected_size, self.ttn.size())
+
+    def test_pad_bond_dim(self):
+        """
+        Test the function padding the bond dimension of a ttn.
+        """
+        ref_ttn = deepcopy(self.ttn)
+
+        # Bond 1-2
+        self.ttn.pad_bond_dimension("id1", "id2", 6)
+        self.assertEqual(6, self.ttn.bond_dim("id1", "id2"))
+        self.assertIn(6, self.ttn.nodes["id1"].shape)
+        self.assertIn(6, self.ttn.nodes["id2"].shape)
+        self.assertIn(6, self.ttn.tensors["id1"].shape)
+        self.assertIn(6, self.ttn.tensors["id2"].shape)
+
+        # Bond 5-6
+        self.ttn.pad_bond_dimension("id6", "id5", 6)
+        self.assertEqual(6, self.ttn.bond_dim("id6", "id5"))
+        self.assertIn(6, self.ttn.nodes["id6"].shape)
+        self.assertIn(6, self.ttn.nodes["id5"].shape)
+        self.assertIn(6, self.ttn.tensors["id6"].shape)
+        self.assertIn(6, self.ttn.tensors["id5"].shape)
+
+        # The contraction value of the tensors should not change
+        ref_ttn.contract_nodes("id1", "id2", new_identifier="abc")
+        ref_ttn.contract_nodes("id6", "id5", new_identifier="def")
+        self.ttn.contract_nodes("id1", "id2", new_identifier="abc")
+        self.ttn.contract_nodes("id6", "id5", new_identifier="def")
+        self.assertTrue(np.allclose(ref_ttn.tensors["abc"],
+                                    self.ttn.tensors["abc"]))
+        self.assertTrue(np.allclose(ref_ttn.tensors["def"],
+                                    self.ttn.tensors["def"]))
+
 if __name__ == "__main__":
     unittest.main()

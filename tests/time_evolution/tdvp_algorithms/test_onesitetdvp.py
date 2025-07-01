@@ -7,6 +7,8 @@ from scipy.linalg import expm
 
 import pytreenet as ptn
 from pytreenet.contractions.state_operator_contraction import (contract_any)
+from pytreenet.contractions.effective_hamiltonians import (get_effective_bond_hamiltonian)
+from pytreenet.contractions.tree_cach_dict import PartialTreeCachDict
 from pytreenet.operators.common_operators import pauli_matrices
 from pytreenet.random import (random_hermitian_matrix,
                               random_small_ttns,
@@ -52,70 +54,6 @@ class TestContractionMethods(unittest.TestCase):
                                         self.tdvp.partial_tree_cache)
         self.tdvp.partial_tree_cache.add_entry("root", "c2", root_to_c2_cache)
 
-    def test_get_effective_link_hamiltonian_c1_to_root(self):
-        root_id = "root"
-        node_id = "c1"
-        self.tdvp._split_updated_site(node_id, root_id)
-        cache_c1 = self.tdvp.partial_tree_cache.get_entry(root_id, node_id)
-        cache_root = self.tdvp.partial_tree_cache.get_entry(node_id, root_id)
-        ref_tensor = np.tensordot(cache_c1, cache_root,
-                                  axes=(1, 1))
-        ref_tensor = np.transpose(ref_tensor, axes=[1, 3, 0, 2])
-        ref_tensor = np.reshape(ref_tensor, (25, 25))
-
-        found_tensor = self.tdvp._get_effective_link_hamiltonian(
-            node_id, root_id)
-
-        self.assertTrue(np.allclose(ref_tensor, found_tensor))
-
-    def test_get_effective_link_hamiltonian_c2_to_root(self):
-        root_id = "root"
-        node_id = "c2"
-        self.tdvp._split_updated_site(node_id, root_id)
-        cache_c1 = self.tdvp.partial_tree_cache.get_entry(root_id, node_id)
-        cache_root = self.tdvp.partial_tree_cache.get_entry(node_id, root_id)
-        ref_tensor = np.tensordot(cache_c1, cache_root,
-                                  axes=(1, 1))
-        ref_tensor = np.transpose(ref_tensor, axes=[1, 3, 0, 2])
-        ref_tensor = np.reshape(ref_tensor, (36, 36))
-
-        found_tensor = self.tdvp._get_effective_link_hamiltonian(
-            node_id, root_id)
-
-        self.assertTrue(np.allclose(ref_tensor, found_tensor))
-
-    def test_get_effective_link_hamiltonian_root_to_c1(self):
-        root_id = "root"
-        node_id = "c1"
-        self.tdvp._split_updated_site(root_id, node_id)
-        cache_c1 = self.tdvp.partial_tree_cache.get_entry(node_id, root_id)
-        cache_root = self.tdvp.partial_tree_cache.get_entry(root_id, node_id)
-        ref_tensor = np.tensordot(cache_root, cache_c1,
-                                  axes=(1, 1))
-        ref_tensor = np.transpose(ref_tensor, axes=[1, 3, 0, 2])
-        ref_tensor = np.reshape(ref_tensor, (25, 25))
-
-        found_tensor = self.tdvp._get_effective_link_hamiltonian(
-            root_id, node_id)
-
-        self.assertTrue(np.allclose(ref_tensor, found_tensor))
-
-    def test_get_effective_link_hamiltonian_root_to_c2(self):
-        root_id = "root"
-        node_id = "c2"
-        self.tdvp._split_updated_site(root_id, node_id)
-        cache_c1 = self.tdvp.partial_tree_cache.get_entry(node_id, root_id)
-        cache_root = self.tdvp.partial_tree_cache.get_entry(root_id, node_id)
-        ref_tensor = np.tensordot(cache_root, cache_c1,
-                                  axes=(1, 1))
-        ref_tensor = np.transpose(ref_tensor, axes=[1, 3, 0, 2])
-        ref_tensor = np.reshape(ref_tensor, (36, 36))
-
-        found_tensor = self.tdvp._get_effective_link_hamiltonian(
-            root_id, node_id)
-
-        self.assertTrue(np.allclose(ref_tensor, found_tensor))
-
     def test_time_evolve_link_tensor_c1_to_root(self):
         node_id = "c1"
         next_node_id = "root"
@@ -124,8 +62,9 @@ class TestContractionMethods(unittest.TestCase):
         link_id = ref_tdvp.create_link_id(node_id, next_node_id)
         ref_tensor = ref_tdvp.state[link_id][1]
         ref_tensor = np.reshape(ref_tensor, 25)
-        eff_link_ham = ref_tdvp._get_effective_link_hamiltonian(
-            node_id, next_node_id)
+        eff_link_ham = get_effective_bond_hamiltonian(link_id,
+                                                      ref_tdvp.state,
+                                                      ref_tdvp.partial_tree_cache)
         exponent = expm(1j * ref_tdvp.time_step_size * eff_link_ham)
         updated_ref_tensor = exponent @ ref_tensor
         updated_ref_tensor = np.reshape(updated_ref_tensor, (5, 5))
@@ -325,8 +264,9 @@ class TestContractionMethods(unittest.TestCase):
         link_id = ref_tdvp.create_link_id(node_id, next_node_id)
         ref_tensor = ref_tdvp.state[link_id][1]
         ref_tensor = np.reshape(ref_tensor, 25)
-        eff_link_ham = ref_tdvp._get_effective_link_hamiltonian(
-            node_id, next_node_id)
+        eff_link_ham = get_effective_bond_hamiltonian(link_id,
+                                                      ref_tdvp.state,
+                                                      ref_tdvp.partial_tree_cache)
         exponent = expm(1j * ref_tdvp.time_step_size * eff_link_ham)
         updated_ref_tensor = exponent @ ref_tensor
         updated_ref_tensor = np.reshape(updated_ref_tensor, (5, 5))
@@ -352,8 +292,9 @@ class TestContractionMethods(unittest.TestCase):
         orig_shape = ref_link_tensor.shape
         ref_link_tensor = np.reshape(ref_link_tensor,
                                      np.prod(orig_shape))
-        eff_link_ham = ref_tdvp._get_effective_link_hamiltonian(node_id,
-                                                                next_node_id)
+        eff_link_ham = get_effective_bond_hamiltonian(link_id,
+                                                      ref_tdvp.state,
+                                                      ref_tdvp.partial_tree_cache)
         exponent = expm(1j*ref_tdvp.time_step_size*eff_link_ham)
         updated_ref_tensor = exponent @ ref_link_tensor
         updated_ref_tensor = np.reshape(updated_ref_tensor, orig_shape)
@@ -376,8 +317,9 @@ class TestContractionMethods(unittest.TestCase):
         orig_shape = ref_link_tensor.shape
         ref_link_tensor = np.reshape(ref_link_tensor,
                                      np.prod(orig_shape))
-        eff_link_ham = ref_tdvp._get_effective_link_hamiltonian(node_id,
-                                                                next_node_id)
+        eff_link_ham = get_effective_bond_hamiltonian(link_id,
+                                                      ref_tdvp.state,
+                                                      ref_tdvp.partial_tree_cache)
         exponent = expm(1j*ref_tdvp.time_step_size*eff_link_ham)
         updated_ref_tensor = exponent @ ref_link_tensor
         updated_ref_tensor = np.reshape(updated_ref_tensor, orig_shape)
@@ -400,8 +342,9 @@ class TestContractionMethods(unittest.TestCase):
         orig_shape = ref_link_tensor.shape
         ref_link_tensor = np.reshape(ref_link_tensor,
                                      np.prod(orig_shape))
-        eff_link_ham = ref_tdvp._get_effective_link_hamiltonian(node_id,
-                                                                next_node_id)
+        eff_link_ham = get_effective_bond_hamiltonian(link_id,
+                                                      ref_tdvp.state,
+                                                      ref_tdvp.partial_tree_cache)
         exponent = expm(1j*ref_tdvp.time_step_size*eff_link_ham)
         updated_ref_tensor = exponent @ ref_link_tensor
         updated_ref_tensor = np.reshape(updated_ref_tensor, orig_shape)
@@ -433,102 +376,6 @@ class TestContractionMethodsComplicated(unittest.TestCase):
                           ("site6", "site7")]
         for pair in non_init_pairs:
             self.tdvp.update_tree_cache(pair[0], pair[1])
-
-    def test_get_effective_link_hamiltonian_1_to_2(self):
-        node_id = "site1"
-        next_node_id = "site2"
-        self.tdvp._split_updated_site(node_id, next_node_id)
-        cache_1 = self.tdvp.partial_tree_cache.get_entry(next_node_id, node_id)
-        cache_2 = self.tdvp.partial_tree_cache.get_entry(node_id, next_node_id)
-        ref_tensor = np.tensordot(cache_2, cache_1,
-                                  axes=(1, 1))
-        ref_tensor = np.transpose(ref_tensor, axes=[1, 3, 0, 2])
-        ref_tensor = np.reshape(ref_tensor, (4, 4))
-
-        found_tensor = self.tdvp._get_effective_link_hamiltonian(
-            node_id, next_node_id)
-
-        self.assertTrue(np.allclose(ref_tensor, found_tensor))
-
-    def test_get_effective_link_hamiltonian_2_to_1(self):
-        node_id = "site2"
-        next_node_id = "site1"
-        self.tdvp._split_updated_site(node_id, next_node_id)
-        cache_1 = self.tdvp.partial_tree_cache.get_entry(next_node_id, node_id)
-        cache_2 = self.tdvp.partial_tree_cache.get_entry(node_id, next_node_id)
-        ref_tensor = np.tensordot(cache_1, cache_2,
-                                  axes=(1, 1))
-        ref_tensor = np.transpose(ref_tensor, axes=[1, 3, 0, 2])
-        ref_tensor = np.reshape(ref_tensor, (4, 4))
-
-        found_tensor = self.tdvp._get_effective_link_hamiltonian(
-            node_id, next_node_id)
-
-        self.assertTrue(np.allclose(ref_tensor, found_tensor))
-
-    def test_get_effective_link_hamiltonian_1_to_3(self):
-        node_id = "site1"
-        next_node_id = "site3"
-        self.tdvp._split_updated_site(node_id, next_node_id)
-        cache_1 = self.tdvp.partial_tree_cache.get_entry(next_node_id, node_id)
-        cache_2 = self.tdvp.partial_tree_cache.get_entry(node_id, next_node_id)
-        ref_tensor = np.tensordot(cache_2, cache_1,
-                                  axes=(1, 1))
-        ref_tensor = np.transpose(ref_tensor, axes=[1, 3, 0, 2])
-        ref_tensor = np.reshape(ref_tensor, (4, 4))
-
-        found_tensor = self.tdvp._get_effective_link_hamiltonian(
-            node_id, next_node_id)
-
-        self.assertTrue(np.allclose(ref_tensor, found_tensor))
-
-    def test_get_effective_link_hamiltonian_3_to_1(self):
-        node_id = "site3"
-        next_node_id = "site1"
-        self.tdvp._split_updated_site(node_id, next_node_id)
-        cache_1 = self.tdvp.partial_tree_cache.get_entry(next_node_id, node_id)
-        cache_2 = self.tdvp.partial_tree_cache.get_entry(node_id, next_node_id)
-        ref_tensor = np.tensordot(cache_1, cache_2,
-                                  axes=(1, 1))
-        ref_tensor = np.transpose(ref_tensor, axes=[1, 3, 0, 2])
-        ref_tensor = np.reshape(ref_tensor, (4, 4))
-
-        found_tensor = self.tdvp._get_effective_link_hamiltonian(
-            node_id, next_node_id)
-
-        self.assertTrue(np.allclose(ref_tensor, found_tensor))
-
-    def test_get_effective_link_hamiltonian_1_to_0(self):
-        node_id = "site1"
-        next_node_id = "site0"
-        self.tdvp._split_updated_site(node_id, next_node_id)
-        cache_1 = self.tdvp.partial_tree_cache.get_entry(next_node_id, node_id)
-        cache_2 = self.tdvp.partial_tree_cache.get_entry(node_id, next_node_id)
-        ref_tensor = np.tensordot(cache_1, cache_2,
-                                  axes=(1, 1))
-        ref_tensor = np.transpose(ref_tensor, axes=[1, 3, 0, 2])
-        ref_tensor = np.reshape(ref_tensor, (4, 4))
-
-        found_tensor = self.tdvp._get_effective_link_hamiltonian(
-            node_id, next_node_id)
-
-        self.assertTrue(np.allclose(ref_tensor, found_tensor))
-
-    def test_get_effective_link_hamiltonian_0_to_1(self):
-        node_id = "site0"
-        next_node_id = "site1"
-        self.tdvp._split_updated_site(node_id, next_node_id)
-        cache_1 = self.tdvp.partial_tree_cache.get_entry(next_node_id, node_id)
-        cache_2 = self.tdvp.partial_tree_cache.get_entry(node_id, next_node_id)
-        ref_tensor = np.tensordot(cache_2, cache_1,
-                                  axes=(1, 1))
-        ref_tensor = np.transpose(ref_tensor, axes=[1, 3, 0, 2])
-        ref_tensor = np.reshape(ref_tensor, (4, 4))
-
-        found_tensor = self.tdvp._get_effective_link_hamiltonian(
-            node_id, next_node_id)
-
-        self.assertTrue(np.allclose(ref_tensor, found_tensor))
 
     def test_update_cache_after_1_root_to_2(self):
         node_id = "site1"

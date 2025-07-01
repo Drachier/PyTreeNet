@@ -1,0 +1,287 @@
+"""
+This module implements a class to store the simulation results of a time
+evolution algorithm in PyTreeNet.
+"""
+from typing import Hashable, Any
+
+from numpy.typing import NDArray, DTypeLike
+import numpy as np
+from h5py import File
+
+TIMES_ID = "times"
+
+class Results:
+    """
+    Class to store the simulation results of a time evolution algorithm.
+
+    Attributes:
+        results (dict[Hashable, NDArray]): A dictionary where keys are operator
+            names and values are their corresponding results as NumPy arrays.
+        attributes (dict[str, tuple[str, Any]]): A dictionary to store additional
+            attributes for each operator. The keys are operator names and the
+            values are lists of tuples, where each tuple contains an attribute
+            name and its corresponding value.
+    """
+
+    def __init__(self) -> None:
+        """
+        Initializes the Results object with the number of time steps.
+        """
+        self.results: dict[Hashable, NDArray] = {}
+        self.attributes: dict[str, list[tuple[str,Any]]] = {}
+
+    def is_initialized(self) -> bool:
+        """
+        Checks if the results object is initialized.
+
+        Returns:
+            bool: True if the results object is initialized, False otherwise.
+        """
+        return bool(self.results)
+
+    def not_initialized_error(self) -> None:
+        """
+        Raises an error if the results object is not initialized.
+
+        Raises:
+            ValueError: If the results object is not initialized.
+        """
+        if not self.is_initialized():
+            raise ValueError("Results object is not initialized!")
+
+    def initialize(self,
+                   operators: dict[Hashable, DTypeLike],
+                   num_time_steps: int) -> None:
+        """
+        Initializes the results object with the given operators and number of
+         time steps.
+
+        Args:
+            operators (dict[Hashable, DTypeLike]): A dictionary where keys are
+                operator names and values are their corresponding data types.
+                If the data type is not specified, it defaults to complex128.
+            num_time_steps (int): The number of time steps in the simulation.
+
+        Raises:
+            ValueError: If any operator name is an integer.
+        """
+        if self.is_initialized():
+            raise ValueError("Results object is already initialized!")
+        self.results[TIMES_ID] = np.zeros((num_time_steps + 1,),
+                                                  dtype=np.float64)
+        for operator, dtype in operators.items():
+            if isinstance(operator, int):
+                raise ValueError("Operator names mustn't be integers!")
+            if dtype is None:
+                dtype = np.complex128
+            self.results[operator] = np.zeros((num_time_steps + 1,),
+                                                      dtype=dtype)
+
+    def set_attribute(self,
+                      operator_id: str,
+                      attribute_name: str,
+                      value: Any) -> None:
+        """
+        Sets an attribute in the results object.
+
+        Args:
+            operator_id (str): The name of the attribute.
+            value (Any): The value of the attribute.
+        """
+        if operator_id not in self.results:
+            self.attributes[operator_id] = []
+        self.attributes[operator_id].append((attribute_name,value))
+
+    def set_element(self,
+                     operator: Hashable,
+                     index: int,
+                     value: Any
+                     ) -> None:
+        """
+        Sets the value of a specific operator at a given index.
+
+        Args:
+            operator (Hashable): The name of the operator.
+            index (int): The index at which to set the value.
+        
+        """
+        self.results[operator][index] = value
+
+    def get_element(self,
+                     operator: Hashable,
+                     index: int
+                     ) -> Any:
+        """
+        Gets the value of a specific operator at a given index.
+
+        Args:
+            operator (Hashable): The name of the operator.
+            index (int): The index from which to get the value.
+
+        Returns:
+            Any: The value of the operator at the specified index.
+        """
+        return self.results[operator][index]
+
+    def set_time(self,
+                  index: int,
+                  time: float) -> None:
+        """
+        Sets the time at a specific index.
+
+        Args:
+            index (int): The index at which to set the time.
+            time (float): The time value to set.
+        """
+        self.results[TIMES_ID][index] = time
+
+    def get_time(self, index: int) -> float:
+        """
+        Gets the time at a specific index.
+
+        Args:
+            index (int): The index from which to get the time.
+
+        Returns:
+            float: The time value at the specified index.
+        """
+        return self.results[TIMES_ID][index]
+
+    def times(self) -> NDArray:
+        """
+        Returns the time values stored in the results.
+
+        Returns:
+            NDArray: An array of time values.
+        """
+        self.not_initialized_error()
+        return self.results[TIMES_ID]
+
+    def result_real(self,
+                    operator: Hashable) -> bool:
+        """
+        Checks if the result of a specific operator is real.
+
+        Args:
+            operator (Hashable): The name of the operator.
+
+        Returns:
+            bool: True if the result is real, False otherwise.
+        """
+        op_results = self.results.get(operator)
+        if np.isrealobj(op_results):
+            return True
+        return np.allclose(np.imag(op_results),
+                           np.zeros_like(op_results))
+
+    def operator_result(self,
+                        operator: Hashable,
+                        realise: bool = False
+                        ) -> NDArray:
+        """
+        Returns the result of a specific operator.
+
+        Args:
+            operator (Hashable): The name of the operator.
+            realise (bool): If True, returns the real part of the result.
+        
+        Returns:
+            NDArray: The result of the operator, either real or complex.
+        """
+        self.not_initialized_error()
+        op_results = self.results[operator]
+        if realise and not np.isrealobj(op_results):
+            return np.real(op_results)
+        return op_results
+
+    def operator_results(self,
+                         operators: list[Hashable] | None = None,
+                         realise: bool = False
+                         ) -> NDArray:
+        """
+        Returns all the results of the specified operators.
+
+        Args:
+            operators (list[Hashable]): A list of operator names. If None
+             all operators except for the time are returned.
+            realise (bool): If True, returns the real parts of the results.
+
+        Returns:
+            NDArray: An array containing the results of the specified operators.
+
+        """
+        self.not_initialized_error()
+        if operators is None:
+            operators = self.results.keys()
+        out = np.zeros_like(self.results[operators[0]],
+                            shape=(len(operators),
+                                     len(self.results[operators[0]])),
+                            dtype=complex)
+        for i, operator in enumerate(operators):
+            if operator != TIMES_ID:
+                out[i, :] = self.operator_result(operator, realise)
+        if realise:
+            out = np.real(out)
+        return out
+
+    def save_to_h5(self,
+                   file: str | File) -> None:
+        """
+        Saves the results to an HDF5 file.
+
+        Args:
+            file (str | File): The path to the HDF5 file or an open h5py File
+             object. If a string is provided, the file will be opened in write
+             mode.
+
+        Raises:
+            ValueError: If the results object is not initialized.
+        """
+        self.not_initialized_error()
+        if isinstance(file, str):
+            with File(file, "w") as h5file:
+                self.save_to_h5(h5file)
+        else:
+            for key, value in self.results.items():
+                if not isinstance(key, str):
+                    key_str = str(key)
+                else:
+                    key_str = key
+                dset = file.create_dataset(key_str, data=value)
+                if key in self.attributes:
+                    for attr in self.attributes[key]:
+                        attr_key, attr_value = attr
+                        dset.attrs[attr_key] = attr_value
+            file.attrs[TIMES_ID] = self.results[TIMES_ID]
+            file.attrs["num_time_steps"] = len(self.results[TIMES_ID]) - 1
+
+    @classmethod
+    def load_from_h5(cls,
+                     file: str | File) -> None:
+        """
+        Loads the results from an HDF5 file.
+
+        Args:
+            file (str | File): The path to the HDF5 file or an open h5py File
+             object. If a string is provided, the file will be opened in read
+             mode.
+        
+        Returns:
+            Results: An instance of the Results class containing the loaded
+             data.
+        
+        """
+        if isinstance(file, str):
+            with File(file, "r") as h5file:
+                return cls.load_from_h5(h5file)
+        else:
+            results = cls()
+            for i, key in enumerate(file.keys()):
+                loaded_data = file[key][:]
+                if i == 0:
+                    len_data = len(loaded_data)
+                else:
+                    if len(loaded_data) != len_data:
+                        raise ValueError("All datasets must have the same length!")
+                results.results[key] = loaded_data
+            return results

@@ -11,7 +11,7 @@ change the connectivity of the tree.
 from __future__ import annotations
 from typing import List, Tuple, Dict, Union
 
-from .graph_node import GraphNode
+from .graph_node import GraphNode, determine_parentage
 from ..util.ttn_exceptions import NoConnectionException
 
 
@@ -359,12 +359,8 @@ class TreeStructure():
         """
         node1 = self._nodes[node_id1]
         node2 = self._nodes[node_id2]
-        if node2.is_child_of(node_id1):
-            return (node_id1, node_id2)
-        if node1.is_child_of(node_id2):
-            return (node_id2, node_id1)
-        errstr = f"Nodes {node_id1} and {node_id2} are no neighbours!"
-        raise NoConnectionException(errstr)
+        parent, child = determine_parentage(node1, node2)
+        return parent.identifier, child.identifier
 
     def change_node_identifier(self, new_node_id: str, old_node_id: str):
         """

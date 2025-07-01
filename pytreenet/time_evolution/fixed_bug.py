@@ -1,4 +1,4 @@
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Any
 from dataclasses import dataclass
 
 from .ttn_time_evolution import TTNTimeEvolution
@@ -35,14 +35,44 @@ class FixedBUG(TTNTimeEvolution):
                      TensorProduct,
                      TreeTensorNetworkOperator
                  ],
-                 config: Union[FixedBUGConfig, None] = None
+                 config: Union[FixedBUGConfig, None] = None,
+                 solver_options: Union[dict[str, Any], None] = None
                  ) -> None:
+        """
+        Initilises an instance of a fixed bond dimension BUG algorithm.
+
+        Args:
+            intial_state (TreeTensorNetworkState): The initial state of the
+                system.
+            hamiltonian (TTNO): The Hamiltonian in TTNO form under which to
+                time-evolve the system.
+            time_step_size (float): The size of one time-step.
+            final_time (float): The final time until which to run the
+                evolution.
+            operators (Union[TensorProduct, List[TensorProduct]]): Operators
+                to be measured during the time-evolution.
+            config (Union[FixedBUGConfig,None]): The configuration of
+                time evolution. Defaults to None.
+            solver_options (Union[Dict[str, Any], None], optional): Most time
+                evolutions algorithms use some kind of solver to resolve a
+                partial differential equation. This dictionary can be used to
+                pass additional options to the solver. Refer to the
+                documentation of `ptn.time_evolution.TimeEvoMode` for further
+                information. Defaults to None.
+                solver_options (Union[Dict[str, Any], None], optional): Most time
+                evolutions algorithms use some kind of solver to resolve a
+                partial differential equation. This dictionary can be used to
+                pass additional options to the solver. Refer to the
+                documentation of `ptn.time_evolution.TimeEvoMode` for further
+                information. Defaults to None.
+        """
 
         super().__init__(initial_state,
                          time_step_size,
                          final_time,
                          operators,
-                         config=config)
+                         config=config,
+                         solver_options=solver_options)
 
         self.hamiltonian = hamiltonian
         self.state: TreeTensorNetworkState
@@ -56,7 +86,8 @@ class FixedBUG(TTNTimeEvolution):
         self.state = root_update(self.state,
                                  self.hamiltonian,
                                  self.time_step_size,
-                                 bug_config=self.config)
+                                 bug_config=self.config,
+                                 solver_options=self.solver_options)
 
     def run_one_time_step(self, **kwargs):
         """

@@ -2,7 +2,8 @@ import unittest
 
 from pytreenet.core.graph_node import (GraphNode,
                                        find_children_permutation,
-                                       find_child_permutation_neighbour_index)
+                                       find_child_permutation_neighbour_index,
+                                       determine_parentage)
 from pytreenet.util.ttn_exceptions import NoConnectionException
 
 class TestInitilisation(unittest.TestCase):
@@ -420,6 +421,40 @@ class TestNodeFunctions(unittest.TestCase):
         perm = find_child_permutation_neighbour_index(old_node, new_node,
                                                      modify_function=modifier)
         self.assertEqual([2,3,1], perm)
+
+    def test_determine_parentage_parent1(self):
+        """
+        Tests the parentage determination when the first node is the parent.
+        """
+        node_1 = GraphNode(identifier="parent")
+        node_2 = GraphNode(identifier="child")
+        node_1.add_child(node_2.identifier)
+        node_2.add_parent(node_1.identifier)
+        parentage = determine_parentage(node_1, node_2)
+        self.assertEqual("parent", parentage[0].identifier)
+        self.assertEqual("child", parentage[1].identifier)
+
+    def test_determine_parentage_parent2(self):
+        """
+        Tests the parentage determination when the second node is the parent.
+        """
+        node_1 = GraphNode(identifier="child")
+        node_2 = GraphNode(identifier="parent")
+        node_1.add_parent(node_2.identifier)
+        node_2.add_child(node_1.identifier)
+        parentage = determine_parentage(node_1, node_2)
+        self.assertEqual("parent", parentage[0].identifier)
+        self.assertEqual("child", parentage[1].identifier)
+
+    def test_determine_parentage_no_nghbs(self):
+        """
+        Tests the parentage determination when there are not neighbours.
+        """
+        node_1 = GraphNode(identifier="node1")
+        node_2 = GraphNode(identifier="node2")
+        self.assertRaises(NoConnectionException, determine_parentage,
+                          node_1, node_2)
+
 
 if __name__ == "__main__":
     unittest.main()

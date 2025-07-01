@@ -92,6 +92,21 @@ def permute_iterator(it: Iterator, permutation: List[int]) -> Iterator:
     assert len(it) == len(permutation)
     return it.__class__(it[i] for i in permutation)
 
+def find_permutation(list1: List, list2: List) -> List[int]:
+    """
+    Find the permutation of the elements of list1 to match list2.
+
+    Args:
+        list1 (List): The first list.
+        list2 (List): The second list.
+    
+    Returns:
+        List[int]: The permutation of the elements of list1 to match list2,
+            i.e. list2[i] = list1[permutation[i]] for all i.
+    """
+    assert len(list1) == len(list2)
+    return [list2.index(x) for x in list1]
+
 def is_broadcastable(shp1: Iterator, shp2: Iterator) -> bool:
     """
     Check if two shapes are broadcastable.
@@ -125,7 +140,6 @@ def fast_exp_action(exponent: np.ndarray,
     is the default mode. The modes are:
 
     - "expm": Use the scipy expm function.
-    - "eigsh": Use the scipy eigsh function. Only valid for hermitian matrices.
     - "chebyshev": Use the scipy expm_multiply function.
     - "sparse": Use the scipy sparse expm function. Only valid for sparse
         matrices.
@@ -147,12 +161,6 @@ def fast_exp_action(exponent: np.ndarray,
         mode = "chebyshev"
     if mode == "expm":
         return expm(exponent) @ vector
-    if mode == "eigsh":
-        if exponent.shape[0] < 4:
-            return expm(exponent) @ vector
-        k = min(exponent.shape[0]-2, 8)
-        w, v, = eigsh(exponent, k=k)
-        return v @ np.diag(np.exp(w)) @ np.linalg.pinv(v) @ vector
     if mode == "chebyshev":
         return expm_multiply(exponent, vector,
                              traceA=np.trace(exponent))

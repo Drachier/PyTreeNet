@@ -11,7 +11,9 @@ from pytreenet.contractions.tree_cach_dict import PartialTreeCachDict
 from pytreenet.contractions.state_operator_contraction import (single_node_expectation_value,
                                                                contract_operator_tensor_ignoring_one_leg,
                                                                contract_bra_tensor_ignore_one_leg,
-                                                               contract_single_site_operator_env)
+                                                               contract_single_site_operator_env,
+                                                               contract_ket_ham_with_envs,
+                                                               contract_leaf)
 
 class TestSingleNodeExpectationValue(TestCase):
     """
@@ -49,6 +51,125 @@ class TestSingleNodeExpectationValue(TestCase):
                                                      operator_tensor,
                                                      bra_tensor)
         self.assertTrue(allclose(ref_result, found_result))
+
+class TestContractLeaf(TestCase):
+    """
+    Test the sandwich contraction of a leaf node with an operator.
+    """
+
+    def test_standard(self):
+        """
+        Tests the contraction of a leaf node with an operator.
+        """
+        node_id = "node"
+        ket_node, ket_tensor = random_tensor_node((4,2),
+                                          identifier=node_id)
+        ham_node, ham_tensor = random_tensor_node((5,3,2),
+                                          identifier=node_id)
+        bra_node, bra_tensor = random_tensor_node((6,3),
+                                          identifier=node_id)
+        nodes = [ket_node, ham_node, bra_node]
+        for node in nodes:
+            node.open_leg_to_parent("parent", 0)
+        # Reference
+        ref_result = tensordot(ket_tensor,
+                               ham_tensor,
+                               axes=(1,2))
+        ref_result = tensordot(ref_result,
+                                 bra_tensor,
+                                 axes=(2,1))
+        # Found
+        found_result = contract_leaf(ket_node,
+                                     ket_tensor,
+                                     ham_node,
+                                     ham_tensor,
+                                     bra_node=bra_node,
+                                     bra_tensor=bra_tensor)
+        self.assertTrue(allclose(ref_result, found_result))
+
+    def test_no_bra(self):
+        """
+        Tests the contraction of a leaf node with an operator, where there
+        is no explicit bra tensor.
+        """
+        node_id = "node"
+        ket_node, ket_tensor = random_tensor_node((4,2),
+                                          identifier=node_id)
+        ham_node, ham_tensor = random_tensor_node((5,2,2),
+                                          identifier=node_id)
+        nodes = [ket_node, ham_node]
+        for node in nodes:
+            node.open_leg_to_parent("parent", 0)
+        # Reference
+        ref_result = tensordot(ket_tensor,
+                               ham_tensor,
+                               axes=(1,2))
+        ref_result = tensordot(ref_result,
+                                 ket_tensor.conj(),
+                                 axes=(2,1))
+        # Found
+        found_result = contract_leaf(ket_node,
+                                     ket_tensor,
+                                     ham_node,
+                                     ham_tensor)
+        self.assertTrue(allclose(ref_result, found_result))
+
+    def test_multiple_open_legs(self):
+        """
+        Tests the contraction of a leaf node with an operator, where the
+        nodes have multiple open legs.
+        """
+        node_id = "node"
+        ket_node, ket_tensor = random_tensor_node((6,2,3),
+                                          identifier=node_id)
+        ham_node, ham_tensor = random_tensor_node((7,4,5,2,3),
+                                          identifier=node_id)
+        bra_node, bra_tensor = random_tensor_node((8,4,5),
+                                          identifier=node_id)
+        nodes = [ket_node, ham_node, bra_node]
+        for node in nodes:
+            node.open_leg_to_parent("parent", 0)
+        # Reference
+        ref_result = tensordot(ket_tensor,
+                               ham_tensor,
+                               axes=([1,2],[3,4]))
+        ref_result = tensordot(ref_result,
+                                 bra_tensor,
+                                 axes=([2,3],[1,2]))
+        # Found
+        found_result = contract_leaf(ket_node,
+                                     ket_tensor,
+                                     ham_node,
+                                     ham_tensor,
+                                     bra_node=bra_node,
+                                     bra_tensor=bra_tensor)
+        self.assertTrue(allclose(ref_result, found_result))
+
+    def test_only_one_of_bra_given(self):
+        """
+        An exception is raised, if only one of the bra node or tensor is given.
+        """
+        node_id = "node"
+        ket_node, ket_tensor = random_tensor_node((6,2,3),
+                                          identifier=node_id)
+        ham_node, ham_tensor = random_tensor_node((7,4,5,2,3),
+                                          identifier=node_id)
+        bra_node, bra_tensor = random_tensor_node((8,4,5),
+                                          identifier=node_id)
+        self.assertRaises(ValueError,
+                          contract_leaf,
+                            ket_node,
+                            ket_tensor,
+                            ham_node,
+                            ham_tensor,
+                            bra_node=bra_node)
+        self.assertRaises(ValueError,
+                          contract_leaf,
+                            ket_node,
+                            ket_tensor,
+                            ham_node,
+                            ham_tensor,
+                            bra_tensor=bra_tensor)
 
 class TestContractOperatorTensorIgnoringOneLeg(TestCase):
     """
@@ -197,6 +318,39 @@ class TestContractOperatorTensorIgnoringOneLeg(TestCase):
                                                                  id_trafo=id_trafo)
         self.assertTrue(allclose(ref_result, found_result))
 
+    def test_multiple_open_legs(self):
+        """
+        Test the contraction, where the nodes have multiple open legs.
+        """
+        ket_id = "ket"
+        ket_node, _ = random_tensor_node((5,6,7,2,3,4),
+                                         identifier=ket_id)
+        operator_id = "operator"
+        op_node, op_tensor = random_tensor_node((10,6,8,2,3,4,2,3,4),
+                                                identifier=operator_id)
+        # Add other nodes
+        neighbours_ids = ["neighbour"+str(i) for i in range(3)]
+        ket_node.open_leg_to_child(neighbours_ids[0], 0)
+        ket_node.open_leg_to_child(neighbours_ids[1], 1)
+        ket_node.open_leg_to_child(neighbours_ids[2], 2)
+        op_node.open_leg_to_child(neighbours_ids[0], 0)
+        op_node.open_leg_to_child(neighbours_ids[1], 1)
+        op_node.open_leg_to_child(neighbours_ids[2], 2)
+        # Environment Tensor
+        current_tensor = crandn((5,2,3,4,6,9,8,7))
+        # Reference
+        ref_result = tensordot(current_tensor,
+                                 op_tensor,
+                                 axes=([1,2,3,4,6],[6,7,8,1,2]))
+        # Found
+        found_result = contract_operator_tensor_ignoring_one_leg(current_tensor,
+                                                                    ket_node,
+                                                                    op_tensor,
+                                                                    op_node,
+                                                                    neighbours_ids[0])
+        self.assertTrue(allclose(ref_result, found_result))
+
+
 class TestContractBraTensorIgnoreOneLeg(TestCase):
     """
     Test the function contract_bra_tensor_ignore_one_leg.
@@ -344,6 +498,38 @@ class TestContractBraTensorIgnoreOneLeg(TestCase):
                                                           id_trafo=id_trafo)
         self.assertTrue(allclose(ref_result, found_result))
 
+    def test_multiple_open_legs(self):
+        """
+        Test the contraction, where the nodes have multiple open legs.
+        """
+        ket_id = "ket"
+        ket_node, _ = random_tensor_node((5,6,7,2,3,4),
+                                         identifier=ket_id)
+        bra_id = "bra"
+        bra_node, bra_tensor = random_tensor_node((9,7,8,2,3,4),
+                                                  identifier=bra_id)
+        # Add other nodes
+        neighbour_ids = ["neighbour"+str(i) for i in range(3)]
+        ket_node.open_leg_to_child(neighbour_ids[0], 0)
+        ket_node.open_leg_to_child(neighbour_ids[1], 1)
+        ket_node.open_leg_to_child(neighbour_ids[2], 2)
+        bra_node.open_leg_to_child(neighbour_ids[0], 0)
+        bra_node.open_leg_to_child(neighbour_ids[1], 1)
+        bra_node.open_leg_to_child(neighbour_ids[2], 2)
+        # Environment Tensor
+        current_tensor = crandn((5,7,8,6,2,3,4))
+        # Reference
+        ref_result = tensordot(current_tensor,
+                               bra_tensor,
+                               axes=([4,5,6,1,2],[3,4,5,1,2]))
+        # Found
+        found_result = contract_bra_tensor_ignore_one_leg(bra_tensor,
+                                                          bra_node,
+                                                          current_tensor,
+                                                          ket_node,
+                                                          neighbour_ids[0])
+        self.assertTrue(allclose(ref_result, found_result))
+
 class TestContractSingleSiteOperatorEnv(TestCase):
     """
     Tests the function contract_single_site_operator_env.
@@ -424,6 +610,201 @@ class TestContractSingleSiteOperatorEnv(TestCase):
                                [0,1]))
         # Compare the results
         assert allclose(ref, found)
+
+class TestContractKetHamWithEnvs(TestCase):
+    """
+    Tests the function contract_ket_ham_with_envs.
+    """
+
+    def test_no_neighbours(self):
+        """
+        Tests the contraction of a ket with a Hamiltonian and the environments
+        when there are no neighbours, i.e. no environments.
+        """
+        ket_node, ket_tensor = random_tensor_node((2, ), identifier="ket")
+        ham_node, ham_tensor = random_tensor_node((3, 2), identifier="ham")
+        # Reference
+        ref = tensordot(ket_tensor,
+                        ham_tensor,
+                        axes=(0, 1))
+        # Found
+        found = contract_ket_ham_with_envs(ket_node,
+                                           ket_tensor,
+                                           ham_node,
+                                           ham_tensor,
+                                           PartialTreeCachDict())
+        self.assertTrue(allclose(ref, found))
+
+    def test_one_neighbour(self):
+        """
+        Tests the contraction of a ket with a Hamiltonian and the environments
+        when there is one neighbour, i.e. the node is a leaf.
+        """
+        node_id = "node"
+        ket_node, ket_tensor = random_tensor_node((6,2, ), identifier=node_id)
+        ham_node, ham_tensor = random_tensor_node((5,3,2), identifier=node_id)
+        neighbour_id = "neighbour"
+        ket_node.open_leg_to_parent(neighbour_id, 0)
+        ham_node.open_leg_to_child(neighbour_id, 0)
+        neighbour_tensor = crandn((6,5,4))
+        cache = PartialTreeCachDict()
+        cache.add_entry(neighbour_id,
+                        node_id,
+                        neighbour_tensor)
+        # Reference
+        ref = tensordot(ket_tensor,
+                        ham_tensor,
+                        axes=(1,2))
+        ref = tensordot(ref,
+                        neighbour_tensor,
+                        axes = ([0,1],[0,1]))
+        ref = ref.T # We want the result in the same order as the ket tensor
+        # Found
+        found = contract_ket_ham_with_envs(ket_node,
+                                           ket_tensor,
+                                           ham_node,
+                                           ham_tensor,
+                                           cache)
+        self.assertTrue(allclose(ref, found))
+        
+    def test_two_neighbours(self):
+        """
+        Tests the contraction of a ket with a Hamiltonian and the environments
+        when there are two neighbours, i.e. as in an MPS.
+        """
+        node_id = "node"
+        ket_node, ket_tensor = random_tensor_node((7,8,2, ), identifier=node_id)
+        ham_node, ham_tensor = random_tensor_node((5,6,2,2), identifier=node_id)
+        neighbour1_id = "neighbour1"
+        neighbour1_tensor = crandn((7,5,3))
+        neighbour2_id = "neighbour2"
+        neighbour2_tensor = crandn((8,6,4))
+        ket_node.open_leg_to_parent(neighbour1_id, 0)
+        ket_node.open_leg_to_child(neighbour2_id, 1)
+        ham_node.open_leg_to_child(neighbour1_id, 0)
+        ham_node.open_leg_to_child(neighbour2_id, 1)
+        cache = PartialTreeCachDict()
+        cache.add_entry(neighbour1_id,
+                        node_id,
+                        neighbour1_tensor)
+        cache.add_entry(neighbour2_id,
+                        node_id,
+                        neighbour2_tensor)
+        # Reference
+        ref = tensordot(ket_tensor,
+                        ham_tensor,
+                        axes=(2,3))
+        ref = tensordot(ref,
+                        neighbour1_tensor,
+                        axes=([0,2],[0,1]))
+        ref = tensordot(ref,
+                        neighbour2_tensor,
+                        axes=([0,1],[0,1]))
+        ref = ref.transpose([1,2,0])
+        # Found
+        found = contract_ket_ham_with_envs(ket_node,
+                                           ket_tensor,
+                                           ham_node,
+                                           ham_tensor,
+                                           cache)
+        self.assertTrue(allclose(ref, found))
+
+    def test_two_neighbours_mixed(self):
+        """
+        Test the contraction for a node with two neighbours, where they are
+        in a different order on the ket and Hamiltonian node.
+        """
+        node_id = "node"
+        ket_node, ket_tensor = random_tensor_node((7,8,2, ), identifier=node_id)
+        ham_node, ham_tensor = random_tensor_node((6,5,2,2), identifier=node_id)
+        neighbour1_id = "neighbour1"
+        neighbour1_tensor = crandn((7,5,3))
+        neighbour2_id = "neighbour2"
+        neighbour2_tensor = crandn((8,6,4))
+        ket_node.open_leg_to_parent(neighbour1_id, 0)
+        ket_node.open_leg_to_child(neighbour2_id, 1)
+        ham_node.open_leg_to_child(neighbour2_id, 0)
+        ham_node.open_leg_to_child(neighbour1_id, 1)
+        cache = PartialTreeCachDict()
+        cache.add_entry(neighbour1_id,
+                        node_id,
+                        neighbour1_tensor)
+        cache.add_entry(neighbour2_id,
+                        node_id,
+                        neighbour2_tensor)
+        # Reference
+        ref = tensordot(ket_tensor,
+                        ham_tensor,
+                        axes=(2,3))
+        ref = tensordot(ref,
+                        neighbour1_tensor,
+                        axes=([0,3],[0,1]))
+        ref = tensordot(ref,
+                        neighbour2_tensor,
+                        axes=([0,1],[0,1]))
+        ref = ref.transpose([1,2,0])
+        # Found
+        found = contract_ket_ham_with_envs(ket_node,
+                                           ket_tensor,
+                                           ham_node,
+                                           ham_tensor,
+                                           cache)
+        self.assertTrue(allclose(ref, found))
+
+    def test_three_neighbours(self):
+        """
+        Tests the contraction of a ket with a Hamiltonian and the environments
+        when there are three neighbours, i.e. as in a proper TTNS.
+        """
+        node_id = "node"
+        ket_node, ket_tensor = random_tensor_node((9,10,11,2, ),
+                                                  identifier=node_id)
+        ham_node, ham_tensor = random_tensor_node((6,7,8,2,2),
+                                                  identifier=node_id)
+        neighbour1_id = "neighbour1"
+        neighbour1_tensor = crandn((9,6,3))
+        neighbour2_id = "neighbour2"
+        neighbour2_tensor = crandn((10,7,4))
+        neighbour3_id = "neighbour3"
+        neighbour3_tensor = crandn((11,8,5))
+        ket_node.open_leg_to_parent(neighbour1_id, 0)
+        ket_node.open_leg_to_child(neighbour2_id, 1)
+        ket_node.open_leg_to_child(neighbour3_id, 2)
+        ham_node.open_leg_to_parent(neighbour1_id, 0)
+        ham_node.open_leg_to_child(neighbour2_id, 1)
+        ham_node.open_leg_to_child(neighbour3_id, 2)
+        cache = PartialTreeCachDict()
+        cache.add_entry(neighbour1_id,
+                        node_id,
+                        neighbour1_tensor)
+        cache.add_entry(neighbour2_id,
+                        node_id,
+                        neighbour2_tensor)
+        cache.add_entry(neighbour3_id,
+                        node_id,
+                        neighbour3_tensor)
+        # Reference
+        ref = tensordot(ket_tensor,
+                        ham_tensor,
+                        axes=(3,4))
+        ref = tensordot(ref,
+                        neighbour1_tensor,
+                        axes=([0,3],[0,1]))
+        ref = tensordot(ref,
+                        neighbour2_tensor,
+                        axes=([0,2],[0,1]))
+        ref = tensordot(ref,
+                        neighbour3_tensor,
+                        axes=([0,1],[0,1]))
+        ref = ref.transpose([1,2,3,0])
+        # Found
+        found = contract_ket_ham_with_envs(ket_node,
+                                           ket_tensor,
+                                           ham_node,
+                                           ham_tensor,
+                                           cache)
+        self.assertTrue(allclose(ref, found))
+
 
 if __name__ == "__main__":
     unitmain()

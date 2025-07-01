@@ -117,6 +117,19 @@ class PartialTreeCachDict(dict):
         """
         return super().__contains__((node_id, next_node_id))
 
+    def num_legs(self, node_id: str, next_node_id: str) -> int:
+        """
+        Returns the number of legs of the cached tensor.
+
+        Args:
+            node_id (str): The identifier where the subtree ends.
+            next_node_id (str): The identifier to which the open legs point.
+
+        Returns:
+            int: The number of legs of the cached tensor.
+        """
+        return self.get_entry(node_id,next_node_id).ndim
+
     def close_to(self, other: PartialTreeCachDict) -> bool:
         """
         Checks if the other cache is close to this cache.
