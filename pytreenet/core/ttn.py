@@ -48,6 +48,7 @@ from typing import Tuple, Callable, Union, List, Dict, Self
 from copy import copy, deepcopy
 from collections import UserDict
 from uuid import uuid1
+from uuid import uuid1
 
 import numpy as np
 from numpy import eye
@@ -107,6 +108,8 @@ class TensorDict(UserDict):
                 correct leg ordering. (parent_leg, children_legs, open_legs)
         """
         tensor = super().__getitem__(node_id)
+        node = self.nodes[node_id]
+        transposed_tensor = node.transpose_tensor(tensor)
         node = self.nodes[node_id]
         transposed_tensor = node.transpose_tensor(tensor)
         super().__setitem__(node_id, transposed_tensor)
@@ -648,19 +651,9 @@ class TreeTensorNetwork(TreeStructure):
             new_bond_dim (int): The new bond dimension to be set between all
                 neighbouring nodes.
         """
-        while True:
-            bonds_to_pad = []
-
-            for node_id, node in self.nodes.items():
-                if not node.is_root():
-                    parent_id = node.parent
-                    if self.bond_dim(node_id, parent_id) < new_bond_dim:
-                        bonds_to_pad.append((node_id, parent_id))
-
-            if not bonds_to_pad:
-                break
-
-            for node_id, parent_id in bonds_to_pad:
+        for node_id, node in self.nodes.items():
+            if not node.is_root():
+                parent_id = node.parent
                 if self.bond_dim(node_id, parent_id) < new_bond_dim:
                     self.pad_bond_dimension(node_id, parent_id, new_bond_dim)
 

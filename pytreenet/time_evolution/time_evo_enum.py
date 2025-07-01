@@ -11,7 +11,6 @@ from pytreenet.time_evolution.tdvp_algorithms.secondordertwosite import SecondOr
 from pytreenet.time_evolution.tebd import TEBD
 from pytreenet.time_evolution.fixed_bug import FixedBUG
 from pytreenet.time_evolution.bug import BUG
-from pytreenet.time_evolution.bug_algorithms.prbug import PRBUG
 
 class TimeEvoAlg(Enum):
     """
@@ -24,7 +23,6 @@ class TimeEvoAlg(Enum):
     TEBD = "tebd"
     FIXEDBUG = "fixedbug"
     BUG = "bug"
-    PRBUG = "prbug"
     EXACT = "exact"
 
     def ttn_method(self) -> bool:
@@ -46,16 +44,14 @@ class TimeEvoAlg(Enum):
         Returns True if the algorithm is a bug.
         """
         return self in {TimeEvoAlg.FIXEDBUG,
-                        TimeEvoAlg.BUG,
-                        TimeEvoAlg.PRBUG}
+                        TimeEvoAlg.BUG}
 
     def requires_svd(self) -> bool:
         """
         Returns True if the algorithm requires SVD.
         """
         return self in {TimeEvoAlg.SITE2ORDER2TDVP,
-                        TimeEvoAlg.BUG,
-                        TimeEvoAlg.PRBUG,}
+                        TimeEvoAlg.BUG}
 
     def get_class(self) -> type:
         """
@@ -73,8 +69,6 @@ class TimeEvoAlg(Enum):
             return FixedBUG
         if self is TimeEvoAlg.BUG:
             return BUG
-        if self is TimeEvoAlg.PRBUG:
-            return PRBUG
         if self is TimeEvoAlg.EXACT:
             return ExactTimeEvolution
         raise ValueError(f"Unknown time evolution algorithm: {self}")
