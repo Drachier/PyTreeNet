@@ -449,7 +449,7 @@ class TestMultiSiteHamiltonian(unittest.TestCase):
         op = "X"
         self.assertRaises(ValueError,create_multi_site_hamiltonian,
                           node_ids,op)
- 
+
     def test_invalid_operator_combination(self):
         """
         If the operator combination is of different length to the node
