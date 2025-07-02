@@ -65,6 +65,22 @@ class TestTensorProduct(unittest.TestCase):
     Test basic tensor product methods.
     """
 
+    def test_add_operator(self):
+        """
+        Test adding an operator to the tensor product.
+        """
+        tp = TensorProduct()
+        node1 = "node1"
+        op1 = "X"
+        tp.add_operator(node1, op1)
+        self.assertIn(node1, tp)
+        self.assertEqual(op1, tp[node1])
+        node2 = "node2"
+        op2 = "Y"
+        tp.add_operator(node2, op2)
+        self.assertIn(node2, tp)
+        self.assertEqual(op2, tp[node2])
+
     def test_num_sites(self):
         """
         Test the number of sites in a TensorProduct object.
