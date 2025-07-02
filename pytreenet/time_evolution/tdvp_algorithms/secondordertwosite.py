@@ -6,7 +6,6 @@ from typing import List, Union, Any
 
 from .twositetdvp import TwoSiteTDVP, TwoSiteTDVPConfig
 from .tdvp_algorithm import TDVPConfig
-from .tdvp_algorithm import TDVPConfig
 from ...ttns.ttns import TreeTensorNetworkState
 from ...ttno.ttno_class import TTNO
 from ...operators.tensorproduct import TensorProduct
@@ -19,7 +18,7 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
                  truncation_parameters: SVDParameters,
-                 config: Union[TDVPConfig,None] = None,
+                 config: Union[TwoSiteTDVPConfig,None] = None,
                  solver_options: Union[dict[str, Any], None] = None
                  ) -> None:
         """
@@ -35,26 +34,6 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
                 evolution.
             operators (Union[TensorProduct, List[TensorProduct]]): Operators
                 to be measured during the time-evolution.
-            truncation_parameters (Dict): A dictionary containing the
-                parameters used for truncation. The dictionary can define a
-                maximum bond dimension ('maximum_bond_dim'), a relative
-                tolerance ('rel_tol') and a total tolerance ('total_tol') to be
-                used during the truncation. For details see the documentation
-                of `tensor_util.truncate_singular_values`.
-            config (Union[TDVPConfig,None]): The configuration of
-                time evolution. Defaults to None.
-            solver_options (Union[Dict[str, Any], None], optional): Most time
-                evolutions algorithms use some kind of solver to resolve a
-                partial differential equation. This dictionary can be used to
-                pass additional options to the solver. Refer to the
-                documentation of `ptn.time_evolution.TimeEvoMode` for further
-                information. Defaults to None.
-                solver_options (Union[Dict[str, Any], None], optional): Most time
-                evolutions algorithms use some kind of solver to resolve a
-                partial differential equation. This dictionary can be used to
-                pass additional options to the solver. Refer to the
-                documentation of `ptn.time_evolution.TimeEvoMode` for further
-                information. Defaults to None.
             config (Union[TwoSiteTDVPConfig,None]): The configuration of
                 time evolution. Defaults to None.
             solver_options (Union[Dict[str, Any], None], optional): Most time
@@ -72,7 +51,6 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
         """
         super().__init__(initial_state, hamiltonian,
                          time_step_size, final_time, operators,
-                         truncation_parameters,
                          config=config,
                          solver_options=solver_options)
         self.backwards_update_path = self._init_second_order_update_path()
