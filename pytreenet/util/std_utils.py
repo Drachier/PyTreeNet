@@ -174,3 +174,26 @@ def fast_exp_action(exponent: np.ndarray,
         return vector
     errstr = mode + " is not a possible mode for exponent action!"
     raise NotImplementedError(errstr)
+
+def postivise_range(rng: range, size: int) -> range:
+    """
+    Postivise a range object. i.e. convert negative indices to
+    positive indices with respect to the given size.
+
+    Args:
+        rng (range): The range object to postivise.
+        size (int): The size with respect to which the range should be
+          postivised. This is usually the number of legs of a node.
+
+    Returns:
+        range: The postivised range object.
+    """
+    if rng.start < 0:
+        start = size + rng.start
+    else:
+        start = rng.start
+    if rng.stop < 0:
+        stop = size + rng.stop
+    else:
+        stop = rng.stop
+    return range(start, stop, rng.step)
