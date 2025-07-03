@@ -141,3 +141,57 @@ def create_single_site_hamiltonian(structure: Union[TreeStructure,List[str]],
     return Hamiltonian(terms,
                        conversion_dictionary=conversion_dict,
                        coeffs_mapping=coeffs_mapping)
+
+def create_multi_site_hamiltonian(structure: list[list[str]],
+                                  operators: list[str] | str,
+                                  factor: tuple[Fraction, str] = (Fraction(1),"1"),
+                                  conversion_dict: dict[str, ndarray] | None = None,
+                                  coeffs_mapping: dict[str, complex] | None = None
+                                  ) -> Hamiltonian:
+    """
+    Create a multi site hamiltonian.
+
+    Args:
+        structure (list[list[str]]): A list of node identifier combinations.
+            For every combination a term of local operators will be created.
+        operators (list[str] | str): The local operators to be applied. If a
+            list, then the operators are applied to the nodes in the order of
+            this list and the identifiers order. If only one operator, this
+            operator will be applied to all nodes.
+        factor (tuple[Fraction, str]): An optional factor to be associated to
+            every term. Defaults to `(Fraction(1), "1")`.
+        conversion_dict (dict[str, ndarray]): Will be added to the Hamiltonian
+            if supplied. Otherwise it will be empty.
+        coeffs_mapping: (dict[str, ndarray]): Will be added to the Hamiltonian
+            if supplied. Otherwise it will be empty.
+
+    Returns:
+        Hamiltonian: The desired multi-site Hamiltonian.
+
+    Raises:
+        ValueError: If the different structure terms are not of the same length
+            or the operator combination is of different length to the
+            structure.
+    
+    """
+    op_length = len(structure[0])
+    if isinstance(operators, str):
+        operators = op_length * [operators]
+    else:
+        if len(operators) != op_length:
+            errstr = "Operator and supplied structre are incompatible!"
+            raise ValueError(errstr)
+    if conversion_dict is None:
+        conversion_dict = {}
+    if coeffs_mapping is None:
+        coeffs_mapping = {}
+    ham = Hamiltonian(conversion_dictionary=conversion_dict,
+                      coeffs_mapping=coeffs_mapping)
+    for combi in structure:
+        if len(combi) != op_length:
+            raise ValueError
+        term = TensorProduct()
+        for i, node_id in enumerate(combi):
+            term.add_operator(node_id, operators[i])
+        ham.add_term((factor[0], factor[1], term))
+    return ham
