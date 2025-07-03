@@ -6,7 +6,7 @@ from numpy import ndarray
 
 from .graph_node import (GraphNode,
                          find_child_permutation_neighbour_index)
-from ..util.std_utils import permute_iterator
+from ..util.std_utils import permute_iterator, postivise_range
 from ..util.ttn_exceptions import NotCompatibleException
 
 
@@ -335,6 +335,11 @@ class Node(GraphNode):
         if open_1.step != 1 or open_2.step != 1:
             errstr = "Cannot exchange open legs with non-continuous ranges!"
             raise ValueError(errstr)
+        # Deal with negative indices
+        nlegs = self.nlegs()
+        open_1 = postivise_range(open_1, nlegs)
+        open_2 = postivise_range(open_2, nlegs)
+        # Ensure that open_1 is the first one
         if open_2.start < open_1.start:
             open_1, open_2 = open_2, open_1
         if open_1.start < self.nvirt_legs():
