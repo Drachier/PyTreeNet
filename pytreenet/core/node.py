@@ -332,7 +332,6 @@ class Node(GraphNode):
                 overlap.
 
         """
-        print(self._leg_permutation)
         if open_1.step != 1 or open_2.step != 1:
             errstr = "Cannot exchange open legs with non-continuous ranges!"
             raise ValueError(errstr)
@@ -348,9 +347,7 @@ class Node(GraphNode):
                    for _ in open_2]
         values1 = [self._leg_permutation.pop(open_1.start)
                    for _ in open_1]
-        print(self._leg_permutation)
         self._leg_permutation[open_1.start:open_1.start] = values2
-        print(self._leg_permutation)
         difference = open_2.start - open_1.stop
         new_position = open_1.start + len(open_2) + difference
         self._leg_permutation[new_position:new_position] = values1
