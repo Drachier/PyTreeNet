@@ -7,7 +7,7 @@ the most common decompositions used in tensor networks and implemented.
 While the QR-Decomposition is faster, the SVD allows for a truncation of the
 bond dimension, by discarding sufficiently small singular values.
 """
-from typing import Tuple, Union
+from typing import Tuple, Union, Optional
 from enum import Enum
 from warnings import warn
 from dataclasses import dataclass
@@ -16,6 +16,18 @@ import numpy as np
 
 from .tensor_util import tensor_matricization
 from .ttn_exceptions import positivity_check
+
+class TruncationLevel(Enum):
+    """
+    Enum for different SVD truncation strategy levels.
+    
+    RIGOROUS: High accuracy settings (tight tolerances, high bond dimensions)
+    BALANCED: Moderate settings balancing accuracy and performance  
+    FAST: Performance-optimized settings (loose tolerances, lower bond dimensions)
+    """
+    RIGOROUS = "rigorous"
+    BALANCED = "balanced"
+    FAST = "fast"
 
 class SplitMode(Enum):
     """
@@ -203,6 +215,8 @@ class SVDParameters:
                 \sum_{i=K}^{r} (s_i / ||s|| )^2 < \text{total_tol}^2
             
             where r is the number of singular values. Defaults to False.
+        truncation_level (TruncationLevel, optional): lebel the
+            truncation rate for analysis.
         
     """
     max_bond_dim: int = 100
@@ -211,6 +225,7 @@ class SVDParameters:
     renorm: bool = False
     sum_trunc: bool = False
     sum_renorm: bool = True
+    truncation_level: Optional[TruncationLevel] = None
 
     def __post_init__(self):
         """
