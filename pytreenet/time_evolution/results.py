@@ -67,14 +67,14 @@ class Results:
         """
         if self.is_initialized():
             raise ValueError("Results object is already initialized!")
-        self.results[TIMES_ID] = np.zeros((num_time_steps,),
+        self.results[TIMES_ID] = np.zeros((num_time_steps + 1,),
                                                   dtype=np.float64)
         for operator, dtype in operators.items():
             if isinstance(operator, int):
                 raise ValueError("Operator names mustn't be integers!")
             if dtype is None:
                 dtype = np.complex128
-            self.results[operator] = np.zeros((num_time_steps,),
+            self.results[operator] = np.zeros((num_time_steps + 1,),
                                                       dtype=dtype)
 
     def set_attribute(self,
@@ -212,7 +212,7 @@ class Results:
         """
         self.not_initialized_error()
         if operators is None:
-            operators = list(self.results.keys())
+            operators = self.results.keys()
         out = np.zeros_like(self.results[operators[0]],
                             shape=(len(operators),
                                      len(self.results[operators[0]])),

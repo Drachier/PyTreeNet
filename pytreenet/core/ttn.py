@@ -48,7 +48,6 @@ from typing import Tuple, Callable, Union, List, Dict, Self
 from copy import copy, deepcopy
 from collections import UserDict
 from uuid import uuid1
-from uuid import uuid1
 
 import numpy as np
 from numpy import eye
@@ -662,10 +661,6 @@ class TreeTensorNetwork(TreeStructure):
                 break
 
             for node_id, parent_id in bonds_to_pad:
-
-        for node_id, node in self.nodes.items():
-            if not node.is_root():
-                parent_id = node.parent
                 if self.bond_dim(node_id, parent_id) < new_bond_dim:
                     self.pad_bond_dimension(node_id, parent_id, new_bond_dim)
 
