@@ -62,6 +62,33 @@ class StarTreeTensorNetwork(TreeTensorNetwork):
         Creates the identifier of the node at the specified coordinates.
         """
         return f"{self.non_center_prefix}{chain_index}_{index_on_chain}"
+    
+    def node_id(self,
+                chain_index: int | None,
+                index_on_chain: int | None
+                ) -> str:
+        """
+        Returns the identifiier of the node at the specified coordinates.
+
+        Args:
+            chain_index (int | None): The index of the chain. If None, the
+                central node identifier will be returned.
+            index_on_chain (int | None): The index of the node on the chain.
+                If None, the central node identifier will be returned.
+
+        Returns:
+            str: The identifier of the node.
+        
+        Raises:
+            IndexError: If either index is out of bounds.
+        """
+        if chain_index is None or index_on_chain is None:
+            return self.central_node_id
+        if chain_index >= self.num_chains():
+            raise IndexError("Chain index is out of bounds!")
+        if index_on_chain >= self.chain_length(chain_index):
+            raise IndexError("Index on chain is out of bounds!")
+        return self.chains[chain_index][index_on_chain].identifier
 
     def num_chains(self) -> int:
         """

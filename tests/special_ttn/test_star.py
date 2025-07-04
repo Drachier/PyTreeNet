@@ -234,6 +234,6 @@ class TestStarTreeTensorNetworkFromTensorLists(TestCase):
                         centre_tensor,
                         tensors=[chain_tensors],
                         identifiers=[identifiers])
-                        
+
 if __name__ == "__main__":
     main()
