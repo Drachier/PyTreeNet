@@ -15,38 +15,13 @@ from copy import copy
 from .leg_specification import LegSpecification
 from .node import Node
 from ..util.tensor_splitting import SplitMode
+from ..util.tensor_splitting import SVDParameters
+from typing import TYPE_CHECKING
+from copy import deepcopy
 
-def canonical_form(ttn: TreeTensorNetwork,
-                   orthogonality_center_id: str,
-                   mode: SplitMode = SplitMode.REDUCED):
-    """
-    Modifies a TreeTensorNetwork into canonical form.
+if TYPE_CHECKING:
+    from ..ttns import TreeTensorNetwork
 
-    Args:
-        ttn (TreeTensorNetwork): The TTN for which to be transformed into
-            canonical form.
-        orthogonality_center_id (str): The identifier of the tensor node which
-            is the orthogonality center for the canonical form.
-        mode: The mode to be used for the QR decomposition. For details refe
-            to `tensor_util.tensor_qr_decomposition`.
-    """
-    distance_dict = ttn.distance_to_node(
-        orthogonality_center_id)
-    maximum_distance = max(distance_dict.values())
-    # Perform QR-decomposition on all TensorNodes but the orthogonality center
-    for distance in reversed(range(1, maximum_distance+1)):
-        # Perform QR on nodes furthest away first.
-        node_id_with_distance = [node_id for node_id in distance_dict.keys()
-                                 if distance_dict[node_id] == distance]
-        for node_id in node_id_with_distance:
-            node = ttn.nodes[node_id]
-            minimum_distance_neighbour_id = _find_smallest_distance_neighbour(node,
-                                                                              distance_dict)
-            split_qr_contract_r_to_neighbour(ttn,
-                                             node_id,
-                                             minimum_distance_neighbour_id,
-                                             mode=mode)
-    ttn.orthogonality_center_id = orthogonality_center_id
 
 def _find_smallest_distance_neighbour(node: Node,
                                       distance_dict: dict[str, int]) -> str:
@@ -69,41 +44,8 @@ def _find_smallest_distance_neighbour(node: Node,
                                         key=neighbour_distance_dict.get)
     return minimum_distance_neighbour_id
 
-def split_qr_contract_r_to_neighbour(ttn: TreeTensorNetwork,
-                                     node_id: str,
-                                     neighbour_id: str,
-                                     mode: SplitMode = SplitMode.REDUCED):
-    """
-    Takes a node an splits of the virtual leg to a neighbours via QR
-     decomposition. The resulting R tensor is contracted with the neighbour.::
 
-         __|__      __|__        __|__      __      __|__
-      __|  N1 |____|  N2 | ---> | N1' |____|__|____|  N2 |
-        |_____|    |_____|      |_____|            |_____|
-
-                __|__      __|__ 
-      --->   __| N1' |____| N2' |
-               |_____|    |_____|
-
-    Args:
-        ttn (TreeTensorNetwork): The tree tensor network in which to perform
-            this action.
-        node_id (str): The identifier of the node to be split.
-        neighbour_id (str): The identifier of the neigbour to which to split.
-        mode: The mode to be used for the QR decomposition. For details refer to
-            `tensor_util.tensor_qr_decomposition`.
-    """
-    node = ttn.nodes[node_id]
-    q_legs, r_legs = _build_qr_leg_specs(node, neighbour_id)
-    r_tensor_id = str(uuid1()) # Avoid identifier duplication
-    ttn.split_node_qr(node_id, q_legs, r_legs,
-                        q_identifier=node_id,
-                        r_identifier=r_tensor_id,
-                        mode=mode)
-    ttn.contract_nodes(neighbour_id, r_tensor_id,
-                        new_identifier=neighbour_id)
-
-def _build_qr_leg_specs(node: Node,
+def _build_leg_specs(node: Node,
                         min_neighbour_id: str) -> Tuple[LegSpecification,LegSpecification]:
     """
     Construct the leg specifications required for the qr decompositions during
@@ -130,3 +72,135 @@ def _build_qr_leg_specs(node: Node,
     if node.is_root():
         q_legs.is_root = True
     return q_legs, r_legs
+
+
+def split_qr_contract_r_to_neighbour(ttn: TreeTensorNetwork,
+                                     node_id: str,
+                                     neighbour_id: str,
+                                     mode: SplitMode = SplitMode.REDUCED,
+                                     preserve_legs_order: bool = False) -> None:
+    """
+    Takes a node an splits of the virtual leg to a neighbours via QR
+     decomposition. The resulting R tensor is contracted with the neighbour.::
+
+         __|__      __|__        __|__      __      __|__
+      __|  N1 |____|  N2 | ---> | N1' |____|__|____|  N2 |
+        |_____|    |_____|      |_____|            |_____|
+
+                __|__      __|__ 
+      --->   __| N1' |____| N2' |
+               |_____|    |_____|
+
+    Args:
+        ttn (TreeTensorNetwork): The tree tensor network in which to perform
+            this action.
+        node_id (str): The identifier of the node to be split.
+        neighbour_id (str): The identifier of the neigbour to which to split.
+        mode: The mode to be used for the QR decomposition. For details refer to
+            `tensor_util.tensor_qr_decomposition`.
+        preserve_legs_order (bool): If True, the leg permutation of sites corresponding to Q and R are updated 
+                                    such that the order of neighbours are preserved after beinng called.
+    """
+    if preserve_legs_order:
+        children_dict = {node_id      : deepcopy(ttn.nodes[node_id].children)}
+        children_dict[neighbour_id] = deepcopy(ttn.nodes[neighbour_id].children)
+
+    node = ttn.nodes[node_id]
+    q_legs, r_legs = _build_leg_specs(node, neighbour_id)
+    r_tensor_id = str(uuid1()) # Avoid identifier duplication
+    ttn.split_node_qr(node_id, q_legs, r_legs,
+                        q_identifier=node_id,
+                        r_identifier=r_tensor_id,
+                        mode=mode)
+    ttn.contract_nodes(neighbour_id, r_tensor_id,
+                        new_identifier=neighbour_id)
+    if preserve_legs_order:   
+        ttn.update_children_and_leg_permutation(node_id, children_dict[node_id])
+        ttn.update_children_and_leg_permutation(neighbour_id, children_dict[neighbour_id]) 
+
+def split_svd_contract_sv_to_neighbour(ttn: TreeTensorNetwork,
+                                     node_id: str,
+                                     neighbour_id: str,
+                                     svd_params: SVDParameters,
+                                     preserve_legs_order: bool = False) -> None:
+    """ 
+    Takes a node and splits of the virtual leg to a neighbours via SVD
+     decomposition. The resulting S and V tensors are contracted with the neighbour.::
+    Args:
+        ttn (TreeTensorNetwork): The tree tensor network in which to perform
+            this action.
+        node_id (str): The identifier of the node to be split.
+        neighbour_id (str): The identifier of the neigbour to which to split.
+        svd_params (SVDParameters): Parameters for the SVD decomposition.
+        preserve_legs_order (bool): If True, the leg permutation of sites corresponding to U and V are updated 
+                                    such that the order of neighbours are preserved after beinng called.
+    """           
+
+    if preserve_legs_order:
+        children_dict = {node_id      : deepcopy(ttn.nodes[node_id].children)}
+        children_dict[neighbour_id] = deepcopy(ttn.nodes[neighbour_id].children)
+
+    node = ttn.nodes[node_id]
+    u_legs, v_legs = _build_leg_specs(node, neighbour_id)
+    r_tensor_id = str(uuid1()) # Avoid identifier duplication
+    ttn.split_node_svd(node_id ,
+                        u_legs = u_legs,
+                        v_legs = v_legs,
+                       u_identifier = node_id, 
+                       v_identifier = r_tensor_id,
+                       svd_params = svd_params)
+    ttn.contract_nodes(neighbour_id, r_tensor_id,
+                        new_identifier=neighbour_id)
+    
+    if preserve_legs_order:
+        ttn.update_children_and_leg_permutation(node_id, children_dict[node_id])
+        ttn.update_children_and_leg_permutation(neighbour_id, children_dict[neighbour_id]) 
+
+def canonical_form(ttn: TreeTensorNetwork,
+                   orthogonality_center_id: str,
+                   split_function = split_qr_contract_r_to_neighbour,
+                   nodes_to_process: list = None,
+                   **kwargs):
+    """
+    Modifies a TreeTensorNetwork into canonical form.
+
+    Args:
+        ttn (TreeTensorNetwork): The TTN for which to be transformed into
+            canonical form.
+        orthogonality_center_id (str): The identifier of the tensor node which
+            is the orthogonality center for the canonical form.
+        split_function: The function to use for splitting nodes (QR or SVD).
+            Defaults to split_qr_contract_r_to_neighbour.
+        nodes_to_process: Optional list of node IDs to normalize. If provided,
+            only these nodes will be normalized.
+        **kwargs: Additional keyword arguments that are passed to the split function.
+            Common parameters include:
+            - preserve_legs_order (bool) : If True, enforces the order of leg to be preserved after the split operation.
+            - mode: The mode to use for QR decomposition (when using split_qr_contract_r_to_neighbour).
+            - svd_params: SVD parameters for SVD-based decomposition (when using split_svd_contract_sv_to_neighbour).
+    """
+    # Get full distance dictionary for all nodes
+    full_distance_dict = ttn.distance_to_node(orthogonality_center_id)
+    
+    # Determine which nodes to process
+    nodes_to_process = nodes_to_process if nodes_to_process is not None else full_distance_dict.keys()
+    
+    # Get maximum distance only for nodes we want to process
+    process_distances = [full_distance_dict[node_id] for node_id in nodes_to_process]
+    maximum_distance = max(process_distances) if process_distances else 0
+    
+    # Perform decomposition on selected nodes
+    for distance in reversed(range(1, maximum_distance + 1)):
+        # Only process nodes that are in our explicit list (or all nodes if no list provided)
+        node_id_with_distance = [node_id for node_id in nodes_to_process
+                               if full_distance_dict[node_id] == distance]
+        
+        for node_id in node_id_with_distance:
+            node = ttn.nodes[node_id]
+            minimum_distance_neighbour_id = _find_smallest_distance_neighbour(node,
+                                                                           full_distance_dict)
+            
+            split_function(ttn, node_id, minimum_distance_neighbour_id, **kwargs)
+
+    ttn.orthogonality_center_id = orthogonality_center_id
+

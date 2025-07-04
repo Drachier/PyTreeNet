@@ -2,6 +2,7 @@
 Implements the class for the second order two-site TDVP algorithm.
 """
 from typing import List, Union, Any
+from typing import List, Union, Any
 
 from .twositetdvp import TwoSiteTDVP, TwoSiteTDVPConfig
 from .tdvp_algorithm import TDVPConfig
