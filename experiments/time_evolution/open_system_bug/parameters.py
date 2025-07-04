@@ -65,7 +65,7 @@ def generate_parameter(ttn_structure: TTNStructure,
     init_bond_dim = 4
 
     time_evo_modes = [TimeEvoMode.RK45, TimeEvoMode.RK23]
-    evo_algs = [TimeEvoAlg.PRBUG] 
+    evo_algs = [TimeEvoAlg.SRBUG] 
 
     atol = 1e-8
     rtol = 1e-8

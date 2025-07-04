@@ -22,14 +22,14 @@ from ..time_evo_util.bug_util import (basis_change_tensor_id,
 from ..ttn_time_evolution import TTNTimeEvolutionConfig
 
 @dataclass
-class PRBUGConfig(TTNTimeEvolutionConfig, SVDParameters):
+class SRBUGConfig(TTNTimeEvolutionConfig, SVDParameters):
     """
-    The configuration class for the Parallel Recursive BUG methods.
+    The configuration class for the Sequential Recursive BUG methods.
 
     Attributes:
         deep (bool): Whether to use deepcopies of the TTNS during the update.
             If False, only the relevant nodes are copied at each point.
-        fixed_rank (bool): Whether to use the fixed rank RBBUG or the standard PRBUG.
+        fixed_rank (bool): Whether to use the fixed rank RBBUG or the standard SRBUG.
     """
     deep: bool = False
     fixed_rank: bool = False
@@ -37,10 +37,10 @@ class PRBUGConfig(TTNTimeEvolutionConfig, SVDParameters):
     split_mode: SplitMode = SplitMode.REDUCED
 
 
-class PRBUG(TTNTimeEvolution):
+class SRBUG(TTNTimeEvolution):
     """
-    The PRBUG method for time evolution of tree tensor networks.
-    PRBUG stands for Parallel Recursive Basis-Update and Galerkin. This class
+    The SRBUG method for time evolution of tree tensor networks.
+    SRBUG stands for Sequential Recursive Basis-Update and Galerkin. This class
     implements the rank-adaptive version introduced in https://www.doi.org/10.1137/22M1473790.
 
     Args:
@@ -63,7 +63,7 @@ class PRBUG(TTNTimeEvolution):
             information. Defaults to None.
 
     """
-    config_class = PRBUGConfig
+    config_class = SRBUGConfig
 
     def __init__(self,
                  initial_state: Union[SymmetricTTNDO, BINARYTTNDO],
@@ -74,7 +74,7 @@ class PRBUG(TTNTimeEvolution):
                                   Dict[str, Union[TensorProduct, TreeTensorNetworkOperator]],
                                   TensorProduct,
                                   TreeTensorNetworkOperator],
-                 config: Union[PRBUGConfig, None] = None,
+                 config: Union[SRBUGConfig, None] = None,
                  solver_options: Union[dict[str, Any], None] = None
                  ) -> None:
         """
@@ -108,7 +108,7 @@ class PRBUG(TTNTimeEvolution):
         self.hamiltonian = hamiltonian
         self.state : TreeTensorNetworkState
         self.state.ensure_root_orth_center()
-        self.config: PRBUGConfig
+        self.config: SRBUGConfig
         self.new_state = None 
         self.cache = SandwichCache(state=None,hamiltonian=None)
 
@@ -122,7 +122,7 @@ class PRBUG(TTNTimeEvolution):
 
     def run_one_time_step(self, **kwargs):
         """
-        Runs one time step of the PRBUG method.
+        Runs one time step of the SRBUG method.
 
         Args:
             kwargs: Additional keyword arguments for the time step.
@@ -145,7 +145,7 @@ class PRBUG(TTNTimeEvolution):
                          node_id: str,
                          parent_id: str):
         """
-        Updates a leaf node according to the fixed rank PRBUG.
+        Updates a leaf node according to the fixed rank SRBUG.
 
         Args:
             node_id (str): The id of the node to be updated.
@@ -206,7 +206,7 @@ class PRBUG(TTNTimeEvolution):
                              node_id: str,
                              parent_id: str):
         """
-        Updates a non-leaf node according to the fixed rank PRBUG.
+        Updates a non-leaf node according to the fixed rank SRBUG.
 
         Args:
             node_id (str): The id of the node to be updated.
@@ -279,7 +279,7 @@ class PRBUG(TTNTimeEvolution):
                     node_id: str,
                     parent_id: str):
         """
-        Updates a node according to the fixed rank PRBUG.
+        Updates a node according to the fixed rank SRBUG.
 
         Args:
             node_id (str): The id of the node to be updated.
@@ -307,7 +307,7 @@ class PRBUG(TTNTimeEvolution):
     def root_update(self,
                     Initial_state: Union[SymmetricTTNDO, BINARYTTNDO]):
         """
-        Updates the root node of the state according to the fixed rank PRBUG.
+        Updates the root node of the state according to the fixed rank SRBUG.
 
         Args:
             Initial_state (Union[SymmetricTTNDO, BINARYTTNDO]): The current state of the system
