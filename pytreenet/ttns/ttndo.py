@@ -338,7 +338,7 @@ def symmetric_ttndo_from_binary_ttns(ttns: TreeTensorNetworkState,
                                            )
     # Now we need to attach the children
     _rec_add_children(ttns, ttndo, root_node)
-    return ttns, ttndo
+    return ttndo
 
 def symmetric_ttndo_for_product_State(num_phys: int,
                                       bond_dim: int, 
