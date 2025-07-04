@@ -646,6 +646,73 @@ def contract_bra_tensor_ignore_one_leg(bra_tensor: np.ndarray,
     legs_bra_tensor.extend(_node_state_phys_leg(bra_node))
     return np.tensordot(ketopblock_tensor, bra_tensor,
                         axes=(legs_tensor, legs_bra_tensor))
+    
+def contract_ket_tensor_ignoring_one_leg(current_tensor: np.ndarray,
+                                              op_node: Node,
+                                              ket_tensor: np.ndarray,
+                                              ket_node: Node,
+                                              ignoring_node_id: str,
+                                              id_trafo: Union[Callable,None] = None
+                                              ) -> np.ndarray:
+    """
+    Contracts the ket tensor with the current operator block tensor.
+
+    The current tensor is the operator block tensor of this node to which all but
+    one neighbour blocks are already contracted. The blocks are the already
+    contracted subtrees starting from this node. The subtree that is not
+    contracted is the one that the remaining legs point towards.
+    
+    Args:
+        current_tensor (np.ndarray): The current operator block tensor.
+        op_node (Node): The operator node.
+        ket_tensor (np.ndarray): The ket tensor.
+        ket_node (Node): The ket node.
+        ignoring_node_id (str): The identifier of the node to which the
+            virtual leg should not point.
+        id_trafo (Union[Callable,None], optional): A function that transforms
+            the node identifier of the ket neighours to the identifiers of the
+            operator node's neighbours. If None, the identity is assumed.
+
+    Returns:
+        np.ndarray: The contracted tensor::
+    
+                        
+                                    ______
+                                   |      |
+                            _______|      |
+                            1,2,3..|      |
+                           |       |      |
+              nneighbour+1 |       |      |
+                         __|__     |      |
+                    ____|     |____|      |
+            nneighbour  |  H  |    |  C   |
+                        |_____|    |      |
+                           |       |      |
+                           |       |      |
+                         __|__     |      |
+                    ____|     |____|      |
+                     0  |  A  |    |      |
+                        |_____|    |______|
+    
+    
+    """
+    _, ket_legs = get_equivalent_legs(op_node, ket_node,
+                                     [ignoring_node_id],
+                                     id_trafo=id_trafo)
+    # Due to the legs to the bra tensor, the legs of the current tensor are a
+    # bit more complicated
+    tensor_legs = list(range(3,2*ket_node.nneighbours(),2))
+    # Adding the physical legs
+    tensor_legs.append(2)
+    ket_legs.append(-1)
+   
+    result= np.tensordot(current_tensor, ket_tensor,
+                        axes=(tensor_legs, ket_legs))
+    permutation = [ket_node.nneighbours()+1] + list(range(2,ket_node.nneighbours()+1))+[0,1]
+    
+    result = np.transpose(result, permutation)
+    return result
+
 
 def single_node_expectation_value(node: Node,
                                   ket_tensor: np.ndarray,
