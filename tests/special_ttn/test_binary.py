@@ -2,10 +2,11 @@ import unittest
 from numpy import allclose, count_nonzero, isclose, array, ndarray, nonzero, testing
 from pytreenet.special_ttn.binary import generate_binary_ttns
 from pytreenet.operators.common_operators import ket_i
+from pytreenet.special_ttn.binary import PHYS_PREFIX
 
 def is_virtual_node(node_id: str) -> bool:
     """Check if a node is a virtual node (not a physical node)."""
-    return not node_id.startswith("qubit")
+    return not node_id.startswith(PHYS_PREFIX)
 
 
 def has_sparse_identity(tensor: ndarray) -> bool:

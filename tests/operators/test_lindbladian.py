@@ -325,8 +325,7 @@ class TestAgainstExact(TestCase):
         local_tensor[0,:] = local_state
         ttns = generate_binary_ttns(self.num_qubits,
                                     bond_dim,
-                                    local_tensor,
-                                    phys_prefix="qubit"
+                                    local_tensor
                                     )
         self.ttndo = symmetric_ttndo_from_binary_ttns(ttns)
 

@@ -1,6 +1,8 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
+from ..ttns.ttndo import BRA_SUFFIX, KET_SUFFIX
+from .binary import PHYS_PREFIX, VIRTUAL_PREFIX
 
 def visualize_binary_ttns(ttns, title=None, curved_edges=True, save_path=None, layout_type="hierarchical", simplified_labels=False):
     """
@@ -26,7 +28,7 @@ def visualize_binary_ttns(ttns, title=None, curved_edges=True, save_path=None, l
     # Add all nodes to the graph and organize by level
     for node_id, node in ttns.nodes.items():
         # Determine node type
-        is_physical = "site" in node_id or "qubit" in node_id
+        is_physical = PHYS_PREFIX in node_id
         is_root = node_id == ttns.root_id
         
         # Add node with attributes
@@ -40,7 +42,7 @@ def visualize_binary_ttns(ttns, title=None, curved_edges=True, save_path=None, l
         else:
             # Extract level from node ID (format: nodeX_Y)
             try:
-                level = int(node_id.split('_')[0].replace('node', ''))
+                level = int(node_id.split('_')[0].replace(VIRTUAL_PREFIX, ''))
             except (ValueError, IndexError):
                 level = -1
         
@@ -64,7 +66,7 @@ def visualize_binary_ttns(ttns, title=None, curved_edges=True, save_path=None, l
     
     # Helper function to extract node index
     def extract_node_index(node_id):
-        if "site" in node_id or "qubit" in node_id:
+        if PHYS_PREFIX in node_id:
             try:
                 return int(''.join(filter(str.isdigit, node_id)))
             except ValueError:
@@ -216,7 +218,7 @@ def visualize_binary_ttns(ttns, title=None, curved_edges=True, save_path=None, l
     if simplified_labels:
         labels = {}
         for node_id in G.nodes():
-            if "site" in node_id or "qubit" in node_id:
+            if PHYS_PREFIX in node_id:
                 # Extract only the numeric part for physical nodes
                 labels[node_id] = ''.join(filter(str.isdigit, node_id))
             else:
@@ -224,7 +226,7 @@ def visualize_binary_ttns(ttns, title=None, curved_edges=True, save_path=None, l
                 try:
                     base_parts = node_id.split('_')
                     if len(base_parts) >= 2:
-                        level = base_parts[0].replace('node', '')
+                        level = base_parts[0].replace(VIRTUAL_PREFIX, '')
                         idx = base_parts[1]
                         labels[node_id] = f"{level}_{idx}"
                     else:
@@ -288,11 +290,11 @@ def visualize_binary_ttndo(ttndo, title=None, save_path=None, layout_type="radia
     # Add all nodes to the graph and organize by level
     for node_id, node in ttndo.nodes.items():
         # Determine if this is a physical node (by convention)
-        is_physical = "qubit" in node_id or "site" in node_id
+        is_physical = PHYS_PREFIX in node_id 
         
         # Determine if this is a bra or ket node
-        is_bra = "_bra" in node_id
-        is_ket = "_ket" in node_id
+        is_bra = BRA_SUFFIX in node_id
+        is_ket = KET_SUFFIX in node_id
         is_root = node_id == ttndo.root_id # Check if root
         
         # Add node with attributes
@@ -314,8 +316,8 @@ def visualize_binary_ttndo(ttndo, title=None, save_path=None, layout_type="radia
             # For virtual nodes, extract level from ID (format: "nodeX_Y_bra" or "nodeX_Y_ket")
             try:
                 # Remove bra/ket suffix for level extraction
-                base_id = node_id.replace("_bra", "").replace("_ket", "")
-                level = int(base_id.split('_')[0].replace('node', ''))
+                base_id = node_id.replace(BRA_SUFFIX, "").replace(KET_SUFFIX, "")
+                level = int(base_id.split('_')[0].replace(VIRTUAL_PREFIX, ''))
             except (ValueError, IndexError):
                 # If can't determine level, use a default
                 level = -1
@@ -327,7 +329,7 @@ def visualize_binary_ttndo(ttndo, title=None, save_path=None, layout_type="radia
         
         # Find and store bra-ket pairs
         if is_bra:
-            ket_id = node_id.replace("_bra", "_ket")
+            ket_id = node_id.replace(BRA_SUFFIX, KET_SUFFIX)
             if ket_id in ttndo.nodes:
                 bra_ket_pairs.append((node_id, ket_id))
     
@@ -349,9 +351,9 @@ def visualize_binary_ttndo(ttndo, title=None, save_path=None, layout_type="radia
     # Function to extract node indices for sorting
     def extract_node_index(node_id):
         # Remove bra/ket suffix for comparison
-        base_id = node_id.replace("_bra", "").replace("_ket", "")
+        base_id = node_id.replace(BRA_SUFFIX, "").replace(KET_SUFFIX, "")
         
-        if "site" in base_id or "qubit" in base_id:
+        if PHYS_PREFIX in base_id:
             # Extract numeric index from physical node (site5_bra -> 5)
             try:
                 return int(''.join(filter(str.isdigit, base_id)))
@@ -388,8 +390,8 @@ def visualize_binary_ttndo(ttndo, title=None, save_path=None, layout_type="radia
                     if node_id in processed:
                         continue
                     
-                    if "_bra" in node_id:
-                        ket_id = node_id.replace("_bra", "_ket")
+                    if BRA_SUFFIX in node_id:
+                        ket_id = node_id.replace(BRA_SUFFIX, KET_SUFFIX)
                         if ket_id in nodes:
                             level0_pairs.append((node_id, ket_id))
                             processed.add(node_id)
@@ -397,8 +399,8 @@ def visualize_binary_ttndo(ttndo, title=None, save_path=None, layout_type="radia
                         else:
                             level0_singles.append(node_id)
                             processed.add(node_id)
-                    elif "_ket" in node_id:
-                        bra_id = node_id.replace("_ket", "_bra")
+                    elif KET_SUFFIX in node_id:
+                        bra_id = node_id.replace(KET_SUFFIX, BRA_SUFFIX)
                         if bra_id in nodes:
                             level0_pairs.append((bra_id, node_id))
                             processed.add(bra_id)
@@ -473,7 +475,7 @@ def visualize_binary_ttndo(ttndo, title=None, save_path=None, layout_type="radia
             # Group physical nodes by base ID for paired positioning
             phys_grouped = {}
             for node_id in phys_nodes:
-                base_id = node_id.replace("_bra", "").replace("_ket", "")
+                base_id = node_id.replace(BRA_SUFFIX, "").replace(KET_SUFFIX, "")
                 if base_id not in phys_grouped:
                     phys_grouped[base_id] = []
                 phys_grouped[base_id].append(node_id)
@@ -488,9 +490,9 @@ def visualize_binary_ttndo(ttndo, title=None, save_path=None, layout_type="radia
                 y_pos = 0 # Bottom of plot
                 nodes_in_group = phys_grouped[base_id]
                 for node_id in nodes_in_group:
-                    if "_bra" in node_id:
+                    if BRA_SUFFIX in node_id:
                         pos[node_id] = (x_pos, y_pos - bra_ket_offset)
-                    elif "_ket" in node_id:
+                    elif KET_SUFFIX in node_id:
                         pos[node_id] = (x_pos, y_pos + bra_ket_offset)
                     else: # Should not happen for physical in TTNDO but handle anyway
                         pos[node_id] = (x_pos, y_pos)
@@ -507,7 +509,7 @@ def visualize_binary_ttndo(ttndo, title=None, save_path=None, layout_type="radia
             # Group and sort nodes by their base name (without bra/ket suffix)
             grouped_nodes = {}
             for node_id in nodes:
-                base_id = node_id.replace("_bra", "").replace("_ket", "")
+                base_id = node_id.replace(BRA_SUFFIX, "").replace(KET_SUFFIX, "")
                 if base_id not in grouped_nodes:
                     grouped_nodes[base_id] = []
                 grouped_nodes[base_id].append(node_id)
@@ -539,9 +541,9 @@ def visualize_binary_ttndo(ttndo, title=None, save_path=None, layout_type="radia
                 # Assign position to nodes in the group with vertical offset
                 bra_ket_offset = 0.03 # Consistent vertical offset
                 for node_id in nodes_in_group:
-                    if "_bra" in node_id:
+                    if BRA_SUFFIX in node_id:
                         pos[node_id] = (x_pos, y_pos - bra_ket_offset)
-                    elif "_ket" in node_id:
+                    elif KET_SUFFIX in node_id:
                         pos[node_id] = (x_pos, y_pos + bra_ket_offset)
                     else: # Root node
                         pos[node_id] = (x_pos, y_pos)
@@ -655,9 +657,9 @@ def visualize_binary_ttndo(ttndo, title=None, save_path=None, layout_type="radia
     if simplified_labels:
         labels = {}
         for node_id in G.nodes():
-            base_id = node_id.replace("_bra", "").replace("_ket", "")
+            base_id = node_id.replace(BRA_SUFFIX, "").replace(KET_SUFFIX, "")
             
-            if "site" in base_id or "qubit" in base_id:
+            if PHYS_PREFIX in base_id:
                 # Extract only the numeric part for physical nodes
                 num_part = ''.join(filter(str.isdigit, base_id))
                 labels[node_id] = num_part
@@ -666,7 +668,7 @@ def visualize_binary_ttndo(ttndo, title=None, save_path=None, layout_type="radia
                 try:
                     base_parts = base_id.split('_')
                     if len(base_parts) >= 2:
-                        level = base_parts[0].replace('node', '')
+                        level = base_parts[0].replace(VIRTUAL_PREFIX, '')
                         idx = base_parts[1]
                         labels[node_id] = f"{level}_{idx}"
                     else:
@@ -727,9 +729,9 @@ def visualize_symmetric_ttndo(ttndo, title=None, save_path=None, simplified_labe
     # Add all nodes to the graph and organize by level
     for node_id, node in ttndo.nodes.items():
         # Determine node type
-        is_physical = "qubit" in node_id or "site" in node_id
-        is_bra = "_bra" in node_id
-        is_ket = "_ket" in node_id
+        is_physical = PHYS_PREFIX in node_id
+        is_bra = BRA_SUFFIX in node_id
+        is_ket = KET_SUFFIX in node_id
         is_root = node_id == ttndo.root_id
         
         # Add node with attributes
@@ -750,9 +752,9 @@ def visualize_symmetric_ttndo(ttndo, title=None, save_path=None, simplified_labe
         else:
             # Extract level from node ID (format: nodeX_Y_[bra/ket])
             try:
-                base_id = node_id.replace("_bra", "").replace("_ket", "")
+                base_id = node_id.replace(BRA_SUFFIX, "").replace(KET_SUFFIX, "")
                 # Add 1 to level to account for root at level 0
-                level = int(base_id.split('_')[0].replace('node', '')) + 1  
+                level = int(base_id.split('_')[0].replace(VIRTUAL_PREFIX, '')) + 1  
             except (ValueError, IndexError):
                 level = -1 # Default level if ID format is unexpected
         
@@ -776,8 +778,8 @@ def visualize_symmetric_ttndo(ttndo, title=None, save_path=None, simplified_labe
 
     # Helper function to extract node index
     def extract_node_index(node_id):
-        base_id = node_id.replace("_bra", "").replace("_ket", "")
-        if "site" in base_id or "qubit" in base_id:
+        base_id = node_id.replace(BRA_SUFFIX, "").replace(KET_SUFFIX, "")
+        if PHYS_PREFIX in base_id:
             try:
                 return int(''.join(filter(str.isdigit, base_id)))
             except ValueError:
@@ -898,9 +900,9 @@ def visualize_symmetric_ttndo(ttndo, title=None, save_path=None, simplified_labe
     if simplified_labels:
         labels = {}
         for node_id in G.nodes():
-            base_id = node_id.replace("_bra", "").replace("_ket", "")
+            base_id = node_id.replace(BRA_SUFFIX, "").replace(KET_SUFFIX, "")
             
-            if "site" in base_id or "qubit" in base_id:
+            if PHYS_PREFIX in base_id :
                 # Extract only the numeric part for physical nodes
                 num_part = ''.join(filter(str.isdigit, base_id))
                 labels[node_id] = num_part
@@ -909,7 +911,7 @@ def visualize_symmetric_ttndo(ttndo, title=None, save_path=None, simplified_labe
                 try:
                     base_parts = base_id.split('_')
                     if len(base_parts) >= 2:
-                        level = base_parts[0].replace('node', '')
+                        level = base_parts[0].replace(VIRTUAL_PREFIX, '')
                         idx = base_parts[1]
                         labels[node_id] = f"{level}_{idx}"
                     else:

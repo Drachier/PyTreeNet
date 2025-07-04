@@ -243,16 +243,16 @@ def _single_site_contraction(ket_tensor: ndarray,
 # Binary TTNDO Contractions
 
 def contract_physical_nodes(ttndo: BINARYTTNDO, 
-                            bra_suffix: str = "_bra", 
-                            ket_suffix: str = "_ket",
+                            bra_suffix: str, 
+                            ket_suffix: str,
                             to_copy: bool = True) -> TreeTensorNetworkState:
     """
     Contracts physical nodes of a binary TTNDO into a regular TTNDO.
 
     Args:
         ttndo (BINARYTTNDO): The binary TTNDO to contract
-        bra_suffix (str): The suffix used for bra nodes (default: "_bra")
-        ket_suffix (str): The suffix used for ket nodes (default: "_ket")
+        bra_suffix (str): The suffix used for bra nodes
+        ket_suffix (str): The suffix used for ket nodes
         
     Returns:
         TreeTensorNetworkState: A contracted TTNS where physical node has two open legs

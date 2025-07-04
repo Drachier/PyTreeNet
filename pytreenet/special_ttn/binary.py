@@ -11,6 +11,10 @@ from .special_nodes import constant_bd_trivial_node
 
 __all__ = ["generate_binary_ttns"]
 
+
+PHYS_PREFIX = "qubit"     # Prefix for physical nodes identifiers
+VIRTUAL_PREFIX = "node"   # Prefix for virtual nodes identifiers
+
 def _create_trivial_tensor_node(node_id: str, bond_dim: int, num_legs: int, dtype=None) -> tuple[Node, ndarray]:
     """
     Args:
@@ -34,9 +38,8 @@ def _create_trivial_tensor_node(node_id: str, bond_dim: int, num_legs: int, dtyp
 def generate_binary_ttns(num_phys: int,
                          bond_dim: int,
                          phys_tensor: ndarray,
-                         depth: int | None = None,
-                         phys_prefix: str = "qubit",
-                         virtual_prefix: str = "node") -> TreeTensorNetworkState:
+                         depth: int | None = None) -> TreeTensorNetworkState:
+    
     """Generate a balanced binary tree tensor network state.
     
     This function creates a binary Tree Tensor Network State (TTNS) with physical
@@ -48,8 +51,6 @@ def generate_binary_ttns(num_phys: int,
         bond_dim: Bond dimension of the tree tensor network
         phys_tensor: Tensor for physical sites
         depth: Maximum depth of binary tree (if None, uses max possible depth)
-        phys_prefix: Prefix for physical node identifiers
-        virtual_prefix: Prefix for virtual node identifiers
     
     Returns:
         A TreeTensorNetworkState object representing the generated TTNS
@@ -60,7 +61,7 @@ def generate_binary_ttns(num_phys: int,
     # Special case for single node
     if num_phys == 1:
         ttns = TreeTensorNetworkState()
-        node_id = f"{phys_prefix}0"
+        node_id = f"{PHYS_PREFIX}0"
         node = Node(identifier=node_id)
         ttns.add_root(node, phys_tensor.copy())
         return ttns
@@ -68,7 +69,7 @@ def generate_binary_ttns(num_phys: int,
     # Special case: depth=0 -> generate a chain (MPS) with no virtual nodes
     if depth == 0:
         return _generate_mps_chain(
-            num_phys, phys_tensor, phys_prefix, bond_dim
+            num_phys, phys_tensor, bond_dim
         )
     
     # Calculate required depth if not provided
@@ -80,7 +81,7 @@ def generate_binary_ttns(num_phys: int,
     ttns = TreeTensorNetworkState()
     
     # Initialize the root node
-    root_id = f"{virtual_prefix}0_0"
+    root_id = f"{VIRTUAL_PREFIX}0_0"
     
     # Calculate number of physical sites a binary tree of this depth can hold
     max_phys_in_binary_tree = 2 ** depth
@@ -105,7 +106,7 @@ def generate_binary_ttns(num_phys: int,
                           for i in range(num_chain_nodes)]
         
         for i in range(1, num_chain_nodes):
-            chain_id = f"{virtual_prefix}0_{i}"
+            chain_id = f"{VIRTUAL_PREFIX}0_{i}"
             
             # Last chain node has 2 legs (prev + branch), middle chain nodes have 3 legs (prev + next + branch)
             is_last = (i == num_chain_nodes - 1)
@@ -141,7 +142,7 @@ def generate_binary_ttns(num_phys: int,
     
     # Now build balanced binary subtrees from each chain node or root
     current_phys_idx = 0
-    chain_nodes = [f"{virtual_prefix}0_{i}" for i in range(len(phys_per_branch))]
+    chain_nodes = [f"{VIRTUAL_PREFIX}0_{i}" for i in range(len(phys_per_branch))]
     
     for i, chain_id in enumerate(chain_nodes):
         num_phys_this_branch = phys_per_branch[i]
@@ -157,29 +158,25 @@ def generate_binary_ttns(num_phys: int,
             depth,
             1,  # Use bond_dim=1 for initial construction
             phys_tensor,
-            phys_prefix,
-            virtual_prefix,
-            current_phys_idx
-        )
+            current_phys_idx)
         
         current_phys_idx += num_phys_this_branch
     
     # Clean up inefficient nodes (particularly virtual nodes with only one child)
-    ttns = clean_inefficient_paths(ttns, phys_prefix)
+    ttns = clean_inefficient_paths(ttns)
     
     # Final step: pad all bonds to the desired bond dimension
     ttns.pad_bond_dimensions(bond_dim)
     
     return ttns
 
-
-def _generate_mps_chain(num_phys: int, phys_tensor: ndarray, phys_prefix: str, bond_dim: int) -> TreeTensorNetworkState:
+def _generate_mps_chain(num_phys: int, phys_tensor: ndarray, bond_dim: int) -> TreeTensorNetworkState:
     """Generate a simple Matrix Product State (MPS) chain with no virtual nodes."""
     ttns = TreeTensorNetworkState()
     
     # One-site case: just the physical tensor as a single node
     if num_phys == 1:
-        single_id = f"{phys_prefix}0"
+        single_id = f"{PHYS_PREFIX}0"
         single_node = Node(identifier=single_id)
         # Use phys_tensor directly if 1D or squeeze last dim if needed
         if phys_tensor.ndim == 1:
@@ -191,7 +188,7 @@ def _generate_mps_chain(num_phys: int, phys_tensor: ndarray, phys_prefix: str, b
 
     # First boundary node: shape (1, phys_dim)
     phys_dim = phys_tensor.size if phys_tensor.ndim == 1 else phys_tensor.shape[-1]
-    first_id = f"{phys_prefix}0"
+    first_id = f"{PHYS_PREFIX}0"
     first_node = Node(identifier=first_id)
     first_tensor = np.zeros((1, phys_dim), dtype=phys_tensor.dtype)
     
@@ -204,7 +201,7 @@ def _generate_mps_chain(num_phys: int, phys_tensor: ndarray, phys_prefix: str, b
 
     # Middle nodes (1 to num_phys-2)
     for i in range(1, num_phys - 1):
-        node_id = f"{phys_prefix}{i}"
+        node_id = f"{PHYS_PREFIX}{i}"
         node = Node(identifier=node_id)
         mid_tensor = np.zeros((1, 1, phys_dim), dtype=phys_tensor.dtype)
         # Embed physical tensor at trivial virtual indices
@@ -213,13 +210,13 @@ def _generate_mps_chain(num_phys: int, phys_tensor: ndarray, phys_prefix: str, b
         else:
             mid_tensor[0, 0, :] = phys_tensor[0, :]
         # Connect to previous
-        prev_id = f"{phys_prefix}{i-1}"
+        prev_id = f"{PHYS_PREFIX}{i-1}"
         # prev is boundary for i==1, interior otherwise
         parent_leg = 0 if i == 1 else 1
         ttns.add_child_to_parent(node, mid_tensor, 0, prev_id, parent_leg)
 
     # Last boundary node: shape (1, phys_dim)
-    last_id = f"{phys_prefix}{num_phys-1}"
+    last_id = f"{PHYS_PREFIX}{num_phys-1}"
     last_node = Node(identifier=last_id)
     last_tensor = np.zeros((1, phys_dim), dtype=phys_tensor.dtype)
     if phys_tensor.ndim == 1:
@@ -227,7 +224,7 @@ def _generate_mps_chain(num_phys: int, phys_tensor: ndarray, phys_prefix: str, b
     else:
         last_tensor[0, :] = phys_tensor[0, :]
     # Connect to previous node
-    prev_id = f"{phys_prefix}{num_phys-2}"
+    prev_id = f"{PHYS_PREFIX}{num_phys-2}"
     # prev is interior only if num_phys > 2
     parent_leg = 1 if num_phys > 2 else 0
     ttns.add_child_to_parent(last_node, last_tensor, 0, prev_id, parent_leg)
@@ -236,15 +233,12 @@ def _generate_mps_chain(num_phys: int, phys_tensor: ndarray, phys_prefix: str, b
     ttns.pad_bond_dimensions(bond_dim)
     return ttns
 
-
 def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
                                parent_id: str,
                                num_phys: int,
                                max_depth: int,
                                bond_dim: int,
                                phys_tensor: ndarray,
-                               phys_prefix: str,
-                               virtual_prefix: str,
                                phys_start_idx: int) -> TreeTensorNetworkState:
     """Build a balanced binary subtree from a parent node.
     
@@ -258,8 +252,6 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
         max_depth: Maximum depth allowed for the subtree
         bond_dim: Bond dimension (should be 1 for initial construction)
         phys_tensor: Tensor for physical nodes
-        phys_prefix: Prefix for physical node IDs
-        virtual_prefix: Prefix for virtual node IDs
         phys_start_idx: Starting index for physical node numbering
         
     Returns:
@@ -278,16 +270,14 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
         return ttns
     
     # Parse parent level and position
-    parent_level = int(parent_id.split('_')[0].replace(virtual_prefix, ''))
+    parent_level = int(parent_id.split('_')[0].replace(VIRTUAL_PREFIX, ''))
     parent_pos = int(parent_id.split('_')[1])
     next_level = parent_level + 1
     
     # Case 1: Bottom of tree or few physical nodes - connect physical nodes directly
     if max_depth == 1 or num_phys <= 2:
         return _connect_physical_nodes_to_parent(
-            ttns, parent_id, num_phys, bond_dim, phys_tensor,
-            phys_prefix, virtual_prefix, phys_start_idx, max_depth
-        )
+            ttns, parent_id, num_phys, bond_dim, phys_tensor, phys_start_idx, max_depth)
     
     # Case 2: For deeper trees, build a balanced binary structure
     # Distribute physical nodes between left and right subtrees
@@ -312,7 +302,7 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
         child_pos = 2 * parent_pos + i
         
         # Create virtual node ID
-        child_id = f"{virtual_prefix}{next_level}_{child_pos}"
+        child_id = f"{VIRTUAL_PREFIX}{next_level}_{child_pos}"
         
         # Calculate how many legs the child tensor needs
         if max_depth == 2:
@@ -349,15 +339,11 @@ def build_balanced_binary_subtree(ttns: TreeTensorNetworkState,
             max_depth - 1,
             bond_dim,
             phys_tensor,
-            phys_prefix,
-            virtual_prefix,
-            current_phys_idx
-        )
+            current_phys_idx)
         
         current_phys_idx += phys_per_child[i]
     
     return ttns
-
 
 def _connect_physical_nodes_to_parent(
     ttns: TreeTensorNetworkState,
@@ -365,8 +351,6 @@ def _connect_physical_nodes_to_parent(
     num_phys: int,
     bond_dim: int,
     phys_tensor: ndarray,
-    phys_prefix: str,
-    virtual_prefix: str,
     phys_start_idx: int,
     max_depth: int
 ) -> TreeTensorNetworkState:
@@ -382,7 +366,7 @@ def _connect_physical_nodes_to_parent(
     phys_to_connect = min(len(parent_open_legs), num_phys)
     
     for i in range(phys_to_connect):
-        phys_id = f"{phys_prefix}{phys_start_idx + i}"
+        phys_id = f"{PHYS_PREFIX}{phys_start_idx + i}"
         phys_node = Node(identifier=phys_id)
         
         # Get available leg from parent
@@ -419,12 +403,12 @@ def _connect_physical_nodes_to_parent(
     start_idx = phys_start_idx + phys_to_connect
     
     # Parse parent level and position
-    parent_level = int(parent_id.split('_')[0].replace(virtual_prefix, ''))
+    parent_level = int(parent_id.split('_')[0].replace(VIRTUAL_PREFIX, ''))
     parent_pos = int(parent_id.split('_')[1])
     next_level = parent_level + 1
     
     # Create an intermediate node to handle the remaining physical nodes
-    intermediate_id = f"{virtual_prefix}{next_level}_{2 * parent_pos}"
+    intermediate_id = f"{VIRTUAL_PREFIX}{next_level}_{2 * parent_pos}"
     
     # Create tensor with enough legs for the remaining physical nodes 
     intermediate_legs = 1 + min(2, remaining_phys)  # 1 for parent + up to 2 for children
@@ -447,7 +431,7 @@ def _connect_physical_nodes_to_parent(
     
     # Connect physical nodes to intermediate node
     for i in range(min(intermediate_legs - 1, remaining_phys)):
-        phys_id = f"{phys_prefix}{start_idx + i}"
+        phys_id = f"{PHYS_PREFIX}{start_idx + i}"
         phys_node = Node(identifier=phys_id)
         
         # Create physical tensor
@@ -479,16 +463,12 @@ def _connect_physical_nodes_to_parent(
             max_depth - 1,
             bond_dim,
             phys_tensor,
-            phys_prefix,
-            virtual_prefix,
             start_idx + (intermediate_legs - 1)
         )
     
     return ttns
 
-
-def clean_inefficient_paths(ttns: TreeTensorNetworkState, 
-                            phys_prefix: str) -> TreeTensorNetworkState:
+def clean_inefficient_paths(ttns: TreeTensorNetworkState) -> TreeTensorNetworkState:
     """Clean up inefficient paths in the TTN structure.
     
     This function:
@@ -497,14 +477,13 @@ def clean_inefficient_paths(ttns: TreeTensorNetworkState,
     
     Args:
         ttns: The Tree Tensor Network State to clean up
-        phys_prefix: Prefix for physical node IDs
         
     Returns:
         The cleaned up TreeTensorNetworkState
     """
     # Pass 1: Ensure all virtual nodes have at least one open leg
     for node_id in list(ttns.nodes.keys()):
-        if node_id.startswith(phys_prefix):
+        if node_id.startswith(PHYS_PREFIX):
             continue  # Skip physical nodes
             
         node = ttns.nodes[node_id]
@@ -528,7 +507,7 @@ def clean_inefficient_paths(ttns: TreeTensorNetworkState,
     inefficient_nodes = []
     
     for node_id in list(ttns.nodes.keys()):
-        if node_id.startswith(phys_prefix):
+        if node_id.startswith(PHYS_PREFIX):
             continue  # Skip physical nodes
          
         node = ttns.nodes[node_id]

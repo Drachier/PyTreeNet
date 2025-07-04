@@ -10,24 +10,21 @@ from pytreenet.ttns.ttndo import (symmetric_ttndo_for_product_State,
                                  binary_ttndo_for_product_state, 
                                  MPS_ttndo_for_product_state,
                                  contract_physical_nodes, 
-                                 SymmetricTTNDO,
-                                 BINARYTTNDO)
+                                 BRA_SUFFIX, KET_SUFFIX)
+from pytreenet.special_ttn.binary import generate_binary_ttns, PHYS_PREFIX
 from pytreenet.contractions.ttndo_contractions import (trace_symmetric_ttndo, 
-                                                      trace_contracted_binary_ttndo,
-                                                      binary_ttndo_ttno_expectation_value)
+                                                      trace_contracted_binary_ttndo)
 from pytreenet.operators.tensorproduct import TensorProduct
-from pytreenet.operators.common_operators import pauli_matrices, ket_i
+from pytreenet.operators.common_operators import pauli_matrices
 from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
 from pytreenet.operators.models import ising_model
-from pytreenet.operators.hamiltonian import Hamiltonian
-from pytreenet.ttns.ttns import TreeTensorNetworkState
-from pytreenet.special_ttn.binary import generate_binary_ttns
+
 
 BOND_DIM = 5
 
 def is_virtual_node(node_id):
     """Check if a node is a virtual node (not a physical node)."""
-    return not (node_id.startswith("qubit") or node_id.startswith("site"))
+    return not (node_id.startswith(PHYS_PREFIX))
 
 def has_correct_sparse_structure(tensor):
     """
@@ -273,7 +270,7 @@ def validate_network_structure(ttndo_physically_binary, ttndo_symmetric, ttndo_m
     print("\nChecking symmetric TTNDO physical tensors...")
     # Identify physical nodes in symmetric TTNDO
     for node_id in ttndo_symmetric.nodes:
-        if node_id.startswith('qubit'):
+        if node_id.startswith(PHYS_PREFIX):
             tensor = ttndo_symmetric.tensors[node_id]
             
             # The symmetric TTNDO might have different tensor structure
@@ -329,7 +326,7 @@ def validate_network_structure(ttndo_physically_binary, ttndo_symmetric, ttndo_m
     
     # Test binary TTNDO virtual nodes
     for node_id in ttndo_physically_binary.nodes:
-        if is_virtual_node(node_id) and not (node_id.endswith("_ket") or node_id.endswith("_bra")):
+        if is_virtual_node(node_id) and not (node_id.endswith(KET_SUFFIX) or node_id.endswith(BRA_SUFFIX)):
             # Virtual nodes in binary TTNDO don't have bra/ket suffixes
             tensor = ttndo_physically_binary.tensors[node_id]
             assert has_correct_sparse_structure(tensor), \
@@ -350,7 +347,7 @@ def validate_network_structure(ttndo_physically_binary, ttndo_symmetric, ttndo_m
     # Check binary TTNDO bond dimensions
     # For each virtual node, check that all non-open legs have bond_dim
     for node_id in ttndo_physically_binary.nodes:
-        if is_virtual_node(node_id) and not (node_id.endswith("_ket") or node_id.endswith("_bra")):
+        if is_virtual_node(node_id) and not (node_id.endswith(KET_SUFFIX) or node_id.endswith(BRA_SUFFIX)):
             node = ttndo_physically_binary.nodes[node_id]
             tensor = ttndo_physically_binary.tensors[node_id]
             
@@ -365,9 +362,9 @@ def validate_network_structure(ttndo_physically_binary, ttndo_symmetric, ttndo_m
                     assert tensor.shape[i] == BOND_DIM, \
                         f"binary TTNDO virtual node {node_id}: non-open leg {i} has dimension {tensor.shape[i]} (expected {BOND_DIM})"
                         
-    # For physical nodes with _ket suffix, check bond dimensions
+    # For physical nodes with KET_SUFFIX suffix, check bond dimensions
     for node_id in ttndo_physically_binary.nodes:
-        if not is_virtual_node(node_id) and node_id.endswith("_ket"):
+        if not is_virtual_node(node_id) and node_id.endswith(KET_SUFFIX):
             tensor = ttndo_physically_binary.tensors[node_id]
             
             # Physical ket nodes should have shape (parent_dim, bond_dim, phys_dim)
@@ -472,7 +469,7 @@ def validate_network_structure(ttndo_physically_binary, ttndo_symmetric, ttndo_m
     
     # Contract the binary TTNDO
     print("Contracting binary TTNDO...")
-    ttndo_physical_contracted = contract_physical_nodes(ttndo_physically_binary)
+    ttndo_physical_contracted = contract_physical_nodes(ttndo_physically_binary, bra_suffix= BRA_SUFFIX, ket_suffix= KET_SUFFIX)
     print(f"Contracted binary TTNDO created with {len(ttndo_physical_contracted.nodes)} nodes")
     
     # 6a. Check if nodes have the correct number of open legs
@@ -508,7 +505,7 @@ def validate_network_structure(ttndo_physically_binary, ttndo_symmetric, ttndo_m
     length = num_phys
     ext_magn = 1.0
     coupling = 1.0
-    node_identifiers = [f"qubit{i}" for i in range(length)]
+    node_identifiers = [f"{PHYS_PREFIX}{i}" for i in range(length)]
     
     # Define nearest-neighbor pairs
     nn_pairs = [(node_identifiers[i], node_identifiers[i+1]) 
@@ -524,7 +521,7 @@ def validate_network_structure(ttndo_physically_binary, ttndo_symmetric, ttndo_m
         # Create a Z field operator (sum of Z on each site)
         operators = {}
         for i in range(length):
-            node_id = f"qubit{i}"
+            node_id = f"{PHYS_PREFIX}{i}"
             operators[node_id] = ext_magn * sigma_z
         
         # Create tensor product operator
@@ -582,17 +579,17 @@ def validate_network_structure(ttndo_physically_binary, ttndo_symmetric, ttndo_m
         # For symmetric TTNDO
         sym_ttns_phys_tensor = np.zeros((BOND_DIM, 2), dtype=complex)
         sym_ttns_phys_tensor[0,:] = phys_tensor
-        sym_ttns = generate_binary_ttns(length, BOND_DIM, sym_ttns_phys_tensor, depth=depth, phys_prefix="qubit")
+        sym_ttns = generate_binary_ttns(length, BOND_DIM, sym_ttns_phys_tensor, depth=depth)
         
         # For binary TTNDO
         bin_ttns_phys_tensor = np.zeros((BOND_DIM, 2), dtype=complex)
         bin_ttns_phys_tensor[0,:] = phys_tensor  
-        bin_ttns = generate_binary_ttns(length, BOND_DIM, bin_ttns_phys_tensor, depth=depth, phys_prefix="qubit")
+        bin_ttns = generate_binary_ttns(length, BOND_DIM, bin_ttns_phys_tensor, depth=depth)
         
         # For MPS TTNDO
         mps_ttns_phys_tensor = np.zeros((BOND_DIM, 2), dtype=complex) 
         mps_ttns_phys_tensor[0,:] = phys_tensor
-        mps_ttns = generate_binary_ttns(length, BOND_DIM, mps_ttns_phys_tensor, depth=0, phys_prefix="qubit")
+        mps_ttns = generate_binary_ttns(length, BOND_DIM, mps_ttns_phys_tensor, depth=0)
         
         # Create TTNOs from the same Hamiltonian but using different reference structures
         print("Creating TTNOs from Ising Hamiltonian using different reference structures...")
@@ -621,7 +618,7 @@ def validate_network_structure(ttndo_physically_binary, ttndo_symmetric, ttndo_m
         # Calculate tensor product field expectation again (without X-X interactions)
         field_operators = {}
         for i in range(length):
-            node_id = f"qubit{i}"
+            node_id = f"{PHYS_PREFIX}{i}"
             field_operators[node_id] = ext_magn * sigma_z
         
         field_tensor_product = TensorProduct(field_operators)
@@ -662,7 +659,7 @@ def validate_network_structure(ttndo_physically_binary, ttndo_symmetric, ttndo_m
     # Check physical nodes in binary TTNDO
     for node_id in ttndo_physically_binary.nodes:
         # Check ket physical nodes
-        if node_id.startswith('qubit') and node_id.endswith('_ket'):
+        if node_id.startswith(PHYS_PREFIX) and node_id.endswith(KET_SUFFIX):
             tensor = ttndo_physically_binary.tensors[node_id]
             # Check if this is a physical tensor (should have 3 dimensions)
             if tensor.ndim == 3 and tensor.shape[2] >= 1:
@@ -673,7 +670,7 @@ def validate_network_structure(ttndo_physically_binary, ttndo_symmetric, ttndo_m
                         f"binary TTNDO ket node {node_id}: mismatch at [0,0,{j}]: {tensor[0,0,j]} != {phys_tensor[j]}"
         
         # Check bra physical nodes
-        elif node_id.startswith('qubit') and node_id.endswith('_bra'):
+        elif node_id.startswith(PHYS_PREFIX) and node_id.endswith(BRA_SUFFIX):
             tensor = ttndo_physically_binary.tensors[node_id]
             # Bra tensors should be complex conjugate of original
             if tensor.ndim == 2:
@@ -704,7 +701,7 @@ class TestTTNDO(unittest.TestCase):
         depth = 2
         
         # Generate TTNDOs
-        symmetric_ttndo = symmetric_ttndo_for_product_State(
+        _ , symmetric_ttndo = symmetric_ttndo_for_product_State(
             num_phys=num_phys,
             bond_dim=BOND_DIM,
             phys_tensor=phys_tensor,
@@ -712,14 +709,14 @@ class TestTTNDO(unittest.TestCase):
             root_bond_dim=BOND_DIM
         )
         
-        binary_ttndo = binary_ttndo_for_product_state(
+        _ , binary_ttndo = binary_ttndo_for_product_state(
             num_phys=num_phys,
             bond_dim=BOND_DIM, 
             phys_tensor=phys_tensor, 
             depth=depth
         )
         
-        mps_ttndo = MPS_ttndo_for_product_state(
+        _ , mps_ttndo = MPS_ttndo_for_product_state(
             num_phys=num_phys,
             bond_dim=BOND_DIM, 
             phys_tensor=phys_tensor
@@ -751,7 +748,7 @@ class TestTTNDO(unittest.TestCase):
                 for num_phys, depth in test_configs:
                     with self.subTest(num_phys=num_phys, depth=depth):
                         # Generate TTNDOs
-                        symmetric_ttndo = symmetric_ttndo_for_product_State(
+                        _ , symmetric_ttndo = symmetric_ttndo_for_product_State(
                             num_phys=num_phys,
                             bond_dim=BOND_DIM,
                             phys_tensor=phys_tensor,
@@ -759,14 +756,14 @@ class TestTTNDO(unittest.TestCase):
                             root_bond_dim=BOND_DIM
                         )
                         
-                        binary_ttndo = binary_ttndo_for_product_state(
+                        _ , binary_ttndo = binary_ttndo_for_product_state(
                             num_phys=num_phys,
                             bond_dim=BOND_DIM, 
                             phys_tensor=phys_tensor, 
                             depth=depth
                         )
                         
-                        mps_ttndo = MPS_ttndo_for_product_state(
+                        _ , mps_ttndo = MPS_ttndo_for_product_state(
                             num_phys=num_phys,
                             bond_dim=BOND_DIM, 
                             phys_tensor=phys_tensor

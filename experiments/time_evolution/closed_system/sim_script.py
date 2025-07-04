@@ -22,14 +22,14 @@ from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.operators.sim_operators import (create_single_site_hamiltonian,
                                                single_site_operators)
 from pytreenet.ttns.ttns import TreeTensorNetworkState
-from pytreenet.special_ttn.binary import generate_binary_ttns
+from pytreenet.special_ttn.binary import generate_binary_ttns, PHYS_PREFIX
 from pytreenet.special_ttn.mps import MatrixProductState
 from pytreenet.special_ttn.star import StarTreeTensorState
 from pytreenet.time_evolution.time_evolution import TimeEvoMode
 from pytreenet.time_evolution.time_evo_enum import TimeEvoAlg
 from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
 
-NODE_PREFIX = "qubit"
+NODE_PREFIX = PHYS_PREFIX
 CURRENT_PARAM_FILENAME = "current_parameters.json"
 
 class TTNStructure(Enum):
@@ -188,9 +188,7 @@ def initial_state(sim_params: SimulationParameters
         phys_tensor[0,:] = local_state
         state = generate_binary_ttns(sim_params.num_sites,
                                      init_bond_dim,
-                                     phys_tensor,
-                                     phys_prefix=NODE_PREFIX,
-                                     )
+                                     phys_tensor)
         return state
     raise ValueError(f"Unsupported combination of structure {sim_params.ttns_structure} "
                      f"and topology {sim_params.topology}.")
