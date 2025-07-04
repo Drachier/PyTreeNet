@@ -2,6 +2,7 @@ from unittest import TestCase, main
 from copy import deepcopy
 
 from numpy import allclose
+import numpy as np
 
 from pytreenet.special_ttn.star import StarTreeTensorNetwork
 from pytreenet.random.random_matrices import crandn
@@ -119,5 +120,120 @@ class TestStarTreeTensorNetwork(TestCase):
         self.assertTrue(node_id in sttn.nodes)
         self.assertTrue(allclose(ref_tensor,sttn.tensors[node_id]))
 
+class TestStarTreeTensorNetworkFromTensorLists(TestCase):
+    """
+    Test the from_tensor_lists method of the StarTreeTensorNetwork.
+    """
+
+    def test_empty_tensor_listlist(self):
+        """
+        Test that an empty list of lists causes a root-only STTN.
+        """
+        centre_tensor = crandn((2,3,4,5))
+        sttn = StarTreeTensorNetwork.from_tensor_lists(centre_tensor,
+                                                       tensors=[])
+        self.assertTrue(sttn.root_id is not None)
+        np.testing.assert_array_equal(sttn.tensors[sttn.root_id], centre_tensor)
+
+    def test_emtpy_tensorlists(self):
+        """
+        Test that a list of empty lists causes a root-only STTN.
+        """
+        centre_tensor = crandn((2,3,4,5))
+        sttn = StarTreeTensorNetwork.from_tensor_lists(centre_tensor,
+                                                       tensors=[[],[],[]])
+        self.assertTrue(sttn.root_id is not None)
+        np.testing.assert_array_equal(sttn.tensors[sttn.root_id], centre_tensor)
+
+    def test_single_chain(self):
+        """
+        Test that a single chain is created correctly.
+        """
+        centre_tensor = crandn((2,3,4,5))
+        chain_tensors = [crandn((2,6,7)), crandn((6,3,8))]
+        identifiers = ["node0", "node1"]
+        sttn = StarTreeTensorNetwork.from_tensor_lists(centre_tensor,
+                                                       tensors=[chain_tensors],
+                                                       identifiers=[identifiers])
+        self.assertEqual(1, sttn.num_chains())
+        self.assertEqual(2, sttn.chain_length(0))
+        np.testing.assert_array_equal(sttn.tensors[sttn.root_id], centre_tensor)
+        for i, tensor in enumerate(chain_tensors):
+            node_id = identifiers[i]
+            np.testing.assert_array_equal(sttn.tensors[node_id], tensor)
+
+    def test_two_chains(self):
+        """
+        Test that two chains are created correctly.
+        """
+        centre_tensor = crandn((2,3,4,5))
+        chain1_tensors = [crandn((2,6,7)), crandn((6,3,8))]
+        chain2_tensors = [crandn((3,9,10)), crandn((9,7,11))]
+        identifiers1 = ["node0_0", "node0_1"]
+        identifiers2 = ["node1_0", "node1_1"]
+        sttn = StarTreeTensorNetwork.from_tensor_lists(centre_tensor,
+                                                       tensors=[chain1_tensors, chain2_tensors],
+                                                       identifiers=[identifiers1, identifiers2])
+        self.assertEqual(2, sttn.num_chains())
+        self.assertEqual(2, sttn.chain_length(0))
+        self.assertEqual(2, sttn.chain_length(1))
+        np.testing.assert_array_equal(sttn.tensors[sttn.root_id], centre_tensor)
+        # Test tensors in chain 1
+        for i, tensor in enumerate(chain1_tensors):
+            node_id = identifiers1[i]
+            np.testing.assert_array_equal(sttn.tensors[node_id], tensor)
+        # Test tensors in chain 2
+        for i, tensor in enumerate(chain2_tensors):
+            node_id = identifiers2[i]
+            np.testing.assert_array_equal(sttn.tensors[node_id], tensor)
+
+    def test_three_chain(self):
+        """
+        Tests that three chains are created correctly.
+        """
+        centre_tensor = crandn((2,3,4,5))
+        chain1_tensors = [crandn((2,6,7)), crandn((6,3,8))]
+        chain2_tensors = [crandn((3,9,10))]
+        chain3_tensors = [crandn((4,12,13)), crandn((12,8,14)), crandn(8,5,3)]
+        identifiers1 = ["node0_0", "node0_1"]
+        identifiers2 = ["node1_0"]
+        identifiers3 = ["node2_0", "node2_1", "node2_2"]
+        tensors = [chain1_tensors, chain2_tensors, chain3_tensors]
+        identifiers = [identifiers1, identifiers2, identifiers3]
+        sttn = StarTreeTensorNetwork.from_tensor_lists(centre_tensor,
+                                                       tensors=tensors,
+                                                       identifiers=identifiers)
+        self.assertEqual(3, sttn.num_chains())
+        self.assertEqual(2, sttn.chain_length(0))
+        self.assertEqual(1, sttn.chain_length(1))
+        self.assertEqual(3, sttn.chain_length(2))
+        np.testing.assert_array_equal(sttn.tensors[sttn.root_id], centre_tensor)
+        # Test tensors in chain 1
+        for i, tensor in enumerate(chain1_tensors):
+            node_id = identifiers1[i]
+            np.testing.assert_array_equal(sttn.tensors[node_id], tensor)
+        # Test tensors in chain 2
+        for i, tensor in enumerate(chain2_tensors):
+            node_id = identifiers2[i]
+            np.testing.assert_array_equal(sttn.tensors[node_id], tensor)
+        # Test tensors in chain 3
+        for i, tensor in enumerate(chain3_tensors):
+            node_id = identifiers3[i]
+            np.testing.assert_array_equal(sttn.tensors[node_id], tensor)
+
+    def test_identifiers_mismatch(self):
+        """
+        Test that a ValueError is raised if the number of identifiers does not
+        match the number of tensors.
+        """
+        centre_tensor = crandn((2,3,4,5))
+        chain_tensors = [crandn((2,6,7)), crandn((6,3,8))]
+        identifiers = ["node0"]
+        self.assertRaises(ValueError,
+                        StarTreeTensorNetwork.from_tensor_lists,
+                        centre_tensor,
+                        tensors=[chain_tensors],
+                        identifiers=[identifiers])
+                        
 if __name__ == "__main__":
     main()
