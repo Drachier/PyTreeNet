@@ -83,7 +83,8 @@ class StarTreeTensorNetwork(TreeTensorNetwork):
         self.add_root(center_node, tensor)
 
     def _add_chain(self, tensor: ndarray,
-                   parent_leg: Union[int,None] = None):
+                   parent_leg: Union[int,None] = None,
+                   identifier: str = None):
         """
         Adds a new chain to the star and directly adds the first node.
         
@@ -92,12 +93,17 @@ class StarTreeTensorNetwork(TreeTensorNetwork):
             parent_leg (Union[int,None]): The leg of the parent node to connect
                 to. If None, the node will be connected to the first open leg
                 of the parent.
+            identifier (str): Identifier for the first node in the new chain.
+                If None, it will be generated automatically based on the chain
+                index.
 
         """
         parent_id = self.central_node_id
         chain_index = self.num_chains()
         chain = []
-        new_node = Node(identifier=self.chain_id(chain_index,0))
+        if identifier is None:
+            identifier = self.chain_id(chain_index, 0)
+        new_node = Node(identifier=identifier)
         if parent_leg is None:
             parent_id = self.central_node_id
             parent_node = self.nodes[parent_id]
@@ -109,7 +115,8 @@ class StarTreeTensorNetwork(TreeTensorNetwork):
 
     def add_chain_node(self, tensor: ndarray,
                        chain_index: int,
-                       parent_leg: Union[int,None] = None):
+                       parent_leg: Union[int,None] = None,
+                       identifier: str = None):
         """
         Adds a node to one of the chains.
 
@@ -120,6 +127,9 @@ class StarTreeTensorNetwork(TreeTensorNetwork):
             parent_leg (Union[int,None]): The leg of the parent node to connect
                 to. If None, the node will be connected to the first open leg
                 of the parent.
+            identifier (str): Identifier for the new node. If None, it will be
+                generated automatically based on the chain index and the
+                position on the chain.
 
         """
         if chain_index > self.central_node.nlegs():
@@ -127,17 +137,73 @@ class StarTreeTensorNetwork(TreeTensorNetwork):
         if chain_index > self.num_chains():
             raise ValueError("This is not the next chain index!")
         if chain_index == self.num_chains():
-            self._add_chain(tensor,parent_leg)
+            self._add_chain(tensor,parent_leg,identifier=identifier)
         else:
             parent_node = self.chains[chain_index][-1]
             parent_id = parent_node.identifier
-            index_on_chain = self.chain_length(chain_index)
-            new_node = Node(identifier=self.chain_id(chain_index,index_on_chain))
+            if identifier is None:
+                index_on_chain = self.chain_length(chain_index)
+                identifier = self.chain_id(chain_index,index_on_chain)
+            new_node = Node(identifier=identifier)
             if parent_leg is None:
                 parent_leg = parent_node.nvirt_legs()
             self.add_child_to_parent(new_node,tensor,0,
                                      parent_id,parent_leg)
             self.chains[chain_index].append(new_node)
+
+    @classmethod
+    def from_tensor_lists(cls,
+                          center_tensor: ndarray,
+                          tensors: list[list[ndarray]],
+                          central_node_identifier: str = "center",
+                          identifiers: list[list[str]] = None,
+                          non_center_prefix: str = "node"
+                          ) -> Self:
+        """
+        Creates a StarTreeTensorNetwork from lists of tensors.
+
+        Args:
+            center_tensor (ndarray): The tensor for the central node.
+            tensors (list[list[ndarray]]): A list of lists of tensors.
+                Each list corresponds to one of the chains. The first
+                leg will always be attached towards the central node,
+                while the second leg is attached to the next node
+                in the chain. All other legs remain open.
+            central_node_identifier (str): Identifier of the central node.
+                Defaults to "center".
+            identifiers (list[list[str]]): A list of lists of identifiers.
+                Each list corresponds to the list of tensors in the same
+                position in the `tensors` list. If None, the identifiers will
+                be generated automatically.
+            non_center_prefix (str): Prefix of the nodes not in the central chain.
+                The identifiers will have the form `prefix + chain index + _ + position`.
+                Defaults to "node".
+            
+        Returns:
+            StarTreeTensorNetwork: The created star tree tensor network.
+
+        Raises:
+            ValueError: If the number of identifiers does not match the number
+                of tensors.
+        """
+        ttn = cls(central_node_identifier=central_node_identifier,
+                   non_center_prefix=non_center_prefix)
+        ttn.add_center_node(center_tensor)
+        for chain_index, chain_tensors in enumerate(tensors):
+            if identifiers is not None:
+                chain_identifiers = identifiers[chain_index]
+                if len(chain_identifiers) != len(chain_tensors):
+                    errstr = "Number of identifiers does not match number of tenors!"
+                    raise ValueError(errstr)
+            for position, tensor in enumerate(chain_tensors):
+                if identifiers is not None:
+                    identifier = chain_identifiers[position]
+                else:
+                    # The method will take care of generating the identifier.
+                    identifier = None
+                ttn.add_chain_node(tensor, chain_index,
+                                    identifier=identifier)
+        return ttn
 
 class StarTreeTensorState(StarTreeTensorNetwork,TreeTensorNetworkState):
     """
