@@ -1301,7 +1301,8 @@ class TreeTensorNetwork(TreeStructure):
     def split_node_replace(self, node_id: str,
                            tensor_a: np.ndarray, tensor_b: np.ndarray,
                            identifier_a: str, identifier_b: str,
-                           legs_a: LegSpecification, legs_b: LegSpecification):
+                           legs_a: LegSpecification, legs_b: LegSpecification,
+                           strict_checks: bool = True,):
         """
         Replaces a node with two new nodes of compatible shape.
 
@@ -1319,10 +1320,13 @@ class TreeTensorNetwork(TreeStructure):
                 first new node.
             legs_b (LegSpecification): The legs which should be part of the
                 second new node.
+            strict_checks (bool, optional): If True, the dimensions of the
+                tensors are checked to be compatible with the legs.
         """
         self.split_nodes(node_id, legs_a, legs_b, idiots_splitting,
                          identifier_a, identifier_b,
-                         a_tensor=tensor_a, b_tensor=tensor_b)
+                         a_tensor=tensor_a, b_tensor=tensor_b,
+                         strict_checks=strict_checks)
 
 
     def move_orthogonalization_center(self, new_center_id: str,
