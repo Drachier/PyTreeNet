@@ -134,6 +134,8 @@ def run_single_benchmark(parameters,
     # Check if this benchmark already exists
     if param_hash in existing_results:        
         existing_elapsed_time = existing_results[param_hash].get('elapsed_time', 0.0)
+        existing_status = existing_results[param_hash].get('status', '')
+        
         if ask_overwrite:
             choice = input("Choose: [s]kip, [o]verwrite, or [q]uit: ").lower().strip()
             if choice == 'q':
@@ -143,7 +145,10 @@ def run_single_benchmark(parameters,
             elif choice != 'o':
                 return Status.SKIPPED, existing_elapsed_time
         else:
-            return Status.SKIPPED, existing_elapsed_time
+            # Only skip if the existing simulation was successful
+            if existing_status == Status.SUCCESS.value:
+                return Status.SKIPPED, existing_elapsed_time
+            # If it failed or timed out, re-run it
 
     # Run simulation
     start_time = time()
