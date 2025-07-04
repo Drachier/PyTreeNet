@@ -222,6 +222,38 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
         hamiltonian_tensor = hamiltonian.to_tensor(self.ref_tree).operator.transpose(self.transpose_permutation)
         found_tensor = ttno.completely_contract_tree()[0]
         self.assertTrue(np.allclose(hamiltonian_tensor, found_tensor))
+        
+    def test_from_hamiltonian_one_term_real(self):
+        conversion_dictionary = {"1": np.random.randn(2, 2),
+                                 "2": np.random.randn(2, 2),
+                                 "3": np.random.randn(2, 2),
+                                 "4": np.random.randn(2, 2),
+                                 "5": np.random.randn(2, 2),
+                                 "6": np.random.randn(2, 2),
+                                 "7": np.random.randn(2, 2),
+                                 }
+        hamiltonian = ptn.Hamiltonian(terms=[self.term],
+                                      conversion_dictionary=conversion_dictionary)
+
+        ttno = ptn.TTNO.from_hamiltonian(hamiltonian, self.ref_tree, dtype=float)
+        for node_id in ttno.nodes:
+            node, tensor = ttno[node_id]
+
+            shape = tensor.shape
+            # All open legs should have dimension 2
+            for open_leg_index in node.open_legs:
+                self.assertEqual(2, shape[open_leg_index])
+
+            # All other legs should have dimension 1
+            for children_leg in node.children_legs:
+                self.assertEqual(1, shape[children_leg])
+
+            if node.nparents() != 0:
+                self.assertEqual(1, shape[node.parent_leg])
+
+        hamiltonian_tensor = hamiltonian.to_tensor(self.ref_tree).operator.transpose(self.transpose_permutation)
+        found_tensor = ttno.completely_contract_tree()[0]
+        self.assertTrue(np.allclose(hamiltonian_tensor, found_tensor))
 
     def test_from_hamiltonian_one_term_different_phys_dim(self):
         ref_tree = ptn.TreeTensorNetwork()
@@ -352,6 +384,55 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
                                       conversion_dictionary=conversion_dictionary)
 
         ttno = ptn.TTNO.from_hamiltonian(hamiltonian, self.ref_tree)
+
+        for node_id in ttno.nodes:
+            node, tensor = ttno[node_id]
+
+            shape = tensor.shape
+            # All open legs should have dimension 2
+            for open_leg_index in node.open_legs:
+                self.assertEqual(2, shape[open_leg_index])
+
+            # All other legs should have dimension 2
+            for children_leg in node.children_legs:
+                self.assertEqual(2, shape[children_leg])
+
+            if node.nparents() != 0:
+                self.assertEqual(2, shape[node.parent_leg])
+    
+        # The TTNO and Hamiltonian should be equal
+        hamiltonian_tensor = hamiltonian.to_tensor(self.ref_tree).operator.transpose(self.transpose_permutation)
+        found_tensor = ttno.completely_contract_tree()[0]
+        self.assertTrue(np.allclose(hamiltonian_tensor, found_tensor))
+        
+    def test_from_hamiltonian_two_terms_completely_different_real(self):
+        conversion_dictionary = {"1": np.random.randn(2, 2),
+                                 "2": np.random.randn(2, 2),
+                                 "3": np.random.randn(2, 2),
+                                 "4": np.random.randn(2, 2),
+                                 "5": np.random.randn(2, 2),
+                                 "6": np.random.randn(2, 2),
+                                 "7": np.random.randn(2, 2),
+                                 "12": np.random.randn(2, 2),
+                                 "22": np.random.randn(2, 2),
+                                 "32": np.random.randn(2, 2),
+                                 "42": np.random.randn(2, 2),
+                                 "52": np.random.randn(2, 2),
+                                 "62": np.random.randn(2, 2),
+                                 "72": np.random.randn(2, 2),
+                                 }
+        term2 = ptn.TensorProduct({"site1": "12",
+                                    "site2": "22",
+                                    "site3": "32",
+                                    "site4": "42",
+                                    "site5": "52",
+                                    "site6": "62",
+                                    "site7": "72"})
+
+        hamiltonian = ptn.Hamiltonian(terms=[self.term, term2],
+                                      conversion_dictionary=conversion_dictionary)
+
+        ttno = ptn.TTNO.from_hamiltonian(hamiltonian, self.ref_tree, dtype=float)
 
         for node_id in ttno.nodes:
             node, tensor = ttno[node_id]
