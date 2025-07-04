@@ -14,7 +14,7 @@ from pytreenet.contractions.sandwich_caching import SandwichCache
 from pytreenet.contractions.effective_hamiltonians import (find_tensor_leg_permutation,
                                                            contract_all_except_node,
                                                            get_effective_single_site_hamiltonian_nodes,
-                                                           get_effective_single_site_hamiltonian)
+                                                           get_effective_single_site_hamiltonian, get_effective_two_site_hamiltonian)
 
 class TestFindTensorLegPermutation(unittest.TestCase):
     """
@@ -466,6 +466,24 @@ class TestContractionMethodsSimple(unittest.TestCase):
                                                             self.cache)
 
         self.assertTrue(allclose(ref_tensor, found_tensor))
+        
+    def test_get_effective_two_site_hamiltonian_root_c2(self):
+        # Copmute Reference
+        ref_tensor = tensordot(self.cache.get_entry("c1", "root"),
+                                  self.hamiltonian.tensors["root"],
+                                  axes=(1,0))
+        ref_tensor = tensordot(ref_tensor, self.hamiltonian.tensors["c2"],
+                               axes=(2,0))
+        ref_tensor = transpose(ref_tensor, axes=(1,2,4,0,3,5))
+        ref_tensor = reshape(ref_tensor, (40,40))
+        self.ttns.contract_nodes("c2", "root", 'TwoSite_c2_contr_root')
+        found_tensor = get_effective_two_site_hamiltonian("c2",
+                                                            "root",
+                                                            self.ttns,
+                                                            self.hamiltonian,
+                                                            self.cache)
+
+        self.assertTrue(allclose(ref_tensor, found_tensor))
 
     def test_get_effective_site_hamiltonian_c2(self):
         # Compute Reference
@@ -572,6 +590,7 @@ class TestContractionMethodsBig(unittest.TestCase):
         found_perm = find_tensor_leg_permutation(self.state.nodes[node_id],
                                                  self.hamiltonian.nodes[node_id])
         self.assertEqual(ref_perm,found_perm)
+        
 
 if __name__ == "__main__":
     unittest.main()
