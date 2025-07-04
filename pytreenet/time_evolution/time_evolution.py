@@ -64,7 +64,6 @@ class TimeEvolution:
         self._final_time = final_time
         self._num_time_steps = self._compute_num_time_steps()
         self.operators = self.init_operators(operators)
-        self._results = None
         if solver_options is None:
             self.solver_options = {}
         else:
