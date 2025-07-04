@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import Tuple
 
-from numpy import ndarray, concatenate
+from numpy import ndarray, concatenate, eye, allclose, transpose
 
 from ...core.node import Node
 from ...core.leg_specification import LegSpecification
@@ -10,6 +10,9 @@ from ...util.tensor_util import make_last_leg_first
 from ...util.tensor_splitting import tensor_qr_decomposition, SplitMode
 from ...contractions.tree_cach_dict import PartialTreeCachDict
 from ...contractions.state_state_contraction import contract_any_nodes
+from ...core.canonical_form import _build_leg_specs
+from ...util.tensor_util import compute_transfer_tensor
+
 
 def basis_change_tensor_id(node_id: str) -> str:
     """
@@ -46,6 +49,28 @@ def concat_along_parent_leg(node: Node,
     return concatenate((old_tensor, updated_tensor),
                         axis=node.parent_leg)
 
+def concat_along_specific_leg(old_tensor: ndarray,
+                             updated_tensor: ndarray,
+                             leg_index: int) -> ndarray:
+    """
+    Concatenates two tensors along the specific leg.
+
+    The old tensor will take the first parent dimension and the updated tensor
+    the second parent dimension.
+
+    Args:
+        old_tensor (ndarray): The old tensor to concatenate.
+        updated_tensor (ndarray): The updated tensor to concatenate.
+        leg_index (int): The leg index to concatenate along.
+
+    Returns:
+        ndarray: The concatenated tensor with doubled parent leg dimension,
+            but with the same leg order as the input tensors.
+    """
+    return concatenate((old_tensor, updated_tensor),
+                        axis=leg_index,)
+
+
 def new_basis_tensor_qr_legs(node: Node) -> Tuple[Tuple[int, ...],Tuple[int, ...]]:
     """
     Returns the leg indices for the QR decomposition to obtain the new basis
@@ -66,7 +91,8 @@ def new_basis_tensor_qr_legs(node: Node) -> Tuple[Tuple[int, ...],Tuple[int, ...
 
 def _compute_new_basis_tensor_qr(node: Node,
                                  combined_tensor: ndarray,
-                                 mode: SplitMode = SplitMode.REDUCED) -> ndarray:
+                                 mode: SplitMode = SplitMode.REDUCED,
+                                 neighbour_id : str = None) -> ndarray:
     """
     Computes the new basis tensor from a concatenated tensor.
 
@@ -75,16 +101,56 @@ def _compute_new_basis_tensor_qr(node: Node,
         combined_tensor (ndarray): The concatenated tensor of the old tensor
             and the updated tensor. While the parent leg dimension is doubled,
             the leg order is the same as for the node.
-        
+        neighbour_id: the neighbour of the node which is the orthogonalization center.
     Returns:
-        ndarray: The new basis tensor. Note that the leg order is incorrect.
-
+        ndarray: The new basis tensor. Note that the leg order is incorrect initially,
+                 and is transposed to match the original node's leg order.
     """
-    q_legs, r_legs = new_basis_tensor_qr_legs(node)
+
+    out_legs, in_legs = _build_leg_specs(node, neighbour_id)
+    out_legs.node = node
+    in_legs.node = node
+    out_legs_int = out_legs.find_leg_values()
     new_basis_tensor, _ = tensor_qr_decomposition(combined_tensor,
-                                            q_legs,
-                                            r_legs,
-                                            mode=mode)
+                                                out_legs_int,
+                                                in_legs.find_leg_values(), 
+                                                mode=mode)
+
+    qr_bond_idx = len(out_legs_int)
+
+    transfer_tensor_check = compute_transfer_tensor(new_basis_tensor, list(range(len(out_legs_int))))
+    expected_shape = (new_basis_tensor.shape[qr_bond_idx], new_basis_tensor.shape[qr_bond_idx])
+    assert transfer_tensor_check.shape == expected_shape and allclose(transfer_tensor_check, eye(new_basis_tensor.shape[qr_bond_idx])), \
+        f"Transfer tensor check failed for {node.identifier}. Max diff: {max(abs(transfer_tensor_check - eye(new_basis_tensor.shape[qr_bond_idx])))}"
+    leg_map_orig_to_qr = {}
+    for i, original_leg_index in enumerate(out_legs_int):
+        leg_map_orig_to_qr[original_leg_index] = i
+
+    if neighbour_id is not None:
+        neighbour_leg_idx = node.neighbour_index(neighbour_id)
+        leg_map_orig_to_qr[neighbour_leg_idx] = qr_bond_idx
+
+    orig_leg_indices = []
+    if not node.is_root():
+        orig_leg_indices.append(node.parent_leg)
+    for child_id in node.children:
+        orig_leg_indices.append(node.neighbour_index(child_id))
+    orig_leg_indices.extend(node.open_legs)
+
+    to_original_perm = []
+    for original_leg_index in orig_leg_indices:
+        to_original_perm.append(leg_map_orig_to_qr[original_leg_index])
+
+    new_basis_tensor = transpose(new_basis_tensor, to_original_perm)
+
+    check_node = Node(identifier=node.identifier)
+    if not node.is_root():
+        check_node.add_parent(node.parent)
+    for child_id in node.children:
+        check_node.add_child(child_id)
+
+    assert node.neighbouring_nodes() == check_node.neighbouring_nodes()
+
     return new_basis_tensor
 
 def compute_fixed_size_new_basis_tensor(node: Node,
@@ -119,7 +185,8 @@ def compute_fixed_size_new_basis_tensor(node: Node,
 
 def compute_new_basis_tensor(node: Node,
                              old_tensor: ndarray,
-                             updated_tensor: ndarray) -> ndarray:
+                             updated_tensor: ndarray,
+                             neighbour_id : str = None) -> ndarray:
     """
     Compute the updated basis tensor.
 
@@ -133,7 +200,7 @@ def compute_new_basis_tensor(node: Node,
             usual.
         updated_tensor (ndarray): The updated basis tensor obtained by time
             evolving the old tensor. The leg order is the usual.
-
+        neighbour_id: the neighbour of the node which is the orthogonalization center.
     Returns:
         ndarray: The new basis tensor. The leg order is the usual and equal to
             the leg order of the old and updated tensor, but with a new parent
@@ -142,15 +209,15 @@ def compute_new_basis_tensor(node: Node,
     """
     # We know that both tensors have the same leg order
     # We stack them along the parent axis
-    combined_tensor = concat_along_parent_leg(node,
-                                              old_tensor,
-                                              updated_tensor)
+    neighbour_index = node.neighbour_index(neighbour_id)
+    combined_tensor = concat_along_specific_leg(old_tensor,
+                                              updated_tensor,
+                                              neighbour_index)
     # We perform a QR decomposition
     new_basis_tensor = _compute_new_basis_tensor_qr(node,
-                                                    combined_tensor)
-    # We will have to transpose this anyway later on
-    # Currently the parent leg is the last leg
-    new_basis_tensor = make_last_leg_first(new_basis_tensor)
+                                                    combined_tensor,
+                                                    SplitMode.REDUCED,
+                                                    neighbour_id)
     return new_basis_tensor
 
 def compute_basis_change_tensor(node_old: Node,
