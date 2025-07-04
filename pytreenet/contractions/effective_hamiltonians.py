@@ -8,14 +8,14 @@ from typing import Tuple
 
 from numpy import ndarray, tensordot, transpose
 
-from ..core.graph_node import GraphNode
+from ..core.node import Node
 from ..ttns.ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TreeTensorNetworkOperator
 from ..contractions.tree_cach_dict import PartialTreeCachDict
 from ..util.tensor_util import tensor_matricisation_half
 
-def find_tensor_leg_permutation(state_node: GraphNode,
-                                hamiltonian_node: GraphNode
+def find_tensor_leg_permutation(state_node: Node,
+                                hamiltonian_node: Node
                                 ) -> Tuple[int,...]:
     """
     Find the correct permutation to permute the effective hamiltonian
@@ -27,8 +27,8 @@ def find_tensor_leg_permutation(state_node: GraphNode,
     state tensor. Such that the two can be easily contracted.
 
     Args:
-        state_node (GraphNode): The node of the state tensor.
-        hamiltonian_node (GraphNode): The node of the Hamiltonian tensor.
+        state_node (Node): The node of the state tensor.
+        hamiltonian_node (Node): The node of the Hamiltonian tensor.
     
     Returns:
         Tuple[int,...]: The permutation to apply to the effective
@@ -37,18 +37,19 @@ def find_tensor_leg_permutation(state_node: GraphNode,
     """
     permutation = [hamiltonian_node.neighbour_index(neighbour_id)
                    for neighbour_id in state_node.neighbouring_nodes()]
+    n_open = state_node.nopen_legs()
     output_legs = []
     input_legs = []
     for hamiltonian_index in permutation:
-        output_legs.append(2*hamiltonian_index+3)
-        input_legs.append(2*hamiltonian_index+2)
-    output_legs.append(0)
-    input_legs.append(1)
+        output_legs.append(2*n_open + 2*hamiltonian_index + 1)
+        input_legs.append(2*n_open + 2*hamiltonian_index)
+    output_legs.extend(list(range(n_open)))
+    input_legs.extend(list(range(n_open, 2*n_open)))
     output_legs.extend(input_legs)
     return tuple(output_legs)
 
-def contract_all_except_node(state_node: GraphNode,
-                             hamiltonian_node: GraphNode,
+def contract_all_except_node(state_node: Node,
+                             hamiltonian_node: Node,
                              hamiltonian_tensor: ndarray,
                              tensor_cache: PartialTreeCachDict) -> ndarray:
     """
@@ -102,16 +103,16 @@ def contract_all_except_node(state_node: GraphNode,
     output_tensor = transpose(hamiltonian_tensor, axes=axes)
     return output_tensor
 
-def get_effective_single_site_hamiltonian_nodes(state_node: GraphNode,
-                                                hamiltonian_node: GraphNode,
+def get_effective_single_site_hamiltonian_nodes(state_node: Node,
+                                                hamiltonian_node: Node,
                                                 hamiltonian_tensor: ndarray,
                                                 tensor_cache: PartialTreeCachDict) -> ndarray:
     """
     Obtains the effective site Hamiltonian as a matrix.
 
     Args:
-        state_node (GraphNode): The node of the state tensor.
-        hamiltonian_node (GraphNode): The node of the Hamiltonian tensor.
+        state_node (Node): The node of the state tensor.
+        hamiltonian_node (Node): The node of the Hamiltonian tensor.
         hamiltonian_tensor (ndarray): The Hamiltonian tensor that will be
             contracted with the cached tensors.
         tensor_cache (PartialTreeCachDict): The cache of environment tensors.
@@ -153,7 +154,7 @@ def get_effective_single_site_hamiltonian(node_id: str,
                                                        tensor_cache)
 
 def get_effective_bond_hamiltonian_tensor(
-                                         state_node: GraphNode,
+                                         state_node: Node,
                                          tensor_cache: PartialTreeCachDict
                                          ) -> ndarray:
     """
@@ -202,7 +203,7 @@ def get_effective_bond_hamiltonian_tensor(
     return tensor
 
 def get_effective_bond_hamiltonian_nodes(
-                                         state_node: GraphNode,
+                                         state_node: Node,
                                          tensor_cache: PartialTreeCachDict
                                          ) -> ndarray:
     """

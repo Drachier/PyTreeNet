@@ -2,13 +2,16 @@ import unittest
 from copy import deepcopy
 from fractions import Fraction
 
+import numpy as np
+
 from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.core.tree_structure import TreeStructure
 from pytreenet.operators.hamiltonian import Hamiltonian
 from pytreenet.core.graph_node import GraphNode
 from pytreenet.operators.sim_operators import (single_site_operators,
                                                create_nearest_neighbour_hamiltonian,
-                                               create_single_site_hamiltonian)
+                                               create_single_site_hamiltonian,
+                                               create_multi_site_hamiltonian)
 
 class TestSimOperators(unittest.TestCase):
 
@@ -365,6 +368,96 @@ class TestSingleSiteHamiltonian(unittest.TestCase):
         # Testing
         self.assertEqual(found_ham, ref_ham)
         self.assertEqual(found_ham.conversion_dictionary, {})
+
+class TestMultiSiteHamiltonian(unittest.TestCase):
+    """
+    Tests the creation of multi-site Hamiltonians.
+    """
+
+    def setUp(self):
+        self.node_ids = [["1","2","3"],
+                         ["2","3","4"],
+                         ["4","5","6"],
+                         ["3","2","5"]]
+
+    def test_constant_hamiltonian(self):
+        """
+        Tests the creation for only one operator.
+        """
+        op = "X"
+        ham = create_multi_site_hamiltonian(self.node_ids,
+                                            op)
+        correct = [(1,"1",TensorProduct({nid[0]: op,
+                                         nid[1]: op,
+                                         nid[2]: op}))
+                    for nid in self.node_ids]
+        self.assertIn(correct[0], ham.terms)
+        self.assertIn(correct[1], ham.terms)
+        self.assertIn(correct[2], ham.terms)
+        self.assertIn(correct[3], ham.terms)
+
+    def test_non_constant_opstring(self):
+        """
+        Test the creation of a multi-site hamiltonian, where the operators are
+        not all the same.
+        """
+        ops = ["X","Y","Z"]
+        correct = [(1,"1",TensorProduct({nid[0]: ops[0],
+                                         nid[1]: ops[1],
+                                         nid[2]: ops[2]}))
+                    for nid in self.node_ids]
+        ham = create_multi_site_hamiltonian(self.node_ids,
+                                            ops)
+        self.assertIn(correct[0], ham.terms)
+        self.assertIn(correct[1], ham.terms)
+        self.assertIn(correct[2], ham.terms)
+        self.assertIn(correct[3], ham.terms)
+
+    def test_conv_dict_is_added(self):
+        """
+        Tests that a provided conversion dictionarty is included in the
+        Hamiltonian.
+        """
+        conv_dict = {"X": np.zeros((2,2)),
+                     "Y": np.ones((2,2))}
+        ops = ["X","Y","Z"]
+        ham = create_multi_site_hamiltonian(self.node_ids,
+                                            ops,
+                                            conversion_dict=deepcopy(conv_dict))
+        self.assertEqual(conv_dict, ham.conversion_dictionary)
+
+    def test_coeff_map_is_added(self):
+        """
+        Tests that a provided coefficient map is added to the resulting
+        Hamiltonian.
+        """
+        coeff_map = {"gamma": -1,
+                     "L": 2+1j}
+        ops = ["X","Y","Z"]
+        ham = create_multi_site_hamiltonian(self.node_ids,
+                                            ops,
+                                            coeffs_mapping=deepcopy(coeff_map))
+        self.assertEqual(coeff_map, ham.coeffs_mapping)
+
+    def test_invalid_node_combination(self):
+        """
+        If node identifiers combinations of different length are provided an
+        error schould be raised.
+        """
+        node_ids = [["1","2","3"],
+                         ["2","3"]]
+        op = "X"
+        self.assertRaises(ValueError,create_multi_site_hamiltonian,
+                          node_ids,op)
+
+    def test_invalid_operator_combination(self):
+        """
+        If the operator combination is of different length to the node
+        identifiers an error should be raised.
+        """
+        ops = ["X","Y"]
+        self.assertRaises(ValueError,create_multi_site_hamiltonian,
+                          self.node_ids,ops)
 
 if __name__ == "__main__":
     unittest.main()

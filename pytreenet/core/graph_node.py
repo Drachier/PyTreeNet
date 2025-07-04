@@ -290,17 +290,23 @@ class GraphNode:
             other_node = other_node.identifier
         return self.parent == other_node
 
-    def is_parent_of(self, other_node: str | GraphNode) -> bool:
+    def is_parent_of(self, other_node: str | GraphNode | list[str | GraphNode
+                                                              ]) -> bool:
         """
         Determines whether this node is a parent of a given node.
 
         Args:
-            other_node (str|GraphNode): The identifier of the node to check
-                against or the GraphNode itself.
+            other_node (str | GraphNode | List[str | GraphNode]): The
+                identifier of the node to check against or the GraphNode
+                itself.
             
         Returns:
-            bool: True if this node is a parent of the given node, False otherwise.
+            bool: True if this node is a parent of the given node(s), False
+                otherwise.
         """
+        if isinstance(other_node, list):
+            return all(self.is_parent_of(node)
+                       for node in other_node)
         if isinstance(other_node, GraphNode):
             other_node = other_node.identifier
         return other_node in self.children

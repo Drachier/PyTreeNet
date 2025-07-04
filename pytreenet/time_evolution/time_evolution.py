@@ -218,7 +218,7 @@ class TimeEvolution:
         if evaluation_time == "inf":
             num_results = 1
         else:
-            num_results = self.num_time_steps // evaluation_time + 1
+            num_results = self.num_time_steps // evaluation_time
         res_dtypes = self.result_init_dictionary()
         self.results.initialize(res_dtypes, num_results)
 

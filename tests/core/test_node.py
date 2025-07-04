@@ -4,7 +4,7 @@ from copy import deepcopy
 
 from pytreenet.core.node import Node
 from pytreenet.util.ttn_exceptions import NotCompatibleException
-from pytreenet.random import crandn
+from pytreenet.random import crandn, random_tensor_node
 
 class TestNodeInit(unittest.TestCase):
 
@@ -473,6 +473,95 @@ class TestNodeEq(unittest.TestCase):
         self.node2._leg_permutation = [0,2,1]
         self.assertFalse(self.node1 == self.node2)
         self.assertFalse(self.node2 == self.node1)
+
+class TestExchangeOpenLegRanges(unittest.TestCase):
+    """
+    Testing the method that exchanges two ranges of open legs.
+    """
+
+    def test_exchange_two_only_open(self):
+        """
+        Test the method by exchanging two open legs, which are the only legs
+        of the node.
+        """
+        node, tensor = random_tensor_node((2,3), identifier="id")
+        node.exchange_open_leg_ranges(range(0,1), range(1,2))
+        self.assertEqual((3,2), node.shape)
+        tensor = node.transpose_tensor(tensor)
+        self.assertEqual((3,2), tensor.shape)
+
+    def test_exchange_two_open_and_virt(self):
+        """
+        Test the method by exchanging two open legs, where the node has
+        a parent and children.
+        """
+        node, tensor = random_tensor_node((2,3,4,5,6), identifier="id")
+        node.open_leg_to_parent("parent", 0)
+        node.open_leg_to_child("child1", 1)
+        node.open_leg_to_child("child2", 2)
+        node.exchange_open_leg_ranges(range(3,4), range(4,5))
+        self.assertEqual((2,3,4,6,5), node.shape)
+        tensor = node.transpose_tensor(tensor)
+        self.assertEqual((2,3,4,6,5), tensor.shape)
+
+    def test_exchange_two_pairs_only_open(self):
+        """
+        Test the method by exchanging two pairs of open legs, which are the
+        only legs of the node.
+        """
+        node, tensor = random_tensor_node((2,3,4,5), identifier="id")
+        node.exchange_open_leg_ranges(range(0,2), range(2,4))
+        self.assertEqual((4,5,2,3), node.shape)
+        tensor = node.transpose_tensor(tensor)
+        self.assertEqual((4,5,2,3), tensor.shape)
+
+    def test_exchange_two_pairs_open_and_virt(self):
+        """
+        Test the method by exchanging two pairs of open legs, where the node has
+        a parent and children.
+        """
+        node, tensor = random_tensor_node((2,2,2,3,4,5,6), identifier="id")
+        node.open_leg_to_parent("parent", 0)
+        node.open_leg_to_child("child1", 1)
+        node.open_leg_to_child("child2", 2)
+        node.exchange_open_leg_ranges(range(3,5), range(5,7))
+        self.assertEqual((2,2,2,5,6,3,4), node.shape)
+        tensor = node.transpose_tensor(tensor)
+        self.assertEqual((2,2,2,5,6,3,4), tensor.shape)
+
+    def test_non_single_step(self):
+        """
+        The method should raise a ValueError, if the ranges are not
+        single steps.
+        """
+        node, _ = random_tensor_node((2,3,4,5), identifier="id")
+        self.assertRaises(ValueError, node.exchange_open_leg_ranges,
+                          range(0,2,3), range(2,4))
+        self.assertRaises(ValueError, node.exchange_open_leg_ranges,
+                          range(0,2), range(2,5,3))
+
+    def test_overlapping_ranges(self):
+        """
+        The method should raise a NotCompatibleException, if the ranges
+        overlap.
+        """
+        node, _ = random_tensor_node((2,3,4,5), identifier="id")
+        self.assertRaises(NotCompatibleException, node.exchange_open_leg_ranges,
+                          range(0,2), range(1,3))
+        self.assertRaises(NotCompatibleException, node.exchange_open_leg_ranges,
+                          range(1,3), range(0,2))
+
+    def test_non_open_leg_ranges(self):
+        """
+        The method should raise a NotCompatibleException, if the ranges
+        are not fully open legs.
+        """
+        node, _ = random_tensor_node((2,3,4,5), identifier="id")
+        node.open_leg_to_parent("parent", 0)
+        self.assertRaises(NotCompatibleException, node.exchange_open_leg_ranges,
+                          range(0,1), range(1,2))
+        self.assertRaises(NotCompatibleException, node.exchange_open_leg_ranges,
+                          range(1,2), range(0,1))
 
 class Test_replace_tensor(unittest.TestCase):
 

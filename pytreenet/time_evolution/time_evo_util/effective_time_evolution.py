@@ -136,7 +136,7 @@ def two_site_time_evolution(node_id: str,
         contracted_id (str): The id of the node that represents the
             contraction of the two nodes.
         state (TreeTensorNetworkState): The state of the system with the two
-            nodes representing the two sites already contracted.
+            nodes representing the two sites not yet contracted.
         hamiltonian (TreeTensorNetworkOperator): The Hamiltonian of the system.
         time_step_size (float): The time step size.
         tensor_cache (SandwichCache): The cache for the neighbour blocks.
@@ -153,9 +153,29 @@ def two_site_time_evolution(node_id: str,
     """
     if solver_options is None:
         solver_options = {}
-    state_node, state_tensor = state[node_id]
+    # Get the neighbours before the contraction.
+    # Otherwise, the two nodes are gone from the state.
+    main_neighbours = state.nodes[node_id].neighbouring_nodes()
+    next_neighbours = state.nodes[next_node_id].neighbouring_nodes()
+    # Perform contraction of the two nodes.
+    state.contract_nodes(node_id, next_node_id,
+                            new_identifier=contracted_id)
+    # Pull out the correct tensors from the state and hamiltonian.
+    state_node, state_tensor = state[contracted_id]
     ham1_node, ham1_tensor = hamiltonian[node_id]
     ham2_node, ham2_tensor = hamiltonian[next_node_id]
+    # We have to ensure that the cache points to the contracted node.
+    for neighbour_id in main_neighbours:
+        if neighbour_id != next_node_id:
+            tensor_cache.change_next_id_for_entry(neighbour_id,
+                                                  node_id,
+                                                  contracted_id)
+    for neighbour_id in next_neighbours:
+        if neighbour_id != node_id:
+            tensor_cache.change_next_id_for_entry(neighbour_id,
+                                                  next_node_id,
+                                                  contracted_id)
+    # Now we update the two sites using the effective Hamiltonian.
     updated_tensor = effective_two_site_evolution(
         state_tensor,
         state_node,
@@ -167,6 +187,18 @@ def two_site_time_evolution(node_id: str,
         forward=forward,
         **solver_options
     )
+    # We have to ensure that the cache points to the old nodes again.
+    for neighbour_id in main_neighbours:
+        if neighbour_id != next_node_id:
+            tensor_cache.change_next_id_for_entry(neighbour_id,
+                                                  contracted_id,
+                                                  node_id)
+    for neighbour_id in next_neighbours:
+        if neighbour_id != node_id:
+            tensor_cache.change_next_id_for_entry(neighbour_id,
+                                                  contracted_id,
+                                                  next_node_id)
+    # Finally, we return the updated tensor.
     return updated_tensor
 
 # Evolution functions using nodes and tensors
@@ -330,6 +362,8 @@ def effective_two_site_evolution(
             available, a single node can be provided.
         time_step_size (float): The time step size.
         tensor_cache (PartialTreeCachDict): The cache for the neighbour blocks.
+            The relevant blocks have to already point to the contracted node,
+            i.e. the state node supplied here.
         mode (TimeEvoMode, optional): The mode of the time evolution. Defaults
             to TimeEvoMode.FASTEST. If possible, the time evolution is
             performed without constructing the full effective Hamiltonian.
@@ -357,16 +391,13 @@ def effective_two_site_evolution(
                                                         new_identifier=state_node.identifier)
         # Now the open legs are not in the correct order, but in (h1out, h1in, h2out, h2in).
         # We need to transpose them to (h1out, h2out, h1in, h2in).
-        hamiltonian_tensors = hamiltonian_tensors.transpose()
-        legs = list(range(hamiltonian_nodes.nlegs()))
-        # We merely need to swap two of the physical legs for that.
-        legs[-3], legs[-2] = legs[-2], legs[-3]
-        hamiltonian_tensors = hamiltonian_tensors.transpose(legs)
+        hamiltonian_nodes.exchange_open_leg_ranges(range(-2, -1), range(-3, -2))
+        hamiltonian_tensors = hamiltonian_nodes.transpose_tensor(hamiltonian_tensors)
     elif isinstance(hamiltonian_nodes, tuple):
         errstr = "If two Hamiltonian nodes are provided, " \
                     "the corresponding tensors must also be provided as a tuple."
         raise ValueError(errstr)
-    # Now the two nodes can act a a single node.
+    # Now the two nodes can act as a single node.
     updated_tensor = effective_single_site_evolution(state_tensor,
                                                      state_node,
                                                      hamiltonian_tensors,

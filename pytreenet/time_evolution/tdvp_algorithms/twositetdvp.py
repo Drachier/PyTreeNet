@@ -102,8 +102,6 @@ class TwoSiteTDVP(TDVPAlgorithm):
         u_legs, v_legs = self.state.legs_before_combination(target_node_id,
                                                             next_node_id)
         new_id = self.create_two_site_id(target_node_id, next_node_id)
-        self.state.contract_nodes(target_node_id, next_node_id,
-                                  new_identifier=new_id)
         updated_two_sites = two_site_time_evolution(target_node_id,
                                                     next_node_id,
                                                     new_id,
