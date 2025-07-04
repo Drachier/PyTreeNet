@@ -43,6 +43,25 @@ class PRBUG(TTNTimeEvolution):
     PRBUG stands for Parallel Recursive Basis-Update and Galerkin. This class
     implements the rank-adaptive version introduced in https://www.doi.org/10.1137/22M1473790.
 
+    Args:
+        intial_state (TreeTensorNetworkState): The initial state of the
+            system.
+        hamiltonian (TTNO): The Hamiltonian in TTNO form under which to
+            time-evolve the system.
+        time_step_size (float): The size of one time-step.
+        final_time (float): The final time until which to run the
+            evolution.
+        operators (Union[TensorProduct, List[TensorProduct]]): Operators
+            to be measured during the time-evolution.
+        config (Union[BUGConfig,None]): The configuration of
+            time evolution. Defaults to None.
+        solver_options (Union[Dict[str, Any], None], optional): Most time
+            evolutions algorithms use some kind of solver to resolve a
+            partial differential equation. This dictionary can be used to
+            pass additional options to the solver. Refer to the
+            documentation of `ptn.time_evolution.TimeEvoMode` for further
+            information. Defaults to None.
+
     """
     config_class = PRBUGConfig
 
