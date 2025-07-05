@@ -1,12 +1,13 @@
 from typing import Dict, List, Union, Tuple, Any
 from dataclasses import dataclass
+from copy import deepcopy
+from numpy import ndarray, concat, tensordot, eye, allclose
+
 from ..ttn_time_evolution import TTNTimeEvolution
 from ...operators.tensorproduct import TensorProduct
 from ...ttns.ttns import TreeTensorNetworkState
 from ...ttno.ttno_class import TreeTensorNetworkOperator
 from ...util.tensor_splitting import SVDParameters
-from copy import deepcopy
-from numpy import ndarray, concat, tensordot, eye, allclose
 from ...contractions.sandwich_caching import SandwichCache
 from ...contractions.tree_cach_dict import PartialTreeCachDict
 from ...core.ttn import pull_tensor_from_different_ttn
@@ -71,7 +72,7 @@ class PRBUG(TTNTimeEvolution):
 
         self.hamiltonian = hamiltonian
         self.state : TreeTensorNetworkState
-        self.state.ensure_root_orth_center()
+        self.state.ensure_root_orth_center(mode = SplitMode.KEEP)
         self.config: PRBUGConfig
 
         self.bc_tensor_cache = PartialTreeCachDict()
@@ -79,7 +80,7 @@ class PRBUG(TTNTimeEvolution):
         self.new_state = deepcopy(self._initial_state)
         self.current_cache_old = SandwichCache.init_cache_but_one(self.state,
                                                                     self.hamiltonian,
-                                                                    self._initial_state.root_id)  
+                                                                    self._initial_state.root_id)
         self.current_cache_new = SandwichCache(state=None, hamiltonian=None)
 
     def recursive_update(self):
@@ -90,7 +91,7 @@ class PRBUG(TTNTimeEvolution):
         self.bc_tensor_cache = PartialTreeCachDict()
 
         self.root_update(self.state)
-        
+
         self._initial_state = self.new_state
         self.state = self.new_state
 
@@ -161,7 +162,7 @@ class PRBUG(TTNTimeEvolution):
                                         new_basis_tensor.conj(),
                                         axes=([1],[1]))
         if not current_state.nodes[self.new_state.nodes[node_id].parent].is_root():
-           self.bc_tensor_cache.add_entry(node_id, self._initial_state.nodes[node_id].parent, basis_change_tensor)
+            self.bc_tensor_cache.add_entry(node_id, self._initial_state.nodes[node_id].parent, basis_change_tensor)
         assert not current_state.nodes[node_id].is_root()
         parent_id = current_state.nodes[node_id].parent
         state_node_before , _ = self.new_state[node_id]
@@ -250,7 +251,7 @@ class PRBUG(TTNTimeEvolution):
                                                         tensor_new = new_basis_tensor,
                                                         basis_change_tensor_cache = self.bc_tensor_cache)
         if not current_state.nodes[old_basis_node.parent].is_root():
-           self.bc_tensor_cache.add_entry(node_id, new_state_node.parent, basis_change_tensor)
+            self.bc_tensor_cache.add_entry(node_id, new_state_node.parent, basis_change_tensor)
         # Now we need to insert the new tensors into the new state
         state_node_before , _ = self.new_state[node_id]
 
@@ -363,4 +364,3 @@ class PRBUG(TTNTimeEvolution):
                                                     mode=self.config.time_evo_mode,
                                                     solver_options=self.solver_options)
         self.new_state.replace_tensor(root_id, updated_tensor)
-

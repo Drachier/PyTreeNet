@@ -105,9 +105,9 @@ class SRBUG(TTNTimeEvolution):
 
         self.hamiltonian = hamiltonian
         self.state : TreeTensorNetworkState
-        self.state.ensure_root_orth_center()
+        self.state.ensure_root_orth_center(mode = SplitMode.KEEP)
         self.config: SRBUGConfig
-        self.new_state = None 
+        self.new_state = None
         self.cache = SandwichCache(state=None,hamiltonian=None)
 
     def recursive_update(self):
@@ -180,7 +180,7 @@ class SRBUG(TTNTimeEvolution):
                                                     mode = SplitMode.REDUCED)
 
         new_basis_tensor = new_basis_tensor.T
-        
+
         basis_change_tensor = tensordot(old_basis_tensor,
                                         new_basis_tensor.conj(),
                                         axes=([1],[1]))
@@ -310,7 +310,7 @@ class SRBUG(TTNTimeEvolution):
         Args:
             Initial_state (Union[SymmetricTTNDO, BINARYTTNDO]): The current state of the system
                 with the root node as the orthogonality center.
-        
+
         """
         root_id = Initial_state.root_id
         self.new_state = deepcopy(Initial_state)
