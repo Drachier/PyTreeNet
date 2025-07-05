@@ -17,8 +17,8 @@ from ...contractions.state_operator_contraction import contract_leaf
 from ...core.leg_specification import LegSpecification
 from ...contractions.state_operator_contraction import contract_any
 from ..time_evo_util.bug_util import (basis_change_tensor_id,
-                       compute_new_basis_tensor,
-                       compute_fixed_size_new_basis_tensor)
+                                    compute_new_basis_tensor,
+                                    compute_fixed_size_new_basis_tensor)
 from ..ttn_time_evolution import TTNTimeEvolutionConfig
 
 @dataclass
@@ -34,14 +34,12 @@ class SRBUGConfig(TTNTimeEvolutionConfig, SVDParameters):
     deep: bool = False
     fixed_rank: bool = False
     time_evo_mode: TimeEvoMode = TimeEvoMode.RK45
-    split_mode: SplitMode = SplitMode.REDUCED
 
 
 class SRBUG(TTNTimeEvolution):
     """
     The SRBUG method for time evolution of tree tensor networks.
-    SRBUG stands for Sequential Recursive Basis-Update and Galerkin. This class
-    implements the rank-adaptive version introduced in https://www.doi.org/10.1137/22M1473790.
+    SRBUG stands for Sequential Recursive Basis-Update and Galerkin.
 
     Args:
         intial_state (TreeTensorNetworkState): The initial state of the
@@ -53,7 +51,7 @@ class SRBUG(TTNTimeEvolution):
             evolution.
         operators (Union[TensorProduct, List[TensorProduct]]): Operators
             to be measured during the time-evolution.
-        config (Union[BUGConfig,None]): The configuration of
+        config (Union[SRBUGConfig,None]): The configuration of
             time evolution. Defaults to None.
         solver_options (Union[Dict[str, Any], None], optional): Most time
             evolutions algorithms use some kind of solver to resolve a
@@ -90,7 +88,7 @@ class SRBUG(TTNTimeEvolution):
                 evolution.
             operators (Union[TensorProduct, List[TensorProduct]]): Operators
                 to be measured during the time-evolution.
-            config (Union[BUGConfig,None]): The configuration of
+            config (Union[SRBUGConfig,None]): The configuration of
                 time evolution. Defaults to None.
             solver_options (Union[Dict[str, Any], None], optional): Most time
                 evolutions algorithms use some kind of solver to resolve a
@@ -139,7 +137,7 @@ class SRBUG(TTNTimeEvolution):
         #post_svd_params.total_tol = float('-inf')
         #post_truncate_node(self.state.root_id, self.state, post_svd_params)
 
-        #self.state.canonical_form(self.state.root_id, mode=self.config.split_mode)
+        #self.state.canonical_form(self.state.root_id, mode=SplitMode.REDUCED)
 
     def update_leaf_node(self,
                          node_id: str,
@@ -162,7 +160,7 @@ class SRBUG(TTNTimeEvolution):
             copy_nodes = [node_id, parent_id]
             target_state = self.new_state.deepcopy_parts(copy_nodes)
 
-        target_state.move_orthogonalization_center(node_id, mode = self.config.split_mode)
+        target_state.move_orthogonalization_center(node_id, mode = SplitMode.REDUCED)
         self.cache.state = target_state
         self.cache.update_tree_cache(parent_id, node_id)
 
@@ -179,7 +177,7 @@ class SRBUG(TTNTimeEvolution):
         new_basis_tensor, _ = tensor_qr_decomposition(updated_tensor,
                                                     (1, ),
                                                     (0, ),
-                                                    mode = self.config.split_mode)
+                                                    mode = SplitMode.REDUCED)
 
         new_basis_tensor = new_basis_tensor.T
         
@@ -232,7 +230,7 @@ class SRBUG(TTNTimeEvolution):
             copy_nodes = [node_id, parent_id]
             target_state = self.new_state.deepcopy_parts(copy_nodes)
 
-        self.new_state.move_orthogonalization_center(parent_id, mode = self.config.split_mode)
+        self.new_state.move_orthogonalization_center(parent_id, mode = SplitMode.REDUCED)
         self.cache.state = target_state
         updated_tensor = single_site_time_evolution(node_id,
                                                     target_state,
@@ -298,7 +296,7 @@ class SRBUG(TTNTimeEvolution):
         if  self.new_state.nodes[node_id].is_leaf():
             self.update_leaf_node(node_id, parent_id)
         else:
-            self.new_state.move_orthogonalization_center(node_id, mode = self.config.split_mode)
+            self.new_state.move_orthogonalization_center(node_id, mode = SplitMode.REDUCED)
             self.cache.state = self.new_state
             self.cache.update_tree_cache(parent_id, node_id)
 
