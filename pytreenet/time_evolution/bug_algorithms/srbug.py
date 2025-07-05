@@ -1,8 +1,8 @@
 from typing import Dict, List, Union, Any
 from dataclasses import dataclass
-from numpy import tensordot
 from copy import deepcopy
 
+from numpy import tensordot
 from ..ttn_time_evolution import TTNTimeEvolution
 from ...operators.tensorproduct import TensorProduct
 from ...core.truncation.recursive_truncation import truncate_node
@@ -255,21 +255,26 @@ class SRBUG(TTNTimeEvolution):
         parent_leg = old_basis_node.neighbour_index(parent_id)
         cont_legs = list(range(new_basis_tensor.ndim))
         cont_legs.pop(parent_leg)
-        basis_change_tensor = tensordot(old_basis_tensor, new_basis_tensor.conj(), axes=(cont_legs,cont_legs))
+        basis_change_tensor = tensordot(old_basis_tensor,
+                                        new_basis_tensor.conj(),
+                                        axes=(cont_legs,cont_legs))
 
-        self.new_state.split_node_replace(node_id = node_id,
-                                    tensor_a = basis_change_tensor,
-                                    tensor_b = new_basis_tensor,
-                                    identifier_a = basis_change_tensor_id(node_id),
-                                    identifier_b = node_id,
-                                    legs_a = LegSpecification(new_state_node.parent,[],[]),
-                                    legs_b = LegSpecification(None, new_state_node.children, new_state_node.open_legs))
+        self.new_state.split_node_replace(
+            node_id = node_id,
+            tensor_a = basis_change_tensor,
+            tensor_b = new_basis_tensor,
+            identifier_a = basis_change_tensor_id(node_id),
+            identifier_b = node_id,
+            legs_a = LegSpecification(new_state_node.parent,[],[]),
+            legs_b = LegSpecification(None, new_state_node.children, new_state_node.open_legs))
 
-        child_block = contract_any(node_id = node_id,
-                                    next_node_id=basis_change_tensor_id(node_id), # This is currently the parent node
-                                    state = self.new_state,
-                                    operator = self.hamiltonian,
-                                    dictionary = self.cache)
+        child_block = contract_any(
+            node_id = node_id,
+            next_node_id=basis_change_tensor_id(node_id), # This is currently the parent node
+            state = self.new_state,
+            operator = self.hamiltonian,
+            dictionary = self.cache)
+
         self.cache.add_entry(node_id, parent_id, child_block)
         self.new_state.contract_to_parent(node_id = basis_change_tensor_id(node_id))
 
@@ -303,18 +308,18 @@ class SRBUG(TTNTimeEvolution):
             self.update_non_leaf_node(node_id, parent_id)
 
     def root_update(self,
-                    Initial_state: Union[SymmetricTTNDO, BINARYTTNDO]):
+                    initial_state: Union[SymmetricTTNDO, BINARYTTNDO]):
         """
         Updates the root node of the state according to the fixed rank SRBUG.
 
         Args:
-            Initial_state (Union[SymmetricTTNDO, BINARYTTNDO]): The current state of the system
+            initial_state (Union[SymmetricTTNDO, BINARYTTNDO]): The current state of the system
                 with the root node as the orthogonality center.
 
         """
-        root_id = Initial_state.root_id
-        self.new_state = deepcopy(Initial_state)
-        self.cache = SandwichCache.init_cache_but_one(Initial_state,
+        root_id = initial_state.root_id
+        self.new_state = deepcopy(initial_state)
+        self.cache = SandwichCache.init_cache_but_one(initial_state,
                                                       self.hamiltonian,
                                                       root_id)
         for child_id in frozenset(self.new_state.nodes[root_id].children):
