@@ -7,8 +7,6 @@ TTNO Hamiltonian with a TTNS and its conjugate.
 """
 from __future__ import annotations
 from typing import Any
-from uuid import uuid4
-
 from numpy import ndarray
 import numpy as np
 from numpy.typing import NDArray
@@ -326,7 +324,9 @@ def effective_single_site_evolution(
 def effective_two_site_evolution(
         state_tensor: NDArray[np.complex128],
         state_node: Node,
-        hamiltonian_tensors: NDArray[np.complex128] | tuple[NDArray[np.complex128], NDArray[np.complex128]],
+        hamiltonian_tensors: NDArray[np.complex128] |
+                                     tuple[NDArray[np.complex128],
+                                     NDArray[np.complex128]],
         hamiltonian_nodes: Node | tuple[Node, Node],
         time_step_size: float,
         tensor_cache: PartialTreeCachDict,
@@ -348,7 +348,8 @@ def effective_two_site_evolution(
             site.
         state_node (Node): The node corresponding to the state tensor and the
             two sites.
-        hamiltonian_tensors (NDArray[np.complex128] | tuple[NDArray[np.complex128], NDArray[np.complex128]]):
+        hamiltonian_tensors (NDArray[np.complex128] | tuple[NDArray[np.complex128],
+                             NDArray[np.complex128]]):
             The tensors of the Hamiltonian. If a tuple is provided, the tensors
             will be contracted in this function. If the contraction result is
             already available, a single tensor can be provided. It should have

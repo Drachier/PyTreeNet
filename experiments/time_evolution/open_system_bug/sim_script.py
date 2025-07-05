@@ -10,26 +10,25 @@ import os
 import traceback
 import io
 import contextlib
-from h5py import File
-from numpy import ndarray, complex128
 from typing import Union, Optional
-import numpy as np
+from h5py import File
+from numpy import ndarray, complex128, array
 
 from pytreenet.operators.common_operators import pauli_matrices
 from pytreenet.operators.hamiltonian import Hamiltonian
 from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.operators.sim_operators import single_site_operators
 from pytreenet.time_evolution.time_evo_enum import TimeEvoAlg
-from pytreenet.ttns.ttndo import (MPS_ttndo_for_product_state,
+from pytreenet.ttns.ttndo import (mps_ttndo_for_product_state,
                                     binary_ttndo_for_product_state,
-                                    symmetric_ttndo_for_product_State,
+                                    symmetric_ttndo_for_product_state,
                                     SymmetricTTNDO, BINARYTTNDO,
                                     PHYS_PREFIX)
 from pytreenet.operators.models import (ising_model,
                                         flipped_ising_model,
                                         local_magnetisation)
 from pytreenet.operators.lindbladian import generate_lindbladian
-from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator, TTNO
+from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
 from pytreenet.operators.common_operators import bosonic_operators
 from pytreenet.time_evolution.time_evolution import TimeEvoMode
 from pytreenet.util.tensor_splitting import TruncationLevel
@@ -38,7 +37,7 @@ from pytreenet.util.tensor_splitting import TruncationLevel
 CURRENT_PARAM_FILENAME = "current_parameters.json"
 
 # Global initial quantum state
-INITIAL_STATE_ZERO = np.array([1.0, 0.0], dtype=complex128)  # |0⟩ state
+INITIAL_STATE_ZERO = array([1.0, 0.0], dtype=complex128)  # |0⟩ state
 
 
 class TimeStepLevel(Enum):
@@ -95,7 +94,7 @@ class SimulationParameters:
             data["coupling"],
             data["ext_magn"],
             data["relaxation_rate"],
-            data["dephasing_rate"],            
+            data["dephasing_rate"],
             init_bond_dim=data.get("init_bond_dim", 2),
             depth=data.get("depth"))
 
@@ -129,7 +128,7 @@ class TimeEvolutionParameters:
     rtol: float
 
     # Optional label for time-step fineness
-    time_step_level: Optional[TimeStepLevel] = None  
+    time_step_level: Optional[TimeStepLevel] = None
 
     max_bond_dim: int = 100
     rel_svalue: float = 1e-6
@@ -219,17 +218,17 @@ def initial_ttndo(sim_params: SimulationParameters):
     """
     init_bond_dim = sim_params.init_bond_dim
     depth = sim_params.depth
-    
+
     # Use the global constant for the initial state |0⟩
     phys_tensor = INITIAL_STATE_ZERO
-    
+
     if sim_params.ttns_structure == TTNStructure.MPS:
-        ttns, ttndo = MPS_ttndo_for_product_state(
+        ttns, ttndo = mps_ttndo_for_product_state(
             num_phys=sim_params.num_sites,
             bond_dim=init_bond_dim,
             phys_tensor=phys_tensor)
         return ttns, ttndo
-        
+
     elif sim_params.ttns_structure == TTNStructure.BINARY:
         ttns, ttndo = binary_ttndo_for_product_state(
             num_phys=sim_params.num_sites,
@@ -237,9 +236,9 @@ def initial_ttndo(sim_params: SimulationParameters):
             phys_tensor=phys_tensor,
             depth=depth)
         return ttns, ttndo
-        
+
     elif sim_params.ttns_structure == TTNStructure.SYMMETRIC:
-        ttns, ttndo = symmetric_ttndo_for_product_State(
+        ttns, ttndo = symmetric_ttndo_for_product_state(
             num_phys=sim_params.num_sites,
             bond_dim=init_bond_dim,
             phys_tensor=phys_tensor,
@@ -247,7 +246,7 @@ def initial_ttndo(sim_params: SimulationParameters):
             root_bond_dim=init_bond_dim)
         # Symmetric function only returns ttndo, so we return None for ttns
         return ttns, ttndo
-            
+
     raise ValueError(f"Unsupported combination of structure {sim_params.ttns_structure}")
 
 def open_ising_model_ttno(sim_params: SimulationParameters,
@@ -291,7 +290,8 @@ def open_ising_model_ttno(sim_params: SimulationParameters,
     return ttno, ham
 
 def jump_operators(sim_params: SimulationParameters,
-                   ) -> tuple[list[tuple[Fraction,str,TensorProduct]], dict[str,ndarray], dict[str,complex]]:
+                   ) -> tuple[list[tuple[Fraction,str,TensorProduct]],
+                              dict[str,ndarray], dict[str,complex]]:
     """
     Generates the jump operators for the open Ising model.
 
@@ -363,7 +363,7 @@ def get_param_hash(sim_params: SimulationParameters,
     """
     param_dict = sim_params.to_dict()
     time_dict = time_evo_params.to_dict()
-    
+
     param_dict.update(time_dict)
     param_str = json.dumps(param_dict, sort_keys=True)
     param_hash = hashlib.sha256(param_str.encode()).hexdigest()[:30]
@@ -373,7 +373,7 @@ def run_one_simulation(sim_params: SimulationParameters,
                        time_evo_params: TimeEvolutionParameters,
                        save_file_root: str
                        ) -> float:
-    
+
     _ , ttndo = initial_ttndo(sim_params)
     lindbladian_ttno, ising_ham = open_ising_model_ttno(sim_params,
                                             ttndo)
@@ -414,17 +414,17 @@ def run_one_simulation(sim_params: SimulationParameters,
                                                             operators,
                                                             config=config,
                                                             solver_options=solver_options)
-        
+
     # Capture stdout and stderr to log what would normally be printed
     stdout_capture = io.StringIO()
     stderr_capture = io.StringIO()
-    
+
     # Run the time evolution
     start_time = time()
     with contextlib.redirect_stdout(stdout_capture), contextlib.redirect_stderr(stderr_capture):
         time_evo_alg.run(time_evo_params.evaluation_time, pgbar=False)
 
-    
+
     end_time = time()
     elapsed_time = end_time - start_time
     param_hash = get_param_hash(sim_params, time_evo_params)
@@ -463,7 +463,7 @@ if __name__ == "__main__":
         save_directory = sys.argv[1]
         PARAM_PATH = os.path.join(save_directory, CURRENT_PARAM_FILENAME)
         SIM_PARAMS, TIME_EVO_PARAMS = load_params(PARAM_PATH)
-        
+
         runtime = run_one_simulation(SIM_PARAMS, TIME_EVO_PARAMS, save_directory)
         print(f"Simulation completed in {runtime:.2f} seconds.")
         sys.exit(0)

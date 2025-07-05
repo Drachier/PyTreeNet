@@ -1,14 +1,14 @@
 """
 The test works with three different network structures:
-- Symmetric TTNDO: Created using symmetric_ttndo_for_product_State, properly normalized using normalize() method
+- Symmetric TTNDO: Created using symmetric_ttndo_for_product_state, properly normalized using normalize() method
 - Binary TTNDO: Created using binary_ttndo_for_product_state, properly normalized using normalize() method  
-- MPS TTNDO: Created using MPS_ttndo_for_product_state, properly normalized using normalize() method
+- MPS TTNDO: Created using mps_ttndo_for_product_state, properly normalized using normalize() method
 """
 
 import numpy as np
-from pytreenet.ttns.ttndo import (symmetric_ttndo_for_product_State, 
+from pytreenet.ttns.ttndo import (symmetric_ttndo_for_product_state, 
                                  binary_ttndo_for_product_state, 
-                                 MPS_ttndo_for_product_state,
+                                 mps_ttndo_for_product_state,
                                  contract_physical_nodes, 
                                  BRA_SUFFIX, KET_SUFFIX)
 from pytreenet.special_ttn.binary import generate_binary_ttns, PHYS_PREFIX
@@ -184,7 +184,7 @@ def validate_network_structure(ttndo_physically_binary, ttndo_symmetric, ttndo_m
     """    
     This function tests three different TTNDO structures and ensures all are properly normalized:
     
-    1. Symmetric TTNDO (created using symmetric_ttndo_for_product_State):
+    1. Symmetric TTNDO (created using symmetric_ttndo_for_product_state):
        - Each node has exactly one open leg
        - Physical tensor values are correctly preserved from input tensor
        - Virtual nodes have the correct sparse identity structure
@@ -205,7 +205,7 @@ def validate_network_structure(ttndo_physically_binary, ttndo_symmetric, ttndo_m
            - Bond dimensions match expected values
            - The trace equals 1.0 (consistent with normalization)
     
-    3. MPS TTNDO (created using MPS_ttndo_for_product_state):
+    3. MPS TTNDO (created using mps_ttndo_for_product_state):
        - Each node has exactly one open leg
        - Bond dimensions are correct
        - Properly normalized using the normalize() method to ensure trace = 1.0
@@ -701,7 +701,7 @@ class TestTTNDO(unittest.TestCase):
         depth = 2
         
         # Generate TTNDOs
-        _ , symmetric_ttndo = symmetric_ttndo_for_product_State(
+        _ , symmetric_ttndo = symmetric_ttndo_for_product_state(
             num_phys=num_phys,
             bond_dim=BOND_DIM,
             phys_tensor=phys_tensor,
@@ -716,7 +716,7 @@ class TestTTNDO(unittest.TestCase):
             depth=depth
         )
         
-        _ , mps_ttndo = MPS_ttndo_for_product_state(
+        _ , mps_ttndo = mps_ttndo_for_product_state(
             num_phys=num_phys,
             bond_dim=BOND_DIM, 
             phys_tensor=phys_tensor
@@ -748,7 +748,7 @@ class TestTTNDO(unittest.TestCase):
                 for num_phys, depth in test_configs:
                     with self.subTest(num_phys=num_phys, depth=depth):
                         # Generate TTNDOs
-                        _ , symmetric_ttndo = symmetric_ttndo_for_product_State(
+                        _ , symmetric_ttndo = symmetric_ttndo_for_product_state(
                             num_phys=num_phys,
                             bond_dim=BOND_DIM,
                             phys_tensor=phys_tensor,
@@ -763,7 +763,7 @@ class TestTTNDO(unittest.TestCase):
                             depth=depth
                         )
                         
-                        _ , mps_ttndo = MPS_ttndo_for_product_state(
+                        _ , mps_ttndo = mps_ttndo_for_product_state(
                             num_phys=num_phys,
                             bond_dim=BOND_DIM, 
                             phys_tensor=phys_tensor
