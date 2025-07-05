@@ -8,7 +8,6 @@ import hashlib
 import json
 import os
 import traceback
-import logging
 import io
 import contextlib
 from h5py import File
@@ -424,10 +423,6 @@ def run_one_simulation(sim_params: SimulationParameters,
     start_time = time()
     with contextlib.redirect_stdout(stdout_capture), contextlib.redirect_stderr(stderr_capture):
         time_evo_alg.run(time_evo_params.evaluation_time, pgbar=False)
-        
-        # Log captured output
-        stdout_content = stdout_capture.getvalue()
-        stderr_content = stderr_capture.getvalue()
 
     
     end_time = time()
