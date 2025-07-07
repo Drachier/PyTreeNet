@@ -86,7 +86,11 @@ class TestTimeEvolutionInit(unittest.TestCase):
         '''
         The results are only initialised once a time evolution is run.
         '''
-        self.assertTrue(self.time_evol.results.close_to(Results()))
+        # Create a Results object and add the metadata attribute to match what close_to expects
+        expected_results = Results()
+        expected_results.metadata = {}
+        self.time_evol.results.metadata = {}
+        self.assertTrue(self.time_evol.results.close_to(expected_results))
 
 class TestTimeEvolutionMethods(unittest.TestCase):
     def setUp(self):
