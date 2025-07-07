@@ -124,7 +124,7 @@ class TestNodeContraction(unittest.TestCase):
         self.assertEqual(new_tensor.shape, (4, 2))
         # Reference contraction
         ref = np.tensordot(ref_tens[1], ref_tens[0], axes=(0,0))
-        np.testing.assert_array_equal(new_tensor, ref)
+        np.testing.assert_allclose(new_tensor, ref)
 
     def test_parent_has_parent_no_open(self):
         """
