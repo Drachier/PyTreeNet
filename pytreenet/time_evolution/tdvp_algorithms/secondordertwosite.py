@@ -1,15 +1,12 @@
 """
 Implements the class for the second order two-site TDVP algorithm.
 """
-from typing import List, Union, Any
-from typing import List, Union, Any
+from typing import List, Union
 
 from .twositetdvp import TwoSiteTDVP, TwoSiteTDVPConfig
-from .tdvp_algorithm import TDVPConfig
 from ...ttns.ttns import TreeTensorNetworkState
 from ...ttno.ttno_class import TTNO
 from ...operators.tensorproduct import TensorProduct
-from ...util.tensor_splitting import SVDParameters
 
 class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
 
@@ -17,8 +14,8 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
                  hamiltonian: TTNO,
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
-                 truncation_parameters: SVDParameters,
                  config: Union[TwoSiteTDVPConfig,None] = None
+
                  ) -> None:
         """
         Initialises an instance of a second ordertwo-site TDVP algorithm.
