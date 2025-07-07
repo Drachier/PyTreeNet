@@ -307,7 +307,7 @@ class TestLindbladianGeneration(TestCase):
             self.assertIn(key, lindbladian.conversion_dictionary)
         # coeffs mapping
         boundled_map = copy(coeff_map)
-        boundled_map.update({key + "*j": value*1j
+        boundled_map.update({key + "*j": (value**2)*1j
                              for key, value in jump_coeff_mapping.items()})
         self.assertEqual(lindbladian.coeffs_mapping, boundled_map)
 
@@ -392,7 +392,7 @@ class TestAgainstExact(TestCase):
         # The qubits in the contracted tree have order q1, q2, q0
         term1 = kron(jump_dict["B"],eye(2))
         term1 = kron(term1,jump_dict["A"])
-        coeff = jump_op[0] * jump_coeff_map["gjump"]
+        coeff = jump_op[0] * jump_coeff_map["gjump"]**2
         exact = exact_lindbladian(zeros_like(term1),
                                   [(sqrt(coeff),term1)])
         # Testing
