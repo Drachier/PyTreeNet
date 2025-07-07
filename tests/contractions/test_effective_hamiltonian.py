@@ -2,7 +2,6 @@ import unittest
 
 from numpy import tensordot, transpose, allclose, reshape
 
-from pytreenet.core.graph_node import GraphNode
 from pytreenet.random.random_ttns_and_ttno import (small_ttns_and_ttno,
                                                    big_ttns_and_ttno,
                                                    RandomTTNSMode)
@@ -43,7 +42,7 @@ class TestFindTensorLegPermutation(unittest.TestCase):
         Test the permutation finding for a root, where the children of state
         and Hamiltonian are in the same order.
         """
-        state_node, _ = random_tensor_node((4,5,3,2))
+        state_node, _ = random_tensor_node((4,5,3))
         hamiltonian_node, _ = random_tensor_node((4,5,2,3))
         c_dict = {"c1":0, "c2":1}
         state_node.open_legs_to_children(c_dict)
@@ -429,24 +428,24 @@ class TestContractionMethodsSimple(unittest.TestCase):
         self.cache.update_tree_cache("root","c2")
 
     def test_find_tensor_leg_permutation_trivial(self):
-        state_node = GraphNode()
-        state_node.add_parent("root")
-        state_node.add_children(["c1","c2"])
-        hamiltonian_node = GraphNode()
-        hamiltonian_node.add_parent("root")
-        hamiltonian_node.add_children(["c1","c2"])
+        state_node, _ = random_tensor_node((6,4,5,3))
+        hamiltonian_node, _ = random_tensor_node((6,4,5,2,3))
+        state_node.open_leg_to_parent("root", 0)
+        hamiltonian_node.open_leg_to_parent("root", 0)
+        state_node.open_legs_to_children({"c1":1, "c2":2})
+        hamiltonian_node.open_legs_to_children({"c1":1, "c2":2})
         permutation = find_tensor_leg_permutation(state_node,
                                                     hamiltonian_node)
         correct_perm = tuple([3,5,7,0,2,4,6,1])
         self.assertEqual(permutation, correct_perm)
 
     def test_find_tensor_leg_permutation_diff(self):
-        state_node = GraphNode()
-        state_node.add_parent("root")
-        state_node.add_children(["c1","c2"])
-        hamiltonian_node = GraphNode()
-        hamiltonian_node.add_parent("root")
-        hamiltonian_node.add_children(["c2","c1"])
+        state_node, _ = random_tensor_node((6,4,5,3))
+        hamiltonian_node, _ = random_tensor_node((6,4,5,2,3))
+        state_node.open_leg_to_parent("root", 0)
+        hamiltonian_node.open_leg_to_parent("root", 0)
+        state_node.open_legs_to_children({"c1":1, "c2":2})
+        hamiltonian_node.open_legs_to_children({"c2":2, "c1":1})
         permutation = find_tensor_leg_permutation(state_node,
                                                     hamiltonian_node)
         correct_perm = tuple([3,7,5,0,2,6,4,1])
