@@ -26,78 +26,6 @@ STANDARD_ATTR_FILTER = {"topology": ["chain"],
                         "abs_svalue": [1e-15],
                         "status": ["success"]}
 
-class Loader:
-    """
-    A general class that can be used for loading the data.
-
-    Attributes:
-        results (dict[str, Results]): A dictionary where keys are parameter
-            hashes and values are Results objects containing the simulation
-            results.
-        obs_ids (list[str] | None): A list of observation IDs to filter the
-            results. If None, all observation IDs are included.
-        attrs_filter (dict[str, Any] | None): A dictionary to filter the
-            results based on specific attributes. If None, no filtering is
-            applied.
-    """
-
-    def __init__(self,
-                 results: dict[str, Results],
-                 obs_ids: list[str] | None = None,
-                 attrs_filter: dict[str, Any] | None = None
-                 ) -> None:
-        """
-        Loads all the results from the given directory path.
-
-        Args:
-            results (dict[str, Results]): A dictionary where keys are parameter
-                hashes and values are Results objects containing the simulation
-                results.
-            obs_ids (list[str] | None): A list of observation IDs to filter the
-                results. If None, all observation IDs are included.
-            attrs_filter (dict[str, Any] | None): A dictionary to filter the
-                results based on specific attributes. If None, no filtering is
-                applied.
-        """
-        self.results = results
-        self.obs_ids = obs_ids if obs_ids is not None else []
-        self.attrs_filter = attrs_filter if attrs_filter is not None else {}
-
-    @classmethod
-    def from_metadata_log(cls,
-                        dir_path: str,
-                        obs_ids: list[str] | None = None,
-                        attrs_filter: dict[str, list[Any]] | None = None,
-                        metadata: dict[str, Any] | None = None
-                        ) -> Self:
-        """
-        Loads the results filtering via the metadata log file.
-
-        Args:
-            dir_path (str): The directory path where the metadata log file is
-                located.
-            obs_ids (list[str] | None): A list of observation IDs to filter the
-                results. If None, all observation IDs are included.
-            attrs_filter (dict[str, list[Any]]] | None): A dictionary to filter the
-                results based on specific attributes. Only files with attributes
-                that match the values in the lists will be included. If None, no
-                filtering is applied.
-            
-        
-        Returns:
-            Loader: An instance of the Loader class with the loaded results.
-        """
-        if metadata is None:
-            metadata = load_metadata_log(dir_path)
-        results = {}
-        hashes = filter_metadata_log(metadata, attrs_filter or {})
-        for param_hash in hashes:
-            result_path = os.path.join(dir_path, FILENAME_PREFIX + f"{param_hash}.h5")
-            result = Results.load_from_h5(result_path,
-                                        loaded_ops=obs_ids)
-            results[param_hash] = result
-        return cls(results, obs_ids, attrs_filter)
-
 def filter_metadata_log(metadata: dict[str, Any],
                         attrs_filter: dict[str, list[Any]],
                         ) -> list[str]:
@@ -126,6 +54,39 @@ def filter_metadata_log(metadata: dict[str, Any],
         if valid:
             hashes.append(param_hash)
     return hashes
+
+def load_results(dir_path: str,
+                    obs_ids: list[str] | None = None,
+                    attrs_filter: dict[str, list[Any]] | None = None,
+                    metadata: dict[str, Any] | None = None
+                    ) -> Self:
+    """
+    Loads the results filtering via the metadata log file.
+
+    Args:
+        dir_path (str): The directory path where the metadata log file is
+            located.
+        obs_ids (list[str] | None): A list of observation IDs to filter the
+            results. If None, all observation IDs are included.
+        attrs_filter (dict[str, list[Any]]] | None): A dictionary to filter the
+            results based on specific attributes. Only files with attributes
+            that match the values in the lists will be included. If None, no
+            filtering is applied.
+        
+    
+    Returns:
+        Loader: An instance of the Loader class with the loaded results.
+    """
+    if metadata is None:
+        metadata = load_metadata_log(dir_path)
+    results = {}
+    hashes = filter_metadata_log(metadata, attrs_filter or {})
+    for param_hash in hashes:
+        result_path = os.path.join(dir_path, FILENAME_PREFIX + f"{param_hash}.h5")
+        result = Results.load_from_h5(result_path,
+                                    loaded_ops=obs_ids)
+        results[param_hash] = result
+    return results
 
 def load_metadata_log(dir_path: str) -> dict[str, Any]:
     """
@@ -229,27 +190,27 @@ def plot_delta_to_expm_vs_time(dir_path: str):
                     "num_sites": [num_sites],
                     "interaction_length": [2],
                     "time_evo_method": ["expm"]})
-    expm_data = Loader.from_metadata_log(dir_path,
-                                       obs_ids=obs_ids,
-                                       attrs_filter=attrs_filter,
-                                       metadata=metadata)
+    exact_results = load_results(dir_path,
+                                obs_ids=obs_ids,
+                                attrs_filter=attrs_filter,
+                                metadata=metadata)
     exmp_total_magn = {metadata[md_hash]["ttns_structure"]:
                        total_magn_from_results(result, obs_ids[:-1])
-                       for md_hash, result in expm_data.results.items()}
+                       for md_hash, result in exact_results.items()}
     attrs_filter["time_evo_method"] = ["chebyshev", "RK45", "RK23", "BDF", "DOP853"]
-    other_data = Loader.from_metadata_log(dir_path,
-                                       obs_ids=obs_ids,
-                                       attrs_filter=attrs_filter,
-                                       metadata=metadata)
+    other_data = load_results(dir_path,
+                                obs_ids=obs_ids,
+                                attrs_filter=attrs_filter,
+                                metadata=metadata)
     other_total_magn = {(metadata[md_hash]["time_evo_method"],
                           metadata[md_hash]["ttns_structure"]):
                         total_magn_from_results(result, obs_ids[:-1])
-                        for md_hash, result in other_data.results.items()}
+                        for md_hash, result in other_data.items()}
     delta = {(evo_method, ttn_structure):
              np.abs(exmp_total_magn[ttn_structure] -
                     other_total_magn[(evo_method, ttn_structure)])
              for (evo_method, ttn_structure) in other_total_magn.keys()}
-    times = other_data.results[next(iter(other_data.results))].times()
+    times = other_data[next(iter(other_data))].times()
     plt.figure(figsize=(10, 6))
     for (evo_method, ttn_structure), deltas in delta.items():
         plt.semilogy(times[:-1], deltas[:-1], label=f"{evo_method} - {ttn_structure}",
@@ -383,3 +344,6 @@ def plot_runtime_bar_chart(dir_path: str):
     ax.legend()
     plt.show()
 
+if __name__ == "__main__":
+    DIR_PATH="/work/ge24fum/diss_data/pytreenet/time_evo_benchmark"
+    plot_delta_to_expm_vs_time(DIR_PATH)
