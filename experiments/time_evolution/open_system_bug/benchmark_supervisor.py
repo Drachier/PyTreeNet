@@ -6,9 +6,10 @@ import subprocess
 from collections import defaultdict
 from enum import Enum
 from time import time
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Any
 import h5py
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D 
 import pandas as pd
 from numpy import array, savez, load, ndarray
 from IPython.display import display, clear_output
@@ -99,8 +100,8 @@ def get_or_compute_exact(sim_params, time_evo_params, benchmark_dir):
         jump_operators=jump_ops,
         e_ops=e_ops,
         options={'method':'bdf',
-                 'atol':time_evo_params.atol,
-                 'rtol':time_evo_params.rtol,
+                 'atol':1e-6,
+                 'rtol':1e-6,
                  'nsteps':1000})
 
     exact_magns = array(result.expect[:-1])
@@ -250,8 +251,8 @@ def run_single_benchmark(parameters,
 
 def run_benchmarks(benchmark_dir: str,
                     ttn_structure: TTNStructure,
-                    svd_params_list: Union[list[SVDParameters], SVDParameters],
-                    depth: int =None,
+                    svd_params_list: list[SVDParameters],
+                    depth: int | None = None,
                     ask_overwrite: bool = False):
     """
     Run benchmarks for a specific TTN structure with different SVD parameters.
@@ -301,10 +302,13 @@ def run_benchmarks(benchmark_dir: str,
         param_hash = get_param_hash(sim_params, time_evo_params)
 
         # Prepare row data before running benchmark
+        algorithm = time_evo_params.time_evo_algorithm.value if time_evo_params.time_evo_algorithm else 'Unknown'
+        method = time_evo_params.time_evo_mode.method.value if hasattr(time_evo_params, 'time_evo_mode') and time_evo_params.time_evo_mode else 'Unknown'
+
         row_data = {'Prameters Hash': param_hash[:12],
-                    'Algorithm': time_evo_params.time_evo_algorithm.value if time_evo_params.time_evo_algorithm else 'None',
-                    'time_step_level': time_evo_params.time_step_level.value if time_evo_params.time_step_level else 'None',
-                    'truncation_level': time_evo_params.truncation_level.value if time_evo_params.truncation_level else 'None',
+                    'Algorithm': f"{algorithm} / {method}",
+                    'time_step_level': time_evo_params.time_step_level.value if time_evo_params.time_step_level else 'Unknown',
+                    'truncation_level': time_evo_params.truncation_level.value if time_evo_params.truncation_level else 'Unknown',
                     'Status': 'Running...',
                     'CPU_time': 0.0}
 
@@ -395,9 +399,6 @@ class BenchmarkResultLoader:
                 if isinstance(value, h5py.Dataset):
                     results.results[key] = value[:]
 
-            # Add file attributes as metadata
-            results.file_attributes = dict(f.attrs)
-
             return results
 
     def load_error_arrays(self, param_hash: str) -> Tuple[ndarray, ndarray]:
@@ -415,16 +416,24 @@ class BenchmarkResultLoader:
             if 'mag_error' not in f or 'energy_error' not in f:
                 raise ValueError(f"Error arrays not found in {h5_file}")
 
-            mag_error = f['mag_error'][:]
-            energy_error = f['energy_error'][:]
+            # Check if the objects are datasets and convert them to arrays
+            mag_error_obj = f['mag_error']
+            energy_error_obj = f['energy_error']
+
+            if not isinstance(mag_error_obj, h5py.Dataset) or not isinstance(energy_error_obj, h5py.Dataset):
+                raise ValueError(f"mag_error or energy_error is not a dataset in {h5_file}")
+
+            # Convert to numpy arrays
+            mag_error = array(mag_error_obj)
+            energy_error = array(energy_error_obj)
 
             return mag_error, energy_error
 
-    def load_combined(self, param_hash: str) -> Tuple[Dict, any]:
+    def load_combined(self, param_hash: str) -> Tuple[Dict, Any]:
         """Load both parameters and results for a given hash."""
         return self.load_parameters(param_hash), self.load_results(param_hash)
 
-    def filter_and_load_results(self, filter_params: Dict) -> List[Tuple[Dict, any]]:
+    def filter_and_load_results(self, filter_params: Dict) -> List[Tuple[Dict, Any]]:
         """
         Filter results based on parameter criteria and return all matching (params, results) pairs.
         
@@ -434,7 +443,7 @@ class BenchmarkResultLoader:
                           or {"status": "success", "time_step_level": "coarse"}
         
         Returns:
-            List[Tuple[Dict, any]]: List of (parameters, results) 
+            List[Tuple[Dict, Any]]: List of (parameters, results) 
             pairs that match the filter criteria
         """
         metadata = self._load_metadata()
@@ -453,12 +462,8 @@ class BenchmarkResultLoader:
                 # Load the results for this hash if HDF5 file exists
                 h5_file = os.path.join(self.results_dir, f"simulation_{param_hash}.h5")
                 if os.path.exists(h5_file):
-                    try:
-                        results = self.load_results(param_hash)
-                        matching_results.append((params, results))
-                    except (ValueError, OSError, h5py.HDF5Error) as e:
-                        print(f"⚠️  Warning: Could not load results for hash {param_hash[:12]}: {e}")
-                        continue
+                    results = self.load_results(param_hash)
+                    matching_results.append((params, results))
 
         return matching_results
 
@@ -492,12 +497,12 @@ class BenchmarkResultLoader:
         return matching_hashes
 
 
-def load_specific_result(param_hash: str, results_dir) -> Tuple[Dict, any]:
+def load_specific_result(param_hash: str, results_dir) -> Tuple[Dict, Any]:
     """Load a specific result by parameter hash."""
     loader = BenchmarkResultLoader(results_dir)
     return loader.load_combined(param_hash)
 
-def load_filtered_results(filter_params: Dict, results_dir: str) -> List[Tuple[Dict, any]]:
+def load_filtered_results(filter_params: Dict, results_dir: str) -> List[Tuple[Dict, Any]]:
     """
     Load all results that match the specified parameter criteria.
 
@@ -507,7 +512,7 @@ def load_filtered_results(filter_params: Dict, results_dir: str) -> List[Tuple[D
         results_dir: Directory containing benchmark results
 
     Returns:
-        List[Tuple[Dict, any]]: List of (parameters, results) pairs that match the filter criteria
+        List[Tuple[Dict, Any]]: List of (parameters, results) pairs that match the filter criteria
     """
     if filter_params is None:
         filter_params = {}
@@ -549,7 +554,7 @@ def plot_benchmark_errors(filter_criteria, benchmark_dir, save_path=None, figsiz
 
     for params, results in filtered_results:
         algorithm = params.get('time_evo_algorithm', 'unknown')
-        method = params.get('time_evo_method', 'unknown')
+        method = params.get('time_evo_mode', 'unknown')
         group_key = (algorithm, method)
 
         # Load error arrays for this result
@@ -599,7 +604,8 @@ def plot_benchmark_errors(filter_criteria, benchmark_dir, save_path=None, figsiz
     # Create figure with subplots
     n_groups = len(groups)
     fig, axes = plt.subplots(n_groups, 3, figsize=figsize, squeeze=False)
-    fig.suptitle(f'TTNDO Structure: {ttn_structure} / depth = {depth}', fontsize=16, fontweight='bold')
+    fig.suptitle(f'TTNDO Structure: {ttn_structure} / depth = {depth}', 
+                 fontsize=16, fontweight='bold')
 
     # Plot titles for the three error types
     error_titles = ['Energy Error', 'Total Magnetization Error', 'Norm Deviation |norm - 1|']
@@ -641,26 +647,25 @@ def plot_benchmark_errors(filter_criteria, benchmark_dir, save_path=None, figsiz
             ax.set_title(group_title)
             ax.grid(True, alpha=0.3)
             ax.set_yscale('log')  # Use log scale for better error visualization
-
     # Create a custom legend for the color scheme
     legend_elements = []
     for trunc, color in truncation_colors.items():
         if trunc != 'unknown':
-            legend_elements.append(plt.Line2D([0],
+            legend_elements.append(Line2D([0],
                                     [0],
                                     color=color, lw=4,
                                     label=f'Truncation level: {trunc}'))
 
-    legend_elements.append(plt.Line2D([0],
+    legend_elements.append(Line2D([0],
                             [0],
                             color='black',
                             linestyle='-', lw=2,
                             label='Time_step level: coarse'))
-    legend_elements.append(plt.Line2D([0],
+    legend_elements.append(Line2D([0],
                             [0], color='black',
                             linestyle='--', lw=2,
                             label='Time_step level: medium'))
-    legend_elements.append(plt.Line2D([0],
+    legend_elements.append(Line2D([0],
                             [0],
                             color='black',
                             linestyle=':',

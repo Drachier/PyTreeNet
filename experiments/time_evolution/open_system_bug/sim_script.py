@@ -30,7 +30,8 @@ from pytreenet.operators.models import (ising_model,
 from pytreenet.operators.lindbladian import generate_lindbladian
 from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
 from pytreenet.operators.common_operators import bosonic_operators
-from pytreenet.time_evolution.time_evolution import TimeEvoMode
+from pytreenet.time_evolution.time_evolution import (TimeEvoMode,
+                                                     TimeEvoMethod)
 from pytreenet.util.tensor_splitting import TruncationLevel
 
 
@@ -118,14 +119,11 @@ class TimeEvolutionParameters:
     """
     Dataclass to hold time evolution parameters.
     """
-    time_evo_method: TimeEvoMode
+    time_evo_mode: TimeEvoMode
     time_evo_algorithm: TimeEvoAlg
     time_step_size: float
     evaluation_time: int
     final_time: float
-
-    atol: float
-    rtol: float
 
     # Optional label for time-step fineness
     time_step_level: Optional[TimeStepLevel] = None
@@ -143,16 +141,14 @@ class TimeEvolutionParameters:
         Convert the time evolution parameters to a dictionary.
         """
         out = {
-            "time_evo_method": self.time_evo_method.value,
+            "time_evo_mode": self.time_evo_mode.method.value,
+            "time_evo_solver_options": self.time_evo_mode.solver_options,
             "time_evo_algorithm": self.time_evo_algorithm.value,
             "time_step_size": self.time_step_size,
             "evaluation_time": self.evaluation_time,
             "time_step_level": self.time_step_level.value if self.time_step_level else None,
             "final_time": self.final_time,
             "truncation_level": self.truncation_level.value if self.truncation_level else None}
-        if self.time_evo_method.is_scipy():
-            out["atol"] = self.atol
-            out["rtol"] = self.rtol
         if self.time_evo_algorithm.requires_svd():
             out["max_bond_dim"] = self.max_bond_dim
             out["rel_svalue"] = self.rel_svalue
@@ -167,20 +163,22 @@ class TimeEvolutionParameters:
         """
         Create a TimeEvolutionParameters instance from a dictionary.
         """
-        time_evo_method = TimeEvoMode(data["time_evo_method"])
+        # Reconstruct TimeEvoMode from saved data
+        method = TimeEvoMethod(data["time_evo_mode"])
+        solver_options = data.get("time_evo_solver_options", {})
+        time_evo_mode = TimeEvoMode(method, solver_options)
+
         time_evo_algorithm = TimeEvoAlg(data["time_evo_algorithm"])
         truncation_level = TruncationLevel(data["truncation_level"]) if data.get("truncation_level") else None
         # Extract time_step_level if present
         tsl = data.get("time_step_level")
         time_step_level = TimeStepLevel(tsl) if tsl else None
-        return cls(time_evo_method,
+        return cls(time_evo_mode,
                     time_evo_algorithm,
                     data["time_step_size"],
                     data["evaluation_time"],
                     final_time=data["final_time"],
                     time_step_level=time_step_level,
-                    atol=data.get("atol", 1e-6),
-                    rtol=data.get("rtol", 1e-6),
                     max_bond_dim=data.get("max_bond_dim", 100),
                     rel_svalue=data.get("rel_svalue", 1e-6),
                     abs_svalue=data.get("abs_svalue", 1e-6),
@@ -194,13 +192,16 @@ class TimeEvolutionParameters:
         Saves the time evolution parameters to an HDF5 file.
         """
         group = file.create_group("time_evolution_parameters")
-        group.attrs["time_evo_method"] = self.time_evo_method.value
+        group.attrs["time_evo_mode"] = self.time_evo_mode.method.value
         group.attrs["time_evo_algorithm"] = self.time_evo_algorithm.value
         group.attrs["truncation_level"] = self.truncation_level.value if self.truncation_level else ""
         group.attrs["time_step_level"] = self.time_step_level.value if self.time_step_level else ""
-        if self.time_evo_method.is_scipy():
-            group.attrs["atol"] = self.atol
-            group.attrs["rtol"] = self.rtol
+
+        # Save solver options as a subgroup since they can be complex
+        solver_group = group.create_group("solver_options")
+        for key, value in self.time_evo_mode.solver_options.items():
+            solver_group.attrs[key] = value
+
         if self.time_evo_algorithm.requires_svd():
             group.attrs["max_bond_dim"] = self.max_bond_dim
             group.attrs["rel_svalue"] = self.rel_svalue
@@ -380,15 +381,6 @@ def run_one_simulation(sim_params: SimulationParameters,
     operators = open_ising_operators(sim_params,
                                      ising_ham)
 
-    # Set up the time evolution algorithm
-    if time_evo_params.time_evo_method.is_scipy():
-        solver_options = {
-            "atol": time_evo_params.atol,
-            "rtol": time_evo_params.rtol
-        }
-    else:
-        solver_options = None
-
     time_evo_alg_kind = time_evo_params.time_evo_algorithm
     config = time_evo_alg_kind.get_class().config_class()
     config.record_bond_dim = True
@@ -397,7 +389,7 @@ def run_one_simulation(sim_params: SimulationParameters,
     config.record_average_bdim = True
     config.record_total_size = True
     config.record_loschmidt_amplitude = False
-    config.time_evo_mode = time_evo_params.time_evo_method
+    config.time_evo_mode = time_evo_params.time_evo_mode
 
     if time_evo_alg_kind.requires_svd():
         config.max_bond_dim = time_evo_params.max_bond_dim
@@ -412,8 +404,7 @@ def run_one_simulation(sim_params: SimulationParameters,
                                                             time_evo_params.time_step_size,
                                                             time_evo_params.final_time,
                                                             operators,
-                                                            config=config,
-                                                            solver_options=solver_options)
+                                                            config=config)
 
     # Capture stdout and stderr to log what would normally be printed
     stdout_capture = io.StringIO()

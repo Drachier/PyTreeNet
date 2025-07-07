@@ -1,5 +1,5 @@
-from typing import Dict, List, Union, Any
-from dataclasses import dataclass
+from typing import Dict, List, Union
+from dataclasses import dataclass, field
 from copy import deepcopy
 
 from numpy import tensordot
@@ -9,7 +9,7 @@ from ...core.truncation.recursive_truncation import truncate_node
 from ...ttns.ttns import TreeTensorNetworkState
 from ...ttns.ttndo import SymmetricTTNDO, BINARYTTNDO
 from ...ttno.ttno_class import TreeTensorNetworkOperator
-from .. import TimeEvoMode
+from .. import TimeEvoMode, TimeEvoMethod
 from ...contractions.sandwich_caching import SandwichCache
 from ..time_evo_util.effective_time_evolution import single_site_time_evolution
 from ...util.tensor_splitting import tensor_qr_decomposition, SplitMode, SVDParameters
@@ -24,16 +24,42 @@ from ..ttn_time_evolution import TTNTimeEvolutionConfig
 @dataclass
 class SRBUGConfig(TTNTimeEvolutionConfig, SVDParameters):
     """
-    The configuration class for the Sequential Recursive BUG methods.
+    Configuration class for the PRBUG (Parallel Recursive Basis-Update and Galerkin) algorithm.
 
     Attributes:
-        deep (bool): Whether to use deepcopies of the TTNS during the update.
-            If False, only the relevant nodes are copied at each point.
-        fixed_rank (bool): Whether to use the fixed rank RBBUG or the standard SRBUG.
+        deep (bool): If True, creates deep copies of the entire TTNS during each update step. 
+            If False, only copies the relevant nodes at each point, which is more memory 
+            efficient. Defaults to False.
+        
+        fixed_rank (bool): Determines the rank adaptation strategy. If True, uses fixed-rank 
+            PRBUG maintaining constant bond dimensions. If False, uses rank-adaptive PRBUG 
+            allowing bond dimensions to grow. Defaults to False.
+        
+        time_evo_mode (TimeEvoMode): Specifies the local time evolution algorithm and its 
+            configuration. Defaults to RK45 method with standard tolerances. The algorithm 
+            and options can be accessed as:
+            - Method name: `SRBUG.config.time_evo_mode.method.value` (returns string)
+            - Solver options: `SRBUG.config.time_evo_mode.solver_options` (returns dict)
+            See TimeEvoMode documentation for complete method descriptions and options.
+
+    Notes:
+        - SVDParameters control the truncation behavior during tensor decompositions 
+        - Fixed rank mode is currently unsupported and will raise an assertion error.
+
+    Examples:
+        >>> config = PRBUGConfig()  # Uses defaults
+        >>> print(config.time_evo_mode.method.value)  # "RK45"
+        >>> print(config.time_evo_mode.solver_options)  # {'atol': 1e-06, 'rtol': 1e-06}
+        >>> 
+        >>> # Custom configuration
+        >>> config = PRBUGConfig(
+        ...     deep=True,
+        ...     time_evo_mode=TimeEvoMode(TimeEvoMethod.RK23, {'atol': 1e-8}),
+        ...     rel_tol=1e-10,)
     """
     deep: bool = False
     fixed_rank: bool = False
-    time_evo_mode: TimeEvoMode = TimeEvoMode.RK45
+    time_evo_mode: TimeEvoMode = field(default_factory=lambda: TimeEvoMode(TimeEvoMethod.RK45))
 
 
 class SRBUG(TTNTimeEvolution):
@@ -53,12 +79,6 @@ class SRBUG(TTNTimeEvolution):
             to be measured during the time-evolution.
         config (Union[SRBUGConfig,None]): The configuration of
             time evolution. Defaults to None.
-        solver_options (Union[Dict[str, Any], None], optional): Most time
-            evolutions algorithms use some kind of solver to resolve a
-            partial differential equation. This dictionary can be used to
-            pass additional options to the solver. Refer to the
-            documentation of `ptn.time_evolution.TimeEvoMode` for further
-            information. Defaults to None.
 
     """
     config_class = SRBUGConfig
@@ -72,8 +92,7 @@ class SRBUG(TTNTimeEvolution):
                                   Dict[str, Union[TensorProduct, TreeTensorNetworkOperator]],
                                   TensorProduct,
                                   TreeTensorNetworkOperator],
-                 config: Union[SRBUGConfig, None] = None,
-                 solver_options: Union[dict[str, Any], None] = None
+                 config: Union[SRBUGConfig, None] = None
                  ) -> None:
         """
         Initilises an instance of the BUG algorithm.
@@ -90,18 +109,11 @@ class SRBUG(TTNTimeEvolution):
                 to be measured during the time-evolution.
             config (Union[SRBUGConfig,None]): The configuration of
                 time evolution. Defaults to None.
-            solver_options (Union[Dict[str, Any], None], optional): Most time
-                evolutions algorithms use some kind of solver to resolve a
-                partial differential equation. This dictionary can be used to
-                pass additional options to the solver. Refer to the
-                documentation of `ptn.time_evolution.TimeEvoMode` for further
-                information. Defaults to None.
         """
         super().__init__(initial_state,
                          time_step_size, final_time,
                          operators,
-                         config=config,
-                         solver_options=solver_options)
+                         config=config)
 
         self.hamiltonian = hamiltonian
         self.state : TreeTensorNetworkState
@@ -170,8 +182,7 @@ class SRBUG(TTNTimeEvolution):
                                                     hamiltonian = self.hamiltonian,
                                                     time_step_size = self.time_step_size,
                                                     tensor_cache = self.cache,
-                                                    mode = self.config.time_evo_mode,
-                                                    solver_options=self.solver_options)
+                                                    mode = self.config.time_evo_mode)
         old_basis_tensor = self.new_state.tensors[node_id]
 
         new_basis_tensor, _ = tensor_qr_decomposition(updated_tensor,
@@ -237,8 +248,7 @@ class SRBUG(TTNTimeEvolution):
                                                     self.hamiltonian,
                                                     self.time_step_size,
                                                     self.cache,
-                                                    mode=self.config.time_evo_mode,
-                                                    solver_options=self.solver_options)
+                                                    mode=self.config.time_evo_mode)
         new_state_node = self.new_state.nodes[node_id]
 
         if self.config.fixed_rank:
@@ -332,6 +342,5 @@ class SRBUG(TTNTimeEvolution):
                                                     self.hamiltonian,
                                                     self.time_step_size,
                                                     self.cache,
-                                                    mode=self.config.time_evo_mode,
-                                                    solver_options=self.solver_options)
+                                                    mode=self.config.time_evo_mode)
         self.new_state.replace_tensor(root_id, updated_tensor)

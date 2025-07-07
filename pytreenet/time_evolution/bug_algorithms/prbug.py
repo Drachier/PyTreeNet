@@ -1,5 +1,5 @@
-from typing import Dict, List, Union, Tuple, Any
-from dataclasses import dataclass
+from typing import Dict, List, Union, Tuple
+from dataclasses import dataclass, field
 from copy import deepcopy
 from numpy import ndarray, concat, tensordot
 
@@ -24,21 +24,50 @@ from ..time_evo_util.bug_util import (basis_change_tensor_id,
                                     compute_fixed_size_new_basis_tensor)
 from ...contractions.contraction_util import get_equivalent_legs
 from ...time_evolution.ttn_time_evolution import TTNTimeEvolutionConfig
-from ...time_evolution import TimeEvoMode
+from ...time_evolution import TimeEvoMode, TimeEvoMethod
 
 @dataclass
 class PRBUGConfig(TTNTimeEvolutionConfig, SVDParameters):
     """
-    The configuration class for the PRBUG methods.
+    Configuration class for the PRBUG (Parallel Recursive Basis-Update and Galerkin) algorithm.
+
     Attributes:
-        deep (bool): Whether to use deepcopies of the TTNS during the update.
-            If False, only the relevant nodes are copied at each point.
-        fixed_rank (bool): Whether to use the fixed rank PRBUG or the standard
-            PRBUG.
+        deep (bool): If True, creates deep copies of the entire TTNS during each update step. 
+            If False, only copies the relevant nodes at each point, which is more memory 
+            efficient. Defaults to False.
+        
+        fixed_rank (bool): Determines the rank adaptation strategy. If True, uses fixed-rank 
+            PRBUG maintaining constant bond dimensions. If False, uses rank-adaptive PRBUG 
+            allowing bond dimensions to grow. Defaults to False.
+        
+        time_evo_mode (TimeEvoMode): Specifies the local time evolution algorithm and its 
+            configuration. Defaults to RK45 method with standard tolerances. The algorithm 
+            and options can be accessed as:
+            - Method name: `prbug.config.time_evo_mode.method.value` (returns string)
+            - Solver options: `prbug.config.time_evo_mode.solver_options` (returns dict)
+            See TimeEvoMode documentation for complete method descriptions and options.
+
+    Notes:
+        - SVDParameters control the truncation behavior during tensor decompositions 
+        - Fixed rank mode is currently unsupported and will raise an assertion error.
+
+    Examples:
+        >>> config = PRBUGConfig()  # Uses defaults
+        >>> print(config.time_evo_mode.method.value)  # "RK45"
+        >>> print(config.time_evo_mode.solver_options)  # {'atol': 1e-06, 'rtol': 1e-06}
+        >>> 
+        >>> # Custom configuration
+        >>> config = PRBUGConfig(
+        ...     deep=True,
+        ...     time_evo_mode=TimeEvoMode(TimeEvoMethod.RK23, {'atol': 1e-8}),
+        ...     rel_tol=1e-10,
+        ...     max_bond_dim=1000
+        ... )
     """
     deep: bool = False
     fixed_rank: bool = False
-    time_evo_mode: TimeEvoMode = TimeEvoMode.RK45
+    time_evo_mode: TimeEvoMode = field(default_factory=lambda: TimeEvoMode(TimeEvoMethod.RK45))
+
     def __post_init__(self):
         assert self.fixed_rank is False, "Fixed rank is not supported for PRBUG!"
 
@@ -61,13 +90,11 @@ class PRBUG(TTNTimeEvolution):
                             Dict[str, Union[TensorProduct, TreeTensorNetworkOperator]],
                             TensorProduct,
                             TreeTensorNetworkOperator],
-                 config: Union[PRBUGConfig, None] = None,
-                 solver_options: Union[dict[str, Any], None] = None) -> None:
+                 config: Union[PRBUGConfig, None] = None) -> None:
 
         super().__init__(initial_state,
                          time_step_size, final_time,
-                         operators, config,
-                         solver_options=solver_options)
+                         operators, config)
 
         self.hamiltonian = hamiltonian
         self.state : TreeTensorNetworkState
@@ -142,8 +169,7 @@ class PRBUG(TTNTimeEvolution):
                                                     hamiltonian = self.hamiltonian,
                                                     time_step_size = self.time_step_size,
                                                     tensor_cache = self.current_cache_old,
-                                                    mode = self.config.time_evo_mode,
-                                                    solver_options = self.solver_options)
+                                                    mode = self.config.time_evo_mode)
         old_basis_tensor = self._initial_state.tensors[node_id]
         if self.config.fixed_rank:
             new_basis_tensor, _ = tensor_qr_decomposition(updated_tensor,
@@ -234,8 +260,7 @@ class PRBUG(TTNTimeEvolution):
                                                     self.hamiltonian,
                                                     self.time_step_size,
                                                     self.current_cache_new,
-                                                    mode=self.config.time_evo_mode,
-                                                    solver_options=self.solver_options)
+                                                    mode=self.config.time_evo_mode)
         new_state_node = self.new_state.nodes[node_id]
         if self.config.fixed_rank:
             new_basis_tensor = compute_fixed_size_new_basis_tensor(new_state_node,
@@ -373,6 +398,5 @@ class PRBUG(TTNTimeEvolution):
                                                     self.hamiltonian,
                                                     self.time_step_size,
                                                     self.current_cache_new,
-                                                    mode=self.config.time_evo_mode,
-                                                    solver_options=self.solver_options)
+                                                    mode=self.config.time_evo_mode)
         self.new_state.replace_tensor(root_id, updated_tensor)

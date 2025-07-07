@@ -48,7 +48,6 @@ class OneSiteTDVP(TDVPAlgorithm):
                                              self.partial_tree_cache,
                                              forward=EvoDirection.BACKWARD,
                                              mode=self.config.time_evo_mode,
-                                             solver_options=self.solver_options
                                              )
         self.state.tensors[link_id] = updated_tensor
 

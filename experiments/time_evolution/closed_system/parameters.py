@@ -8,8 +8,9 @@ from experiments.time_evolution.closed_system.sim_script import (SimulationParam
                         TimeEvolutionParameters,
                         Topology,
                         TTNStructure,
-                        TimeEvoMode,
                         TimeEvoAlg)
+
+from pytreenet.time_evolution.time_evolution import TimeEvoMode, TimeEvoMethod
 
 def generate_parameter_set():
     """
@@ -26,19 +27,16 @@ def generate_parameter_set():
     num_sites = [5,10,15,20]
     interaction_length = [2,3,4]
 
-    time_evo_modes = [TimeEvoMode.CHEBYSHEV,
-                      TimeEvoMode.EXPM,
-                      TimeEvoMode.RK45,
-                      TimeEvoMode.RK23,
-                      TimeEvoMode.BDF,
-                      TimeEvoMode.DOP853]
+    time_evo_modes = [TimeEvoMode(TimeEvoMethod.EXPM),
+                      TimeEvoMode(TimeEvoMethod.EXPM),
+                      TimeEvoMode(TimeEvoMethod.RK45),
+                      TimeEvoMode(TimeEvoMethod.RK23),
+                      TimeEvoMode(TimeEvoMethod.BDF),
+                      TimeEvoMode(TimeEvoMethod.DOP853)]
     evo_alg = TimeEvoAlg.BUG
     maximum_bond_dim = [1,2,5,10,20,25,50,75,100]
     rel_svalue = 1e-15
     abs_svalue = 1e-15
-
-    atol=1e-8
-    rtol=1e-8
 
     # Generate a list of simulation parameters with different configurations
     iterator = product(num_sites,
@@ -59,8 +57,6 @@ def generate_parameter_set():
                                                   final_time,
                                                   max_bond_dim=max_bd,
                                                   rel_svalue=rel_svalue,
-                                                  abs_svalue=abs_svalue,
-                                                  atol=atol,
-                                                  rtol=rtol)
+                                                  abs_svalue=abs_svalue)
         sim_params_list.append((sim_params, time_evo_params))
     return sim_params_list

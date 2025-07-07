@@ -1,6 +1,7 @@
 import math
+from typing import Optional
 from pytreenet.time_evolution.time_evo_enum import TimeEvoAlg
-from pytreenet.time_evolution.time_evolution import TimeEvoMode
+from pytreenet.time_evolution.time_evolution import TimeEvoMode, TimeEvoMethod
 from pytreenet.util.tensor_splitting import SVDParameters
 from experiments.time_evolution.open_system_bug.sim_script import (SimulationParameters,
                                                                     TimeEvolutionParameters,
@@ -9,7 +10,9 @@ from experiments.time_evolution.open_system_bug.sim_script import (SimulationPar
 
 
 def generate_timestep_evaluation_grid(time_step: float,
-                                     evaluation_time: int) -> list[tuple[TimeStepLevel, float, int]]:
+                                     evaluation_time: int) -> list[tuple[TimeStepLevel,
+                                                                         float,
+                                                                         int]]:
     """Generate three timestep/evaluation pairs labeled by TimeStepLevel."""
     # Define the three fineness levels
     levels = [TimeStepLevel.COARSE, TimeStepLevel.MEDIUM, TimeStepLevel.FINE]
@@ -26,8 +29,8 @@ def generate_timestep_evaluation_grid(time_step: float,
     combinations = [(lvl, t, e) for lvl, (t, e) in zip(levels, grid)]
     return combinations
 
-def generate_parameter(ttn_structure: TTNStructure, 
-                       depth: int = None, 
+def generate_parameter(ttn_structure: TTNStructure,
+                       depth: Optional[int] = None,
                        svd_prams: SVDParameters = SVDParameters()) -> list:
     """
     Generate complete parameter combinations for a specific (structure, depth) pair.
@@ -35,7 +38,8 @@ def generate_parameter(ttn_structure: TTNStructure,
     Args:
         ttn_structure: Specific TTN structure (MPS, BINARY, or SYMMETRIC)
         depth: Specific depth value
-        svd_prams: SVD parameters for tensor decomposition (includes truncation_level and optional label)
+        svd_prams: SVD parameters for tensor decomposition 
+        (includes truncation_level and optional label)
 
     Returns:
         list: Complete parameter combinations ready for simulation
@@ -45,7 +49,7 @@ def generate_parameter(ttn_structure: TTNStructure,
     # ext_magn: External magnetic field strength in z-direction
     ext_magn = 0.5
     # coupling: Nearest-neighbor coupling strength for XX interactions
-    coupling = 1.0 
+    coupling = 1.0
     # relaxation_rate: Local amplitude damping (relaxation) rate
     relaxation_rate = 0.1
     # dephasing_rate: Local dephasing rate
@@ -57,18 +61,20 @@ def generate_parameter(ttn_structure: TTNStructure,
 
     timestep_evaluation = generate_timestep_evaluation_grid(time_step,
                                                            evaluation_time)
-        
+
     if depth is None and ttn_structure != TTNStructure.MPS:
         depth = max(1, math.ceil(math.log2(num_site)))
         print(f"Depth not specified, using maximum depth: {depth}")
 
     init_bond_dim = 4
 
-    time_evo_modes = [TimeEvoMode.RK45, TimeEvoMode.RK23]
-    evo_algs = [TimeEvoAlg.SRBUG, TimeEvoAlg.PRBUG] 
-
-    atol = 1e-8
-    rtol = 1e-8
+    time_evo_modes = [TimeEvoMode(TimeEvoMethod.RK45, {'atol': 1e-6, 'rtol': 1e-6}),
+                      TimeEvoMode(TimeEvoMethod.FASTEST)]
+                      #TimeEvoMode(TimeEvoMethod.RK45, {'atol': 1e-6, 'rtol': 1e-6})]
+    evo_algs = [TimeEvoAlg.SRBUG,
+                TimeEvoAlg.PRBUG,]
+                #TimeEvoAlg.FPBUG,
+                #TimeEvoAlg.SPBUG]
 
     # Extract local parameters
     maximum_bond_dim = svd_prams.max_bond_dim
@@ -100,8 +106,6 @@ def generate_parameter(ttn_structure: TTNStructure,
                                                         ts,
                                                         ev_time,
                                                         final_time,
-                                                        atol=atol,
-                                                        rtol=rtol,
                                                         max_bond_dim=maximum_bond_dim,
                                                         rel_svalue=rel_svalue,
                                                         abs_svalue=abs_svalue,

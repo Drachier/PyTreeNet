@@ -24,8 +24,8 @@ from pytreenet.operators.sim_operators import (create_single_site_hamiltonian,
 from pytreenet.ttns.ttns import TreeTensorNetworkState
 from pytreenet.special_ttn.binary import generate_binary_ttns, PHYS_PREFIX
 from pytreenet.special_ttn.mps import MatrixProductState
-from pytreenet.special_ttn.star import StarTreeTensorState
-from pytreenet.time_evolution.time_evolution import TimeEvoMode
+from pytreenet.time_evolution.time_evolution import (TimeEvoMode,
+                                                     TimeEvoMethod)
 from pytreenet.time_evolution.time_evo_enum import TimeEvoAlg
 from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
 
@@ -105,14 +105,12 @@ class TimeEvolutionParameters:
     """
     Dataclass to hold time evolution parameters.
     """
-    time_evo_method: TimeEvoMode
+    time_evo_mode: TimeEvoMode
     time_evo_algorithm: TimeEvoAlg
     time_step_size: float
     final_time: float
-    ## For scipy methods
-    atol: float = 1e-6
-    rtol: float = 1e-6
-    ## For 2TDVP and BUG
+
+    ## For Truncation in 2TDVP and BUG
     max_bond_dim: int = 100
     rel_svalue: float = 1e-6
     abs_svalue: float = 1e-6
@@ -122,13 +120,11 @@ class TimeEvolutionParameters:
         Convert the time evolution parameters to a dictionary.
         """
         out = {
-            "time_evo_method": self.time_evo_method.value,
+            "time_evo_mode": self.time_evo_mode.method.value,
+            "time_evo_solver_options": self.time_evo_mode.solver_options,
             "time_evo_algorithm": self.time_evo_algorithm.value,
             "time_step_size": self.time_step_size,
             "final_time": self.final_time}
-        if self.time_evo_method.is_scipy():
-            out["atol"] = self.atol
-            out["rtol"] = self.rtol
         if self.time_evo_algorithm.requires_svd():
             out["max_bond_dim"] = self.max_bond_dim
             out["rel_svalue"] = self.rel_svalue
@@ -140,15 +136,16 @@ class TimeEvolutionParameters:
         """
         Create a TimeEvolutionParameters instance from a dictionary.
         """
-        time_evo_method = TimeEvoMode(data["time_evo_method"])
+        # Reconstruct TimeEvoMode from saved data
+        method = TimeEvoMethod(data["time_evo_mode"])
+        solver_options = data.get("time_evo_solver_options", {})
+        time_evo_mode = TimeEvoMode(method, solver_options)
         time_evo_algorithm = TimeEvoAlg(data["time_evo_algorithm"])
         return cls(
-            time_evo_method,
+            time_evo_mode,
             time_evo_algorithm,
             data["time_step_size"],
             data["final_time"],
-            atol=data.get("atol", 1e-6),
-            rtol=data.get("rtol", 1e-6),
             max_bond_dim=data.get("max_bond_dim", 100),
             rel_svalue=data.get("rel_svalue", 1e-6),
             abs_svalue=data.get("abs_svalue", 1e-6)
@@ -159,11 +156,14 @@ class TimeEvolutionParameters:
         Saves the time evolution parameters to an HDF5 file.
         """
         group = file.create_group("time_evolution_parameters")
-        group.attrs["time_evo_method"] = self.time_evo_method.value
+        group.attrs["time_evo_mode"] = self.time_evo_mode.method.value
         group.attrs["time_evo_algorithm"] = self.time_evo_algorithm.value
-        if self.time_evo_method.is_scipy():
-            group.attrs["atol"] = self.atol
-            group.attrs["rtol"] = self.rtol
+
+        # Save solver options as a subgroup since they can be complex
+        solver_group = group.create_group("solver_options")
+        for key, value in self.time_evo_mode.solver_options.items():
+            solver_group.attrs[key] = value
+
         if self.time_evo_algorithm.requires_svd():
             group.attrs["max_bond_dim"] = self.max_bond_dim
             group.attrs["rel_svalue"] = self.rel_svalue
@@ -245,8 +245,8 @@ def get_param_hash(sim_params: SimulationParameters,
     param_dict = sim_params.to_dict()
     param_dict.update(time_evo_params.to_dict())
     param_str = json.dumps(param_dict, sort_keys=True)
-    hash = hashlib.sha256(param_str.encode()).hexdigest()[:30]
-    return hash
+    param_hash = hashlib.sha256(param_str.encode()).hexdigest()[:30]
+    return param_hash
 
 def run_one_simulation(sim_params: SimulationParameters,
                        time_evo_params: TimeEvolutionParameters,
@@ -272,13 +272,6 @@ def run_one_simulation(sim_params: SimulationParameters,
     # Create operators to be evaluated during time evolution
     operators = get_single_site_operators(sim_params.num_sites)
     # Set up the time evolution algorithm
-    if time_evo_params.time_evo_method.is_scipy():
-        solver_options = {
-            "atol": time_evo_params.atol,
-            "rtol": time_evo_params.rtol
-        }
-    else:
-        solver_options = None
     time_evo_alg_kind = time_evo_params.time_evo_algorithm
     config = time_evo_alg_kind.get_class().config_class()
     config.record_bond_dim = True
@@ -287,7 +280,7 @@ def run_one_simulation(sim_params: SimulationParameters,
     config.record_average_bdim = True
     config.record_total_size = True
     config.record_loschmidt_amplitude = True
-    config.time_evo_mode = time_evo_params.time_evo_method
+    config.time_evo_mode = time_evo_params.time_evo_mode
     if time_evo_alg_kind.requires_svd():
         config.max_bond_dim = time_evo_params.max_bond_dim
         config.rel_tol = time_evo_params.rel_svalue
@@ -297,8 +290,7 @@ def run_one_simulation(sim_params: SimulationParameters,
                                                             time_evo_params.time_step_size,
                                                             time_evo_params.final_time,
                                                             operators,
-                                                            config=config,
-                                                            solver_options=solver_options)
+                                                            config=config)
     # Run the time evolution
     start_time = time()
     time_evo_alg.run(pgbar=False)

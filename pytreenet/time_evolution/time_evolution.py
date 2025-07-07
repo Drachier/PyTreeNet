@@ -2,11 +2,11 @@
 This module provides the abstract TimeEvolution class
 """
 from __future__ import annotations
-from typing import List, Union, Any, Dict, Iterable, Callable
+from typing import List, Union, Any, Dict, Iterable, Callable, Literal
 from enum import Enum
 from copy import deepcopy
 from math import modf
-
+from dataclasses import dataclass, field
 import numpy as np
 from scipy.integrate import solve_ivp
 from tqdm import tqdm
@@ -36,8 +36,7 @@ class TimeEvolution:
     """
 
     def __init__(self, initial_state: Any, time_step_size: float,
-                 final_time: float, operators: Union[List[Any], Dict[str, Any], Any],
-                 solver_options: Union[Dict[str, Any], None] = None):
+                 final_time: float, operators: Union[List[Any], Dict[str, Any], Any]):
         """
         Initialises a TimeEvoluion object.
         
@@ -49,12 +48,6 @@ class TimeEvolution:
                 for which to compute the expectation values. Can be a single
                 operator or a list of operators. If a dictionary is given, the
                 results can be called by using the keys of the dictionary.
-            solver_options (Union[Dict[str, Any], None], optional): Most time
-                evolutions algorithms use some kind of solver to resolve a
-                partial differential equation. This dictionary can be used to
-                pass additional options to the solver. Refer to the
-                documentation of `ptn.time_evolution.TimeEvoMode` for further
-                information. Defaults to None.
         """
         self._initial_state = initial_state
         self.state = deepcopy(initial_state)
@@ -64,10 +57,6 @@ class TimeEvolution:
         self._final_time = final_time
         self._num_time_steps = self._compute_num_time_steps()
         self.operators = self.init_operators(operators)
-        if solver_options is None:
-            self.solver_options = {}
-        else:
-            self.solver_options = solver_options
         self.results = Results()
 
     def _compute_num_time_steps(self) -> int:
@@ -199,7 +188,7 @@ class TimeEvolution:
         """
         return {key: complex for key in self.operators.keys()}
 
-    def init_results(self, evaluation_time: Union[int,"inf"] = 1):
+    def init_results(self, evaluation_time: Union[int,Literal["inf"]] = 1):
         """
         Initialises an appropriately sized zero valued numpy array for storage.
 
@@ -233,7 +222,7 @@ class TimeEvolution:
         self.results.set_time(index, time_step*self.time_step_size)
 
     def result_index(self,
-                     evalutation_time: Union[int,"inf"],
+                     evalutation_time: Union[int,Literal["inf"]],
                      time_step: int) -> int:
         """
         Returns the time index at which to save the results.
@@ -252,7 +241,7 @@ class TimeEvolution:
         return time_step // evalutation_time
 
     def should_evaluate(self,
-                        evaluation_time: Union[int,"inf"],
+                        evaluation_time: Union[int,Literal["inf"]],
                         time_step: int
                         ) -> bool:
         """
@@ -272,7 +261,7 @@ class TimeEvolution:
         return some_time_step or end_time
 
     def evaluate_and_save_results(self,
-                                  evaluation_time: Union[int,"inf"],
+                                  evaluation_time: Union[int,Literal["inf"]],
                                   time_step: int):
         """
         Evaluates and saves the operator results at a given time step.
@@ -305,7 +294,7 @@ class TimeEvolution:
         return tqdm(range(self.num_time_steps + 1), disable=not pgbar)
 
     def run(self,
-            evaluation_time: Union[int,"inf"] = 1,
+            evaluation_time: Union[int,Literal["inf"]] = 1,
             pgbar: bool = True):
         """
         Runs this time evolution algorithm for the given parameters.
@@ -374,11 +363,10 @@ class EvoDirection(Enum):
         """
         return 1.0j * self.exp_sign()
 
-class TimeEvoMode(Enum):
+class TimeEvoMethod(Enum):
     """
     Mode for the time evolution of a matrix.
     """
-
     FASTEST = "fastest"
     EXPM = "expm"
     CHEBYSHEV = "chebyshev"
@@ -392,41 +380,113 @@ class TimeEvoMode(Enum):
         return self.value
 
     @staticmethod
-    def fastest_equivalent() -> TimeEvoMode:
-        """
-        Selects the mode that is equivalent to the fastest.
-        """
-        return TimeEvoMode.CHEBYSHEV
+    def fastest_equivalent() -> 'TimeEvoMethod':
+        """Selects the mode that is equivalent to the fastest."""
+        return TimeEvoMethod.CHEBYSHEV
 
     @staticmethod
-    def scipy_modes() -> List[TimeEvoMode]:
-        """
-        Returns a list of all modes that are scipy ODE solvers.
-        
-        Returns:
-            List[TimeEvoMode]: The list of scipy modes.
-        """
-        return [TimeEvoMode.RK45,
-                TimeEvoMode.RK23,
-                TimeEvoMode.DOP853,
-                TimeEvoMode.BDF]
+    def scipy_modes() -> List['TimeEvoMethod']:
+        """Returns a list of all modes that are scipy ODE solvers."""
+        return [TimeEvoMethod.RK45, TimeEvoMethod.RK23, TimeEvoMethod.DOP853, TimeEvoMethod.BDF]
 
     def is_scipy(self) -> bool:
-        """
-        Determines, if this mode is a scipy ODE solver.
-        """
-        if self == TimeEvoMode.FASTEST:
+        """Determines if this mode is a scipy ODE solver."""
+        if self == TimeEvoMethod.FASTEST:
             return self.fastest_equivalent().is_scipy()
         return self in self.scipy_modes()
 
     def action_evolvable(self) -> bool:
-        """
-        Determines, if this mode can be used for time evolution via an action.
-
-        Returns:
-            bool: True if the mode is suitable for time evolution via an action.
-        """
+        """Determines if this mode can be used for time evolution via an action."""
         return self.is_scipy()
+
+@dataclass
+class TimeEvoMode:
+    """
+    Configuration used by local time evolution functions.
+
+    Attributes:
+        method (TimeEvoMethod(Enum)): Specifying the numerical algorithm used 
+            for time evolution. Valid options include:
+            - Matrix exponential methods: EXPM, CHEBYSHEV, SPARSE
+            - SciPy ODE solvers: RK45, RK23, DOP853, BDF  
+            - FASTEST: Alias for CHEBYSHEV.
+
+        solver_options (Dict[str, Any]): Optional configuration parameters for 
+            the underlying solver. Defaults are set automatically based on method:
+            - For matrix exponential methods (EXPM, CHEBYSHEV, SPARSE, FASTEST): 
+              Empty dictionary (no additional options)
+            - For SciPy ODE solvers (RK45, RK23, DOP853, BDF): 
+              {'atol': 1e-06, 'rtol': 1e-06}
+              - SciPy-based methods support evolution via action operators through the
+              `time_evolve_action` method.
+               - See SciPy's `solve_ivp` documentation for additional valid parameters
+               when using scipy methods.
+
+    Examples:
+        >>> mode = TimeEvoMode(TimeEvoMethod.FASTEST)  # Uses default settings
+        >>> mode = TimeEvoMode(TimeEvoMethod.RK45, {'atol': 1e-8})  # Custom tolerance
+    """
+    method: TimeEvoMethod
+    solver_options: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        """Set default solver options based on method type."""
+        if not self.solver_options:
+            if self.method in TimeEvoMethod.scipy_modes():
+                self.solver_options = {'atol': 1e-06, 'rtol': 1e-06}
+            else:
+                self.solver_options = {}
+
+    def __str__(self) -> str:
+        return str(self.method)
+
+    def fastest_equivalent(self) -> 'TimeEvoMode':
+        """Returns the mode equivalent to fastest."""
+        if self.method == TimeEvoMethod.FASTEST:
+            return TimeEvoMode(TimeEvoMethod.CHEBYSHEV)
+        return self
+
+    def is_scipy(self) -> bool:
+        """Determines if this mode is a scipy ODE solver."""
+        if self.method == TimeEvoMethod.FASTEST:
+            return self.fastest_equivalent().is_scipy()
+        return self.method.is_scipy()
+
+    def action_evolvable(self) -> bool:
+        """Determines if this mode can be used for time evolution via an action."""
+        return self.is_scipy()
+
+    @classmethod
+    def create_fastest(cls) -> 'TimeEvoMode':
+        return cls(TimeEvoMethod.FASTEST)
+
+    @classmethod
+    def create_expm(cls) -> 'TimeEvoMode':
+        return cls(TimeEvoMethod.EXPM)
+
+    @classmethod
+    def create_chebyshev(cls) -> 'TimeEvoMode':
+        return cls(TimeEvoMethod.CHEBYSHEV)
+
+    @classmethod
+    def create_sparse(cls) -> 'TimeEvoMode':
+        return cls(TimeEvoMethod.SPARSE)
+
+    @classmethod
+    def create_rk45(cls, **solver_options) -> 'TimeEvoMode':
+        return cls(TimeEvoMethod.RK45, solver_options or {'atol': 1e-06, 'rtol': 1e-06})
+
+    @classmethod
+    def create_rk23(cls, **solver_options) -> 'TimeEvoMode':
+        return cls(TimeEvoMethod.RK23, solver_options or {'atol': 1e-06, 'rtol': 1e-06})
+
+    @classmethod
+    def create_dop853(cls, **solver_options) -> 'TimeEvoMode':
+        return cls(TimeEvoMethod.DOP853, solver_options or {'atol': 1e-06, 'rtol': 1e-06})
+
+    @classmethod
+    def create_bdf(cls, **solver_options) -> 'TimeEvoMode':
+        return cls(TimeEvoMethod.BDF, solver_options or {'atol': 1e-06, 'rtol': 1e-06})
 
     def time_evolve_action(self,
                            psi: np.ndarray,
@@ -463,13 +523,13 @@ class TimeEvoMode(Enum):
                 return exp_factor * action_result
             t_span = (0, time_difference)
             res = solve_ivp(ode_rhs, t_span, psi.flatten(),
-                            method=self.value,
+                            method=self.method.value,
                             t_eval=[time_difference],
                             **options)
             return res.y[:, 0].reshape(orig_shape)
         raise NotImplementedError(
             "The time evolution via action is not implemented for this mode: "
-            + str(self.value)
+            + str(self.method.value)
         )
 
     def time_evolve(self,
@@ -505,12 +565,12 @@ class TimeEvoMode(Enum):
                                            **options)
         exponent = forward.exp_sign() * 1.0j * hamiltonian * time_difference
         return fast_exp_action(exponent, psi.flatten(),
-                               mode=self.value).reshape(psi.shape)
+                               mode=self.method.value).reshape(psi.shape)
 
 def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
                 time_difference: float,
                 forward: EvoDirection| bool = EvoDirection.FORWARD,
-                mode: TimeEvoMode = TimeEvoMode.FASTEST) -> np.ndarray:
+                mode: TimeEvoMode =  TimeEvoMode(TimeEvoMethod.FASTEST)) -> np.ndarray:
     """
     Time evolves a state psi via a Hamiltonian.
      
@@ -540,12 +600,12 @@ def time_evolve(psi: np.ndarray, hamiltonian: np.ndarray,
             return rhs_matrix @ y_vec
         t_span = (0, time_difference)
         solution = solve_ivp(ode_rhs, t_span, psi.flatten(),
-                                method=mode.value,
+                                method=mode.method.value,
                                 t_eval=[time_difference])
         result_vector = solution.y[:,0]
     else:
         exponent = rhs_matrix * time_difference
         result_vector = fast_exp_action(exponent, psi.flatten(),
-                                        mode=mode.value)
+                                        mode=mode.method.value)
     return result_vector.reshape(
                       psi.shape)
