@@ -250,5 +250,104 @@ class TestTreeStructureMethods(unittest.TestCase):
                         "node1", "node8", "node7", "node0"]
         self.assertEqual(correct_list,found_list)
 
+    def test_find_pairs_of_distance_0(self):
+        """
+        Test that all pairs of nodes that are at distance 0 from each other
+        are found correctly.
+        """
+        pairs = self.ts.find_pairs_of_distance(0)
+        correct_pairs = {(self.identifiers[i], self.identifiers[i])
+                         for i in range(len(self.identifiers))}
+        correct_pairs = {frozenset(pair) for pair in correct_pairs}
+        self.assertEqual(set(pairs), correct_pairs)
+
+    def test_find_pairs_of_distance_1(self):
+        """
+        Test that all pairs of nodes that are at distance 1 from each other
+        are found correctly.
+        """
+        pairs = self.ts.find_pairs_of_distance(1)
+        correct_pairs = {(self.identifiers[0], self.identifiers[1]),
+                         (self.identifiers[0], self.identifiers[7]),
+                         (self.identifiers[1], self.identifiers[2]),
+                         (self.identifiers[1], self.identifiers[4]),
+                         (self.identifiers[2], self.identifiers[3]),
+                         (self.identifiers[4], self.identifiers[5]),
+                         (self.identifiers[4], self.identifiers[6]),
+                         (self.identifiers[7], self.identifiers[8])}
+        correct_pairs = {frozenset(pair) for pair in correct_pairs}
+        self.assertEqual(set(pairs), correct_pairs)
+
+    def test_find_pairs_of_distance_2(self):
+        """
+        Test that all pairs of nodes that are at distance 2 from each other
+        are found correctly.
+        """
+        pairs = self.ts.find_pairs_of_distance(2)
+        correct_pairs = {(self.identifiers[0], self.identifiers[2]),
+                         (self.identifiers[0], self.identifiers[4]),
+                         (self.identifiers[0], self.identifiers[8]),
+                         (self.identifiers[1], self.identifiers[3]),
+                         (self.identifiers[1], self.identifiers[5]),
+                         (self.identifiers[1], self.identifiers[6]),
+                         (self.identifiers[1], self.identifiers[7]),
+                         (self.identifiers[6], self.identifiers[5]),
+                         (self.identifiers[2], self.identifiers[4])}
+        correct_pairs = {frozenset(pair) for pair in correct_pairs}
+        self.assertEqual(set(pairs), correct_pairs)
+
+    def test_find_pairs_of_distance_3(self):
+        """
+        Test that all pairs of nodes that are at distance 3 from each other
+        are found correctly.
+        """
+        pairs = self.ts.find_pairs_of_distance(3)
+        correct_pairs = {(self.identifiers[8], self.identifiers[1]),
+                         (self.identifiers[2], self.identifiers[7]),
+                         (self.identifiers[4], self.identifiers[7]),
+                         (self.identifiers[0], self.identifiers[3]),
+                         (self.identifiers[0], self.identifiers[5]),
+                         (self.identifiers[0], self.identifiers[6]),
+                         (self.identifiers[3], self.identifiers[4]),
+                         (self.identifiers[2], self.identifiers[5]),
+                         (self.identifiers[2], self.identifiers[6])}
+        correct_pairs = {frozenset(pair) for pair in correct_pairs}
+        self.assertEqual(set(pairs), correct_pairs)
+
+    def test_find_pairs_of_distance_4(self):
+        """
+        Test that all pairs of nodes that are at distance 4 from each other
+        are found correctly.
+        """
+        pairs = self.ts.find_pairs_of_distance(4)
+        correct_pairs = {(self.identifiers[8], self.identifiers[2]),
+                         (self.identifiers[8], self.identifiers[4]),
+                         (self.identifiers[7], self.identifiers[3]),
+                         (self.identifiers[7], self.identifiers[5]),
+                         (self.identifiers[7], self.identifiers[6]),
+                         (self.identifiers[3], self.identifiers[5]),
+                         (self.identifiers[3], self.identifiers[6])}
+        correct_pairs = {frozenset(pair) for pair in correct_pairs}
+        self.assertEqual(set(pairs), correct_pairs)
+
+    def test_find_pairs_of_distance_5(self):
+        """
+        Test that all pairs of nodes that are at distance 5 from each other
+        are found correctly.
+        """
+        pairs = self.ts.find_pairs_of_distance(5)
+        correct_pairs = {(self.identifiers[8], self.identifiers[3]),
+                         (self.identifiers[8], self.identifiers[5]),
+                         (self.identifiers[8], self.identifiers[6])}
+        correct_pairs = {frozenset(pair) for pair in correct_pairs}
+        self.assertEqual(set(pairs), correct_pairs)
+
+    def test_find_pairs_of_distance_none(self):
+        """
+        Test that for a too large distance, no pairs are found.
+        """
+        pairs = self.ts.find_pairs_of_distance(6)
+        self.assertEqual(set(pairs), set())
+
 if __name__ == "__main__":
     unittest.main()
