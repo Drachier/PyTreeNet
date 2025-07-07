@@ -1,5 +1,5 @@
 
-from typing import Dict, List, Union, Any
+from typing import Dict, List, Union
 from dataclasses import dataclass
 
 from .ttn_time_evolution import TTNTimeEvolution
@@ -45,8 +45,7 @@ class BUG(TTNTimeEvolution):
                      TensorProduct,
                      TreeTensorNetworkOperator
                  ],
-                 config: Union[BUGConfig, None] = None,
-                 solver_options: Union[dict[str, Any], None] = None
+                 config: Union[BUGConfig, None] = None
                  ) -> None:
         """
         Initilises an instance of the BUG algorithm.
@@ -63,18 +62,11 @@ class BUG(TTNTimeEvolution):
                 to be measured during the time-evolution.
             config (Union[BUGConfig,None]): The configuration of
                 time evolution. Defaults to None.
-            solver_options (Union[Dict[str, Any], None], optional): Most time
-                evolutions algorithms use some kind of solver to resolve a
-                partial differential equation. This dictionary can be used to
-                pass additional options to the solver. Refer to the
-                documentation of `ptn.time_evolution.TimeEvoMode` for further
-                information. Defaults to None.
         """
         super().__init__(initial_state,
                          time_step_size, final_time,
                          operators,
-                         config=config,
-                         solver_options=solver_options)
+                         config=config)
         self.hamiltonian = hamiltonian
         self.state : TreeTensorNetworkState
         self.state.ensure_root_orth_center()
@@ -96,8 +88,7 @@ class BUG(TTNTimeEvolution):
         self.state = root_update(self.state,
                                  self.hamiltonian,
                                  self.time_step_size,
-                                 bug_config=self.config,
-                                 solver_options=self.solver_options)
+                                 self.config)
 
     def run_one_time_step(self, **kwargs):
         """

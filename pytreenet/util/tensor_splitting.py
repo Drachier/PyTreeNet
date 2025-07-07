@@ -7,7 +7,7 @@ the most common decompositions used in tensor networks and implemented.
 While the QR-Decomposition is faster, the SVD allows for a truncation of the
 bond dimension, by discarding sufficiently small singular values.
 """
-from typing import Tuple, Union
+from typing import Tuple, Union, Optional
 from enum import Enum
 from warnings import warn
 from dataclasses import dataclass
@@ -16,6 +16,18 @@ import numpy as np
 
 from .tensor_util import tensor_matricization
 from .ttn_exceptions import positivity_check
+
+class TruncationLevel(Enum):
+    """
+    Enum for different SVD truncation strategy levels.
+    
+    RIGOROUS: High accuracy settings (tight tolerances, high bond dimensions)
+    BALANCED: Moderate settings balancing accuracy and performance  
+    FAST: Performance-optimized settings (loose tolerances, lower bond dimensions)
+    """
+    RIGOROUS = "rigorous"
+    BALANCED = "balanced"
+    FAST = "fast"
 
 class SplitMode(Enum):
     """
@@ -36,7 +48,6 @@ class SplitMode(Enum):
     FULL = "full"
     REDUCED = "reduced"
     KEEP = "keep"
-
     def numpy_qr_mode(self) -> str:
         """
         Returns the string required in the numpy QR decomposition.
@@ -204,6 +215,8 @@ class SVDParameters:
                 \sum_{i=K}^{r} (s_i / ||s|| )^2 < \text{total_tol}^2
             
             where r is the number of singular values. Defaults to False.
+        truncation_level (TruncationLevel, optional): lebel the
+            truncation rate for analysis.
         
     """
     max_bond_dim: int = 100
@@ -212,6 +225,7 @@ class SVDParameters:
     renorm: bool = False
     sum_trunc: bool = False
     sum_renorm: bool = True
+    truncation_level: Optional[TruncationLevel] = None
 
     def __post_init__(self):
         """
@@ -473,7 +487,8 @@ def idiots_splitting(tensor: np.ndarray,
                      a_legs: Tuple[int,...],
                      b_legs: Tuple[int,...],
                      a_tensor: Union[np.ndarray,None] = None,
-                     b_tensor: Union[np.ndarray,None] = None) -> Tuple[np.ndarray,np.ndarray]:
+                     b_tensor: Union[np.ndarray,None] = None,
+                     strict_checks: bool = True) -> Tuple[np.ndarray,np.ndarray]:
     """
     An idiots splitting of a tensor by two given compatible tensors.
 
@@ -487,6 +502,8 @@ def idiots_splitting(tensor: np.ndarray,
             connecting to B is the last leg. Defaults to None.
         b_tensor (Union[np.ndarray,None], optional): Given tensor B. Leg
             connecting to A is the first leg. Defaults to None.
+        strict_checks (bool, optional): If True, raises exceptions for 
+            incompatible tensors. If False, only prints warnings. Defaults to True.
 
     Returns:
         Tuple[np.ndarray,np.ndarray]: (A, B), the two split tensors.
@@ -494,14 +511,15 @@ def idiots_splitting(tensor: np.ndarray,
     """
     if a_tensor is None or b_tensor is None:
         raise ValueError("Both tensors have to be given!")
-    tensor_shape_a = tuple([tensor.shape[i] for i in a_legs])
-    tensor_shape_b = tuple([tensor.shape[i] for i in b_legs])
-    a_shape = a_tensor.shape[0:-1]
-    b_shape = b_tensor.shape[1:]
-    if tensor_shape_a != a_shape:
-        raise ValueError("A tensor not compatible!")
-    if tensor_shape_b != b_shape:
-        raise ValueError("B tensor not compatible!")
+    if strict_checks:
+        tensor_shape_a = tuple([tensor.shape[i] for i in a_legs])
+        tensor_shape_b = tuple([tensor.shape[i] for i in b_legs])
+        a_shape = a_tensor.shape[0:-1]
+        b_shape = b_tensor.shape[1:]
+        if tensor_shape_a != a_shape:
+            raise ValueError("A tensor not compatible!")
+        if tensor_shape_b != b_shape:
+            raise ValueError("B tensor not compatible!")
     if a_tensor.ndim != len(a_legs) + 1:
         raise ValueError("A tensor has wrong number of legs!")
     if b_tensor.ndim != len(b_legs) + 1:

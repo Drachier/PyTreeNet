@@ -183,6 +183,19 @@ class Node(GraphNode):
             errstr = "Shapes of the tensor and the node do not match!"
             raise NotCompatibleException(errstr)
 
+    def update_leg_permutation(self, 
+                               permutation: List[int],
+                               shape):
+        """
+        Updates the leg permutation of the node.
+
+        Args:
+            permutation (List[int]): The new permutation of the legs.
+        """
+        self._leg_permutation = permutation
+        self._shape = shape
+
+
     def _open_leg_checks(self, open_leg: int,
                          other_id: Union[str, None] = None):
         """

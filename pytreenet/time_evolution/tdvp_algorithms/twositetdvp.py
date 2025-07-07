@@ -42,8 +42,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
                  hamiltonian: TTNO,
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
-                 config: Union[TwoSiteTDVPConfig,None] = None,
-                 solver_options: Union[dict[str, Any], None] = None
+                 config: Union[TwoSiteTDVPConfig,None] = None
                  ) -> None:
         """
         Initialises an instance of a two-site TDVP algorithm.
@@ -63,24 +62,11 @@ class TwoSiteTDVP(TDVPAlgorithm):
                 relative tolerance.
             config (Union[TwoSiteTDVPConfig,None]): The configuration of
                 time evolution. Defaults to None.
-            solver_options (Union[Dict[str, Any], None], optional): Most time
-                evolutions algorithms use some kind of solver to resolve a
-                partial differential equation. This dictionary can be used to
-                pass additional options to the solver. Refer to the
-                documentation of `ptn.time_evolution.TimeEvoMode` for further
-                information. Defaults to None.
-                solver_options (Union[Dict[str, Any], None], optional): Most time
-                evolutions algorithms use some kind of solver to resolve a
-                partial differential equation. This dictionary can be used to
-                pass additional options to the solver. Refer to the
-                documentation of `ptn.time_evolution.TimeEvoMode` for further
-                information. Defaults to None.
         """
         super().__init__(initial_state, hamiltonian,
                          time_step_size, final_time,
                          operators,
-                         config=config,
-                         solver_options=solver_options)
+                         config=config)
         self.config: TwoSiteTDVPConfig
 
     def _update_two_site_nodes(self,
@@ -110,8 +96,7 @@ class TwoSiteTDVP(TDVPAlgorithm):
                                                     time_step_factor*self.time_step_size,
                                                     self.partial_tree_cache,
                                                     forward=EvoDirection.FORWARD,
-                                                    mode=self.config.time_evo_mode,
-                                                    solver_options=self.solver_options)
+                                                    mode=self.config.time_evo_mode)
         self.state.tensors[new_id] = updated_two_sites
         # Split the two-site tensor using SVD
         self.state.split_node_svd(new_id, u_legs, v_legs,
