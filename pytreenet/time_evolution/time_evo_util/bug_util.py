@@ -1,6 +1,6 @@
 
 from __future__ import annotations
-from typing import Tuple
+from typing import Tuple, Optional
 
 from numpy import ndarray, concatenate, eye, allclose, transpose
 
@@ -92,7 +92,7 @@ def new_basis_tensor_qr_legs(node: Node) -> Tuple[Tuple[int, ...],Tuple[int, ...
 def _compute_new_basis_tensor_qr(node: Node,
                                  combined_tensor: ndarray,
                                  mode: SplitMode = SplitMode.REDUCED,
-                                 neighbour_id : str = None) -> ndarray:
+                                 neighbour_id: Optional[str] = None) -> ndarray:
     """
     Computes the new basis tensor from a concatenated tensor.
 
@@ -106,14 +106,15 @@ def _compute_new_basis_tensor_qr(node: Node,
         ndarray: The new basis tensor. Note that the leg order is incorrect initially,
                  and is transposed to match the original node's leg order.
     """
-
+    if neighbour_id is None:
+        neighbour_id = node.parent
     out_legs, in_legs = _build_leg_specs(node, neighbour_id)
     out_legs.node = node
     in_legs.node = node
     out_legs_int = out_legs.find_leg_values()
     new_basis_tensor, _ = tensor_qr_decomposition(combined_tensor,
                                                 out_legs_int,
-                                                in_legs.find_leg_values(), 
+                                                in_legs.find_leg_values(),
                                                 mode=mode)
 
     qr_bond_idx = len(out_legs_int)
@@ -186,7 +187,7 @@ def compute_fixed_size_new_basis_tensor(node: Node,
 def compute_new_basis_tensor(node: Node,
                              old_tensor: ndarray,
                              updated_tensor: ndarray,
-                             neighbour_id : str = None) -> ndarray:
+                             neighbour_id: Optional[str] = None) -> ndarray:
     """
     Compute the updated basis tensor.
 
@@ -203,10 +204,12 @@ def compute_new_basis_tensor(node: Node,
         neighbour_id: the neighbour of the node which is the orthogonalization center.
     Returns:
         ndarray: The new basis tensor. The leg order is the usual and equal to
-            the leg order of the old and updated tensor, but with a new parent
+            the leg order of the old and updated tensor, but with a new neighbouring
             dimension.
     
     """
+    if neighbour_id is None:
+        neighbour_id = node.parent
     # We know that both tensors have the same leg order
     # We stack them along the parent axis
     neighbour_index = node.neighbour_index(neighbour_id)
