@@ -424,7 +424,11 @@ class TestMultiSiteHamiltonian(unittest.TestCase):
         ham = create_multi_site_hamiltonian(self.node_ids,
                                             ops,
                                             conversion_dict=deepcopy(conv_dict))
-        self.assertEqual(conv_dict, ham.conversion_dictionary)
+        self.assertEqual(len(conv_dict), len(ham.conversion_dictionary))
+        for op, val in conv_dict.items():
+            self.assertIn(op, ham.conversion_dictionary)
+            np.testing.assert_array_equal(ham.conversion_dictionary[op],
+                                          val)
 
     def test_coeff_map_is_added(self):
         """
