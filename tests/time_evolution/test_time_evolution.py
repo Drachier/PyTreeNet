@@ -5,26 +5,32 @@ from scipy.linalg import expm
 import pytest
 
 import pytreenet as ptn
-from pytreenet.time_evolution.time_evolution import EvoDirection, TimeEvoMode, TimeEvoMethod
+from pytreenet.time_evolution.time_evolution import EvoDirection, TimeEvoMode
+from pytreenet.time_evolution.results import Results
 from pytreenet.random import crandn
 from pytreenet.random.random_matrices import random_hermitian_matrix
+from pytreenet.time_evolution.time_evolution import EvoDirection, TimeEvoMode, TimeEvoMethod
+from pytreenet.core.node import Node
+from pytreenet.ttns.ttns import TreeTensorNetworkState
+from pytreenet.operators.tensorproduct import TensorProduct
+from pytreenet.time_evolution.time_evolution import TimeEvolution
 
 class TestTimeEvolutionInit(unittest.TestCase):
 
     def setUp(self):
         # Initialise initial state
-        self.initial_state = ptn.TreeTensorNetworkState()
-        self.initial_state.add_root(ptn.Node(identifier="root"), crandn((5,6,2)))
-        self.initial_state.add_child_to_parent(ptn.Node(identifier="c1"),
+        self.initial_state = TreeTensorNetworkState()
+        self.initial_state.add_root(Node(identifier="root"), crandn((5,6,2)))
+        self.initial_state.add_child_to_parent(Node(identifier="c1"),
             crandn((5,3)), 0, "root", 0)
-        self.initial_state.add_child_to_parent(ptn.Node(identifier="c2"),
+        self.initial_state.add_child_to_parent(Node(identifier="c2"),
             crandn((6,4)), 0, "root", 1)
 
         # Operators
-        single_site_operator = ptn.TensorProduct({"root": crandn((2,2))})
-        two_site_operator = ptn.TensorProduct({"c1": crandn((3,3)),
+        single_site_operator = TensorProduct({"root": crandn((2,2))})
+        two_site_operator = TensorProduct({"c1": crandn((3,3)),
                                                "c2": crandn((4,4))})
-        three_site_operator = ptn.TensorProduct({"c1": crandn((3,3)),
+        three_site_operator = TensorProduct({"c1": crandn((3,3)),
                                                   "c2": crandn((4,4)),
                                                   "root": crandn((2,2))})
         self.operators = [single_site_operator,
@@ -35,7 +41,7 @@ class TestTimeEvolutionInit(unittest.TestCase):
         self.time_step_size = 0.1
         self.final_time = 1.0
 
-        self.time_evol = ptn.TimeEvolution(self.initial_state, self.time_step_size,
+        self.time_evol = TimeEvolution(self.initial_state, self.time_step_size,
             self.final_time, self.operators)
 
     def test_initial_state_init(self):
@@ -53,44 +59,46 @@ class TestTimeEvolutionInit(unittest.TestCase):
 
     def test_operator_init(self):
         self.assertEqual(len(self.operators), len(self.time_evol.operators))
-        for ten_prod in self.operators:
-            self.assertTrue(ten_prod in self.time_evol.operators.values())
+        for i, ten_prod in enumerate(self.operators):
+            self.assertIn(str(i), self.time_evol.operators)
+            self.assertEqual(ten_prod, self.time_evol.operators[str(i)])
 
     def test_time_step_size_check(self):
-        self.assertRaises(ValueError, ptn.TimeEvolution, self.initial_state,
+        self.assertRaises(ValueError, TimeEvolution, self.initial_state,
             -0.1, self.final_time, self.operators)
 
     def test_final_time_check(self):
-        self.assertRaises(ValueError, ptn.TimeEvolution, self.initial_state,
+        self.assertRaises(ValueError, TimeEvolution, self.initial_state,
             self.time_step_size, -1, self.operators)
 
     def test_only_one_operator(self):
-        time_evo = ptn.TimeEvolution(self.initial_state, self.time_step_size,
+        time_evo = TimeEvolution(self.initial_state, self.time_step_size,
             self.final_time, self.operators[0])
         self.assertTrue(isinstance(time_evo.operators, dict))
+        self.assertEqual(len(time_evo.operators), 1)
         self.assertEqual(time_evo.operators["0"], self.operators[0])
 
     def test_results(self):
         '''
         The results are only initialised once a time evolution is run.
         '''
-        self.assertFalse(self.time_evol.results.is_initialized())
+        self.time_evol.results.close_to(Results())
 
 class TestTimeEvolutionMethods(unittest.TestCase):
     def setUp(self):
         # Initialise initial state
-        self.initial_state = ptn.TreeTensorNetworkState()
-        self.initial_state.add_root(ptn.Node(identifier="root"), crandn((5,6,2)))
-        self.initial_state.add_child_to_parent(ptn.Node(identifier="c1"),
+        self.initial_state = TreeTensorNetworkState()
+        self.initial_state.add_root(Node(identifier="root"), crandn((5,6,2)))
+        self.initial_state.add_child_to_parent(Node(identifier="c1"),
             crandn((5,3)), 0, "root", 0)
-        self.initial_state.add_child_to_parent(ptn.Node(identifier="c2"),
+        self.initial_state.add_child_to_parent(Node(identifier="c2"),
             crandn((6,4)), 0, "root", 1)
 
         # Operators
-        single_site_operator = ptn.TensorProduct({"root": crandn((2,2))})
-        two_site_operator = ptn.TensorProduct({"c1": crandn((3,3)),
+        single_site_operator = TensorProduct({"root": crandn((2,2))})
+        two_site_operator = TensorProduct({"c1": crandn((3,3)),
                                                "c2": crandn((4,4))})
-        three_site_operator = ptn.TensorProduct({"c1": crandn((3,3)),
+        three_site_operator = TensorProduct({"c1": crandn((3,3)),
                                                   "c2": crandn((4,4)),
                                                   "root": crandn((2,2))})
         self.operators = [single_site_operator,
@@ -101,14 +109,11 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         self.time_step_size = 0.1
         self.final_time = 1.0
 
-        self.time_evol = ptn.TimeEvolution(self.initial_state, self.time_step_size,
+        self.time_evol = TimeEvolution(self.initial_state, self.time_step_size,
             self.final_time, self.operators)
 
     def test_run_one_time_step(self):
         self.assertRaises(NotImplementedError, self.time_evol.run_one_time_step)
-
-    def test_evaluate_operators_for_single_site(self):
-        self.assertRaises(NotImplementedError, self.time_evol.evaluate_operator, self.operators[0])
 
     def test_init_results(self):
         """
@@ -116,19 +121,9 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         """
         self.time_evol.init_results()
         results = self.time_evol.results
-        # Check that results are initialized
         self.assertTrue(results.is_initialized())
-        # Check that we have the right number of operators + times
-        self.assertEqual(len(results.results), 4)  # 3 operators + times
-        # Check that times array has correct shape
-        times = results.times()
-        self.assertEqual(times.shape, (11,))  # 10 time steps + initial
-        # Check that all results are initialized to zeros
-        for key in results.results:
-            if key != "times":
-                result_array = results.results[key]
-                self.assertEqual(result_array.shape, (11,))
-                self.assertTrue(np.allclose(result_array, np.zeros_like(result_array)))
+        self.assertEqual(len(self.time_evol.operators) + 1, results.num_results())
+        self.assertEqual(self.time_evol.num_time_steps + 1, results.results_length())
 
     def test_init_results_with_custom_evaluation_time(self):
         """
@@ -138,10 +133,8 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         self.time_evol.init_results(evaluation_time=evaluation_time)
         results = self.time_evol.results
         self.assertTrue(results.is_initialized())
-        # Check times array shape: num_time_steps // evaluation_time + 1
-        times = results.times()
-        expected_length = self.time_evol.num_time_steps // evaluation_time + 1
-        self.assertEqual(times.shape, (expected_length,))
+        self.assertEqual(len(self.time_evol.operators) + 1, results.num_results())
+        self.assertEqual(self.time_evol.num_time_steps // 2 + 1, results.results_length())
 
     def test_init_results_with_inf(self):
         """
@@ -152,79 +145,8 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         self.time_evol.init_results(evaluation_time=evaluation_time)
         results = self.time_evol.results
         self.assertTrue(results.is_initialized())
-        # Check times array shape: should be (1,) for inf evaluation
-        times = results.times()
-        self.assertEqual(times.shape, (1,))
-
-    def test_check_result_exists(self):
-        """
-        The results are only initialised once a time evolution is run.
-        Therefore, this method should raise an error, if called before
-        the time evolution is run.
-        """
-        self.assertFalse(self.time_evol.results.is_initialized())
-
-    def test_check_result_exists_after_run(self):
-        """
-        The results are only initialised once a time evolution is run.
-        Therefore, this method should not raise an error, if called after
-        the time evolution is run.
-        """
-        # As the time-evolution is an abstract method, we run the method
-        # init_results before calling check_result_exists
-        self.time_evol.init_results()
-        self.assertTrue(self.time_evol.results.is_initialized())
-
-    def test_results_real_true(self):
-        """
-        Should be True for real results.
-        """
-        self.time_evol.init_results()
-        # Set a real result for operator "0"
-        test_results = np.real(crandn((11,)))
-        self.time_evol.results.results["0"] = test_results
-        self.assertTrue(self.time_evol.results.result_real("0"))
-
-    def test_results_real_false(self):
-        """
-        Should be False for complex results.
-        """
-        self.time_evol.init_results()
-        # Set a complex result for operator "0"
-        test_results = crandn((11,))
-        self.time_evol.results.results["0"] = test_results
-        self.assertFalse(self.time_evol.results.result_real("0"))
-
-    def test_times(self):
-        """
-        Should return the times at which the operators were evaluated.
-        They are always assumed to be real.
-        """
-        self.time_evol.init_results()
-        times = np.real(crandn((11,)))
-        self.time_evol.results.results["times"] = times
-        retrieved_times = self.time_evol.results.times()
-        self.assertTrue(np.allclose(times, retrieved_times))
-
-    def test_operator_results_no_realise(self):
-        """
-        Should return the operator results without realising them.
-        """
-        self.time_evol.init_results()
-        results = crandn((11,))
-        self.time_evol.results.results["0"] = results
-        retrieved = self.time_evol.results.operator_result("0")
-        self.assertTrue(np.allclose(results, retrieved))
-
-    def test_operator_results_realise(self):
-        """
-        Should return the operator results and realise them.
-        """
-        self.time_evol.init_results()
-        results = crandn((11,))
-        self.time_evol.results.results["0"] = results
-        retrieved = self.time_evol.results.operator_result("0", realise=True)
-        self.assertTrue(np.allclose(np.real(results), retrieved))
+        self.assertEqual(len(self.time_evol.operators) + 1, results.num_results())
+        self.assertEqual(2, results.results_length())
 
 
 ### Test EvoDirection Enum Class

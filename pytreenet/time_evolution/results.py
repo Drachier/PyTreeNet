@@ -2,7 +2,8 @@
 This module implements a class to store the simulation results of a time
 evolution algorithm in PyTreeNet.
 """
-from typing import Hashable, Any
+from __future__ import annotations
+from typing import Hashable, Any, Self
 
 from numpy.typing import NDArray, DTypeLike
 import numpy as np
@@ -29,6 +30,56 @@ class Results:
         """
         self.results: dict[Hashable, NDArray] = {}
         self.attributes: dict[str, list[tuple[str,Any]]] = {}
+
+    def close_to(self, other: Self) -> bool:
+        """
+        Checks if the results object is close to another results object.
+
+        Args:
+            other (Results): Another Results object to compare with.
+
+        Returns:
+            bool: True if the results are close, False otherwise.
+        """
+        if len(self.results) != len(other.results):
+            return False
+        for key, val in self.results.items():
+            if key not in other.results:
+                return False
+            if not np.allclose(val, other.results[key]):
+                return False
+        if self.metadata != other.metadata:
+            return False
+        if len(self.attributes) != len(other.attributes):
+            return False
+        for key, val in self.attributes.items():
+            if key not in other.attributes:
+                return False
+            if len(val) != len(other.attributes[key]):
+                return False
+            for attr in val:
+                if attr not in other.attributes[key]:
+                    return False
+        return True
+
+    def num_results(self) -> int:
+        """
+        Returns the number of results stored in the results object.
+
+        Returns:
+            int: The number of results.
+        """
+        return len(self.results)
+
+    def results_length(self) -> int:
+        """
+        Returns the length of the results arrays.
+
+        Returns:
+            int: The length of the results arrays.
+        """
+        self.not_initialized_error()
+        return len(self.results[TIMES_ID])
 
     def is_initialized(self) -> bool:
         """

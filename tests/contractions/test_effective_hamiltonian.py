@@ -430,7 +430,7 @@ class TestContractionMethodsSimple(unittest.TestCase):
 
     def test_find_tensor_leg_permutation_trivial(self):
         state_node = self.ttns.nodes["root"]
-        hamiltonian_node = self.ttno.nodes["root"]
+        hamiltonian_node = self.hamiltonian.nodes["root"]
         permutation = find_tensor_leg_permutation(state_node,
                                                     hamiltonian_node)
         correct_perm = tuple([3,5,0,2,4,1])
