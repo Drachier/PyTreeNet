@@ -22,14 +22,10 @@ class TestALSsmall(unittest.TestCase):
         # Deactivate Truncation
         self.svd_params = ptn.SVDParameters(float("inf"), float("-inf"), float("-inf"))
 
-        # Initialise TEBD
         state_x = deepcopy(self.ttns)
         state_x.pad_bond_dimensions(6)
         self.als_one_site = ptn.AlternatingLeastSquares(self.ttno, state_x, deepcopy(self.ttns), self.num_sweeps,
                              self.max_iter, self.svd_params, "one-site")
-
-        self.als_two_site = ptn.AlternatingLeastSquares(self.ttno, deepcopy(self.ttns),deepcopy(self.ttns), self.num_sweeps,
-                             self.max_iter, self.svd_params, "two-site")
 
     def test_one_site_als(self):
         state_old = zipup(self.ttno, self.ttns)
@@ -54,7 +50,6 @@ class TestALSMPS(unittest.TestCase):
         # Deactivate Truncation
         self.svd_params = ptn.SVDParameters(float("inf"), float("-inf"), float("-inf"))
 
-        # Initialise TEBD
         state_x = deepcopy(self.ttns)
         state_x.pad_bond_dimensions(6)
         self.als_one_site = ptn.AlternatingLeastSquares(self.ttno, state_x, self.ttns, self.num_sweeps,
@@ -74,7 +69,7 @@ class TestALSMPS(unittest.TestCase):
         self.assertGreater(new_olvp.real, old_olvp.real)
 
         
-class TestDMRGbig(unittest.TestCase):
+class TestALSBig(unittest.TestCase):
     def setUp(self):
         # We need a ttns to work with
         ttns, self.ttno = big_ttns_and_ttno()

@@ -13,19 +13,19 @@ from ..time_evolution.time_evo_util.update_path import TDVPUpdatePathFinder
 from ..contractions.tree_cach_dict import PartialTreeCachDict
 
 from ..contractions.sandwich_caching import SandwichCache
-from ..contractions.effective_hamiltonians import get_effective_single_site_hamiltonian, get_effective_two_site_hamiltonian_nodes
+from ..contractions.effective_hamiltonians import get_effective_single_site_hamiltonian, contract_all_except_node
 
 from ..operators.hamiltonian import Hamiltonian
 
 
-class AlternatingLeastSquares():
+class VariationalFitting():
     """
-    The general abstract class of a ALS algorithm. It finds a TTNS with a given rank that best approximates $A x \approx b$
+    The general abstract class of a Variational Fitting algorithm. It finds a TTNS y with a given rank that best approximates $y \approx \sum_i O_i x_i $
     """
 
-    def __init__(self, A: TTNO,
-                 state_x: TreeTensorNetworkState,
-                 state_b: TreeTensorNetworkState,
+    def __init__(self, O: List[TTNO],
+                 x: List[TreeTensorNetworkState],
+                 y: TreeTensorNetworkState,
                  num_sweeps: int,
                  max_iter: int,
                  svd_params: SVDParameters,
@@ -35,20 +35,21 @@ class AlternatingLeastSquares():
         Initilises an instance of a ALS algorithm.
         
         Args:
-            A (TTNO): The operator in TTNO form.
-            x (TreeTensorNetworkState): The TTNS to be approximated.
-            b (TreeTensorNetworkState): The given right hand side TTNS.
+            O (List[TTNO]): The operators in TTNO form.
+            x (List[TreeTensorNetworkState]): The TTNS to be approximated.
+            y (TreeTensorNetworkState): The given right hand side TTNS.
             num_sweeps (int): The number of sweeps to perform.
             max_iter (int): The maximum number of iterations.
             svd_params (SVDParameters): The parameters for the SVD.
             site (str): one site or two site sweeps.
             residual_rank (int): The rank of the residual.
         """
-        assert len(state_x.nodes) == len(state_b.nodes) == len(A.nodes)
-        
-        self.state_x = state_x
-        self.state_b = state_b
-        self.hamiltonian = A
+        assert len(x) == len(O)
+        for xi, oi in zip(x, O):
+            assert len(xi.nodes) == len(oi.nodes) == len(y.nodes), "The nodes of the TTNS and the operators must be the same. But got %s and %s"%(len(xi.nodes), len(oi.nodes))
+        self.x = x
+        self.y = y
+        self.O = O
         self.num_sweeps = num_sweeps
         self.max_iter = max_iter
         self.site = site
@@ -76,16 +77,12 @@ class AlternatingLeastSquares():
                 is always enforced, instead of moving the orthogonality center.
                 Defaults to False.
         """
-        if self.state_b.orthogonality_center_id is None or force_new:
-            self.state_b.canonical_form(self.update_path[0],
+        if self.y.orthogonality_center_id is None or force_new:
+            self.y.canonical_form(self.update_path[0],
                                       mode=SplitMode.KEEP)
-            self.state_x.canonical_form(self.update_path[0],
+        for xi in self.x:
+            xi.canonical_form(self.update_path[0],
                                       mode=SplitMode.KEEP)
-        else:
-            self.state_b.move_orthogonalization_center(self.update_path[0],
-                                                     mode=SplitMode.KEEP)
-            self.state_x.move_orthogonalization_center(self.update_path[0],
-                                                     mode=SplitMode.KEEP)
 
     def _find_orthogonalization_path(self,
                                           update_path: List[str]) -> List[List[str]]:
@@ -101,7 +98,7 @@ class AlternatingLeastSquares():
         """
         orthogonalization_path = []
         for i in range(len(update_path)-1):
-            sub_path = self.state_b.path_from_to(update_path[i], update_path[i+1])
+            sub_path = self.y.path_from_to(update_path[i], update_path[i+1])
             orthogonalization_path.append(sub_path)
         return orthogonalization_path
 
@@ -115,7 +112,7 @@ class AlternatingLeastSquares():
             List[str]: The order in which the nodes in the TTN should be time
                 evolved.
         """
-        return TDVPUpdatePathFinder(self.state_b).find_path()
+        return TDVPUpdatePathFinder(self.y).find_path()
 
     def _init_partial_tree_cache(self)->SandwichCache:
         """
@@ -125,7 +122,8 @@ class AlternatingLeastSquares():
         the dmrg path have the bra, ket, and hamiltonian tensor corresponding
         to this node contracted and saved into the cache dictionary.
         """
-        return SandwichCache.init_cache_but_one(self.state_x, self.hamiltonian,self.update_path[0])
+        identity_ttno = TTNO.from_hamiltonian(Hamiltonian.identity_like(self.y), self.y)
+        return SandwichCache.init_cache_but_one(self.y, identity_ttno,self.update_path[0])
     
     def _init_partial_tree_cache_states(self)->SandwichCache:
         """
@@ -135,18 +133,21 @@ class AlternatingLeastSquares():
         the dmrg path have the bra, ket, and hamiltonian tensor corresponding
         to this node contracted and saved into the cache dictionary.
         """
-        identity_ttno = TTNO.from_hamiltonian(Hamiltonian.identity_like(self.state_b), self.state_b)
-        return SandwichCache.init_cache_but_one(self.state_b, identity_ttno,
-                                                self.update_path[0],self.state_x.conjugate())
+        partial_tree_cache_states_list = []
+        for xi, oi in zip(self.x, self.O):
+            partial_tree_cache_states_list.append(SandwichCache.init_cache_but_one(xi, oi,
+                                                self.update_path[0],self.y.conjugate()))
+        return partial_tree_cache_states_list
         
     def _contract_two_ttns_except_node(self,
-                                   node_id: str, rho: bool=False) -> np.ndarray:
+                                   node_id: str, state_idx: int, rho: bool=False) -> np.ndarray:
         """
         Contracts two TreeTensorNetworks.
 
         Args:
             node_id (str): The identifier of the node to exclude from the
                 contraction.
+            state_idx (int): The index of the state to contract.
             rho (bool, optional): If True, the rho tensor is returned, otherwise the state tensor is returned.
             
         Returns:
@@ -170,24 +171,15 @@ class AlternatingLeastSquares():
                 |______|               |______|
         
         """
-        b_node, b_tensor = self.state_b[node_id]
-        ketblock_tensor = b_tensor
-        for neighbour_id in b_node.neighbouring_nodes():
-            cached_neighbour_tensor = self.partial_tree_cache_states.get_entry(neighbour_id,b_node.identifier)
-            ketblock_tensor = np.tensordot(ketblock_tensor, cached_neighbour_tensor,
-                                axes=([0],[0])) 
-            ketblock_tensor = np.squeeze(ketblock_tensor)
-        legs_block = []
-        for neighbour_id in self.state_x.nodes[node_id].neighbouring_nodes():
-            legs_block.append(b_node.neighbour_index(neighbour_id) + 1)
-        # The kets physical leg is now the first leg
-        legs_block.append(0)
-        ketblock_tensor = np.transpose(ketblock_tensor, axes=legs_block)
-        if rho:
-            rho_tensor = np.tensordot(ketblock_tensor, ketblock_tensor.conj(),0)
-            return rho_tensor
-        else:
-            return ketblock_tensor
+        state_node, state_tensor = self.x[state_idx][node_id]
+        hamiltonian_node, hamiltonian_tensor = self.O[state_idx][node_id]
+        heff = contract_all_except_node(state_node, hamiltonian_node, hamiltonian_tensor, self.partial_tree_cache_states[state_idx])
+        # y = self.y.tensors[node_id]
+        # print(heff.shape, state_tensor.shape)
+        ax1 = range(len(state_tensor.shape),(len(heff.shape)))
+        ax2 = range(len(state_tensor.shape))
+        result = np.tensordot(heff, state_tensor, axes=(ax1,ax2))
+        return result
 
     def update_tree_cache(self, node_id: str, next_node_id: str):
         """
@@ -215,8 +207,9 @@ class AlternatingLeastSquares():
             next_node_id (str): The identifier of the node to which the open
                     legs of the tensor point.   
         """
-        self.partial_tree_cache_states.bra_state = self.state_x.conjugate()
-        self.partial_tree_cache_states.update_tree_cache(node_id, next_node_id)
+        for cache in self.partial_tree_cache_states:
+            cache.bra_state = self.y.conjugate()
+            cache.update_tree_cache(node_id, next_node_id)
 
     def _update_one_site(self, node_id: str) -> np.ndarray:
         """
@@ -229,20 +222,20 @@ class AlternatingLeastSquares():
         Returns:
             np.ndarray: The lowest eigenvalues
         """
-        hamiltonian_eff_site = get_effective_single_site_hamiltonian(node_id, self.state_x, self.hamiltonian, self.partial_tree_cache)
+        identity_ttno = TTNO.from_hamiltonian(Hamiltonian.identity_like(self.y), self.y)
+        hamiltonian_eff_site = get_effective_single_site_hamiltonian(node_id, self.y, identity_ttno, self.partial_tree_cache)
         
-        shape = self.state_x.tensors[node_id].shape
+        shape = self.y.tensors[node_id].shape
         
-        kvec = self._contract_two_ttns_except_node(node_id, rho=False)
-        kvec_shape = kvec.shape
-        if kvec_shape != shape:
-            print("kvec_shape",kvec_shape,"shape",shape)
+        kvec = np.zeros(shape, dtype=np.complex128)
+        for state_idx in range(len(self.x)):
+            kvec += self._contract_two_ttns_except_node(node_id, state_idx, rho=False)
         
         y,exit_code = scipy.sparse.linalg.gcrotmk(hamiltonian_eff_site, kvec.reshape(-1), 
-                                                x0=self.state_x.tensors[node_id].reshape(-1),maxiter=self.max_iter)
+                                                x0=self.y.tensors[node_id].reshape(-1),maxiter=self.max_iter)
         y_norm = np.linalg.norm(y)
         y=y/ y_norm
-        self.state_x.replace_tensor(node_id, y.reshape(shape))
+        self.y.replace_tensor(node_id, y.reshape(shape))
         l = np.einsum('i,ij,j->', y.conj(), hamiltonian_eff_site, y)
         residual = hamiltonian_eff_site@y - kvec.reshape(-1)/y_norm
         residual =residual.reshape(shape)
@@ -300,11 +293,12 @@ class AlternatingLeastSquares():
         """
         if len(path) == 0:
             return
-        assert self.state_b.orthogonality_center_id == path[0]
+        # assert self.y.orthogonality_center_id == path[0]
         for i, node_id in enumerate(path[1:]):
-            self.state_b.move_orthogonalization_center(node_id,
+            self.y.move_orthogonalization_center(node_id,
                                                      mode=SplitMode.KEEP)
-            self.state_x.move_orthogonalization_center(node_id,
+            for xi in self.x:
+                xi.move_orthogonalization_center(node_id,
                                                      mode=SplitMode.KEEP)
             previous_node_id = path[i] # +0, because path starts at 1.
             self.update_tree_cache(previous_node_id, node_id)

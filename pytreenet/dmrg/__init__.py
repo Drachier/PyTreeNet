@@ -1,2 +1,3 @@
 from .dmrg import *
 from .als import *
+from .variational_fitting import *
