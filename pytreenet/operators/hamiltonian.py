@@ -320,6 +320,23 @@ class Hamiltonian():
                 self.conversion_dictionary[f"I{dim}"] = ident_creation(dim)
         else:
             raise TypeError("Dims can only be int or list of int!")
+    
+    @staticmethod
+    def identity_like(ref_ttn: TreeTensorNetwork) -> Hamiltonian:
+        """
+        Return a Hamiltonian with the same ref_ttn structure but with all
+        terms being identity operators.
+        """
+        node_ids = list(ref_ttn.nodes.keys())
+        matrix_dict = {}
+        conversion_dict = {}
+        for node_id, node in ref_ttn.nodes.items():
+            dim = node.open_dimension()
+            matrix_dict[node_id] = 'I' + str(dim)
+            conversion_dict['I' + str(dim)] = eye(dim,dtype=complex)
+        tp = TensorProduct(matrix_dict)
+        return Hamiltonian(terms=[(Fraction(1), "1", tp)],
+                           conversion_dictionary=conversion_dict)
 
 def deal_with_term_input(terms: Union[List[Union[Tuple[Fraction, str, TensorProduct], TensorProduct]], Tuple[Fraction, str, TensorProduct], TensorProduct, None] = None
                          ) -> List[tuple[Fraction, str, TensorProduct]]:
