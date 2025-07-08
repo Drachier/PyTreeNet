@@ -77,6 +77,10 @@ class TTNTimeEvolution(TimeEvolution):
         else:
             self.config = config
 
+        # Convert initial state entris to complex
+        self.state.to_complex(128)
+        self._initial_state.to_complex(128)
+
     def result_init_dictionary(self):
         """
         Initializes the result dictionary for the time evolution.
