@@ -24,7 +24,8 @@ class SandwichCache(PartialTreeCachDict):
     def __init__(self,
                  state: TreeTensorNetworkState,
                  hamiltonian: TreeTensorNetworkOperator,
-                 dictionary: Union[Dict[Tuple[str,str],ndarray],None] = None
+                 dictionary: Union[Dict[Tuple[str,str],ndarray],None] = None,
+                 bra_state: TreeTensorNetworkState = None
                  ) -> None:
         """
         Initializes the SandwichCache.
@@ -35,11 +36,13 @@ class SandwichCache(PartialTreeCachDict):
              system.
             dictionary (Union[Dict[Tuple[str,str],ndarray],None], optional): A
              dictionary that contains the initial entries. Defaults to None.
-        
+            bra_state (TreeTensorNetworkState, optional): The bra state to be
+                used for the update. Defaults to None.
         """
         super().__init__(dictionary)
         self.state = state
         self.hamiltonian = hamiltonian
+        self.bra_state = bra_state
 
     def close_to(self, other: SandwichCache) -> bool:
         """
@@ -54,7 +57,8 @@ class SandwichCache(PartialTreeCachDict):
         dict_same = super().close_to(other)
         states_close = self.state == other.state
         hamiltonians_close = self.hamiltonian == other.hamiltonian
-        return states_close and hamiltonians_close and dict_same
+        bra_states_close = self.bra_state == other.bra_state
+        return states_close and hamiltonians_close and dict_same and bra_states_close
 
     def shapes(self) -> Dict[Tuple[str,str],Tuple[int]]:
         """
@@ -82,13 +86,14 @@ class SandwichCache(PartialTreeCachDict):
 
         """
         update_tree_cache(self, self.state, self.hamiltonian,
-                            node_id, next_node_id)
+                            node_id, next_node_id, self.bra_state)
 
     @classmethod
     def init_cache_but_one(cls,
                             state: TreeTensorNetworkState,
                             hamiltonian: TreeTensorNetworkOperator,
-                            left_out_id: str) -> SandwichCache:
+                            left_out_id: str,
+                            bra_state: TreeTensorNetworkState = None) -> SandwichCache:
         """
         Initialises the caching for the partial trees. 
         
@@ -102,8 +107,10 @@ class SandwichCache(PartialTreeCachDict):
                 system.
             left_out_id (str): The identifier of the node that is not
                 contracted.
+            bra_state (TreeTensorNetworkState, optional): The bra state to be
+                used for the update. Defaults to None.
         """
-        cache = cls(state, hamiltonian)
+        cache = cls(state, hamiltonian, bra_state=bra_state)
         rev_update_path, next_node_id_dict = _find_caching_path(state,
                                                                 left_out_id)
         for node_id in rev_update_path[:-1]:
@@ -115,7 +122,8 @@ def update_tree_cache(cache: SandwichCache,
                       state: TreeTensorNetworkState,
                       hamiltonian: TreeTensorNetworkOperator,
                       node_id: str,
-                      next_node_id: str):
+                      next_node_id: str,
+                      bra_state: TreeTensorNetworkState = None):
     """
     Updates the cache tensor for given node identifiers.
 
@@ -128,11 +136,13 @@ def update_tree_cache(cache: SandwichCache,
     node_id (str): The node at which the contraction should happen.
     next_node_id (str): The node to which the open legs of the tensor
         should point.
+    bra_state (TreeTensorNetworkState, optional): The bra state to be used
+        for the update. Defaults to None.
 
     """
     new_tensor = contract_any(node_id, next_node_id,
                                 state, hamiltonian,
-                                cache)
+                                cache, bra_state)
     cache.add_entry(node_id, next_node_id, new_tensor)
 
 def _find_caching_path(state: TreeTensorNetworkState,
@@ -195,3 +205,5 @@ def _find_caching_path_rec(node_id: str,
         assert node.parent is not None
         next_id_dict[node_id] = node.parent
     caching_path.append(node_id)
+    
+    

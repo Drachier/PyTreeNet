@@ -128,6 +128,7 @@ def get_matrix_element(bra_state: TreeTensorNetworkState,
 def contract_node_with_environment(node_id: str,
                                    state: TreeTensorNetworkState,
                                    operator: TreeTensorNetworkOperator,
+                                   dictionary: PartialTreeCachDict,
                                    bra_state: Union[TreeTensorNetworkState,None] = None) -> np.ndarray:
     """
     Contracts a node with its environment.
