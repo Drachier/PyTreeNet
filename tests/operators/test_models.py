@@ -1,9 +1,14 @@
+"""
+This module contains unit tests for the Hamiltonian generation functions.
+"""
 from unittest import TestCase, main as unitmain
 from fractions import Fraction
 
 from numpy import eye
+import numpy as np
 
-from pytreenet.operators.common_operators import pauli_matrices
+from pytreenet.operators.common_operators import (pauli_matrices,
+                                                  bosonic_operators)
 
 from pytreenet.operators.models import (ising_model,
                                         flipped_ising_model,
@@ -260,6 +265,145 @@ class Test2DModels(TestCase):
         for key, val in coeff_dict.items():
             self.assertIn(key, is_ham.coeffs_mapping)
             self.assertTrue(val == is_ham.coeffs_mapping[key])
+
+class TestBoseHubbardModel(TestCase):
+    """
+    Tests the generation of the Bose-Hubbard model.
+    """
+
+    def setUp(self) -> None:
+        self.pairs = [("node0_0", "node0_1"),
+                      ("node0_0", "node1_0"),
+                      ("node1_0", "node1_1"),
+                      ("node0_1", "node1_1"),
+                      ("node0_1", "node0_2"),
+                      ("node1_1", "node1_2"),
+                      ("node0_2", "node1_2")]
+
+    def test_all_factors_zero(self):
+        """
+        Tests the generation of the Bose-Hubbard model with all factors set to
+        zero.
+        """
+        found = bose_hubbard_model(self.pairs,
+                                   hopping=0.0,
+                                   on_site_int=0.0,
+                                   chem_pot=0.0,)
+        self.assertEqual(len(found.terms), 0)
+        self.assertEqual(len(found.conversion_dictionary), 2)
+        self.assertEqual(len(found.coeffs_mapping), 1)
+        np.testing.assert_array_equal(found.conversion_dictionary["I2"],
+                                      np.eye(2))
+
+    def test_only_hopping(self):
+        """
+        Tests the generation of the Bose-Hubbard model with only the hopping
+        factor set to a non-zero value.
+        """
+        found = bose_hubbard_model(self.pairs,
+                                   hopping=1.0,
+                                   on_site_int=0.0,
+                                   chem_pot=0.0,)
+        cr, an, _ = bosonic_operators()
+        self.assertEqual(len(found.conversion_dictionary), 4)
+        np.testing.assert_array_equal(found.conversion_dictionary["creation"],
+                                      cr)
+        np.testing.assert_array_equal(found.conversion_dictionary["annihilation"],
+                                      an)
+        self.assertEqual(found.coeffs_mapping["hopping"],1.0)
+        self.assertEqual(len(found.terms), 14)
+        for term in found.terms:
+            self.assertEqual(term[0], Fraction(-1))
+            self.assertEqual(term[1], "hopping")
+            tp = term[2]
+            self.assertTrue(len(tp) == 2)
+            pair_ids = tuple(tp.keys())
+            self.assertTrue((pair_ids in self.pairs or
+                             (pair_ids[1], pair_ids[0]) in self.pairs))
+            term_ops = tuple(tp.values())
+            self.assertIn("creation", term_ops)
+            self.assertIn("annihilation", term_ops)
+
+    def test_only_hopping_all_combs(self):
+        """
+        Ensures that for the hopping factor, both combinations of
+        annihilation and creation operators are generated.
+        """
+        # Very small example
+        node_ids = [("node0","node1")]
+        found = bose_hubbard_model(node_ids,
+                                   hopping=1.0,
+                                   on_site_int=0.0,
+                                   chem_pot=0.0)
+        self.assertEqual(len(found.terms), 2)
+        combinations = [("node0","node1"),
+                        ("node1","node0")]
+        for term in found.terms:
+            self.assertEqual(term[0], Fraction(-1))
+            self.assertEqual(term[1], "hopping")
+            tp = term[2]
+            self.assertTrue(len(tp) == 2)
+            comb = [None,None]
+            for key, value in tp.items():
+                if value == "creation":
+                    comb[0] = key
+                elif value == "annihilation":
+                    comb[1] = key
+            comb = tuple(comb)
+            self.assertIn(comb, combinations)
+            combinations.remove(comb)
+        self.assertEqual(len(combinations), 0)
+
+    def test_only_on_site_int(self):
+        """
+        Test the generation of the Bose-Hubbard model with only the on-site
+        interaction factor set to a non-zero value.
+        """
+        found = bose_hubbard_model(self.pairs,
+                                   hopping=0.0,
+                                   on_site_int=1.0,
+                                   chem_pot=0.0)
+        self.assertEqual(len(found.terms), 6)
+        _, _, num = bosonic_operators()
+        on_site_op = num @ (num - eye(2))
+        self.assertEqual(len(found.conversion_dictionary), 3)
+        np.testing.assert_array_equal(found.conversion_dictionary["on_site_op"],
+                                      on_site_op)
+        self.assertEqual(found.coeffs_mapping["on_site_int"], 1.0)
+        for term in found.terms:
+            self.assertEqual(term[0], Fraction(-1, 2))
+            self.assertEqual(term[1], "on_site_int")
+            tp = term[2]
+            self.assertTrue(len(tp) == 1)
+            node_id = list(tp.keys())[0]
+            self.assertIn(node_id, [pair[0] for pair in self.pairs] +
+                          [pair[1] for pair in self.pairs])
+            self.assertEqual(tp[node_id], "on_site_op")
+
+    def test_only_chem_pot(self):
+        """
+        Test the generation of the Bose-Hubbard model with only the chemical
+        potential factor set to non-zero.
+        """
+        found = bose_hubbard_model(self.pairs,
+                                   hopping=0.0,
+                                   on_site_int=0.0,
+                                   chem_pot=1.0)
+        self.assertEqual(len(found.terms), 6)
+        _, _, num = bosonic_operators()
+        self.assertEqual(len(found.conversion_dictionary), 3)
+        np.testing.assert_array_equal(found.conversion_dictionary["number"],
+                                      num)
+        self.assertEqual(found.coeffs_mapping["chem_pot"], 1.0)
+        for term in found.terms:
+            self.assertEqual(term[0], Fraction(-1))
+            self.assertEqual(term[1], "chem_pot")
+            tp = term[2]
+            self.assertTrue(len(tp) == 1)
+            node_id = list(tp.keys())[0]
+            self.assertIn(node_id, [pair[0] for pair in self.pairs] +
+                          [pair[1] for pair in self.pairs])
+            self.assertEqual(tp[node_id], "number")
 
 if __name__ == '__main__':
     unitmain()

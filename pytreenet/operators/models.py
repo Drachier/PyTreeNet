@@ -386,44 +386,44 @@ def bose_hubbard_model(
     if local_dim < 2:
         errstr = "The local dimension must be at least 2 for the Bose-Hubbard model!"
         raise ValueError(errstr)
+    # Prepare operators
     cr, an, num = bosonic_operators(dimension=local_dim)
     ident = eye(local_dim, dtype=complex)
     num_m_eye = num - ident
     on_site_op = num @ num_m_eye
-    conv_dict = {
-        "creation": cr,
-        "annihilation": an,
-        "number": num,
-        "on_site_op": on_site_op,
-    }
-    coeffs_mapping = {
-        "hopping": hopping,
-        "on_site_int": on_site_int,
-        "chem_pot": chem_pot
-    }
-    bose_hub_ham = Hamiltonian(conversion_dictionary=conv_dict,
-                               coeffs_mapping=coeffs_mapping)
+    bose_hub_ham = Hamiltonian()
     bose_hub_ham.include_identities([1, local_dim])
     # Create the chemical potential terms
-    single_site_structure = _adapt_structure_for_single_site(structure)
-    chem_ham = create_single_site_hamiltonian(single_site_structure,
-                                            "number",
-                                            factor=(Fraction(-1), "chem_pot"))
-    bose_hub_ham.add_hamiltonian(chem_ham)
+    if chem_pot != 0.0:
+        single_site_structure = _adapt_structure_for_single_site(structure)
+        chem_ham = create_single_site_hamiltonian(single_site_structure,
+                                                "number",
+                                                factor=(Fraction(-1), "chem_pot"),
+                                                conversion_dict={"number": num},
+                                                coeffs_mapping={"chem_pot": chem_pot})
+        bose_hub_ham.add_hamiltonian(chem_ham)
     # Create on-site interaction
-    on_site_ham = create_single_site_hamiltonian(single_site_structure,
-                                                 "on_site_op",
-                                                 factor=(Fraction(-1,2), "on_site_int"))
-    bose_hub_ham.add_hamiltonian(on_site_ham)
+    if on_site_int != 0.0:
+        single_site_structure = _adapt_structure_for_single_site(structure)
+        on_site_ham = create_single_site_hamiltonian(single_site_structure,
+                                                     "on_site_op",
+                                                     factor=(Fraction(-1,2), "on_site_int"),
+                                                     conversion_dict={"on_site_op": on_site_op},
+                                                     coeffs_mapping={"on_site_int": on_site_int})
+        bose_hub_ham.add_hamiltonian(on_site_ham)
     # Create hopping terms
-    nn_ham1 = create_nearest_neighbour_hamiltonian(structure,
-                                                  "creation",
-                                                  factor=(Fraction(-1), "hopping"),
-                                                  local_operator2="annihilation")
-    nn_ham2 = create_nearest_neighbour_hamiltonian(structure,
-                                                  "annihilation",
-                                                  factor=(Fraction(-1), "hopping"),
-                                                  local_operator2="creation")
-    bose_hub_ham.add_hamiltonian(nn_ham1)
-    bose_hub_ham.add_hamiltonian(nn_ham2)
-    return bose_hub_ham                  
+    if hopping != 0.0:
+        nn_ham1 = create_nearest_neighbour_hamiltonian(structure,
+                                                    "creation",
+                                                    factor=(Fraction(-1), "hopping"),
+                                                    local_operator2="annihilation")
+        nn_ham2 = create_nearest_neighbour_hamiltonian(structure,
+                                                    "annihilation",
+                                                    factor=(Fraction(-1), "hopping"),
+                                                    local_operator2="creation",
+                                                    conversion_dict={"creation": cr,
+                                                                     "annihilation": an},
+                                                    coeffs_mapping={"hopping": hopping})
+        bose_hub_ham.add_hamiltonian(nn_ham1)
+        bose_hub_ham.add_hamiltonian(nn_ham2)
+    return bose_hub_ham
