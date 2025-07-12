@@ -4,7 +4,7 @@ A module to provide various commonly used models for simulations.
 from typing import List, Tuple, Union, Dict
 from fractions import Fraction
 
-from numpy import ndarray, zeros, mean
+from numpy import ndarray, zeros, mean, eye
 from numpy.typing import ArrayLike
 
 from .hamiltonian import Hamiltonian
@@ -12,7 +12,7 @@ from .tensorproduct import TensorProduct
 from .sim_operators import (create_single_site_hamiltonian,
                             create_nearest_neighbour_hamiltonian,
                             single_site_operators)
-from .common_operators import pauli_matrices
+from .common_operators import pauli_matrices, bosonic_operators
 from ..core.tree_structure import TreeStructure
 from ..util.ttn_exceptions import positivity_check
 
@@ -151,15 +151,7 @@ def _abstract_ising_model(ref_tree: Union[TreeStructure, List[Tuple[str, str]]],
     single_mapping = objs_single[3]
     # Produce the single site Hamiltonian
     # We need to prepare the identifiers for the single site Hamiltonian
-    if isinstance(ref_tree, TreeStructure):
-        single_site_structure = ref_tree
-    else:
-        # We assume all identifiers that possibly occur are in the nearest
-        # neighbour list
-        single_site_structure = [identifier
-                                 for pair in ref_tree
-                                 for identifier in pair]
-        single_site_structure = list(set(single_site_structure))
+    single_site_structure = _adapt_structure_for_single_site(ref_tree)
     single_site_ham = create_single_site_hamiltonian(single_site_structure,
                                                      ext_magn_op_id,
                                                      factor=factor,
@@ -326,3 +318,112 @@ def _find_nn_pairs(grid: ArrayLike) -> List[Tuple[str,str]]:
             if j < cols-1:
                 pairs.append((grid[i][j],grid[i][j+1]))
     return pairs
+
+def _pairs_to_list(pairs: List[Tuple[str,str]]
+                   ) -> List[str]:
+    """
+    Converts a list of pairs to a list of identifiers.
+
+    Args:
+        pairs (List[Tuple[str,str]]): The list of pairs to convert.
+    
+    Returns:
+        List[str]: The list of identifiers.
+    """
+    identifiers = []
+    for pair in pairs:
+        identifiers.append(pair[0])
+        identifiers.append(pair[1])
+    return list(set(identifiers))  # Remove duplicates by converting to set
+
+def _adapt_structure_for_single_site(structure: Union[TreeStructure, List[Tuple[str, str]]]
+                                     ) -> TreeStructure | List[str]:
+    """
+    Adapts the structure for single site Hamiltonian creation.
+
+    Args:
+        structure (Union[TreeStructure, List[Tuple[str, str]]]): The structure
+            to adapt. Can either be a TreeStructure object or a list of tuples
+            of nearest neighbours.
+
+    Returns:
+        List[str]: The adapted structure as a list of identifiers.
+    """
+    if isinstance(structure, TreeStructure):
+        return structure
+    return _pairs_to_list(structure)
+
+def bose_hubbard_model(
+        structure: Union[TreeStructure, List[Tuple[str, str]]],
+        local_dim: int = 2,
+        hopping: float = 1.0,
+        on_site_int: float = 1.0,
+        chem_pot: float = 0.0
+                    ) -> Hamiltonian:
+    """
+    Generates the Bose-Hubbard model Hamiltonian for a given structure.
+
+    ..math::
+        H = -t \sum_{i,j} a_i^\dagger a_j + U \sum_i n_i(n_i-1) - \mu \sum_i n_i
+
+    where :math:`a_i^\dagger` and :math:`a_i` are the creation and annihilation
+    operators, :math:`n_i` is the number operator, :math:`t` is the hopping
+    strength, :math:`U` is the on-site interaction strength and :math:`\mu`
+    is the chemical potential.
+
+    Args:
+        structure (Union[TreeStructure, List[Tuple[str, str]]]): The nearest
+            neighbour identifiers. They can either be given as a TreeStructure
+            obsject, and be inferred, or as a list of tuples of nearest
+            neighbours.
+        local_dim (int): The local to be truncated to, i.e. the maximum number
+            of particles per site. Defaults to 2.
+        hopping (float): The hopping strength between the nearest neighbours.
+            Defaults to 1.0.
+        on_site_int (float): The on-site interaction strength. Defaults to 1.0.
+        chem_pot (float): The chemical potential. Defaults to 0.0.
+    """
+    if local_dim < 2:
+        errstr = "The local dimension must be at least 2 for the Bose-Hubbard model!"
+        raise ValueError(errstr)
+    cr, an, num = bosonic_operators(dimension=local_dim)
+    ident = eye(local_dim, dtype=complex)
+    num_m_eye = num - ident
+    on_site_op = num @ num_m_eye
+    conv_dict = {
+        "creation": cr,
+        "annihilation": an,
+        "number": num,
+        "on_site_op": on_site_op,
+    }
+    coeffs_mapping = {
+        "hopping": hopping,
+        "on_site_int": on_site_int,
+        "chem_pot": chem_pot
+    }
+    bose_hub_ham = Hamiltonian(conversion_dictionary=conv_dict,
+                               coeffs_mapping=coeffs_mapping)
+    bose_hub_ham.include_identities([1, local_dim])
+    # Create the chemical potential terms
+    single_site_structure = _adapt_structure_for_single_site(structure)
+    chem_ham = create_single_site_hamiltonian(single_site_structure,
+                                            "number",
+                                            factor=(Fraction(-1), "chem_pot"))
+    bose_hub_ham.add_hamiltonian(chem_ham)
+    # Create on-site interaction
+    on_site_ham = create_single_site_hamiltonian(single_site_structure,
+                                                 "on_site_op",
+                                                 factor=(Fraction(-1,2), "on_site_int"))
+    bose_hub_ham.add_hamiltonian(on_site_ham)
+    # Create hopping terms
+    nn_ham1 = create_nearest_neighbour_hamiltonian(structure,
+                                                  "creation",
+                                                  factor=(Fraction(-1), "hopping"),
+                                                  local_operator2="annihilation")
+    nn_ham2 = create_nearest_neighbour_hamiltonian(structure,
+                                                  "annihilation",
+                                                  factor=(Fraction(-1), "hopping"),
+                                                  local_operator2="creation")
+    bose_hub_ham.add_hamiltonian(nn_ham1)
+    bose_hub_ham.add_hamiltonian(nn_ham2)
+    return bose_hub_ham                  
