@@ -39,20 +39,42 @@ def set_size(width: float | str,
     fig_height_in = fig_width_in * golden_ratio * (subplots[0] / subplots[1])
     return (fig_width_in, fig_height_in)
 
-def config_matplotlib_to_latex():
+def config_matplotlib_to_latex(style: str = "thesis"):
     """
     Get the matplotlib configuration to use LaTeX for rendering text.
     """
-    tex_fonts = {
-        # Use LaTeX to write all text
-        #"text.usetex": True,
-        "font.family": "serif",
-        # Use 10pt font in plots, to match 10pt font in document
-        "axes.labelsize": 10,
-        "font.size": 10,
-        # Make the legend/label fonts a little smaller
-        "legend.fontsize": 8,
-        "xtick.labelsize": 8,
-        "ytick.labelsize": 8
-    }
+    if style == "thesis":
+        tex_fonts = {
+            # Use Helvetica-like sans-serif font (TeX Gyre Heros ≈ Helvetica)
+            "font.family": "sans-serif",
+            "font.sans-serif": ["TeX Gyre Heros", "Helvetica", "Arial"],
+
+            # Use 10pt font size to match the TUM default
+            "font.size": 10,
+            "axes.labelsize": 10,
+            "axes.titlesize": 10,
+            "legend.fontsize": 8,
+            "xtick.labelsize": 8,
+            "ytick.labelsize": 8,
+
+            # Match LaTeX-like appearance without using LaTeX
+            "text.usetex": False,  # Optional: True if you have LaTeX + tgheros installed
+
+            # Optional: match TUM's Helvetica color/spacing style
+            "axes.titlepad": 8,
+            "figure.dpi": 150,
+        }
+    elif style == "article":
+        tex_fonts = {
+            # Use LaTeX to write all text
+            #"text.usetex": True,
+            "font.family": "serif",
+            # Use 10pt font in plots, to match 10pt font in document
+            "axes.labelsize": 10,
+            "font.size": 10,
+            # Make the legend/label fonts a little smaller
+            "legend.fontsize": 8,
+            "xtick.labelsize": 8,
+            "ytick.labelsize": 8
+        }
     plt.rcParams.update(tex_fonts)
