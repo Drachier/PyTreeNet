@@ -10,9 +10,14 @@ from pytreenet.operators.models import (ising_model,
                                         _grid_from_structure,
                                         _find_nn_pairs,
                                         ising_model_2D,
-                                        flipped_ising_model_2D)
+                                        flipped_ising_model_2D,
+                                        bose_hubbard_model)
 
 class TestIsingModel(TestCase):
+    """
+    Test the generation of the ising model and associated utility
+    functions.
+    """
 
     def test_ising_for_list(self):
         """
@@ -41,6 +46,10 @@ class TestIsingModel(TestCase):
             self.assertTrue(all([op == "X" for op in term[2].values()]))
 
 class TestFlippedIsingModel(TestCase):
+    """
+    Test the generation of the flipped ising model and associated utility
+    functions.
+    """
 
     def test_flipped_ising_for_list(self):
         """
@@ -118,7 +127,7 @@ class Test2DModels(TestCase):
         self.assertIn(("node1_1", "node1_2"), pairs)
         self.assertIn(("node0_2", "node1_2"), pairs)
 
-    def test_find_nn_pairs_1D(self):
+    def test_find_nn_pairs_1d(self):
         """
         Makes sure that for a 1D grid all pairs are found.
         """
@@ -136,7 +145,7 @@ class Test2DModels(TestCase):
         pairs = _find_nn_pairs(grid)
         self.assertEqual(len(pairs), 0)
 
-    def test_ising_2D(self):
+    def test_ising_2d(self):
         """
         Tests the generation of a 2D ising model for a small grid.
         """
@@ -194,7 +203,7 @@ class Test2DModels(TestCase):
             self.assertIn(key, is_ham.coeffs_mapping)
             self.assertTrue(val == is_ham.coeffs_mapping[key])
 
-    def test_flipped_ising_2D(self):
+    def test_flipped_ising_2d(self):
         """
         Tests the generation of a 2D ising model for a small grid.
         """
