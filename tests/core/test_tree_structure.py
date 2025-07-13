@@ -1,8 +1,16 @@
+"""
+This module implements unittests for the tree structure class.
+"""
+
 import unittest
 
 from copy import deepcopy
+from itertools import combinations
 
 import pytreenet as ptn
+from pytreenet.random import crandn
+from pytreenet.special_ttn.star import StarTreeTensorState
+from pytreenet.special_ttn.binary import generate_binary_ttns
 
 class TestTreeStructureInit(unittest.TestCase):
     def test_init(self):
@@ -276,7 +284,7 @@ class TestTreeStructureMethods(unittest.TestCase):
                          (self.identifiers[4], self.identifiers[6]),
                          (self.identifiers[7], self.identifiers[8])}
         correct_pairs = {frozenset(pair) for pair in correct_pairs}
-        self.assertEqual(set(pairs), correct_pairs)
+        self.assertEqual(pairs, correct_pairs)
 
     def test_find_pairs_of_distance_2(self):
         """
@@ -348,6 +356,123 @@ class TestTreeStructureMethods(unittest.TestCase):
         """
         pairs = self.ts.find_pairs_of_distance(6)
         self.assertEqual(set(pairs), set())
+
+class TestDistancePairsWithOpenLegs(unittest.TestCase):
+    """
+    Tests the pair finding while considering open legs.
+    This is a separate test case, as it requires `Nodes` and not `GraphNodes`.
+    """
+
+    def setUp(self) -> None:
+        self.binary = generate_binary_ttns(6,2,crandn(2,3))
+        center_tensor = crandn(2,2,2)
+        chain_tensors = [[crandn(2,2,3),crandn(2,3)]
+                         for _ in range(3)]
+        self.t_ttn = StarTreeTensorState.from_tensor_lists(center_tensor,
+                                                           chain_tensors)
+
+    def test_find_pairs_of_distance_0_binary(self):
+        """
+        Test the finding of pairs of distance 0 while considering open legs
+        for a binary tree.
+        """
+        found = self.binary.find_pairs_of_distance(0,
+                                                   consider_open=True)
+        correct = {frozenset([f"site{i}"]) for i in range(6)}
+        self.assertEqual(correct,found)
+
+    def test_find_pairs_of_distance_1_binary(self):
+        """
+        Test the finding of pairs of distance 1 while considering only open
+        legs for a binary tree. This should be an all to all pairing of the
+        physical nodes.
+        """
+        found = self.binary.find_pairs_of_distance(1,
+                                                   consider_open=True)
+        node_ids = [f"site{i}" for i in range(6)]
+        correct = combinations(node_ids, r=2)
+        correct = {frozenset(nodes) for nodes in correct}
+        self.assertEqual(correct,found)
+
+    def test_find_pairs_of_distance_2_binary(self):
+        """
+        Test the finding of pairs of distance 2 while considering only open
+        legs in a binary tree. This should lead to no pairs at all.
+        """
+        found = self.binary.find_pairs_of_distance(2,
+                                                   consider_open=True)
+        correct = set()
+        self.assertEqual(correct,found)
+
+    def test_find_pairs_of_distance_0_tstructure(self):
+        """
+        Test the finding of pairs of distance 0 while considering only open
+        legs in a T-shaped tree. This should find all individual nodes
+        except for the center node.
+        """
+        found = self.t_ttn.find_pairs_of_distance(0,
+                                                  consider_open=True)
+        correct = {frozenset([node_id]) for node_id in self.t_ttn.nodes.keys()
+                   if node_id != self.t_ttn.central_node_identifier}
+        self.assertEqual(correct,found)
+
+    def test_find_pairs_of_distance_1_tstructure(self):
+        """
+        Test the finding of pairs of distance 1 while considering only open
+        legs in a T-shaped tree.
+        """
+        found = self.t_ttn.find_pairs_of_distance(1,
+                                                  consider_open=True)
+        correct = {("node0_0","node0_1"),
+                   ("node0_0","node1_0"),
+                   ("node0_0","node2_0"),
+                   ("node1_0","node2_0"),
+                   ("node1_0","node1_1"),
+                   ("node2_0","node2_1")}
+        correct = {frozenset(pair) for pair in correct}
+        self.assertEqual(correct, found)
+
+    def test_find_pairs_of_distance_2_tstructure(self):
+        """
+        Test the finding of pairs with distance 2 while considering only open
+        legs for a T-shaped tree.
+        """
+        found = self.t_ttn.find_pairs_of_distance(2,
+                                                  consider_open=True)
+        correct = {("node0_1","node1_0"),
+                   ("node0_1","node2_0"),
+                   ("node1_1","node0_0"),
+                   ("node1_1","node2_0"),
+                   ("node2_1","node0_0"),
+                   ("node2_1","node1_0"),
+                   }
+        correct = {frozenset(pair) for pair in correct}
+        self.assertEqual(correct, found)
+
+    def test_find_pairs_of_distance_3_tstructure(self):
+        """
+        Test the finding of node pairs with distance 3 while considering
+        only open legs on a T-shaped tree.
+        """
+        found = self.t_ttn.find_pairs_of_distance(3,
+                                                  consider_open=True)
+        correct = {("node0_1","node1_1"),
+                   ("node0_1","node2_1"),
+                   ("node1_1","node2_1"),
+                   }
+        correct = {frozenset(pair) for pair in correct}
+        self.assertEqual(correct, found)
+
+    def test_find_pairs_of_distance_4_tstructure(self):
+        """
+        Test the finding of node pairs with distance 4 while considering
+        only open legs on a T-shaped tree. There shouldn't be any.
+        """
+        found = self.t_ttn.find_pairs_of_distance(4,
+                                                  consider_open=True)
+        correct = set()
+        self.assertEqual(correct, found)
+
 
 if __name__ == "__main__":
     unittest.main()

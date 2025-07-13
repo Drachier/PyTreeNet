@@ -13,8 +13,7 @@ from typing import List, Tuple, Dict, Union
 from itertools import product, combinations
 
 from .graph_node import GraphNode, determine_parentage
-from ..util.ttn_exceptions import NoConnectionException
-
+from ..util.ttn_exceptions import non_negativity_check
 
 class TreeStructure():
     """
@@ -247,31 +246,52 @@ class TreeStructure():
             distance_dict.update(neighbour_distances)
         return distance_dict
 
-    def find_pairs_of_distance(self, distance: int
-                               ) -> set[frozenset[str, str]]:
+    def find_pairs_of_distance(self,
+                               distance: int,
+                               consider_open: bool = False
+                               ) -> set[frozenset[str]]:
         """
         Finds all pairs of nodes that are at a given distance from each other.
 
         Args:
             distance (int): The distance between the nodes.
+            consider_open (bool): If True, the distance is only considered
+                between nodes that have an open leg. Defaults to False.
 
         Returns:
-            set[frozenset[str, str]]: A set containing all pairs of node identifiers
+            set[frozenset[str]]: A set containing all pairs of node identifiers
                 that are at the given distance from each other. Each pair is
                 represented as a set of two identifiers. The order of the pairs
                 is not guaranteed, but the pairs themselves are unordered.
+
+        Raises:
+            TypeError: If the nodes do not have an `nopen_legs` method.
+            ValueError: If the distance is negative.
+
         """
+        non_negativity_check(distance, "distance")
         if distance == 0:
-            return {frozenset([node_id]) for node_id in self._nodes}
+            if consider_open:
+                node_ids = [node.identifier for node in self.nodes.values()
+                         if node.nopen_legs(trivial=False) > 0]
+            else:
+                node_ids = self.nodes.keys()
+            return {frozenset([node_id]) for node_id in node_ids}
         pairs = set()
         # Pairs is filled in the following recursion
-        self._find_pairs_of_distance_rec(self._root_id, distance, pairs)
+        if self.root_id is None:
+            return set()
+        self._find_pairs_of_distance_rec(self._root_id,
+                                         distance,
+                                         pairs,
+                                         consider_open=consider_open)
         return pairs
 
     def _find_pairs_of_distance_rec(self,
                                     node_id: str,
                                     distance: int,
-                                    pairs: set[frozenset[str, str]]
+                                    pairs: set[frozenset[str]],
+                                    consider_open: bool = False
                                     ) -> dict[int, list[str]]:
         """
         Recursively finds all pairs of nodes that are at a given distance from
@@ -281,7 +301,7 @@ class TreeStructure():
             node_id (str): The identifier of the node from which to start the
                 search.
             distance (int): The distance between the nodes.
-            pairs (set[frozenset[str, str]]): A list to which the pairs are added.
+            pairs (set[frozenset[str]]): A list to which the pairs are added.
         
         Returns:
             dict[int, list[str]]: A dictionary containing the nodes at the given
@@ -290,21 +310,44 @@ class TreeStructure():
 
         """
         current_node = self._nodes[node_id]
-        distances = {0: [node_id]}  # Start with the current node at distance 0
-        distance_maps = {node_id: distances}
+        if consider_open and current_node.nopen_legs(trivial=False) == 0:
+            # Doing it in this class avoids large swath of code duplication.
+            # We can pretty much skip this node.
+            distances = {}
+            distance_maps = {}
+            added_dist = 0
+            # The node itself does not contribute to the distance
+            through_dist = 0
+        else:
+            distances = {0: [node_id]}  # Start with the current node at distance 0
+            distance_maps = {node_id: distances}
+            added_dist = 1
+            # The node conrtibutes to the distance by acting as going up from a node.
+            through_dist = 1
         for child_id in current_node.children:
-            child_distances = self._find_pairs_of_distance_rec(child_id, distance, pairs)
+            child_distances = self._find_pairs_of_distance_rec(child_id,
+                                                               distance,
+                                                               pairs,
+                                                               consider_open=consider_open)
             subtree_distances = {}
             for dist, nodes in child_distances.items():
                 if dist <= distance:
                     # We can ignore distances larger than the given distance
-                    subtree_distances[dist + 1] = nodes
+                    subtree_distances[dist] = nodes
             distance_maps[child_id] = subtree_distances
         # Now check for pairs at the given distance
-        map_pairs = combinations(distance_maps.values(), 2)
-        for map1, map2 in map_pairs:
+        map_pairs = combinations(distance_maps.items(), 2)
+        for nodemap1, nodemap2 in map_pairs:
+            node_id1, map1 = nodemap1
+            node_id2, map2 = nodemap2
+            if not node_id in [node_id1,node_id2]:
+                # In this case we have to go through the parent
+                actual_through_dist = through_dist + 1
+            else:
+                # In this case we merely pass to the next node, i.e. the parent.
+                actual_through_dist = through_dist
             for keyval1, keyval2 in product(map1.items(), map2.items()):
-                if keyval1[0] + keyval2[0] == distance:
+                if keyval1[0] + keyval2[0] + actual_through_dist == distance:
                     new_pairs =  {frozenset({node1, node2})
                                     for node1 in keyval1[1]
                                     for node2 in keyval2[1]}
@@ -313,9 +356,10 @@ class TreeStructure():
         for child_id, child_distances in distance_maps.items():
             if child_id != node_id:
                 for dist, nodes in child_distances.items():
-                    if dist not in distances:
-                        distances[dist] = []
-                    distances[dist].extend(nodes)
+                    new_dist = dist + added_dist
+                    if new_dist not in distances:
+                        distances[new_dist] = []
+                    distances[new_dist].extend(nodes)
         return distances
 
     def find_subtree_of_node(self, node_id: str) -> Dict[str, GraphNode]:
