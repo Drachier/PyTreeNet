@@ -396,6 +396,32 @@ class TestNodeMethods(unittest.TestCase):
         for ids, node in self.nodes.items():
             self.assertEqual(correct_numbers[ids], node.nopen_legs())
 
+    def test_nopen_legs_without_trivial_notrivial(self):
+        """
+        Tests the nopen_legs method while not counting trivial legs.
+        Though the node does not have any trivial legs.
+        """
+        node, _ = random_tensor_node((2,3,4), identifier="node")
+        self.assertEqual(3,node.nopen_legs(trivial=False))
+
+    def test_nopen_legs_without_trivial_only_open(self):
+        """
+        Test the nopen_legs method while not counting trivial legs.
+        The node has only open legs, but two are trivial.
+        """
+        node, _ = random_tensor_node((2,1,3,4,1), identifier="node")
+        self.assertEqual(3,node.nopen_legs(trivial=False))
+
+    def test_nopen_legs_without_trivial_one_trivial_neighbour(self):
+        """
+        Test the nopen_legs method whie not counting trivial legs. One of
+        the trivial legs is a neighnour though.
+        """
+        node, _ = random_tensor_node((2,1,3,4,1),identifier="node")
+        node.open_leg_to_parent("parent",0)
+        node.open_leg_to_child("child",1)
+        self.assertEqual(2,node.nopen_legs(trivial=False))
+
     def test_swap_two_child_legs(self):
         # Have two children
         id_list = ["node1p2c0", "node1p2c2", "root2c0", "root2c2"]
