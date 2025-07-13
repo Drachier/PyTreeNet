@@ -88,12 +88,17 @@ class TestTreeStructureMethods(unittest.TestCase):
         self.ts.add_child_to_parent(self.nodes[8], self.identifiers[7])
 
     def test_nearest_neighbours(self):
-        correct_neighbours = [(self.identifiers[0],self.identifiers[1]), (self.identifiers[0],self.identifiers[7]),
-                              (self.identifiers[1],self.identifiers[2]), (self.identifiers[1],self.identifiers[4]),
+        correct_neighbours = [(self.identifiers[0],self.identifiers[1]),
+                              (self.identifiers[0],self.identifiers[7]),
+                              (self.identifiers[1],self.identifiers[2]),
+                              (self.identifiers[1],self.identifiers[4]),
                               (self.identifiers[2],self.identifiers[3]),
-                              (self.identifiers[4],self.identifiers[5]), (self.identifiers[4],self.identifiers[6]),
+                              (self.identifiers[4],self.identifiers[5]),
+                              (self.identifiers[4],self.identifiers[6]),
                               (self.identifiers[7],self.identifiers[8])]
-        self.assertEqual(set(correct_neighbours), set(self.ts.nearest_neighbours()))
+        correct_neighbours = {frozenset(pair) for pair in correct_neighbours}
+        found = {frozenset(pair) for pair in self.ts.nearest_neighbours()}
+        self.assertEqual(correct_neighbours, found)
 
     def test_get_leaves(self):
         correct_leaves = {self.identifiers[3],

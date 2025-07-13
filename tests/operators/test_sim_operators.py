@@ -6,8 +6,9 @@ import numpy as np
 
 from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.core.tree_structure import TreeStructure
+from pytreenet.core.ttn import TreeTensorNetwork
 from pytreenet.operators.hamiltonian import Hamiltonian
-from pytreenet.core.graph_node import GraphNode
+from pytreenet.random import random_tensor_node
 from pytreenet.operators.sim_operators import (single_site_operators,
                                                create_nearest_neighbour_hamiltonian,
                                                create_single_site_hamiltonian,
@@ -102,12 +103,17 @@ class TestSimOperators(unittest.TestCase):
         Tests, that a tree structure gets the operator assigned to every node.
         """
         operator = "M"
-        tree = TreeStructure()
-        tree.add_root(GraphNode("A"))
-        tree.add_child_to_parent(GraphNode("B"),"A")
-        tree.add_child_to_parent(GraphNode("C"),"A")
-        tree.add_child_to_parent(GraphNode("D"),"B")
-        tree.add_child_to_parent(GraphNode("E"),"D")
+        tree = TreeTensorNetwork()
+        node, tensor = random_tensor_node((2,2,2),identifier="A")
+        tree.add_root(node, tensor)
+        node, tensor = random_tensor_node((2,2,2),identifier="B")
+        tree.add_child_to_parent(node,tensor,0,"A",0)
+        node, tensor = random_tensor_node((2,2), identifier="C")
+        tree.add_child_to_parent(node,tensor,0,"A",1)
+        node, tensor = random_tensor_node((2,2,2), identifier="D")
+        tree.add_child_to_parent(node,tensor,0,"B",1)
+        node, tensor = random_tensor_node((2,2), identifier="E")
+        tree.add_child_to_parent(node,tensor,0,"D",1)
         operators = single_site_operators(operator, tree)
         self.assertEqual(len(operators), 5)
         self.assertTrue(all(Fraction(1) == op[0]
@@ -132,10 +138,14 @@ def mps_structure(n_sites: int) -> TreeStructure:
         TreeStructure: The tree structure.
 
     """
-    tree = TreeStructure()
-    tree.add_root(GraphNode("A"))
-    for i in range(1, n_sites):
-        tree.add_child_to_parent(GraphNode(chr(65+i)), chr(65+i-1))
+    tree = TreeTensorNetwork()
+    node, tensor = random_tensor_node((2,2), identifier="A")
+    tree.add_root(node, tensor)
+    for i in range(1, n_sites-1):
+        node, tensor = random_tensor_node((2,2,2), identifier=chr(65+i))
+        tree.add_child_to_parent(node, tensor, 0, chr(65+i-1), 1)
+    node, tensor = random_tensor_node((2,2), identifier=chr(65+n_sites-1))
+    tree.add_child_to_parent(node, tensor, 0, chr(65+n_sites-2), 1)
     return tree
 
 def complicated_tree_structure() -> TreeStructure:
@@ -151,15 +161,23 @@ def complicated_tree_structure() -> TreeStructure:
          / \\   \\
         C   D    F
     """
-    tree = TreeStructure()
-    tree.add_root(GraphNode("A"))
-    tree.add_child_to_parent(GraphNode("B"),"A")
-    tree.add_child_to_parent(GraphNode("C"),"B")
-    tree.add_child_to_parent(GraphNode("D"),"B")
-    tree.add_child_to_parent(GraphNode("E"),"A")
-    tree.add_child_to_parent(GraphNode("F"),"E")
-    tree.add_child_to_parent(GraphNode("G"),"E")
-    tree.add_child_to_parent(GraphNode("H"),"E")
+    tree = TreeTensorNetwork()
+    node, tensor = random_tensor_node((2,2,2), identifier="A")
+    tree.add_root(node,tensor)
+    node, tensor = random_tensor_node((2,2,2,2), identifier="B")
+    tree.add_child_to_parent(node,tensor,0,"A",0)
+    node, tensor = random_tensor_node((2,2), identifier="C")
+    tree.add_child_to_parent(node,tensor,0,"B",1)
+    node, tensor = random_tensor_node((2,2), identifier="D")
+    tree.add_child_to_parent(node,tensor,0,"B",2)
+    node, tensor = random_tensor_node((2,2,2,2,2), identifier="E")
+    tree.add_child_to_parent(node,tensor,0,"A",1)
+    node, tensor = random_tensor_node((2,2), identifier="F")
+    tree.add_child_to_parent(node,tensor,0,"E",1)
+    node, tensor = random_tensor_node((2,2), identifier="G")
+    tree.add_child_to_parent(node,tensor,0,"E",2)
+    node, tensor = random_tensor_node((2,2), identifier="H")
+    tree.add_child_to_parent(node,tensor,0,"E",3)
     return tree
 
 class TestNearestNeighbourHamiltonian(unittest.TestCase):
@@ -213,10 +231,11 @@ class TestNearestNeighbourHamiltonian(unittest.TestCase):
         different operators for each neighbour.
         """
         num_sites = 5
-        tree = mps_structure(num_sites)
         local_operator = "op"
         local_operator2 = "op2"
-        found_ham = create_nearest_neighbour_hamiltonian(tree, local_operator,
+        structure = [("A","B"),("B","C"),("C","D"),("D","E")]
+        found_ham = create_nearest_neighbour_hamiltonian(structure,
+                                                         local_operator,
                                                          local_operator2=local_operator2)
         self.assertEqual(len(found_ham.terms), num_sites-1)
         # Reference Hamiltonian
@@ -281,10 +300,14 @@ class TestNearestNeighbourHamiltonian(unittest.TestCase):
         Test the nearest neighbour Hamiltonian for a complicated tree structure
         with different operators for each neighbour.
         """
-        tree = complicated_tree_structure()
         local_operator = "op"
         local_operator2 = "op2"
-        found_ham = create_nearest_neighbour_hamiltonian(tree, local_operator,
+        structure = [("A","B"),("B","C"),
+                     ("B","D"),("A","E"),
+                     ("E","F"),("E","G"),
+                     ("E","H")]
+        found_ham = create_nearest_neighbour_hamiltonian(structure,
+                                                         local_operator,
                                                          local_operator2=local_operator2)
         self.assertEqual(len(found_ham.terms), 7)
         # Reference Hamiltonian

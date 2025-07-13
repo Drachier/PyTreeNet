@@ -13,72 +13,8 @@ from .sim_operators import (create_single_site_hamiltonian,
                             create_nearest_neighbour_hamiltonian,
                             single_site_operators)
 from .common_operators import pauli_matrices, bosonic_operators
-from ..core.tree_structure import TreeStructure
+from ..core.ttn import TreeTensorNetwork
 from ..util.ttn_exceptions import positivity_check
-
-def heisenberg_model(structure: TreeTensorNetwork | list[tuple[str,str]],
-                     ext_magn: float = 0.0,
-                     x_factor: float = 1.0,
-                     y_factor: None | float = None,
-                     z_factor: None | float = None
-                     ) -> Hamiltonian:
-    """
-    Generates the Hamiltonian of the Heisenberg model
-
-    .. math::
-        - \sum_{<i,j>} J_x X_iX_j + J_y Y_iY_j + J_z Z_iZ_j - g \sum_i Z_i
-    
-    Args:
-        structure (TreeTensorNetwork | list[tuple[str,str]]): The nearest
-            neighbours. They can either be given directly or be inferred from
-            from a given TTN.
-        ext_magn (float): The external magnetic field to be applied.
-            Defaults to 0.0.
-        x_factor (float): The factor of the XX term.
-        y_factor (float): The factor of the YY term. If None, it will be the
-            same as the `x_factor`.
-        z_factor (float): The factor of the ZZ term. If None, it will be the
-            same as the `x_factor`.
-
-    Returns:
-        Hamiltonian: The Hamiltonian of the Heisenberg model.
-    """
-    ham = Hamiltonian()
-    ham.include_identities([1,2])
-    paulis = pauli_matrices()
-    x_symb = "Jx"
-    if y_factor is None:
-        y_factor = x_factor
-        y_symb = x_symb
-    else:
-        y_symb = "Jy"
-    if z_factor is None:
-        z_factor = x_factor
-        z_symb = x_symb
-    else:
-        z_symb = "Jz"
-    op_symbol = ["X","Y","Z"]
-    op_factor = [x_factor,y_factor,z_factor]
-    op_factor_symb = [x_symb,y_symb,z_symb]
-    for i in range(3):
-        if op_factor[i] != 0.0:
-            conv_dict = {op_factor[i]: paulis[i]}
-            coeff_map = {op_factor_symb[i]: op_factor[i]}
-            op_ham = create_nearest_neighbour_hamiltonian(structure,
-                                                          op_symbol[i],
-                                                          (Fraction(-1),op_factor_symb[i]),
-                                                          conversion_dict=conv_dict,
-                                                          coeffs_mapping=coeff_map)
-            ham.add_hamiltonian(op_ham)
-    if ext_magn != 0.0:
-        ss_structure = _adapt_structure_for_single_site(structure)
-        ext_magn_ham = create_single_site_hamiltonian(ss_structure,
-                                                      "Z",
-                                                      factor=(Fraction(-1), "ext_magn"),
-                                                      conversion_dict={"Z": paulis[2]},
-                                                      coeffs_mapping={"ext_magn": ext_magn})
-        ham.add_hamiltonian(ext_magn_ham)
-    return ham
 
 def ising_model(ref_tree: Union[TreeTensorNetwork, List[Tuple[str, str]]],
                 ext_magn: float,
@@ -89,8 +25,8 @@ def ising_model(ref_tree: Union[TreeTensorNetwork, List[Tuple[str, str]]],
     qubit tree, i.e. every node has a physical dimension of 2.
 
     Args:
-        ref_tree (Union[TreeStructure, List[Tuple[str, str]]]): The nearest
-            neighbour identifiers. They can either be given as a TreeStructure
+        ref_tree (Union[TreeTensorNetwork, List[Tuple[str, str]]]): The nearest
+            neighbour identifiers. They can either be given as a TreeTensorNetwork
             object or as a list of tuples of nearest neighbours.
         ext_magn (float): The strength of the external magnetic field (Z-term).
         factor (float): The coupling factor between the nearest neighbours.
@@ -132,7 +68,7 @@ def ising_model_2D(grid: Union[tuple[str,int,int],ArrayLike],
                               ("Z", pauli_matrices()[2]),
                               ("X", pauli_matrices()[0]))
 
-def flipped_ising_model(ref_tree: Union[TreeStructure, List[Tuple[str, str]]],
+def flipped_ising_model(ref_tree: Union[TreeTensorNetwork, List[Tuple[str, str]]],
                         ext_magn: float,
                         factor: float = 1.0
                         ) -> Hamiltonian:
@@ -142,8 +78,8 @@ def flipped_ising_model(ref_tree: Union[TreeStructure, List[Tuple[str, str]]],
     is flipped, i.e. X and Z operators are interchanged.
 
     Args:
-        ref_tree (Union[TreeStructure, List[Tuple[str, str]]]): The nearest
-            neighbour identifiers. They can either be given as a TreeStructure
+        ref_tree (Union[TreeTensorNetwork, List[Tuple[str, str]]]): The nearest
+            neighbour identifiers. They can either be given as a TreeTensorNetwork
             object or as a list of tuples of nearest neighbours.
         ext_magn (float): The strength of the external magnetic field (X-term).
         factor (float): The coupling factor between the nearest neighbours.
@@ -166,8 +102,8 @@ def flipped_ising_model_2D(grid: Union[tuple[str,int,int],ArrayLike],
     is flipped, i.e. X and Z operators are interchanged.
 
     Args:
-        ref_tree (Union[TreeStructure, List[Tuple[str, str]]]): The nearest
-            neighbour identifiers. They can either be given as a TreeStructure
+        ref_tree (Union[TreeTensorNetwork, List[Tuple[str, str]]]): The nearest
+            neighbour identifiers. They can either be given as a TreeTensorNetwork
             object or as a list of tuples of nearest neighbours.
         ext_magn (float): The strength of the external magnetic field (X-term).
         factor (float): The coupling factor between the nearest neighbours.
@@ -183,7 +119,7 @@ def flipped_ising_model_2D(grid: Union[tuple[str,int,int],ArrayLike],
                               ("X", pauli_matrices()[0]),
                               ("Z", pauli_matrices()[2]))
 
-def _abstract_ising_model(ref_tree: Union[TreeStructure, List[Tuple[str, str]]],
+def _abstract_ising_model(ref_tree: Union[TreeTensorNetwork, List[Tuple[str, str]]],
                           ext_magn: float,
                           coupling: float,
                           ext_magn_op: Tuple[str,ndarray],
@@ -194,8 +130,8 @@ def _abstract_ising_model(ref_tree: Union[TreeStructure, List[Tuple[str, str]]],
     qubit tree, i.e. every node has a physical dimension of 2.
 
     Args:
-        ref_tree (Union[TreeStructure, List[Tuple[str, str]]]): The nearest
-            neighbour identifiers. They can either be given as a TreeStructure
+        ref_tree (Union[TreeTensorNetwork, List[Tuple[str, str]]]): The nearest
+            neighbour identifiers. They can either be given as a TreeTensorNetwork
             object or as a list of tuples of nearest neighbours.
         ext_magn (float): The strength of the external magnetic field.
         factor (float): The coupling factor between the nearest neighbours.
@@ -258,14 +194,14 @@ def _get_ham_objects(factor_value: float,
     mapping = {factor_id: factor_value}
     return operator_id, factor, conv_dict, mapping
 
-def local_magnetisation(structure: Union[TreeStructure,List[str]],
+def local_magnetisation(structure: Union[TreeTensorNetwork,List[str]],
                         with_factor: bool = True
                         ) -> Dict[str,TensorProduct]:
     """
     Generates the local magnetisation operator for a given tree structure.
 
     Args:
-        structure (Union[TreeStructure,List[str]]): The tree structure for
+        structure (Union[TreeTensorNetwork,List[str]]): The tree structure for
             which the local magnetisation operator should be generated. Can
             also be a list of node identifiers.
         with_factor (bool): If True, the local magnetisation operator is
@@ -400,25 +336,25 @@ def _pairs_to_list(pairs: List[Tuple[str,str]]
         identifiers.append(pair[1])
     return list(set(identifiers))  # Remove duplicates by converting to set
 
-def _adapt_structure_for_single_site(structure: Union[TreeStructure, List[Tuple[str, str]]]
-                                     ) -> TreeStructure | List[str]:
+def _adapt_structure_for_single_site(structure: Union[TreeTensorNetwork, List[Tuple[str, str]]]
+                                     ) -> TreeTensorNetwork | List[str]:
     """
     Adapts the structure for single site Hamiltonian creation.
 
     Args:
-        structure (Union[TreeStructure, List[Tuple[str, str]]]): The structure
-            to adapt. Can either be a TreeStructure object or a list of tuples
+        structure (Union[TreeTensorNetwork, List[Tuple[str, str]]]): The structure
+            to adapt. Can either be a TreeTensorNetwork object or a list of tuples
             of nearest neighbours.
 
     Returns:
         List[str]: The adapted structure as a list of identifiers.
     """
-    if isinstance(structure, TreeStructure):
+    if isinstance(structure, TreeTensorNetwork):
         return structure
     return _pairs_to_list(structure)
 
 def bose_hubbard_model(
-        structure: Union[TreeStructure, List[Tuple[str, str]]],
+        structure: Union[TreeTensorNetwork, List[Tuple[str, str]]],
         local_dim: int = 2,
         hopping: float = 1.0,
         on_site_int: float = 1.0,
@@ -436,8 +372,8 @@ def bose_hubbard_model(
     is the chemical potential.
 
     Args:
-        structure (Union[TreeStructure, List[Tuple[str, str]]]): The nearest
-            neighbour identifiers. They can either be given as a TreeStructure
+        structure (Union[TreeTensorNetwork, List[Tuple[str, str]]]): The nearest
+            neighbour identifiers. They can either be given as a TreeTensorNetwork
             obsject, and be inferred, or as a list of tuples of nearest
             neighbours.
         local_dim (int): The local to be truncated to, i.e. the maximum number
