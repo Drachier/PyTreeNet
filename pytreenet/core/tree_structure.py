@@ -170,9 +170,15 @@ class TreeStructure():
 
         self._root_id = new_id
 
-    def nearest_neighbours(self) -> List[Tuple[str, str]]:
+    def nearest_neighbours(self,
+                           consider_open: bool  = False
+                           ) -> List[Tuple[str, str]]:
         """
         Finds all nearest neighbour pairs in this tree.
+
+        Args:
+            consider_open (bool): If True, only considers nodes that have a
+                non-trivial open leg to count towards the distance.
 
         Returns:
             nn_list (List[Tuple[str,str]]) : A list containing the identifiers of all
@@ -180,11 +186,8 @@ class TreeStructure():
                 and the second the child. The order in the list is the same as the order
                 of the nodes saved in the tree.
         """
-        nn_list = []
-        for node_id in self._nodes:
-            current_node = self.nodes[node_id]
-            for child_id in current_node.children:
-                nn_list.append((node_id, child_id))
+        nn = self.find_pairs_of_distance(1, consider_open=consider_open)
+        nn_list = [tuple(pair) for pair in nn]
         return nn_list
 
     def get_leaves(self , include_root: bool = True) -> List[str]:

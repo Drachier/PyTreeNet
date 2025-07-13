@@ -3,15 +3,16 @@ Functions to generate operators commonly used for example simulations.
 """
 from typing import List, Dict, Union, Tuple
 from fractions import Fraction
+from warnings import warn
 
 from numpy import ndarray
 
 from .tensorproduct import TensorProduct
 from .hamiltonian import Hamiltonian
-from ..core.tree_structure import TreeStructure
+from ..core.ttn import TreeTensorNetwork
 
 def single_site_operators(operator: Union[str,ndarray],
-                          node_identifiers: Union[TreeStructure,List[str]],
+                          node_identifiers: Union[TreeTensorNetwork,List[str]],
                           factor: Union[List[tuple[Fraction,str]],tuple[Fraction,str],None]=None,
                           operator_names: Union[List[str],None]=None,
                           with_factor: bool = True
@@ -21,9 +22,9 @@ def single_site_operators(operator: Union[str,ndarray],
 
     Args:
         operator (Union[str,ndarray]): The operator to apply to each node.
-        node_identifiers (Union[TreeStructure,List[str]]): The node identifiers
+        node_identifiers (Union[TreeTensorNetwork,List[str]]): The node identifiers
             for which the operators should be created. Can also be pulled from
-            a TreeStructure object.
+            a TreeTensorNetwork object.
         factor (Union[List[tuple[Fraction,str]],tuple[Fraction,str],None]):
             The factors to multiply the operator with. If given a list
             the order of factors must be the same as the order of identifiers.
@@ -37,7 +38,7 @@ def single_site_operators(operator: Union[str,ndarray],
         Dict[str,TensorProduct]: The operators.
 
     """
-    if isinstance(node_identifiers, TreeStructure):
+    if isinstance(node_identifiers, TreeTensorNetwork):
         node_identifiers = list(node_identifiers.nodes.keys())
     if factor is None:
         factor = [(Fraction(1), "1")] * len(node_identifiers)
@@ -59,7 +60,7 @@ def single_site_operators(operator: Union[str,ndarray],
                      for i in range(len(node_identifiers))}
     return operators
 
-def create_nearest_neighbour_hamiltonian(structure: Union[TreeStructure,List[Tuple[str,str]]],
+def create_nearest_neighbour_hamiltonian(structure: Union[TreeTensorNetwork,List[Tuple[str,str]]],
                                          local_operator1: Union[ndarray, str],
                                          factor: Union[tuple[Fraction,str],None] = None,
                                          local_operator2: Union[ndarray, str, None] = None,
@@ -73,7 +74,7 @@ def create_nearest_neighbour_hamiltonian(structure: Union[TreeStructure,List[Tup
      term A_i (x) B_j, where A_i is the local operator at site i.
     
     Args:
-        structure (Union[TreeStructure,List[Tuple[str,str]]]): The tree
+        structure (Union[TreeTensorNetwork,List[Tuple[str,str]]]): The tree
             structure for which the Hamiltonian should be created or a list
             of tuples of nearest neighbours.
         local_operator1 (Union[ndarray, str]): The local operator to be used
@@ -98,10 +99,12 @@ def create_nearest_neighbour_hamiltonian(structure: Union[TreeStructure,List[Tup
         return Hamiltonian([],
                            conversion_dictionary=conversion_dict,
                            coeffs_mapping=coeffs_mapping)
+    if isinstance(structure, TreeTensorNetwork):
+        if local_operator2 is not None:
+            warn("Tree structure does not give a known order for nearest neighbours!")
+        structure = structure.nearest_neighbours(consider_open=True)
     if local_operator2 is None:
         local_operator2 = local_operator1
-    if isinstance(structure, TreeStructure):
-        structure = structure.nearest_neighbours()
     terms = []
     for identifier1, identifier2, in structure:
         term_op = TensorProduct({identifier1: local_operator1,
@@ -111,7 +114,7 @@ def create_nearest_neighbour_hamiltonian(structure: Union[TreeStructure,List[Tup
                        conversion_dictionary=conversion_dict,
                        coeffs_mapping=coeffs_mapping)
 
-def create_single_site_hamiltonian(structure: Union[TreeStructure,List[str]],
+def create_single_site_hamiltonian(structure: Union[TreeTensorNetwork,List[str]],
                                    local_operator: Union[str, ndarray],
                                    factor: Union[tuple[Fraction,str],None] = None,
                                    conversion_dict: Union[Dict[str,ndarray],None] = None,
@@ -122,7 +125,7 @@ def create_single_site_hamiltonian(structure: Union[TreeStructure,List[str]],
     The Hamiltonian will contain a term A for every site i
     
     Args:
-        structure (Union[TreeStructure,List[str]]): The tree structure for
+        structure (Union[TreeTensorNetwork,List[str]]): The tree structure for
             which the Hamiltonian should be created.
         local_operator (Union[str, ndarray]): The local operators to be used
             to generate the single site interaction, i.e. A_i for every i.
