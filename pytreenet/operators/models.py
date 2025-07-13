@@ -16,6 +16,70 @@ from .common_operators import pauli_matrices, bosonic_operators
 from ..core.ttn import TreeTensorNetwork
 from ..util.ttn_exceptions import positivity_check
 
+def heisenberg_model(structure: TreeTensorNetwork | list[tuple[str,str]],
+                     ext_magn: float = 0.0,
+                     x_factor: float = 1.0,
+                     y_factor: None | float = None,
+                     z_factor: None | float = None
+                     ) -> Hamiltonian:
+    """
+    Generates the Hamiltonian of the Heisenberg model
+
+    .. math::
+        - \sum_{<i,j>} J_x X_iX_j + J_y Y_iY_j + J_z Z_iZ_j - g \sum_i Z_i
+    
+    Args:
+        structure (TreeTensorNetwork | list[tuple[str,str]]): The nearest
+            neighbours. They can either be given directly or be inferred from
+            from a given TTN.
+        ext_magn (float): The external magnetic field to be applied.
+            Defaults to 0.0.
+        x_factor (float): The factor of the XX term.
+        y_factor (float): The factor of the YY term. If None, it will be the
+            same as the `x_factor`.
+        z_factor (float): The factor of the ZZ term. If None, it will be the
+            same as the `x_factor`.
+
+    Returns:
+        Hamiltonian: The Hamiltonian of the Heisenberg model.
+    """
+    ham = Hamiltonian()
+    ham.include_identities([1,2])
+    paulis = pauli_matrices()
+    x_symb = "Jx"
+    if y_factor is None:
+        y_factor = x_factor
+        y_symb = x_symb
+    else:
+        y_symb = "Jy"
+    if z_factor is None:
+        z_factor = x_factor
+        z_symb = x_symb
+    else:
+        z_symb = "Jz"
+    op_symbol = ["X","Y","Z"]
+    op_factor = [x_factor,y_factor,z_factor]
+    op_factor_symb = [x_symb,y_symb,z_symb]
+    for i in range(3):
+        if op_factor[i] != 0.0:
+            conv_dict = {op_factor[i]: paulis[i]}
+            coeff_map = {op_factor_symb[i]: op_factor[i]}
+            op_ham = create_nearest_neighbour_hamiltonian(structure,
+                                                          op_symbol[i],
+                                                          (Fraction(-1),op_factor_symb[i]),
+                                                          conversion_dict=conv_dict,
+                                                          coeffs_mapping=coeff_map)
+            ham.add_hamiltonian(op_ham)
+    if ext_magn != 0.0:
+        ss_structure = _adapt_structure_for_single_site(structure)
+        ext_magn_ham = create_single_site_hamiltonian(ss_structure,
+                                                      "Z",
+                                                      factor=(Fraction(-1), "ext_magn"),
+                                                      conversion_dict={"Z": paulis[2]},
+                                                      coeffs_mapping={"ext_magn": ext_magn})
+        ham.add_hamiltonian(ext_magn_ham)
+    return ham
+
 def ising_model(ref_tree: Union[TreeTensorNetwork, List[Tuple[str, str]]],
                 ext_magn: float,
                 factor: float = 1.0
