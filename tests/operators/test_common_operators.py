@@ -1,3 +1,7 @@
+"""
+This module contains unit tests for common operators in PyTreeNet.
+"""
+
 import unittest
 
 import numpy as np
@@ -19,6 +23,14 @@ class TestCommonOperators(unittest.TestCase):
         self.assertTrue(np.allclose(
                          np.asarray([[1,0],[0,-1]], dtype=complex),
                          Z))
+
+    def test_spin_jumps_arrays(self):
+        s_plus, s_minus = ptn.spin_jumps()
+        self.assertTrue(isinstance(s_plus,np.ndarray))
+        s_plus_correct = np.asarray([[0,1],[0,0]], dtype=complex)
+        s_minus_correct = np.asarray([[0,0],[1,0]], dtype=complex)
+        np.testing.assert_array_almost_equal(s_plus, s_plus_correct)
+        np.testing.assert_array_almost_equal(s_minus, s_minus_correct)
 
     def test_bosonic_operators_errors(self):
         # Error for negative dimension
