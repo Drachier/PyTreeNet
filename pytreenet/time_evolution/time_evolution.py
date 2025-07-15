@@ -6,6 +6,8 @@ from typing import List, Union, Any, Dict, Iterable, Callable, Literal
 from enum import Enum
 from copy import deepcopy
 from math import modf
+from warnings import warn
+
 from dataclasses import dataclass, field
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -517,6 +519,12 @@ class TimeEvoMode:
                 forward = EvoDirection.from_bool(forward)
             exp_factor = forward.exp_factor()
             orig_shape = psi.shape
+            if not np.issubdtype(psi.dtype, np.complexfloating):
+                psi = psi.astype(np.complex64)
+                warnstr ="You supplied a real dtyped tensor, but the time"
+                warnstr += " evolution is complex. The tensor will be cast to "
+                warnstr += "complex64. This might impede performance!"
+                warn(warnstr, UserWarning)
             def ode_rhs(t, y_vec):
                 orig_array = y_vec.reshape(orig_shape)
                 action_result = time_evo_action(t, orig_array).flatten()
