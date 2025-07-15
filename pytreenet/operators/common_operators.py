@@ -23,10 +23,26 @@ def pauli_matrices() -> Tuple[np.ndarray,np.ndarray,np.ndarray]:
          [1j,0]]
     Z = [[1,0],
          [0,-1]]
-    X = np.asarray(X, dtype="complex")
-    Y = np.asarray(Y, dtype="complex")
-    Z = np.asarray(Z, dtype="complex")
+    X = np.asarray(X, dtype=complex)
+    Y = np.asarray(Y, dtype=complex)
+    Z = np.asarray(Z, dtype=complex)
     return (X, Y, Z)
+
+def spin_jumps() -> Tuple[np.ndarray,np.ndarray]:
+    """
+    Returns the spin jump operators S+ and S- in Z-basis as ndarray.
+    
+    The spin jump operators are defined as:
+    S+ = 1/2 * (X + iY)
+    S- = 1/2 * (X - iY)
+    
+    Returns:
+        Tuple[np.ndarray,np.ndarray]: The spin jump operators S+ and S-.
+    """
+    X, Y, _ = pauli_matrices()
+    s_plus = 0.5 * (X + 1j * Y)
+    s_minus = 0.5 * (X - 1j * Y)
+    return (s_plus, s_minus)
 
 def bosonic_operators(dimension: int = 2) -> Tuple[np.ndarray,np.ndarray,np.ndarray]:
     """
