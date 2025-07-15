@@ -80,6 +80,18 @@ class Results:
         """
         self.not_initialized_error()
         return len(self.results[TIMES_ID])
+    
+    def shape(self) -> tuple[int, int]:
+        """
+        Returns the shape of the result.
+
+        Returns:
+            tuple[int, int]: A tuple containing the number of operators and the
+                length of the results arrays. This includes the time array and
+                the result at time zero.
+        """
+        return (self.num_results(),
+                self.results_length())
 
     def is_initialized(self) -> bool:
         """
@@ -224,6 +236,18 @@ class Results:
             return True
         return np.allclose(np.imag(op_results),
                            np.zeros_like(op_results))
+
+    def results_real(self) -> bool:
+        """
+        Checks if all results in the results object are real.
+
+        Returns:
+            bool: True if all results are real, False otherwise.
+        """
+        for operator in self.results:
+            if not self.result_real(operator):
+                return False
+        return True
 
     def operator_result(self,
                         operator: Hashable,
