@@ -17,6 +17,7 @@ from ..ttns import TreeTensorNetworkState
 from ..core.node import Node
 from ..ttno.ttno_class import TTNO
 from ..util.ttn_exceptions import non_negativity_check
+from ..operators.common_operators import ket_i
 from .util import check_product_state_parameters
 
 class MatrixProductTree(TreeTensorNetwork):
@@ -214,8 +215,7 @@ class MatrixProductState(MatrixProductTree, TreeTensorNetworkState):
         """
         check_product_state_parameters(state_value,dimension)
         non_negativity_check(num_sites, "number of sites")
-        single_site_tensor = np.zeros(dimension)
-        single_site_tensor[state_value] = 1
+        single_site_tensor = ket_i(state_value, dimension)
         single_site_tensor = np.reshape(single_site_tensor, (1,1,dimension))
         tensor_list = [deepcopy(single_site_tensor[0,:,:])]
         tensor_list.extend([deepcopy(single_site_tensor) for _ in range(num_sites-2)])
