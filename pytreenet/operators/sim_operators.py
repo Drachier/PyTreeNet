@@ -145,6 +145,43 @@ def create_single_site_hamiltonian(structure: Union[TreeTensorNetwork,List[str]]
                        conversion_dictionary=conversion_dict,
                        coeffs_mapping=coeffs_mapping)
 
+def create_constant_hamiltonian(structure: list[list[str]],
+                                oprator: str,
+                                factor: tuple[Fraction, str] = (Fraction(1), "1"),
+                                conversion_dict: dict[str, ndarray] | None = None,
+                                coeffs_mapping: dict[str, complex] | None = None
+                                ) -> Hamiltonian:
+    """
+    Create a constant Hamiltonian for a given structure.
+
+    Args:
+        structure (list[list[str]]): A list of node identifier combinations.
+            For every combination a term of local operators will be created.
+        oprator (ndarray | str): The local operator to be applied.
+        factor (tuple[Fraction, str]): An optional factor to be associated to
+            every term. Defaults to `(Fraction(1), "1")`.
+        conversion_dict (dict[str, ndarray]): Will be added to the Hamiltonian
+            if supplied. Otherwise it will be empty.
+        coeffs_mapping: (dict[str, ndarray]): Will be added to the Hamiltonian
+            if supplied. Otherwise it will be empty.
+    
+    Returns:
+        Hamiltonian: The desired constant Hamiltonian.
+    
+    """
+    if conversion_dict is None:
+        conversion_dict = {}
+    if coeffs_mapping is None:
+        coeffs_mapping = {}
+    ham = Hamiltonian(conversion_dictionary=conversion_dict,
+                      coeffs_mapping=coeffs_mapping)
+    for combi in structure:
+        term = TensorProduct()
+        for node_id in combi:
+            term.add_operator(node_id, oprator)
+        ham.add_term((factor[0], factor[1], term))
+    return ham
+
 def create_multi_site_hamiltonian(structure: list[list[str]],
                                   operators: list[str] | str,
                                   factor: tuple[Fraction, str] = (Fraction(1),"1"),
