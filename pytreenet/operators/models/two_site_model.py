@@ -222,7 +222,7 @@ class HeisenbergModel(TwoSiteModel):
         return ham
 
 @dataclass
-class IsingParameters(SimulationParameters):
+class IsingParameters(TwoSiteParameters):
     """
     Parameters used to define as Ising model.
     """
