@@ -4,10 +4,10 @@ This module implements an abstract parent class for quantum system models.
 from abc import ABC, abstractmethod
 from typing import Self
 
+from .topology import Topology
 from ..hamiltonian import Hamiltonian
 from ...core.ttn import TreeTensorNetwork
 from ...util.ttn_exceptions import non_negativity_check
-
 
 class Model(ABC):
     """
@@ -210,6 +210,40 @@ class Model(ABC):
                     raise ValueError(errstr)
         structure = self.generate_2d_structure(site_ids)
         return self.generate_hamiltonian(structure)
+
+    def generate_by_topoloy(self,
+                            topology: Topology,
+                            size_parameter: int,
+                            site_id_prefix: str = "site"
+                            ) -> Hamiltonian:
+        """
+        Generates the Hamiltonian based on the topology of the quantum system.
+
+        Args:
+            size_parameter (int): The size parameter for the topology.
+                For a chain, this is the number of sites; for a T-topology,
+                this is the length of each chain; for a 2D structure, this is
+                only valid for a square lattice, where it represents the
+                number of rows and columns.
+            site_id_prefix (str, optional): The prefix for each site identifier.
+                Defaults to "site".
+
+        Returns:
+            Hamiltonian: The Hamiltonian of the quantum system based on the
+                specified topology.
+        """
+        if topology == Topology.CHAIN:
+            return self.generate_chain_model(size_parameter,
+                                             site_ids=site_id_prefix)
+        if topology == Topology.TTOPOLOGY:
+            return self.generate_t_topology_model(size_parameter,
+                                                  site_ids=site_id_prefix)
+        if topology == Topology.SQUARE:
+            return self.generate_2d_model(size_parameter,
+                                          site_ids=site_id_prefix)
+        errstr = f"Unsupported topology: {topology}."
+        errstr += "Cannot generate Hamiltonian!"
+        raise ValueError(errstr)
 
 def generate_chain_indices(num_sites: int,
                            site_ids: str = "site"
