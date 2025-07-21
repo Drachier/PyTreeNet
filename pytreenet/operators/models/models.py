@@ -8,7 +8,7 @@ from numpy import ndarray, zeros, mean
 
 from ..hamiltonian import Hamiltonian
 from ..tensorproduct import TensorProduct
-from ..sim_operators import (single_site_operators)
+from ..sim_operators import (create_single_site_observables)
 from ..common_operators import pauli_matrices
 from ...core.ttn import TreeTensorNetwork
 
@@ -179,8 +179,7 @@ def flipped_ising_model_2D(grid: Union[tuple[str,int,int],list[list[str]]],
                                    num_cols=len(grid[0]),
                                    site_ids=grid)
 
-def local_magnetisation(structure: Union[TreeTensorNetwork,List[str]],
-                        with_factor: bool = True
+def local_magnetisation(structure: Union[TreeTensorNetwork,List[str]]
                         ) -> Dict[str,TensorProduct]:
     """
     Generates the local magnetisation operator for a given tree structure.
@@ -189,16 +188,13 @@ def local_magnetisation(structure: Union[TreeTensorNetwork,List[str]],
         structure (Union[TreeTensorNetwork,List[str]]): The tree structure for
             which the local magnetisation operator should be generated. Can
             also be a list of node identifiers.
-        with_factor (bool): If True, the local magnetisation operator is
-            provided with a factor of 1.0.
     
     Returns:
         Dict[str,TensorProduct]: The local magnetisation operators.
 
     """
     sigma_z = pauli_matrices()[2]
-    return single_site_operators(sigma_z, structure,
-                                 with_factor=with_factor)
+    return create_single_site_observables(sigma_z, structure)
 
 def total_magnetisation(local_magnetisations: List[ndarray]
                         ) -> ndarray:
@@ -218,7 +214,7 @@ def total_magnetisation(local_magnetisations: List[ndarray]
 
     """
     if len(local_magnetisations) == 0:
-        raise ValueError("No local magnetisations given.")
+        raise ValueError("No local magnetisations given!")
     num_sites = len(local_magnetisations)
     magn = zeros((num_sites, local_magnetisations[0].shape[0]),
                  dtype=local_magnetisations[0].dtype)

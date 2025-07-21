@@ -35,7 +35,7 @@ def single_site_operators(operator: Union[str,ndarray],
             If False, the factor is not included in the operator.
         
     Returns:
-        Dict[str,TensorProduct]: The operators.
+        Dict[str,Tuple[Fraction,str,TensorProduct]]: The operators.
 
     """
     if isinstance(node_identifiers, TreeTensorNetwork):
@@ -56,9 +56,38 @@ def single_site_operators(operator: Union[str,ndarray],
         operators = {operator_names[i]: (factor[i][0],factor[i][1],TensorProduct({node_identifiers[i]: operator}))
                      for i in range(len(node_identifiers))}
     else:
+        warnstr = "Do not use `with_factor=False`, instead use `create_single_site_observables`!"
+        warn(warnstr, DeprecationWarning)
         operators = {operator_names[i]: TensorProduct({node_identifiers[i]: operator})
                      for i in range(len(node_identifiers))}
     return operators
+
+def create_single_site_observables(operator: Union[str,ndarray],
+                                   node_identifiers: Union[TreeTensorNetwork,List[str]],
+                                   operator_names: Union[List[str],None]=None,
+                          ) -> Dict[str,TensorProduct]:
+    """
+    Define a constant observable for each node.
+
+    Observables do not have a factor associated to them.
+
+    Args:
+        operator (Union[str,ndarray]): The operator to apply to each node.
+        node_identifiers (Union[TreeTensorNetwork,List[str]]): The node identifiers
+            for which the operators should be created. Can also be pulled from
+            a TreeTensorNetwork object.
+        operator_names (Union[List[str],None]): The names of the operators.
+            If None, the operator names are set to the node identifiers.
+        
+    Returns:
+        Dict[str,TensorProduct]: The operators.
+
+    """
+    ops = single_site_operators(operator,
+                                node_identifiers,
+                                operator_names=operator_names)
+    obs = [op[2] for op in ops]
+    return obs
 
 def create_nearest_neighbour_hamiltonian(structure: Union[TreeTensorNetwork,List[Tuple[str,str]]],
                                          local_operator1: Union[ndarray, str],
