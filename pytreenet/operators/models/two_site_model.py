@@ -20,6 +20,7 @@ from ..sim_operators import (create_nearest_neighbour_hamiltonian,
                              create_single_site_hamiltonian)
 from .abc_model import Model
 
+@dataclass
 class TwoSiteParameters(SimulationParameters):
     """
     Collects all parameters of a two site model.
