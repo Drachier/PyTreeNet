@@ -3,6 +3,7 @@ This module implements an abstract parent class for quantum system models.
 """
 from abc import ABC, abstractmethod
 from typing import Self
+import inspect
 
 from .topology import Topology
 from ..hamiltonian import Hamiltonian
@@ -32,7 +33,12 @@ class Model(ABC):
             Self: An instance of the model initialized with the parameters
                 from the dataclass.
         """
-        return cls(**dataclass_instance.__dict__)
+        param_dict = dataclass_instance.__dict__
+        sig = inspect.signature(cls.__init__)
+        valid_params = sig.parameters.keys()
+        valid_dict = {k: v for k, v in param_dict.items()
+                      if k in valid_params}
+        return cls(**valid_dict)
 
     @abstractmethod
     def generate_hamiltonian(self,
