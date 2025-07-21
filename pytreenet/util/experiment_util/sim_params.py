@@ -3,8 +3,8 @@ This module implements a simulation parameter parent class that can be
 subclassed to extend the simulation parameters for different experiments.
 """
 from __future__ import annotations
-from typing import Any, Self
-from dataclasses import dataclass
+from typing import Any, Self, get_type_hints
+from dataclasses import dataclass, fields
 from enum import Enum
 import json
 from hashlib import sha256
@@ -57,9 +57,6 @@ class SimulationParameters:
         """
         Initializes the simulation parameters from a dictionary.
 
-        If a subclass has enums, it should extend this method to convert
-        the string values back to enum types.
-
         Args:
             param_dict (dict[str, Any]): A dictionary containing the simulation
                 parameters.
@@ -78,7 +75,18 @@ class SimulationParameters:
         """
         with open(filepath, "r") as file:
             data = json.load(file)
-        return cls.from_dict(data)
+        # We have to handle Enums manually
+        # because json does not support them directly
+        type_hints = get_type_hints(cls)
+        kwargs = {}
+        for field in fields(cls):
+            if field.name in data:
+                value = data[field.name]
+                field_type = type_hints.get(field.name, field.type)
+                if isinstance(field_type, type) and issubclass(field_type, Enum):
+                    value = field_type(value)
+                kwargs[field.name] = value
+        return cls(**kwargs)
 
     def get_hash(self) -> str:
         """
