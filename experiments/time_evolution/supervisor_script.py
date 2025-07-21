@@ -6,19 +6,19 @@ from itertools import product
 
 from pytreenet.util.experiment_util.supervisor import (Supervisor,
                                                        SIMSCRIPT_STANDARD_NAME)
-from sim_script import (SimulationParameters,
-                        TimeEvolutionParameters,
-                        Topology,
-                        TTNStructure,
-                        TimeEvoMode,
-                        TimeEvoAlg)
+from pytreenet.operators.models.topology import Topology
+from pytreenet.special_ttn.special_states import TTNStructure
+from pytreenet.time_evolution.time_evo_enum import TimeEvoAlg
+from pytreenet.time_evolution.time_evolution import TimeEvoMode
 
-def generate_parameter_set():
+from sim_script import TotalParameters
+
+def generate_parameter_set() -> list[TotalParameters]:
     """
     Generates a set of parameters for time evolution experiments.
     
     Returns:
-        list: A list of tuples containing simulation and time evolution parameters.
+        list[TotalParameters]: A list of tuples containing simulation and time evolution parameters.
     """
     time_step = 0.01
     ext_magn = 0.1
@@ -49,22 +49,27 @@ def generate_parameter_set():
                        maximum_bond_dim,
                        ttn_structure)
     sim_params_list = []
+    i = 0
     for ns, il, time_evo_mode, max_bd, ttn_str in iterator:
-        sim_params = SimulationParameters(ttn_str,
-                                          topology,
-                                          ns,
-                                          il,
-                                          ext_magn)
-        time_evo_params = TimeEvolutionParameters(time_evo_mode,
-                                                  evo_alg,
-                                                  time_step,
-                                                  final_time,
-                                                  max_bond_dim=max_bd,
-                                                  rel_svalue=rel_svalue,
-                                                  abs_svalue=abs_svalue,
-                                                  atol=atol,
-                                                  rtol=rtol)
-        sim_params_list.append((sim_params, time_evo_params))
+        sim_params = TotalParameters(ttns_structure=ttn_str,
+                                     topology=topology,
+                                     system_size=ns,
+                                     ext_magn=ext_magn,
+                                     interaction_range=il,
+                                     time_evo_method=time_evo_mode,
+                                     time_evo_algorithm=evo_alg,
+                                     time_step_size=time_step,
+                                     final_time=final_time,
+                                     max_bond_dim=max_bd,
+                                     rel_svalue=rel_svalue,
+                                     abs_svalue=abs_svalue,
+                                     atol=atol,
+                                     rtol=rtol)
+        sim_params_list.append(sim_params)
+        # Only for testing
+        i += 1
+        if i == 3:  # Limit to 10 for testing purposes
+            return [sim_params]
     return sim_params_list
 
 def main():
