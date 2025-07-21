@@ -66,10 +66,6 @@ def generate_parameter_set() -> list[TotalParameters]:
                                      atol=atol,
                                      rtol=rtol)
         sim_params_list.append(sim_params)
-        # Only for testing
-        i += 1
-        if i == 3:  # Limit to 10 for testing purposes
-            return [sim_params]
     return sim_params_list
 
 def main():
