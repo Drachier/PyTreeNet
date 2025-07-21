@@ -66,6 +66,20 @@ class SimulationParameters:
         """
         return cls(**param_dict)
 
+    @classmethod
+    def load_from_json(cls,
+                       filepath: str
+                       ) -> Self:
+        """
+        Loads the simulation data from a json file.
+
+        Args:
+            filepath (str): The path to the json file.
+        """
+        with open(filepath, "r") as file:
+            data = json.load(file)
+        return cls.from_dict(data)
+
     def get_hash(self) -> str:
         """
         Returns a hash of the simulation parameters.
