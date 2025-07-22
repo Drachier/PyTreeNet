@@ -15,6 +15,7 @@ from ..operators.exact_operators import exact_constant_product_state
 from .binary import generate_binary_ttns
 from .mps import MatrixProductState
 from .star import StarTreeTensorState
+from ..util.tensor_splitting import SplitMode
 
 class TTNStructure(Enum):
     """
@@ -32,7 +33,8 @@ def generate_constant_product_state(value: int,
                                     structure: TTNStructure,
                                     phys_dim: int = 2,
                                     node_prefix: str = STANDARD_NODE_PREFIX,
-                                    bond_dim: int = 1
+                                    bond_dim: int = 1,
+                                    orth_root: bool = True
                                     ) -> TreeTensorNetworkState | NDArray[np.complex64]:
     """
     Generates a constant product state as a TTNS.
@@ -47,6 +49,8 @@ def generate_constant_product_state(value: int,
         node_prefix (str): The prefix for the nodes in the tensor network.
             They will be enumerated through.
         bond_dim (int): The bond dimension for the state. Default is 1.
+        orth_root (bool): If True, the root site will be orthogonalized.
+            Default is True.
 
     Returns:
         TreeTensorNetworkState | NDArray[np.complex64]: The generated constant
@@ -62,6 +66,8 @@ def generate_constant_product_state(value: int,
                                                           bond_dimensions=bond_dims,
                                                           node_prefix=node_prefix,
                                                           root_site=middle_site)
+        if orth_root:
+            state.orthogonalize_root(mode=SplitMode.KEEP)
         return state
     if structure == TTNStructure.BINARY:
         phys_tensor = np.zeros((bond_dim, phys_dim),
@@ -71,6 +77,8 @@ def generate_constant_product_state(value: int,
                                      bond_dim,
                                      phys_tensor,
                                      phys_prefix=node_prefix)
+        if orth_root:
+            state.orthogonalize_root(mode=SplitMode.KEEP)
         return state
     if structure == TTNStructure.TSTAR:
         num_chains = 3
@@ -89,6 +97,8 @@ def generate_constant_product_state(value: int,
                                                       chain_tensors,
                                                       identifiers=list(node_ids))
         state.pad_bond_dimensions(bond_dim)
+        if orth_root:
+            state.orthogonalize_root(mode=SplitMode.KEEP)
         return state
     if structure == TTNStructure.EXACT:
         return exact_constant_product_state(value,
