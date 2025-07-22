@@ -7,6 +7,7 @@ from enum import Enum
 from copy import deepcopy
 from math import modf
 from warnings import warn
+from dataclasses import dataclass
 
 from dataclasses import dataclass, field
 import numpy as np
@@ -17,6 +18,15 @@ from numpy.typing import DTypeLike
 from ..util.ttn_exceptions import positivity_check, non_negativity_check
 from ..util import fast_exp_action
 from .results import Results
+
+@dataclass
+class TimeEvoConfig:
+    """
+    Abstract configuration for time evolution algorithms.
+    
+    This is to ensure that all time evolution algorithms can be configured.
+    """
+    pass
 
 class TimeEvolution:
     """
@@ -36,6 +46,7 @@ class TimeEvolution:
         final_time (float): The time at which to conclude the time-evolution.
         operators (List[Any]): A list of operators to be evaluated.
     """
+    config_class = TimeEvoConfig
 
     def __init__(self, initial_state: Any, time_step_size: float,
                  final_time: float, operators: Union[List[Any], Dict[str, Any], Any]):
