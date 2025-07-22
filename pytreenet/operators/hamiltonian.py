@@ -107,6 +107,18 @@ class Hamiltonian():
             raise TypeError(errstr)
         return self
 
+    def node_ids(self) -> set[str]:
+        """
+        Returns the set of node identifiers that are used in the Hamiltonian.
+
+        Returns:
+            set[str]: Set of node identifiers.
+        """
+        node_ids = set()
+        for _, _, term in self.terms:
+            node_ids.update(list(term.keys()))
+        return node_ids
+
     def add_term(self, term: Union[TensorProduct, tuple[Fraction, str, TensorProduct]]):
         """
         Adds a term to the Hamiltonian.
