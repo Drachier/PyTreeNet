@@ -4,6 +4,7 @@ implemented in PyTreeNet.
 """
 from enum import Enum
 
+from pytreenet.time_evolution.time_evolution import TimeEvolution
 from pytreenet.time_evolution.exact_time_evolution import ExactTimeEvolution
 from pytreenet.time_evolution.tdvp_algorithms.firstorderonesite import FirstOrderOneSiteTDVP
 from pytreenet.time_evolution.tdvp_algorithms.secondorderonesite import SecondOrderOneSiteTDVP
@@ -65,7 +66,7 @@ class TimeEvoAlg(Enum):
                         TimeEvoAlg.FPBUG,
                         TimeEvoAlg.SPBUG}
 
-    def get_class(self) -> type:
+    def get_class(self) -> type[TimeEvolution]:
         """
         Returns the class of the time evolution algorithm.
         """
@@ -88,6 +89,12 @@ class TimeEvoAlg(Enum):
         if self is TimeEvoAlg.EXACT:
             return ExactTimeEvolution
         raise ValueError(f"Unknown time evolution algorithm: {self}")
+
+    def get_config_class(self) -> type:
+        """
+        Returns the configuration class for the time evolution algorithm.
+        """
+        return self.get_class().config_class
 
     def get_algorithm_instance(self, *args, **kwargs):
         """
