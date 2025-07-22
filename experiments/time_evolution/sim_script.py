@@ -107,9 +107,9 @@ def generate_ising_hamiltonian(sim_params: LocalSimulationParameters
     where J=1 is the interaction strength, g is the external field, and
     """
     model = IsingModel.from_dataclass(sim_params)
-    return model.generate_by_topoloy(sim_params.topology,
-                                     sim_params.system_size,
-                                     site_id_prefix=NODE_PREFIX)
+    return model.generate_by_topology(sim_params.topology,
+                                      sim_params.system_size,
+                                      site_id_prefix=NODE_PREFIX)
 
 def get_single_site_operators(length: int
                              ) -> dict[str, TensorProduct]:

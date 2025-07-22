@@ -217,7 +217,7 @@ class Model(ABC):
         structure = self.generate_2d_structure(site_ids)
         return self.generate_hamiltonian(structure)
 
-    def generate_by_topoloy(self,
+    def generate_by_topology(self,
                             topology: Topology,
                             size_parameter: int,
                             site_id_prefix: str = "site"
