@@ -12,6 +12,7 @@ from ..sim_operators import (create_single_site_observables)
 from ..common_operators import pauli_matrices
 from ...core.ttn import TreeTensorNetwork
 
+from .topology import Topology
 from .two_site_model import (HeisenbergModel,
                                 IsingModel,
                                 FlippedIsingModel,
@@ -178,6 +179,24 @@ def flipped_ising_model_2D(grid: Union[tuple[str,int,int],list[list[str]]],
     return model.generate_2d_model(len(grid),
                                    num_cols=len(grid[0]),
                                    site_ids=grid)
+
+def local_magnetisation_from_topology(topology: Topology,
+                                      system_size: int,
+                                      site_prefix: str = "site"
+                                        ) -> Dict[str, TensorProduct]:
+    """
+    Generates the local magnetisation operator for a given topology.
+
+    Args:
+        topology (Topology): The topology of the system.
+        system_size (int): The characteristic size of the system.
+        site_prefix (str): The prefix for the site identifiers.
+        Defaults to "site".
+    """
+    num_sites = topology.num_sites(system_size)
+    structure = [f"{site_prefix}_{i}"
+                 for i in range(num_sites)]
+    return local_magnetisation(structure)
 
 def local_magnetisation(structure: Union[TreeTensorNetwork,List[str]]
                         ) -> Dict[str,TensorProduct]:
