@@ -8,10 +8,10 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.linalg import expm
 
-from .time_evolution import TimeEvolution
+from .time_evolution import TimeEvolution, TimeEvoConfig
 
 @dataclass
-class ExactTimeEvolutionConfig:
+class ExactTimeEvolutionConfig(TimeEvoConfig):
     """
     Configuration for the exact time evolution.
     

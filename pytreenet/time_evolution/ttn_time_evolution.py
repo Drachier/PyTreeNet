@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import List, Union, Dict, Tuple, Any
 from dataclasses import dataclass
 
-from .time_evolution import TimeEvolution
+from .time_evolution import TimeEvolution, TimeEvoConfig
 from ..ttns import TreeTensorNetworkState
 from ..ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
@@ -19,7 +19,7 @@ TOTAL_SIZE_ID = "total_size"
 BOND_DIM_ATRR = "bond_dim"
 
 @dataclass
-class TTNTimeEvolutionConfig:
+class TTNTimeEvolutionConfig(TimeEvoConfig):
     """
     Configuration for the TTN time evolution.
 
