@@ -4,6 +4,7 @@ evolution algorithm in PyTreeNet.
 """
 from __future__ import annotations
 from typing import Hashable, Any, Self
+import re
 
 from numpy.typing import NDArray, DTypeLike
 import numpy as np
@@ -87,7 +88,7 @@ class Results:
         """
         self.not_initialized_error()
         return len(self.results[TIMES_ID])
-    
+
     def shape(self) -> tuple[int, int]:
         """
         Returns the shape of the result.
@@ -276,6 +277,59 @@ class Results:
             return np.real(op_results)
         return op_results
 
+    def _operator_key_desired(self,
+                              operator_key: Hashable,
+                              operators: list[Hashable] | re.Pattern | None
+                              ) -> bool:
+        """
+        Checks if the operator key matches the desired operators.
+
+        Args:
+            operator_key (Hashable): The key of the operator to check.
+            operators (list[Hashable] | re.Pattern | None): A list of operator
+                names or a regex pattern to filter operators. If None, all
+                operators except for the time are considered.
+        
+        Returns:
+            bool: True if the operator key matches the desired operators,
+                False otherwise.
+        """
+        if operators is None:
+            return operator_key != TIMES_ID
+        if isinstance(operators, list):
+            return operator_key in operators
+        if isinstance(operators, re.Pattern):
+            if not isinstance(operator_key, str):
+                errstr = "Operators must be strings to match against a regex pattern!"
+                raise TypeError(errstr)
+            return bool(operators.match(operator_key))
+        errstr = "Operators must be a list of Hashable or a regex pattern!"
+        raise TypeError(errstr)
+
+    def get_results(self,
+                operators: list[Hashable] | re.Pattern | None = None,
+                realise: bool = False
+                ) -> dict[Hashable, NDArray]:
+        """
+        Returns the results of the specified operators.
+
+        Args:
+            operators (list[Hashable] | re.Pattern | None): A list of operator
+                names or a regex pattern to filter operators. If None, all
+                operators except for the time are returned.
+            realise (bool): If True, returns the real parts of the results.
+        
+        Returns:
+            dict[Hashable, NDArray]: A dictionary containing the results of
+                the specified operators.
+        """
+        self.not_initialized_error()
+        return {
+            operator_key: self.operator_result(operator_key, realise=realise)
+            for operator_key in self.results
+            if self._operator_key_desired(operator_key, operators)
+        }
+
     def operator_results(self,
                          operators: list[Hashable] | None = None,
                          realise: bool = False
@@ -294,7 +348,7 @@ class Results:
         """
         self.not_initialized_error()
         if operators is None:
-            operators = self.results.keys()
+            operators = list(self.results.keys())
         out = np.zeros_like(self.results[operators[0]],
                             shape=(len(operators),
                                      len(self.results[operators[0]])),

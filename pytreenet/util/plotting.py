@@ -1,10 +1,19 @@
 """
 This module contains helpful tools for plotting results.
 """
-
+from enum import Enum
 import matplotlib.pyplot as plt
 
-def set_size(width: float | str,
+import numpy as np
+
+class DocumentStyle(Enum):
+    """
+    Enum for document styles to use with matplotlib.
+    """
+    THESIS = "thesis"
+    ARTICLE = "article"
+
+def set_size(width: float | str | DocumentStyle,
              fraction: float = 1,
              subplots: tuple[int, int] = (1, 1)):
     """
@@ -13,8 +22,8 @@ def set_size(width: float | str,
     Source: https://jwalton.info/Embed-Publication-Matplotlib-Latex/
 
     Args:
-        width (float | str): Document width in points or a string describing
-            the width.
+        width (float | str | DocumentStyle): Document width in points or a
+            string describing the width.
         fraction (float, optional): Fraction of the width which you wish the
             figure to occupy
         subplots (tuple[int,int]): The number of rows and columns of subplots.
@@ -23,9 +32,11 @@ def set_size(width: float | str,
         fig_dim (tuple[float,float]): Dimensions of figure in inches,
     """
     # Width of figure (in pts)
-    if width == "thesis":
+    if isinstance(width, str):
+        width = DocumentStyle(width)
+    if width == DocumentStyle.THESIS:
         width_pt = 483.6969
-    else:
+    elif not isinstance(width, DocumentStyle):
         width_pt = width
     fig_width_pt = width_pt * fraction
     # Convert from pt to inches
@@ -39,11 +50,35 @@ def set_size(width: float | str,
     fig_height_in = fig_width_in * golden_ratio * (subplots[0] / subplots[1])
     return (fig_width_in, fig_height_in)
 
-def config_matplotlib_to_latex(style: str = "thesis"):
+def compute_alphas(n: int, 
+                   min_alpha: float = 0.2,
+                   max_alpha: float = 1.0
+                   ) -> list[float]:
+    """
+    Compute a list of alpha values for plotting.
+
+    These alpha values represent the transparency of the lines in a plot.
+
+    Args:
+        n (int): Number of alpha values to compute.
+        min_alpha (float, optional): Minimum alpha value. Defaults to 0.2.
+        max_alpha (float, optional): Maximum alpha value. Defaults to 1.0.
+    
+    Returns:
+        list[float]: List of alpha values.
+    """
+    if n <= 1:
+        return [max_alpha]
+    alphas = np.linspace(min_alpha, max_alpha, n)
+    return alphas.tolist()
+
+def config_matplotlib_to_latex(style: DocumentStyle | str = DocumentStyle.THESIS):
     """
     Get the matplotlib configuration to use LaTeX for rendering text.
     """
-    if style == "thesis":
+    if isinstance(style, str):
+        style = DocumentStyle(style)
+    if style == DocumentStyle.THESIS:
         tex_fonts = {
             # Use Helvetica-like sans-serif font (TeX Gyre Heros ≈ Helvetica)
             "font.family": "sans-serif",
@@ -64,7 +99,7 @@ def config_matplotlib_to_latex(style: str = "thesis"):
             "axes.titlepad": 8,
             "figure.dpi": 150,
         }
-    elif style == "article":
+    elif style == DocumentStyle.ARTICLE:
         tex_fonts = {
             # Use LaTeX to write all text
             #"text.usetex": True,
