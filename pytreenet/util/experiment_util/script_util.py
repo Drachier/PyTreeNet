@@ -4,6 +4,7 @@ This module implements utilities for the script file used in pytreenet experimen
 import sys
 import os
 import traceback
+from time import time
 from typing import Callable
 
 from .supervisor import CURRENTPARAMFILE_STANDARD_NAME
@@ -22,8 +23,14 @@ def script_main(runner_function: Callable,
         save_directory = sys.argv[1]
         param_path = os.path.join(save_directory, current_param_name)
         sim_params = parameter_class.load_from_json(param_path)
+        start = time()
         runtime = runner_function(sim_params, save_directory)
-        print(f"Simulation completed in {runtime:.2f} seconds.")
+        end = time()
+        if runtime is None:
+            runtime = end - start
+            print(f"Total runtime: {runtime:.2f} seconds")
+        else:
+            print(f"Simulation completed in {runtime:.2f} seconds.")
         sys.exit(0)
     except Exception as e:
         print(f"An error occurred: {e}", file=sys.stderr)
