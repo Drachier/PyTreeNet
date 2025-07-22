@@ -49,7 +49,6 @@ def generate_parameter_set() -> list[TotalParameters]:
                        maximum_bond_dim,
                        ttn_structure)
     sim_params_list = []
-    i = 0
     for ns, il, time_evo_mode, max_bd, ttn_str in iterator:
         sim_params = TotalParameters(ttns_structure=ttn_str,
                                      topology=topology,
