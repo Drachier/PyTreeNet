@@ -10,6 +10,7 @@ from enum import Enum
 import re
 import json
 import logging
+import sys
 
 from .sim_params import SimulationParameters
 
@@ -50,6 +51,7 @@ class Supervisor:
                  simulation_script_path: str,
                  skip_existing: bool = False,
                  timeout: int = 3600,
+                 python_executable: str = "python",
                  logfile_name: str = LOGFILE_STANDARD_NAME,
                  metadatafile_name: str = METADATAFILE_STANDARD_NAME
                  ) -> None:
@@ -69,6 +71,8 @@ class Supervisor:
                 Defaults to `False`.
             timeout (int): The timeout for each simulation in seconds.
                 Defaults to `3600` seconds (1 hour).
+            python_executable (str): The Python executable to use for running
+                the simulation script. Defaults to `"python"`.
             logfile_name (str): The filename of the logfile.
                 Defaults to `"log.txt"`.
             metadatafile_name (str): The filename of the metadata
@@ -85,6 +89,7 @@ class Supervisor:
         self.timeout = timeout
         self.logfile_name = handle_file_name(logfile_name, ".txt")
         self.metadatafile_name = handle_file_name(metadatafile_name, ".json")
+        self.python_executable = python_executable
 
     @classmethod
     def from_commandline(cls,
@@ -112,11 +117,13 @@ class Supervisor:
         parser.add_argument("--skip-existing",
                             action="store_true",
                             help="Skip existing results.")
+        python_executable = sys.executable
         args = parser.parse_args()
         return cls(parameter_set,
                    args.save_directory,
                    simulation_script_path,
-                   skip_existing=args.skip_existing)
+                   skip_existing=args.skip_existing,
+                   python_executable=python_executable)
 
     def create_metadata_file_path(self) -> str:
         """
@@ -179,7 +186,8 @@ class Supervisor:
                                            self.save_directory,
                                            self.simulation_script_path,
                                            timeout=self.timeout,
-                                           skip_existing=self.skip_existing)
+                                           skip_existing=self.skip_existing,
+                                           python_executable=self.python_executable)
             runner.run(metadata_index)
         self.save_metadata_index(metadata_index)   
 
@@ -210,6 +218,7 @@ class SingleParameterRunner:
                  simulation_script_path: str,
                  timeout: int = 3600,
                  skip_existing: bool = False,
+                 python_executable: str = "python",
                  currentparam_file_name: str = CURRENTPARAMFILE_STANDARD_NAME
                  ) -> None:
         """
@@ -226,6 +235,8 @@ class SingleParameterRunner:
                 Defaults to `3600` seconds (1 hour).
             skip_existing (bool): If True, existing results will be skipped.
                 Defaults to `False`.
+            python_executable (str): The Python executable to use for running
+                the simulation script. Defaults to `"python"`.
             currentparam_file_name (str): The filename of the current
                 parameters file. Defaults to `"current_parameters.json"`.
                 From this the simulation script can read the parameters
@@ -237,6 +248,7 @@ class SingleParameterRunner:
         self.timeout = timeout
         self.skip_existing = skip_existing
         self.hash = sim_parameters.get_hash()
+        self.python_executable = python_executable
         self.currentparam_file_name = handle_file_name(currentparam_file_name,
                                                        ".json")
         self.status = Status.UNKNOWN
@@ -294,7 +306,7 @@ class SingleParameterRunner:
         """
         try:
             result = subprocess.run(
-                ["python", self.simulation_script_path, self.save_directory],
+                [self.python_executable, self.simulation_script_path, self.save_directory],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
@@ -377,7 +389,7 @@ def check_script_path(simulation_script_path: str
     if not os.path.exists(simulation_script_path):
         errstr = f"{simulation_script_path} does not exist!"
         raise FileNotFoundError(errstr)
-    
+
 def add_new_key_to_medata_file(save_directory: str,
                                key: str,
                                value: str,
