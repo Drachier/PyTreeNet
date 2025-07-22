@@ -386,7 +386,9 @@ class Results:
 
     @classmethod
     def load_from_h5(cls,
-                     file: str | File) -> None:
+                     file: str | File,
+                     loaded_ops: list[str] | None = None
+                     ) -> Self:
         """
         Loads the results from an HDF5 file.
 
@@ -402,11 +404,20 @@ class Results:
         """
         if isinstance(file, str):
             with File(file, "r") as h5file:
-                return cls.load_from_h5(h5file)
+                return cls.load_from_h5(h5file,
+                                        loaded_ops=loaded_ops)
         else:
-            results = cls()
-            for i, key in enumerate(file.keys()):
-                loaded_data = file[key][:]
+            results = cls(metadata=dict(file.attrs))
+            if loaded_ops is None:
+                iterator = file.keys()
+            else:
+                iterator = loaded_ops
+            for i, key in enumerate(iterator):
+                dset = file[key]
+                attrs = dset.attrs
+                for attr_key, attr_value in attrs.items():
+                    results.set_attribute(key, attr_key, attr_value)
+                loaded_data = dset[:]
                 if i == 0:
                     len_data = len(loaded_data)
                 else:
