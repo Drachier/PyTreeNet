@@ -194,7 +194,7 @@ def local_magnetisation_from_topology(topology: Topology,
         Defaults to "site".
     """
     num_sites = topology.num_sites(system_size)
-    structure = [f"{site_prefix}_{i}"
+    structure = [site_prefix + str(i)
                  for i in range(num_sites)]
     return local_magnetisation(structure)
 

@@ -86,7 +86,7 @@ def create_single_site_observables(operator: Union[str,ndarray],
     ops = single_site_operators(operator,
                                 node_identifiers,
                                 operator_names=operator_names)
-    return [op[2] for op in ops.values()]
+    return {name: op[2] for name, op in ops.items()}
 
 def create_nearest_neighbour_hamiltonian(structure: Union[TreeTensorNetwork,List[Tuple[str,str]]],
                                          local_operator1: Union[ndarray, str],
