@@ -105,7 +105,7 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
         ttno.add_root(root_node, root_tensor)
         for child_id in reference_tree.nodes[root_id].children:
             ttno._rec_zero_ttno(child_id, state_diagram,
-                                conversion_dict)
+                                conversion_dict, dtype)
         # Now we have a TTNO filled with zero tensors of the correct shape.
         state_diagram.set_all_vertex_indices() # Fixing index_values
         state_diagram.set_all_vertex_indices() # Fixing index_values
@@ -113,9 +113,8 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
         for he in state_diagram.get_all_hyperedges():
             position = he.find_tensor_position(reference_tree)
             operator = conversion_dict[he.label].astype(dtype)
-            operator *= dtype(he.lambda_coeff) * dtype(coeffs_mapping[he.gamma_coeff])
+            operator *= np.array(he.lambda_coeff * coeffs_mapping[he.gamma_coeff],dtype = dtype)
             ttno.tensors[he.corr_node_id][position] += operator
-
         return ttno
 
     def _rec_zero_ttno(self, node_id: str, state_diagram: StateDiagram,
