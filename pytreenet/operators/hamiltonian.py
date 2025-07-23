@@ -119,6 +119,23 @@ class Hamiltonian():
             node_ids.update(list(term.keys()))
         return node_ids
 
+    def update_mappings(self,
+                        conversion_dict: Dict[str, ndarray] | None = None,
+                        coeffs_mapping: Dict[str, complex] | None = None):
+        """
+        Updates the conversion dictionary and the coefficients mapping.
+
+        Args:
+            conversion_dict (Dict[str, ndarray] | None, optional): The new
+                conversion dictionary to update with. Defaults to None.
+            coeffs_mapping (Dict[str, complex] | None, optional): The new
+                coefficients mapping to update with. Defaults to None.
+        """
+        if conversion_dict is not None:
+            self.conversion_dictionary.update(conversion_dict)
+        if coeffs_mapping is not None:
+            self.coeffs_mapping.update(coeffs_mapping)
+
     def add_term(self, term: Union[TensorProduct, tuple[Fraction, str, TensorProduct]]):
         """
         Adds a term to the Hamiltonian.
