@@ -44,6 +44,20 @@ def spin_jumps() -> Tuple[np.ndarray,np.ndarray]:
     s_minus = 0.5 * (X - 1j * Y)
     return (s_plus, s_minus)
 
+def hadamard() -> np.ndarray:
+    """
+    Returns the Hadamard gate in Z-basis as ndarray.
+    
+    The Hadamard gate is defined as:
+    H = 1/sqrt(2) * [[1, 1],
+                     [1, -1]]
+    
+    Returns:
+        np.ndarray: The Hadamard gate.
+    """
+    return np.array([[1, 1],
+                     [1, -1]], dtype=complex) / np.sqrt(2)
+
 def bosonic_operators(dimension: int = 2) -> Tuple[np.ndarray,np.ndarray,np.ndarray]:
     """
     Supplies the common bosonic operators.
@@ -96,6 +110,24 @@ def swap_gate(dimension: int = 2) -> np.ndarray:
             if (output_sys1 == input_sys2) and (input_sys1 == output_sys2):
                 swap[i,j] = 1
     return swap
+
+def toffoli_gate() -> np.ndarray:
+    """
+    A Toffoli gate is a controlled-controlled-NOT gate, which flips the state
+    of the target qubit if both control qubits are in state |1>.
+
+    Returns:
+        np.ndarray: The Toffoli gate as a numpy array.
+    """
+    return np.array([[1, 0, 0, 0, 0, 0, 0, 0],
+                     [0, 1, 0, 0, 0, 0, 0, 0],
+                     [0, 0, 1, 0, 0, 0, 0, 0],
+                     [0, 0, 0, 1, 0, 0, 0, 0],
+                     [0, 0, 0, 0, 1, 0, 0, 0],
+                     [0, 0, 0, 0, 0, 1, 0, 0],
+                     [0, 0, 0, 0, 0, 0, 0, 1],
+                     [0, 0, 0, 0, 0, 0, 1, 0]],
+                     dtype=complex)
 
 def projector(dimension: int, index: int) -> np.ndarray:
     """
