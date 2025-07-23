@@ -317,9 +317,9 @@ class SingleParameterRunner:
                 self.status = Status.SUCCESS
             else:
                 self.status = Status.FAILED
+            self.log_output(result)
         except subprocess.TimeoutExpired:
             self.status = Status.TIMEOUT
-        self.log_output(result)
         return self.status
 
     def update_metadata_index(self,
