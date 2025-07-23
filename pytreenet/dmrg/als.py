@@ -4,17 +4,18 @@ from typing import List, Tuple, Dict
 import numpy as np
 from scipy.sparse.linalg import gmres as gmres
 import scipy
-
+from copy import deepcopy
 from ..util.tensor_splitting import SplitMode, SVDParameters
 
 from ..ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TTNO
 from ..time_evolution.time_evo_util.update_path import TDVPUpdatePathFinder
 from ..contractions.tree_cach_dict import PartialTreeCachDict
+from ..contractions.contraction_util import get_equivalent_legs
 
 from ..contractions.sandwich_caching import SandwichCache
 from ..contractions.effective_hamiltonians import get_effective_single_site_hamiltonian, get_effective_two_site_hamiltonian_nodes
-
+from ..core.truncation.svd_truncation import svd_truncation
 from ..operators.hamiltonian import Hamiltonian
 
 
@@ -30,7 +31,8 @@ class AlternatingLeastSquares():
                  max_iter: int,
                  svd_params: SVDParameters,
                  site: str,
-                 residual_rank: int = 4):
+                 residual_rank: int = 4,
+                 dtype: np.dtype = np.float64):
         """
         Initilises an instance of a ALS algorithm.
         
@@ -45,17 +47,21 @@ class AlternatingLeastSquares():
             residual_rank (int): The rank of the residual.
         """
         assert len(state_x.nodes) == len(state_b.nodes) == len(A.nodes)
-        
+        state_x.canonical_form(state_x.root_id)
+        state_x = svd_truncation(deepcopy(state_x), svd_params)
+        state_x.pad_bond_dimensions(int(svd_params.max_bond_dim))
         self.state_x = state_x
         self.state_b = state_b
         self.hamiltonian = A
         self.num_sweeps = num_sweeps
         self.max_iter = max_iter
         self.site = site
+        self.dtype = dtype
         if svd_params is None:
             self.svd_params = SVDParameters()
         else:
-            self.svd_params = svd_params
+            self.svd_params = svd_params         
+        self.residual_rank = residual_rank
         self.update_path = self._finds_update_path()
         self.orthogonalization_path = self._find_orthogonalization_path(self.update_path)
         self._orthogonalize_init()
@@ -135,7 +141,7 @@ class AlternatingLeastSquares():
         the dmrg path have the bra, ket, and hamiltonian tensor corresponding
         to this node contracted and saved into the cache dictionary.
         """
-        identity_ttno = TTNO.from_hamiltonian(Hamiltonian.identity_like(self.state_b), self.state_b)
+        identity_ttno = TTNO.from_hamiltonian(Hamiltonian.identity_like(self.state_b, dtype=np.float64), self.state_b,dtype=np.float64)
         return SandwichCache.init_cache_but_one(self.state_b, identity_ttno,
                                                 self.update_path[0],self.state_x.conjugate())
         
@@ -176,7 +182,7 @@ class AlternatingLeastSquares():
             cached_neighbour_tensor = self.partial_tree_cache_states.get_entry(neighbour_id,b_node.identifier)
             ketblock_tensor = np.tensordot(ketblock_tensor, cached_neighbour_tensor,
                                 axes=([0],[0])) 
-            ketblock_tensor = np.squeeze(ketblock_tensor)
+            ketblock_tensor = np.squeeze(ketblock_tensor,axis=-2)
         legs_block = []
         for neighbour_id in self.state_x.nodes[node_id].neighbouring_nodes():
             legs_block.append(b_node.neighbour_index(neighbour_id) + 1)
@@ -218,35 +224,61 @@ class AlternatingLeastSquares():
         self.partial_tree_cache_states.bra_state = self.state_x.conjugate()
         self.partial_tree_cache_states.update_tree_cache(node_id, next_node_id)
 
-    def _update_one_site(self, node_id: str) -> np.ndarray:
+    def _update_one_site(self, node_id: str, next_node_id: str = None) -> np.ndarray:
         """
         Finds the least squares solution of the effective site Hamiltonian using
         GMRES method.
 
         Args:
             node_id (str): The node idea centered in the effective Hamiltonian
-
+            next_node_id (str, optional): The next node id. Defaults to None.
         Returns:
             np.ndarray: The lowest eigenvalues
         """
         hamiltonian_eff_site = get_effective_single_site_hamiltonian(node_id, self.state_x, self.hamiltonian, self.partial_tree_cache)
-        
+        hamiltonian_eff_site = hamiltonian_eff_site.astype(self.dtype)
         shape = self.state_x.tensors[node_id].shape
         
         kvec = self._contract_two_ttns_except_node(node_id, rho=False)
+        kvec = kvec.astype(self.dtype)
         kvec_shape = kvec.shape
         if kvec_shape != shape:
             print("kvec_shape",kvec_shape,"shape",shape)
         
-        y,exit_code = scipy.sparse.linalg.gcrotmk(hamiltonian_eff_site, kvec.reshape(-1), 
+        y,exit_code = scipy.sparse.linalg.minres(hamiltonian_eff_site, kvec.reshape(-1), 
                                                 x0=self.state_x.tensors[node_id].reshape(-1),maxiter=self.max_iter)
         y_norm = np.linalg.norm(y)
         y=y/ y_norm
         self.state_x.replace_tensor(node_id, y.reshape(shape))
         l = np.einsum('i,ij,j->', y.conj(), hamiltonian_eff_site, y)
-        residual = hamiltonian_eff_site@y - kvec.reshape(-1)/y_norm
-        residual =residual.reshape(shape)
-        residual_norm = np.linalg.norm(residual)
+        if self.residual_rank>0:
+            residual = hamiltonian_eff_site@y - kvec.reshape(-1)/y_norm
+            residual =residual.reshape(shape)
+            residual_norm = np.linalg.norm(residual)
+            if residual_norm > 1e-3:
+                if next_node_id is not None:
+                    neighbour_id = self.state_x.nodes[node_id].neighbour_index(next_node_id)
+                    node_old = deepcopy(self.state_x.nodes[node_id])
+                    self.state_x.pad_bond_dimension(next_node_id, node_id, shape[neighbour_id]+self.residual_rank)
+                    node_new = self.state_x.nodes[node_id]
+                    _, leg2 = get_equivalent_legs(node_new, node_old)
+                    leg2.append(-1)
+                    
+                    residual = np.moveaxis(residual, neighbour_id, -1)
+                    residual = np.reshape(residual, (-1, shape[neighbour_id]))
+                    q,r,p = scipy.linalg.qr(residual, pivoting=True)
+                    residual = (q[:, :self.residual_rank]).T 
+                    residual = np.moveaxis(residual, -1, neighbour_id)
+                    residual_shape = list(shape)
+                
+                    residual_shape[neighbour_id] = self.residual_rank
+                    residual_shape = tuple(residual_shape)
+                    residual = np.reshape(residual, residual_shape)
+                    
+                    tensor = np.concatenate((y.reshape(shape),residual),axis=neighbour_id)
+                    tensor = np.transpose(tensor, leg2)
+                    self.state_x.replace_tensor(node_id, tensor)
+                    
         return l
     
     def sweep_one_site(self):
@@ -254,13 +286,18 @@ class AlternatingLeastSquares():
         Performs a forward and backward sweep through the tree.
         """
         node_id_i = self.update_path[0]
-        self._update_one_site(node_id_i)
+        self._update_one_site(node_id_i,self.orthogonalization_path[0][1])
         
         for i,node_id in enumerate(self.update_path[1:]):
             current_orth_path = self.orthogonalization_path[i]
             self._move_orth_and_update_cache_for_path(current_orth_path)
-            eig_vals = self._update_one_site(node_id)
-        
+            
+            if i != len(self.update_path)-2:
+                next_node_id = self.orthogonalization_path[i+1][1]
+                eig_vals = self._update_one_site(node_id,next_node_id)
+            else:
+                eig_vals = self._update_one_site(node_id)
+
         node_id_f = self.update_path[-1]
         self._update_one_site(node_id_f)
         
@@ -269,6 +306,7 @@ class AlternatingLeastSquares():
             self._move_orth_and_update_cache_for_path(current_orth_path[::-1])
             eig_vals = self._update_one_site(node_id)
         # print("eig_vals",eig_vals)
+        # self.state_x = svd_truncation(self.state_x, self.svd_params)
         return eig_vals
     
     

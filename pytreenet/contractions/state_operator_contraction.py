@@ -62,7 +62,7 @@ def expectation_value(state: TreeTensorNetworkState,
     # Compare which contraction is more efficient, first TTNS then TTNO
     # (contract_node_with_environment) or first TTNO then TTNS
     # (contract_node_with_environment_2).
-    if state.root[0].nneighbours() > 2 and ttno_point > ttns_point:
+    if state.root[0].nneighbours() > 1 and ttno_point > ttns_point:
     # if 0:
         result = contract_node_with_environment_2(state.root_id,
                                                   state, operator,
@@ -71,6 +71,7 @@ def expectation_value(state: TreeTensorNetworkState,
         result = contract_node_with_environment(state.root_id,
                                                   state, operator,
                                                   dictionary)
+    return complex(result)
         
 def get_matrix_element(bra_state: TreeTensorNetworkState, 
                        operator: TTNO,
@@ -114,7 +115,7 @@ def get_matrix_element(bra_state: TreeTensorNetworkState,
     # Compare which contraction is more efficient, first TTNS then TTNO
     # (contract_node_with_environment) or first TTNO then TTNS
     # (contract_node_with_environment_2).
-    if ket_state.root[0].nneighbours() > 2 and ttno_point > ttns_point:
+    if ket_state.root[0].nneighbours() > 1 and ttno_point > ttns_point:
     # if 0:
         result = contract_node_with_environment_2(ket_state.root_id,
                                                   ket_state, operator,
@@ -177,7 +178,7 @@ def contract_node_with_environment(node_id: str,
     state_legs =list(range(ket_node.nlegs()))
     
     if bra_state is None:
-        bra_tensor = ket_tensor.conj()      
+        bra_tensor = ket_tensor.conj()  
         return np.tensordot(bra_tensor, kethamblock,
                         axes=(state_legs,state_legs))
     else:
@@ -595,7 +596,7 @@ def contract_subtrees_using_dictionary(ignored_node_id: str,
         raise ValueError(errstr)
     ttno_point = np.prod(op_node._shape[:-2])/np.prod(op_node._shape[-2:])
     ttns_point = np.prod(ket_node._shape[:-1])/np.prod(ket_node._shape[-1:])
-    if ket_node.nneighbours() > 2 and ttno_point > ttns_point:
+    if ket_node.nneighbours() > 1 and ttno_point > ttns_point:
     # if 0:
         tensor = contract_all_but_one_neighbour_block_to_hamiltonian(op_tensor,
                                                                      op_node,

@@ -1,19 +1,20 @@
 from __future__ import annotations
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Union
 
 import numpy as np
 from scipy.sparse.linalg import gmres as gmres
 import scipy
-
+from copy import deepcopy
 from ..util.tensor_splitting import SplitMode, SVDParameters
 
 from ..ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TTNO
 from ..time_evolution.time_evo_util.update_path import TDVPUpdatePathFinder
 from ..contractions.tree_cach_dict import PartialTreeCachDict
-
+from ..core.truncation.svd_truncation import svd_truncation
 from ..contractions.sandwich_caching import SandwichCache
 from ..contractions.effective_hamiltonians import get_effective_single_site_hamiltonian, contract_all_except_node
+from ..contractions.contraction_util import get_equivalent_legs
 
 from ..operators.hamiltonian import Hamiltonian
 
@@ -30,7 +31,9 @@ class VariationalFitting():
                  max_iter: int,
                  svd_params: SVDParameters,
                  site: str,
-                 residual_rank: int = 4):
+                 coeffs: Union[float, complex, List[float], List[complex], None] = None,
+                 residual_rank: int = 4,
+                 dtype: np.dtype = np.float64):
         """
         Initilises an instance of a ALS algorithm.
         
@@ -48,15 +51,30 @@ class VariationalFitting():
         for xi, oi in zip(x, O):
             assert len(xi.nodes) == len(oi.nodes) == len(y.nodes), "The nodes of the TTNS and the operators must be the same. But got %s and %s"%(len(xi.nodes), len(oi.nodes))
         self.x = x
+        y = svd_truncation(deepcopy(y), svd_params)
+        y.pad_bond_dimensions(svd_params.max_bond_dim)
         self.y = y
         self.O = O
         self.num_sweeps = num_sweeps
         self.max_iter = max_iter
         self.site = site
+        self.residual_rank = residual_rank
+        self.dtype = dtype
         if svd_params is None:
             self.svd_params = SVDParameters()
         else:
             self.svd_params = svd_params
+            
+        if coeffs is None:
+            self.coeffs = [1]*len(self.x)
+        elif isinstance(coeffs, float) or isinstance(coeffs, complex):
+            self.coeffs = [coeffs]*len(self.x)
+        elif isinstance(coeffs, list) and isinstance(coeffs[0], float) or isinstance(coeffs[0], complex):
+            assert len(coeffs) == len(self.x), "The number of coefficients must be the same as the number of TTNS"
+            self.coeffs = coeffs
+        else:
+            raise ValueError("coeffs must be a float, complex, list of floats, or list of complexes")
+        
         self.update_path = self._finds_update_path()
         self.orthogonalization_path = self._find_orthogonalization_path(self.update_path)
         self._orthogonalize_init()
@@ -122,8 +140,8 @@ class VariationalFitting():
         the dmrg path have the bra, ket, and hamiltonian tensor corresponding
         to this node contracted and saved into the cache dictionary.
         """
-        identity_ttno = TTNO.from_hamiltonian(Hamiltonian.identity_like(self.y), self.y)
-        return SandwichCache.init_cache_but_one(self.y, identity_ttno,self.update_path[0])
+        self.identity_ttno = TTNO.from_hamiltonian(Hamiltonian.identity_like(self.y, dtype = self.dtype), self.y,dtype=self.dtype)
+        return SandwichCache.init_cache_but_one(self.y, self.identity_ttno,self.update_path[0])
     
     def _init_partial_tree_cache_states(self)->SandwichCache:
         """
@@ -171,15 +189,41 @@ class VariationalFitting():
                 |______|               |______|
         
         """
-        state_node, state_tensor = self.x[state_idx][node_id]
-        hamiltonian_node, hamiltonian_tensor = self.O[state_idx][node_id]
-        heff = contract_all_except_node(state_node, hamiltonian_node, hamiltonian_tensor, self.partial_tree_cache_states[state_idx])
-        # y = self.y.tensors[node_id]
-        # print(heff.shape, state_tensor.shape)
-        ax1 = range(len(state_tensor.shape),(len(heff.shape)))
-        ax2 = range(len(state_tensor.shape))
-        result = np.tensordot(heff, state_tensor, axes=(ax1,ax2))
-        return result
+        
+        ttno_point = np.prod(self.O[state_idx].nodes[node_id]._shape[:-2])
+        if ttno_point > 1:
+            state_node, state_tensor = self.x[state_idx][node_id]
+            hamiltonian_node, hamiltonian_tensor = self.O[state_idx][node_id]
+            heff = contract_all_except_node(state_node, hamiltonian_node, hamiltonian_tensor, self.partial_tree_cache_states[state_idx])
+            heff = heff.astype(self.dtype)
+            # y = self.y.tensors[node_id]
+            # print(heff.shape, state_tensor.shape)
+            ax1 = range(len(state_tensor.shape),(len(heff.shape)))
+            ax2 = range(len(state_tensor.shape))
+            result = np.tensordot(heff, state_tensor, axes=(ax1,ax2))
+            _, legs2 = get_equivalent_legs(self.y.nodes[node_id], state_node)
+            legs2.append(-1)
+            result = np.transpose(result, legs2)
+            return result.astype(self.dtype)
+        else:
+            state_node, state_tensor = self.x[state_idx][node_id]
+            ketblock_tensor = state_tensor
+            for neighbour_id in state_node.neighbouring_nodes():
+                cached_neighbour_tensor = self.partial_tree_cache_states[state_idx].get_entry(neighbour_id,state_node.identifier)
+                ketblock_tensor = np.tensordot(ketblock_tensor, cached_neighbour_tensor,
+                                    axes=([0],[0])) 
+                ketblock_tensor = np.squeeze(ketblock_tensor,axis=-2)
+            legs_block = []
+            for neighbour_id in self.y.nodes[node_id].neighbouring_nodes():
+                legs_block.append(state_node.neighbour_index(neighbour_id) + 1)
+            # The kets physical leg is now the first leg
+            legs_block.append(0)
+            ketblock_tensor = np.transpose(ketblock_tensor, axes=legs_block)
+            if rho:
+                rho_tensor = np.tensordot(ketblock_tensor, ketblock_tensor.conj(),0)
+                return rho_tensor
+            else:
+                return ketblock_tensor
 
     def update_tree_cache(self, node_id: str, next_node_id: str):
         """
@@ -211,7 +255,7 @@ class VariationalFitting():
             cache.bra_state = self.y.conjugate()
             cache.update_tree_cache(node_id, next_node_id)
 
-    def _update_one_site(self, node_id: str) -> np.ndarray:
+    def _update_one_site(self, node_id: str, next_node_id: str = None) -> np.ndarray:
         """
         Finds the least squares solution of the effective site Hamiltonian using
         GMRES method.
@@ -222,24 +266,53 @@ class VariationalFitting():
         Returns:
             np.ndarray: The lowest eigenvalues
         """
-        identity_ttno = TTNO.from_hamiltonian(Hamiltonian.identity_like(self.y), self.y)
-        hamiltonian_eff_site = get_effective_single_site_hamiltonian(node_id, self.y, identity_ttno, self.partial_tree_cache)
-        
+        # identity_ttno = TTNO.from_hamiltonian(Hamiltonian.identity_like(self.y), self.y)
+        hamiltonian_eff_site = get_effective_single_site_hamiltonian(node_id, self.y, self.identity_ttno, self.partial_tree_cache)
+        hamiltonian_eff_site = hamiltonian_eff_site.astype(self.dtype)
         shape = self.y.tensors[node_id].shape
-        
-        kvec = np.zeros(shape, dtype=np.complex128)
+        kvec = np.zeros(shape, dtype=self.dtype)
         for state_idx in range(len(self.x)):
-            kvec += self._contract_two_ttns_except_node(node_id, state_idx, rho=False)
+            if self.dtype == np.float64:
+                coeffs = self.coeffs[state_idx].real
+            else:
+                coeffs = self.coeffs[state_idx]
+            kvec += self._contract_two_ttns_except_node(node_id, state_idx, rho=False)*coeffs
         
-        y,exit_code = scipy.sparse.linalg.gcrotmk(hamiltonian_eff_site, kvec.reshape(-1), 
+        yf,exit_code = scipy.sparse.linalg.minres(hamiltonian_eff_site, kvec.reshape(-1), 
                                                 x0=self.y.tensors[node_id].reshape(-1),maxiter=self.max_iter)
-        y_norm = np.linalg.norm(y)
-        y=y/ y_norm
-        self.y.replace_tensor(node_id, y.reshape(shape))
-        l = np.einsum('i,ij,j->', y.conj(), hamiltonian_eff_site, y)
-        residual = hamiltonian_eff_site@y - kvec.reshape(-1)/y_norm
-        residual =residual.reshape(shape)
-        residual_norm = np.linalg.norm(residual)
+        y_norm = np.linalg.norm(yf)
+        yf=yf/ y_norm
+
+        l = np.einsum('i,ij,j->', yf.conj(), hamiltonian_eff_site, yf)
+        if self.residual_rank>0:
+            residual = hamiltonian_eff_site@yf - kvec.reshape(-1)/y_norm
+            residual =residual.reshape(shape)
+            residual_norm = np.linalg.norm(residual)
+            if residual_norm > 1e-2:
+                if next_node_id is not None:
+                    neighbour_id = self.y.nodes[node_id].neighbour_index(next_node_id)
+                    node_old = deepcopy(self.y.nodes[node_id])
+                    self.y.pad_bond_dimension(next_node_id, node_id, shape[neighbour_id]+self.residual_rank)
+                    node_new = self.y.nodes[node_id]
+                    _, leg2 = get_equivalent_legs(node_new, node_old)
+                    leg2.append(-1)
+                    
+                    residual = np.moveaxis(residual, neighbour_id, -1)
+                    residual = np.reshape(residual, (-1, shape[neighbour_id]))
+                    q,r,p = scipy.linalg.qr(residual, pivoting=True)
+                    residual = (q[:, :self.residual_rank]).T 
+                    residual = np.moveaxis(residual, -1, neighbour_id)
+                    residual_shape = list(shape)
+                
+                    residual_shape[neighbour_id] = self.residual_rank
+                    residual_shape = tuple(residual_shape)
+                    residual = np.reshape(residual, residual_shape)
+                    
+                    tensor = np.concatenate((yf.reshape(shape),residual),axis=neighbour_id)
+                    tensor = np.transpose(tensor, leg2)
+                    self.y.replace_tensor(node_id, tensor)
+            else:
+                self.y.replace_tensor(node_id, yf.reshape(shape))
         return l
     
     def sweep_one_site(self):
@@ -247,15 +320,18 @@ class VariationalFitting():
         Performs a forward and backward sweep through the tree.
         """
         node_id_i = self.update_path[0]
-        self._update_one_site(node_id_i)
+        self._update_one_site(node_id_i,self.orthogonalization_path[0][1])
         
         for i,node_id in enumerate(self.update_path[1:]):
             current_orth_path = self.orthogonalization_path[i]
             self._move_orth_and_update_cache_for_path(current_orth_path)
-            eig_vals = self._update_one_site(node_id)
-        
-        node_id_f = self.update_path[-1]
-        self._update_one_site(node_id_f)
+            
+            if i != len(self.update_path)-2:
+                next_node_id = self.orthogonalization_path[i+1][1]
+                eig_vals = self._update_one_site(node_id,next_node_id)
+            else:
+                eig_vals = self._update_one_site(node_id)
+
         
         for i,node_id in enumerate(self.update_path[::-1][1:]):
             current_orth_path = self.orthogonalization_path[::-1][i]
