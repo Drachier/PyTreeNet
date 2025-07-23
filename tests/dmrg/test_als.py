@@ -20,7 +20,7 @@ class TestALSsmall(unittest.TestCase):
         self.max_iter = 50
 
         # Deactivate Truncation
-        self.svd_params = ptn.SVDParameters(float("inf"), float("-inf"), float("-inf"))
+        self.svd_params = ptn.SVDParameters(10, float("-inf"), float("-inf"))
 
         state_x = deepcopy(self.ttns)
         state_x.pad_bond_dimensions(6)
@@ -48,7 +48,7 @@ class TestALSMPS(unittest.TestCase):
         self.max_iter = 50
 
         # Deactivate Truncation
-        self.svd_params = ptn.SVDParameters(float("inf"), float("-inf"), float("-inf"))
+        self.svd_params = ptn.SVDParameters(10, float("-inf"), float("-inf"))
 
         state_x = deepcopy(self.ttns)
         state_x.pad_bond_dimensions(6)
@@ -80,7 +80,7 @@ class TestALSBig(unittest.TestCase):
         self.max_iter = 50
 
         # Deactivate Truncation
-        self.svd_params = ptn.SVDParameters(float("inf"), float("-inf"), float("-inf"))
+        self.svd_params = ptn.SVDParameters(10, float("-inf"), float("-inf"))
 
         state_x = deepcopy(self.ttns)
         state_x.pad_bond_dimensions(6)

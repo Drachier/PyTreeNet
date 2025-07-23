@@ -8,7 +8,7 @@ from scipy.linalg import expm
 import pytreenet as ptn
 from pytreenet.random.random_ttns_and_ttno import (small_ttns_and_ttno,
                                                    big_ttns_and_ttno)
-
+np.random.seed(4234256543)
 class TestDMRGsmall(unittest.TestCase):
     def setUp(self):
         # We need a ttns to work with
