@@ -4,7 +4,8 @@ constructed from a symbolic expression.
 """
 from __future__ import annotations
 from typing import List, Iterable
-from copy import deepcopy
+from abc import ABC, abstractmethod
+from copy import copy
 
 from numpy import ndarray
 
@@ -12,7 +13,121 @@ from .ttno_class import TreeTensorNetworkOperator
 from .hyperedge import HyperEdge
 from ..util.std_utils import int_to_slice
 
-class TimeDependentTTNO(TreeTensorNetworkOperator):
+class AbstractTimeDepTTNO(TreeTensorNetworkOperator, ABC):
+    """
+    An abstract class for time dependent TTNOs.
+    """
+
+    def __init__(self,
+                 ttno: TreeTensorNetworkOperator | None = None):
+        """
+        Initializes an AbstractTimeDepTTNO object.
+
+        Args:
+            ttno: A TreeTensorNetworkOperator object that contains the nodes
+                and tensors of the TTNO. Optional, if not provided, a new
+                TTNO is created.
+
+        """
+        if ttno is None:
+            ttno = TreeTensorNetworkOperator()
+        super().__init__()
+        self._copy_ttno_attributes(ttno)
+
+    def _copy_ttno_attributes(self,
+                              ttno: TreeTensorNetworkOperator):
+        self._nodes = copy(ttno.nodes)
+        self._tensors = copy(ttno.tensors)
+        self._tensors.nodes = self._nodes
+        self.orthogonality_center_id = ttno.orthogonality_center_id
+        self._root_id = ttno.root_id
+
+    @abstractmethod
+    def update(self, time_step_size: float):
+        """
+        Updates the TTNO.
+        """
+        raise NotImplementedError("This method must be implemented in a subclass!")
+
+    @abstractmethod
+    def reset(self):
+        """
+        Rest this TTNO to its original value.
+        """
+        raise NotImplementedError("This method must be implemented in a subclass!")
+
+class DiscreetTimeTTNO(AbstractTimeDepTTNO):
+    """
+    A TTNO that changes completely at discreet time steps.
+    """
+
+    def __init__(self,
+                 ttnos: list[TreeTensorNetworkOperator],
+                 dt: float = 1.0
+                 ) -> None:
+        """
+        Initializes a DiscreetTimeTTNO object.
+
+        Args:
+            ttnos (list[TreeTensorNetworkOperator]): A list of
+                TreeTensorNetworkOperator objects that represent the TTNO
+                at different time steps.
+            dt (float): The time to pass between each switch to the next
+                TreeTensorNetworkOperator. Default is 1.0.
+        """
+        super().__init__(ttno=ttnos[0])
+        self.ttnos = ttnos
+        self.current_time_step = 0
+        self.current_time = 0
+        self.dt = dt
+
+    def set_ttno_to_time_step(self, time_step: int):
+        """
+        Sets the TTNO attributes to the values of the TTNO at the given time
+        step.
+
+        This will not change the current time or time step!
+
+        Args:
+            time_step: The time step to set the TTNO to. Must be less than
+                the number of time steps in the TTNO.
+
+        Raises:
+            ValueError: If the time step is out of bounds.
+        """
+        if time_step < 0 or time_step >= len(self.ttnos):
+            raise ValueError(f"Time step {time_step} is out of bounds.")
+        self._copy_ttno_attributes(self.ttnos[time_step])
+
+    def update(self, time_step_size: float):
+        """
+        Updates the TTNO to the next time step.
+
+        Args:
+            time_step_size: The size of the time step. If it is larger than
+                dt, the TTNO will be updated multiple times.
+
+        """
+        if self.current_time_step == len(self.ttnos) - 1:
+            # If we are at the last time step, we do not update anymore.
+            return
+        self.current_time += time_step_size
+        if self.current_time >=  (self.current_time_step + 1) * self.dt:
+            # Update the current time step
+            self.current_time_step += 1
+            self.set_ttno_to_time_step(self.current_time_step)
+
+    def reset(self):
+        """
+        Resets the TTNO to the first time step.
+
+        This will reset the current time and time step to 0.
+        """
+        self.current_time_step = 0
+        self.current_time = 0
+        self.set_ttno_to_time_step(0)    
+
+class TimeDependentTTNO(AbstractTimeDepTTNO):
     """
     A Tree Tensor Network Operator that can be updated in time.
 
@@ -38,10 +153,7 @@ class TimeDependentTTNO(TreeTensorNetworkOperator):
                 TTNO is created.
 
         """
-        if ttno is None:
-            ttno = TreeTensorNetworkOperator()
         super().__init__()
-        self._copy_ttno_attributes(ttno)
         self.updatable_check(updatables)
         # An updatable and an orig_value corresponding to each other will have
         # the same position in the list.
@@ -97,12 +209,6 @@ class TimeDependentTTNO(TreeTensorNetworkOperator):
                     raise ValueError(f"Index {index} is out of bounds for "
                                      f"node {updatable.node_id}.")
 
-    def _copy_ttno_attributes(self, ttno: TreeTensorNetworkOperator):
-        self._nodes = deepcopy(ttno.nodes)
-        self._tensors = deepcopy(ttno.tensors)
-        self.orthogonality_center_id = ttno.orthogonality_center_id
-        self._root_id = ttno.root_id
-
     def update(self, time_step_size: float):
         """
         Updates the tensors of the TTNO.
@@ -145,6 +251,12 @@ class TimeDependentTTNO(TreeTensorNetworkOperator):
             node_id = updateable.node_id
             indices = updateable.indices
             self._tensors[node_id][indices] += current_values
+
+    def reset(self):
+        """
+        Rests the TTNO to its original value.
+        """
+        self.reset_tensors()
 
 class OriginalValues:
     """
