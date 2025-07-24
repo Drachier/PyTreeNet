@@ -2,7 +2,7 @@
 from typing import Dict, List, Union
 from dataclasses import dataclass
 
-from .ttn_time_evolution import TTNTimeEvolution
+from .ttn_time_evolution import TTNOBasedTimeEvolution
 from ..operators.tensorproduct import TensorProduct
 from ..core.truncation.recursive_truncation import recursive_truncation
 from ..ttns.ttns import TreeTensorNetworkState
@@ -24,7 +24,7 @@ class BUGConfig(CommonBUGConfig, SVDParameters):
     def __post_init__(self):
         assert self.fixed_rank is False, "Fixed rank is not supported for BUG!"
 
-class BUG(TTNTimeEvolution):
+class BUG(TTNOBasedTimeEvolution):
     """
     The BUG method for time evolution of tree tensor networks.
 
@@ -64,6 +64,7 @@ class BUG(TTNTimeEvolution):
                 time evolution. Defaults to None.
         """
         super().__init__(initial_state,
+                         hamiltonian,
                          time_step_size, final_time,
                          operators,
                          config=config)

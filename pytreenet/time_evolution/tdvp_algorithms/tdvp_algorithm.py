@@ -10,8 +10,8 @@ from __future__ import annotations
 from typing import Union, List, Any
 from dataclasses import dataclass, field
 
-from ..time_evolution import TimeEvoMode, EvoDirection, TimeEvoMethod
-from ..ttn_time_evolution import TTNTimeEvolution, TTNTimeEvolutionConfig
+from ..time_evolution import TimeEvoMode, EvoDirection
+from ..ttn_time_evolution import TTNOBasedTimeEvolution, TTNTimeEvolutionConfig
 from ...util.tensor_splitting import SplitMode
 from ...ttns import TreeTensorNetworkState
 from ...ttno.ttno_class import TTNO
@@ -48,7 +48,7 @@ class TDVPConfig(TTNTimeEvolutionConfig):
     main_path_mode: PathFinderMode = PathFinderMode.LeafToRoot
 
 
-class TDVPAlgorithm(TTNTimeEvolution):
+class TDVPAlgorithm(TTNOBasedTimeEvolution):
     """
     The general abstract class of a TDVP algorithm.
     
@@ -94,6 +94,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
         assert len(initial_state.nodes) == len(hamiltonian.nodes)
         self.hamiltonian = hamiltonian
         super().__init__(initial_state,
+                         hamiltonian,
                          time_step_size, final_time,
                          operators,
                          config=config)
