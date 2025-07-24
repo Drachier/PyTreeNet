@@ -75,8 +75,7 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
                                                       reference_tree, method)
         return cls.from_state_diagram(state_diagram,
                                       hamiltonian.conversion_dictionary,
-                                      hamiltonian.coeffs_mapping,                                        
-                                      method)
+                                      hamiltonian.coeffs_mapping)
 
     @classmethod
     def Identity(cls, reference_tree: TreeTensorNetwork) -> TTNO:
@@ -99,10 +98,10 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
         return cls.from_hamiltonian( H, reference_tree)  
 
     @classmethod
-    def from_state_diagram(cls, state_diagram: StateDiagram,
+    def from_state_diagram(cls,
+                           state_diagram: StateDiagram,
                            conversion_dict: Dict[str, np.ndarray],
-                           coeffs_mapping: Dict[str, complex],
-                           method: TTNOFinder = TTNOFinder.SGE
+                           coeffs_mapping: Dict[str, complex]
                            ) -> TreeTensorNetworkOperator:
         """
         Generates a TTNO from a state diagram.
@@ -112,6 +111,11 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
                 should represent.
             conversion_dict (Dict[str, np.ndarray]): A conversion dictionary to
                 determine the physical dimensions required.
+            coeffs_mapping (Dict[str, complex]): A mapping of term coefficients
+                to their corresponding values.
+
+        Returns:
+            TreeTensorNetworkOperator: The resulting TTNO.
         """
         ttno = cls()
         reference_tree = state_diagram.reference_tree
