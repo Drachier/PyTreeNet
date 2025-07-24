@@ -2,7 +2,6 @@
 This module implements the actual quantum circuit.
 """
 from __future__ import annotations
-from collections import UserList
 
 from ...core.ttn import TreeTensorNetwork
 from ...ttno.ttno_class import TreeTensorNetworkOperator
@@ -95,18 +94,16 @@ class QCLevel:
             hamiltonian.add_hamiltonian(gate.get_generator())
         return hamiltonian
 
-class QCircuit:
+class AbstractQCircuit:
     """
-    Class representing a quantum circuit.
-    
-    A quantum circuit is a collection of quantum circuit levels.
+    Abstract class for quantum circuits.
     """
 
     def __init__(self) -> None:
         """
         Initialize a quantum circuit.
         """
-        self.levels: list[QCLevel] = []
+        self.levels = []
 
     def depth(self) -> int:
         """
@@ -116,19 +113,6 @@ class QCircuit:
             int: The number of levels in the quantum circuit.
         """
         return len(self.levels)
-
-    def add_level(self,
-                  level: QCLevel | None = None):
-        """
-        Add a quantum circuit level to the circuit.
-
-        Args:
-            level (QCLevel): The quantum circuit level to add. If None,
-                a new level will be created. Defaults to None.
-        """
-        if level is None:
-            level = QCLevel()
-        self.levels.append(level)
 
     def _index_level_check(self, level_index: int):
         """
@@ -143,6 +127,33 @@ class QCircuit:
         if level_index < 0 or level_index > self.depth():
             errstr = f"Level index {level_index} out of bounds for circuit with {self.depth()} levels!"
             raise IndexError(errstr)
+
+class QCircuit(AbstractQCircuit):
+    """
+    Class representing a quantum circuit.
+    
+    A quantum circuit is a collection of quantum circuit levels.
+    """
+
+    def __init__(self) -> None:
+        """
+        Initialize a quantum circuit.
+        """
+        super().__init__()
+        self.levels: list[QCLevel]
+
+    def add_level(self,
+                  level: QCLevel | None = None):
+        """
+        Add a quantum circuit level to the circuit.
+
+        Args:
+            level (QCLevel): The quantum circuit level to add. If None,
+                a new level will be created. Defaults to None.
+        """
+        if level is None:
+            level = QCLevel()
+        self.levels.append(level)
 
     def add_gate(self,
                   gate: QuantumGate,
@@ -206,7 +217,7 @@ class QCircuit:
             compiled_circuit.add_level(compiled_level)
         return compiled_circuit
 
-class CompiledQuantumCircuit(UserList):
+class CompiledQuantumCircuit(AbstractQCircuit):
     """
     Class representing a compiled quantum circuit.
     
@@ -219,7 +230,7 @@ class CompiledQuantumCircuit(UserList):
         Initialize a compiled quantum circuit.
         """
         super().__init__()
-        self.data: list[Hamiltonian]
+        self.levels: list[Hamiltonian]
         self.qubit_ids: set[str] = set()
 
     def add_level(self, level: Hamiltonian):
@@ -229,8 +240,46 @@ class CompiledQuantumCircuit(UserList):
         Args:
             level (Hamiltonian): The Hamiltonian representing the level.
         """
-        self.data.append(level)
+        self.levels.append(level)
         self.qubit_ids.update(level.node_ids())
+
+    def add_hamiltonian(self,
+                        hamiltonian: Hamiltonian,
+                        level_index: int = -1):
+        """
+        Add a Hamiltonian to the compiled quantum circuit.
+
+        Args:
+            hamiltonian (Hamiltonian): The Hamiltonian to add.
+            level_index (int): The index of the level to add the Hamiltonian
+                to. If -1, the Hamiltonian will be added to the last level.
+                If it is one larger than the number of levels, a new level
+                will be created.
+        
+        Raises:
+            IndexError: If the level index is out of bounds.
+        """
+        if level_index == -1:
+            level_index = len(self.levels) - 1
+        if level_index == len(self.levels):
+            self.levels.append(Hamiltonian())
+        self._index_level_check(level_index)
+        if level_index < len(self.levels):
+            self.levels[level_index].add_hamiltonian(hamiltonian)
+
+    def add_constant_hamiltonian(self,
+                                 hamiltonian: Hamiltonian):
+        """
+        Add a constant Hamiltonian to the compiled quantum circuit.
+
+        That is a Hamiltonian that appears in every level of the
+        compiled quantum circuit.
+
+        Args:
+            hamiltonian (Hamiltonian): The constant Hamiltonian to add.
+        """
+        for i in range(self.depth()):
+            self.add_hamiltonian(hamiltonian, level_index=i)
 
     def to_state_diagrams(self,
                           ref_tree: TreeTensorNetwork,
@@ -250,7 +299,7 @@ class CompiledQuantumCircuit(UserList):
             list[StateDiagram]: A list of state diagrams representing the
                 compiled quantum circuit.
         """
-        hams = [ham.pad_with_identities(ref_tree) for ham in self.data]
+        hams = [ham.pad_with_identities(ref_tree) for ham in self.levels]
         return [StateDiagram.from_hamiltonian(ham, ref_tree, method=method)
                 for ham in hams]
 
@@ -273,7 +322,7 @@ class CompiledQuantumCircuit(UserList):
                 the compiled quantum circuit.
         """
         return [TreeTensorNetworkOperator.from_hamiltonian(ham, ref_tree, method=method)
-                for ham in self.data]
+                for ham in self.levels]
 
     def to_time_dep_ttno(self,
                          ref_tree: TreeTensorNetwork,
