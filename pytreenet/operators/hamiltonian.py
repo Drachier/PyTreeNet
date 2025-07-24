@@ -211,9 +211,10 @@ class Hamiltonian():
                 errstr = "Hamiltonian and reference_ttn are incompatible!"
                 raise NotCompatibleException(errstr)
 
-    def pad_with_identities(self, reference_ttn: TreeTensorNetwork,
-                          mode: PadMode = PadMode.safe, 
-                          symbolic: bool = True) -> Hamiltonian:
+    def pad_with_identities(self,
+                            reference_ttn: TreeTensorNetwork,
+                            mode: PadMode = PadMode.safe, 
+                            symbolic: bool = True) -> Hamiltonian:
         """
         Pads a Hamiltonian with identities.
 
@@ -245,7 +246,9 @@ class Hamiltonian():
                            conversion_dictionary=self.conversion_dictionary,
                            coeffs_mapping=self.coeffs_mapping)
 
-    def to_matrix(self, ref_ttn: TreeTensorNetwork, use_padding: bool = True,
+    def to_matrix(self,
+                  ref_ttn: TreeTensorNetwork,
+                  use_padding: bool = True,
                   mode: PadMode = PadMode.safe) -> NumericOperator:
         """
         Creates a numeric operator that is equivalent to the Hamiltonian.
@@ -272,7 +275,9 @@ class Hamiltonian():
         """
         self.perform_compatibility_checks(mode=mode, reference_ttn=ref_ttn)
         if use_padding:
-            self.pad_with_identities(ref_ttn)
+            ham = self.pad_with_identities(ref_ttn)
+            return ham.to_matrix(ref_ttn=ref_ttn,
+                                 use_padding=False)
         full_tensor = asarray([0], dtype=complex)
         identifiers = list(ref_ttn.nodes.keys())
         for i, (frac, coeff, term) in enumerate(self.terms):
@@ -308,7 +313,9 @@ class Hamiltonian():
             NumericOperator: Operator corresponding to the Hamiltonian. The
                 actual array is tensor valued.
         """
-        matrix_operator = self.to_matrix(ref_ttn,use_padding=use_padding,mode=mode)
+        matrix_operator = self.to_matrix(ref_ttn,
+                                         use_padding=use_padding,
+                                         mode=mode)
         shape = [node.open_dimension() for node in ref_ttn.nodes.values()]
         # remove 0 indices
         #shape = [dim for dim in shape if dim != 0]
