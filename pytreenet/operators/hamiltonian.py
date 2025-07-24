@@ -52,7 +52,7 @@ class Hamiltonian():
             actual numeric arrays.
     """
 
-    def __init__(self, terms: Union[List[tuple[Fraction, str, TensorProduct], TensorProduct], tuple[Fraction, str, TensorProduct], TensorProduct, None] = None,
+    def __init__(self, terms: Union[List[tuple[Fraction, str, TensorProduct] | TensorProduct], tuple[Fraction, str, TensorProduct], TensorProduct, None] = None,
                  conversion_dictionary: Union[Dict[str, ndarray],None] = None,
                  coeffs_mapping: Union[Dict[str,complex],None] = None):
         """
