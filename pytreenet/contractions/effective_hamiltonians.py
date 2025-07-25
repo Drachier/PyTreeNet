@@ -15,6 +15,7 @@ from ..ttno.ttno_class import TreeTensorNetworkOperator
 from ..contractions.tree_cach_dict import PartialTreeCachDict
 from ..util.tensor_util import tensor_matricisation_half
 from .contraction_util import contract_all_but_one_neighbour_block_to_hamiltonian
+from ..util.ttn_exceptions import NotCompatibleException
 
 def find_tensor_leg_permutation(state_node: Node,
                                 hamiltonian_node: Node
@@ -376,7 +377,6 @@ def _find_block_leg_target_node(target_node: Node,
         int: The leg index of the input leg of the contracted subtree
             block on the effective hamiltonian tensor.
     """
-    target_node_id = target_node.identifier
     index_next_node = target_node.neighbour_index(next_node_id)
     ham_neighbour_index = target_node.neighbour_index(neighbour_id)
     constant = int(ham_neighbour_index < index_next_node)
