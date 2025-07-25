@@ -1361,7 +1361,7 @@ class TreeTensorNetwork(TreeStructure):
                 contracted. The latter is very useful for debugging.
         """
         return completely_contract_tree(self, to_copy=to_copy)
-    
+
     def save(self, filepath: str):
         """
         Saves the TreeTensorNetwork to files.
@@ -1374,7 +1374,9 @@ class TreeTensorNetwork(TreeStructure):
             filepath (str): Path where to save the files (without extension)
         """
         # Save tensors
-        tensor_dict = {node_id: tensor for node_id, tensor in self.tensors.items()}
+        # Required call to transpose them correctly.
+        tensor_dict = {node_id: tensor
+                       for node_id, tensor in self.tensors.items()}
         np.savez(f"{filepath}.npz", **tensor_dict)
 
         # Prepare structure data
@@ -1386,8 +1388,8 @@ class TreeTensorNetwork(TreeStructure):
                     "identifier": node.identifier,
                     "parent": node.parent,
                     "children": list(node.children),
-                    "leg_permutation": node.leg_permutation if node.leg_permutation is not None else None,
-                    "shape": node._shape if node._shape is not None else None
+                    # Leg permutation and shape should be resolved by the above call of tensors.
+                    "shape": node.shape
                 }
                 for node_id, node in self.nodes.items()
             }
@@ -1402,6 +1404,9 @@ class TreeTensorNetwork(TreeStructure):
         """
         Loads a TreeTensorNetwork from files.
 
+        Note that the loading assumes, all tensors fit to their node without
+        leg permutation.
+
         Args:
             filepath (str): Path to the files (without extension)
 
@@ -1413,7 +1418,7 @@ class TreeTensorNetwork(TreeStructure):
         """
         # Check if files exist
         if not (os.path.exists(f"{filepath}.npz") and os.path.exists(f"{filepath}.json")):
-            raise FileNotFoundError(f"Could not find required files at {filepath}")
+            raise FileNotFoundError(f"Could not find required files at {filepath}!")
 
         # Create new instance
         ttn = cls()
@@ -1427,10 +1432,8 @@ class TreeTensorNetwork(TreeStructure):
 
         # Reconstruct nodes
         for node_id, node_data in structure_data["nodes"].items():
-            node = Node(identifier=node_data["identifier"])
-            if node_data["leg_permutation"] is not None:
-                node._leg_permutation = node_data["leg_permutation"]
-            node._shape = node_data["shape"]
+            node = Node(identifier=node_data["identifier"],
+                        tensor=tensors[node_id])
             ttn._nodes[node_id] = node
 
         # Set connections
