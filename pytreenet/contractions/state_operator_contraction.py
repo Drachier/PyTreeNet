@@ -154,7 +154,7 @@ def contract_ket_ham_with_envs(ket_node: Node,
     _, ham_legs = get_equivalent_legs(ket_node, ham_node)
     ham_legs.extend(_node_operator_input_leg(ham_node))
     nopen_ket = ket_node.nopen_legs()
-    block_legs = list(range(nopen_ket,2*ket_node.nneighbours(),2))
+    block_legs = list(range(nopen_ket,2*ket_node.nneighbours() + nopen_ket,2))
     block_legs.extend(list(range(nopen_ket)))
     kethamblock = np.tensordot(ket_neigh_block, ham_tensor,
                                axes=(block_legs, ham_legs))
