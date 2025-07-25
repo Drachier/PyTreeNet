@@ -1,8 +1,10 @@
-
+"""
+This module implements the caching class considering TTNS and TTNO directly.
+"""
 from __future__ import annotations
 from typing import Union, Dict, Tuple, List
 
-from numpy import ndarray, allclose
+from numpy import ndarray
 
 from .state_operator_contraction import contract_any
 from .tree_cach_dict import PartialTreeCachDict
@@ -11,6 +13,8 @@ from ..ttno.ttno_class import TreeTensorNetworkOperator
 
 class SandwichCache(PartialTreeCachDict):
     """
+    Caching class that has direct access to TTNS and TTNO.
+
     In many cases a caching of the partial contractions of a TTNO sandwiched
     between two TTNS is useful.
 
@@ -86,7 +90,8 @@ class SandwichCache(PartialTreeCachDict):
 
         """
         update_tree_cache(self, self.state, self.hamiltonian,
-                            node_id, next_node_id, self.bra_state)
+                            node_id, next_node_id,
+                            bra_state=self.bra_state)
 
     @classmethod
     def init_cache_but_one(cls,
@@ -142,7 +147,8 @@ def update_tree_cache(cache: SandwichCache,
     """
     new_tensor = contract_any(node_id, next_node_id,
                                 state, hamiltonian,
-                                cache, bra_state)
+                                cache,
+                                bra_state=bra_state)
     cache.add_entry(node_id, next_node_id, new_tensor)
 
 def _find_caching_path(state: TreeTensorNetworkState,
@@ -205,5 +211,3 @@ def _find_caching_path_rec(node_id: str,
         assert node.parent is not None
         next_id_dict[node_id] = node.parent
     caching_path.append(node_id)
-    
-    
