@@ -68,7 +68,8 @@ class ExactTimeEvolution(TimeEvolution):
         """
         super().__init__(initial_state, time_step_size,
                          final_time, operators,
-                         solver_options=solver_options)
+                         solver_options=solver_options,
+                         config=config)
         self.hamiltonian = hamiltonian
         self._time_evolution_operator = self._compute_time_evolution_operator()
         if config is None:

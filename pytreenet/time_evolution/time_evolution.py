@@ -52,7 +52,8 @@ class TimeEvolution:
                  time_step_size: float,
                  final_time: float,
                  operators: Union[List[Any], Dict[str, Any], Any],
-                 solver_options: Union[Dict[str, Any], None] = None):
+                 solver_options: Union[Dict[str, Any], None] = None,
+                 config: Union[TimeEvoConfig, None] = None):
         """
         Initialises a TimeEvolution object.
 
@@ -70,6 +71,9 @@ class TimeEvolution:
                 pass additional options to the solver. Refer to the
                 documentation of `ptn.time_evolution.TimeEvoMode` for further
                 information. Defaults to None.
+            config (Union[TimeEvoConfig, None], optional): The configuration
+                for the time evolution algorithm. If None, a default
+                configuration is used.
         """
         self._initial_state = initial_state
         self.state = deepcopy(initial_state)
@@ -79,6 +83,10 @@ class TimeEvolution:
         self._final_time = final_time
         self._num_time_steps = self._compute_num_time_steps()
         self.operators = self.init_operators(operators)
+        if config is None:
+            self.config = self.config_class()
+        else:
+            self.config = config
         if solver_options is None:
             self.solver_options = {}
         else:
