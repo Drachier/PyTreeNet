@@ -5,7 +5,7 @@ constructed from a symbolic expression.
 from __future__ import annotations
 from typing import List, Iterable
 from abc import ABC, abstractmethod
-from copy import copy
+from copy import copy, deepcopy
 
 from numpy import ndarray
 
@@ -153,7 +153,7 @@ class TimeDependentTTNO(AbstractTimeDepTTNO):
                 TTNO is created.
 
         """
-        super().__init__()
+        super().__init__(ttno=ttno)
         self.updatable_check(updatables)
         # An updatable and an orig_value corresponding to each other will have
         # the same position in the list.
