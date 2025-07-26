@@ -70,13 +70,14 @@ class TTNTimeEvolution(TimeEvolution):
             config (Union[TTNTimeEvolutionConfig,None]): The configuration of
                 time evolution. Defaults to None.
         """
-        super().__init__(initial_state, time_step_size, final_time, operators)
+        super().__init__(initial_state, time_step_size, final_time, operators,
+                         config=config,)
         self._initial_state: TreeTensorNetworkState
         self.state: TreeTensorNetworkState
-        if config is None:
-            self.config = self.config_class()
-        else:
-            self.config = config
+
+        # Convert initial state entris to complex
+        self.state.to_complex(128)
+        self._initial_state.to_complex(128)
 
         # Convert initial state entris to complex
         self.state.to_complex(128)
@@ -202,7 +203,7 @@ class TTNTimeEvolution(TimeEvolution):
                 the current state.
         """
         return self.state.operator_expectation_value(operator)
-    
+
 class TTNOBasedTimeEvolution(TTNTimeEvolution):
     """
     A time evolution for tree tensor networks based on TTNOs.
@@ -248,9 +249,8 @@ class TTNOBasedTimeEvolution(TTNTimeEvolution):
                          time_step_size=time_step_size,
                          final_time=final_time,
                          operators=operators,
-                         config=config,
-                         solver_options=solver_options)
-        if config.time_dep and not isinstance(hamiltonian, AbstractTimeDepTTNO):
+                         config=config)
+        if self.config.time_dep and not isinstance(hamiltonian, AbstractTimeDepTTNO):
             errstr = "The Hamiltonian must be from the AbstractTimeDepTTNO class " \
                      "if the time evolution is time-dependent!"
             raise TypeError(errstr)

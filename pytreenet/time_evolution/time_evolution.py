@@ -48,8 +48,12 @@ class TimeEvolution:
     """
     config_class = TimeEvoConfig
 
-    def __init__(self, initial_state: Any, time_step_size: float,
-                 final_time: float, operators: Union[List[Any], Dict[str, Any], Any]):
+    def __init__(self,
+                 initial_state: Any,
+                 time_step_size: float,
+                 final_time: float,
+                 operators: Union[List[Any], Dict[str, Any], Any],
+                 config: Union[TimeEvoConfig, None] = None):
         """
         Initialises a TimeEvolution object.
 
@@ -61,6 +65,10 @@ class TimeEvolution:
                 for which to compute the expectation values. Can be a single
                 operator or a list of operators. If a dictionary is given, the
                 results can be called by using the keys of the dictionary.
+
+            config (Union[TimeEvoConfig, None], optional): The configuration
+                for the time evolution algorithm. If None, a default
+                configuration is used.
         """
         self._initial_state = initial_state
         self.state = deepcopy(initial_state)
@@ -70,6 +78,10 @@ class TimeEvolution:
         self._final_time = final_time
         self._num_time_steps = self._compute_num_time_steps()
         self.operators = self.init_operators(operators)
+        if config is None:
+            self.config = self.config_class()
+        else:
+            self.config = config
         self.results = Results()
 
     def _compute_num_time_steps(self) -> int:
