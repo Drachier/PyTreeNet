@@ -69,6 +69,22 @@ class QuantumGate(ABC):
         """
         raise NotImplementedError("Subclasses must implement this method!")
 
+    def acts_on(self, qubit_ids: str | list[str]) -> bool:
+        """
+        Check if the quantum gate acts on the given qubit IDs.
+
+        Args:
+            qubit_ids (str | list[str]): The ID or list of IDs of the qubits
+                to check.
+
+        Returns:
+            bool: True if the gate acts on the given qubit IDs, False
+                otherwise.
+        """
+        if isinstance(qubit_ids, str):
+            return qubit_ids in self.qubit_ids
+        return all(qid in self.qubit_ids for qid in qubit_ids)
+
     @abstractmethod
     def matrix(self) -> npt.NDArray[np.complex64]:
         """
@@ -121,15 +137,16 @@ class InvolutarySingleSiteGate(SingleQubitGate):
             Hamiltonian: The generator of the Pauli gate.
         """
         identity = np.eye(2, dtype=np.complex64)
+        id_symbol = "I2"
         ham = Hamiltonian()
         tp1 = TensorProduct()
-        tp1.add_operator(self.qubit_id, self.gate_matrix)
+        tp1.add_operator(self.qubit_id, self.symbol)
         ham.add_term((self.gen_factor[0], self.gen_factor[1], tp1))
         tp2 = TensorProduct()
-        tp2.add_operator(self.qubit_id, identity)
+        tp2.add_operator(self.qubit_id, id_symbol)
         ham.add_term((Fraction(-1, 2), PI_SYMBOL, tp2))
         conv_dict = {self.symbol: self.gate_matrix,
-                     "I2": identity}
+                     id_symbol: identity}
         coeffs_map = {self.gen_factor[1]: self.gen_factor[2]}
         ham.update_mappings(conv_dict, coeffs_map)
         return ham
@@ -180,7 +197,7 @@ class InvolutarySingleSiteGate(SingleQubitGate):
                        qubit_id)
         errstr = f"Invalid Enum for InvolutarySingleSiteGate: {gate_enum}!"
         raise ValueError(errstr)
-    
+
 class PhaseGate(SingleQubitGate):
     """
     Class for the Phase gate.
@@ -198,7 +215,7 @@ class PhaseGate(SingleQubitGate):
                 multiples of pi.
             qubit_id (str): The ID of the qubit the gate acts on.
         """
-        super().__init__(QGate.PHASE.value + f"(_{phase}*pi)", qubit_id)
+        super().__init__(QGate.PHASE.value + f"{phase}", qubit_id)
         self.phase = phase
 
     def get_generator(self) -> Hamiltonian:
@@ -386,7 +403,7 @@ class SWAPGate(QuantumGate):
         tp1 = TensorProduct()
         tp1.add_operator(self.qubit_id1, identity)
         tp1.add_operator(self.qubit_id2, identity)
-        ham.add_term((Fraction(1, 2), PI_SYMBOL, tp1))
+        ham.add_term((Fraction(7, 4), PI_SYMBOL, tp1))
         tp2 = TensorProduct()
         tp2.add_operator(self.qubit_id1, pauli_x)
         tp2.add_operator(self.qubit_id2, pauli_x)
@@ -463,7 +480,7 @@ class ToffoliGate(QuantumGate):
             control_qubit_id2 (str): The ID of the second control qubit.
             target_qubit_id (str): The ID of the target qubit.
         """
-        super().__init__(QGate.CNOT.value,
+        super().__init__(QGate.TOFFOLI.value,
                             [control_qubit_id1,
                             control_qubit_id2,
                             target_qubit_id])
