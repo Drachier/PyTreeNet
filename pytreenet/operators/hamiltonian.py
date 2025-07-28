@@ -159,6 +159,14 @@ class Hamiltonian():
             node_ids.update(list(term.keys()))
         return node_ids
 
+    def system_size(self) -> int:
+        """
+        Returns the number of nodes on which this Hamiltonian acts.
+
+        This is equivalent to the system size purely of this Hamiltonian.
+        """
+        return len(self.node_ids())
+
     def update_mappings(self,
                         conversion_dict: Dict[str, ndarray] | None = None,
                         coeffs_mapping: Dict[str, complex] | None = None):
