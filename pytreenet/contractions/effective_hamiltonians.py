@@ -249,7 +249,8 @@ def contract_all_except_two_nodes(state_node: Node,
                                   target_tensor: ndarray,
                                   next_node: Node,
                                   next_tensor: ndarray,
-                                  tensor_cache: PartialTreeCachDict) -> ndarray:
+                                  tensor_cache: PartialTreeCachDict
+                                  ) -> ndarray:
     """
     Contracts the nodes for all but two sites.
 
@@ -308,11 +309,11 @@ def contract_all_except_two_nodes(state_node: Node,
     return h_eff.transpose(leg_permutation)
 
 def create_two_site_id(node_id: str, next_node_id: str) -> str:
-        """
-        Create the identifier of a two site node obtained from contracting
-        the two note with the input identifiers.
-        """
-        return "TwoSite_" + node_id + "_contr_" + next_node_id
+    """
+    Create the identifier of a two site node obtained from contracting
+    the two note with the input identifiers.
+    """
+    return "TwoSite_" + node_id + "_contr_" + next_node_id
 
 def _determine_two_site_leg_permutation(state_node: Node,
                                         target_node: Node,
