@@ -18,12 +18,11 @@ from typing import Dict, Union, List, Tuple, Callable
 from enum import Enum, auto
 from fractions import Fraction
 
-from numpy import asarray, ndarray, eye
+from numpy import asarray, isclose, ndarray, eye, allclose
 
 from .operator import NumericOperator
 from .tensorproduct import TensorProduct
 from ..core.ttn import TreeTensorNetwork
-from ..util.std_utils import compare_lists_by_value
 from ..util.ttn_exceptions import NotCompatibleException
 
 class PadMode(Enum):
@@ -52,7 +51,7 @@ class Hamiltonian():
             actual numeric arrays.
     """
 
-    def __init__(self, terms: Union[List[tuple[Fraction, str, TensorProduct], TensorProduct], tuple[Fraction, str, TensorProduct], TensorProduct, None] = None,
+    def __init__(self, terms: Union[List[tuple[Fraction, str, TensorProduct] | TensorProduct], tuple[Fraction, str, TensorProduct], TensorProduct, None] = None,
                  conversion_dictionary: Union[Dict[str, ndarray],None] = None,
                  coeffs_mapping: Union[Dict[str,complex],None] = None):
         """
@@ -97,6 +96,47 @@ class Hamiltonian():
                 return False
         return True
 
+    def compare_conversion_dict(self,
+                                other_hamiltonian: Hamiltonian
+                                ) -> bool:
+        """
+        Compare the conversion dictionaries of two Hamiltonians.
+        """
+        conv = self.conversion_dictionary
+        other_conv = other_hamiltonian.conversion_dictionary
+        if len(conv) != len(other_conv):
+            return False
+        for key, operator in conv.items():
+            other_op = other_conv[key]
+            if not allclose(operator, other_op):
+                return False
+        return True
+
+    def compare_coeff_map(self,
+                          other_hamiltonian: Hamiltonian
+                          ) -> bool:
+        """
+        Compare the coefficient mapping of two Hamiltonians.
+        """
+        coeffs = self.coeffs_mapping
+        other_coeffs = other_hamiltonian.coeffs_mapping
+        if len(coeffs) != len(other_coeffs):
+            return False
+        for key, value in coeffs.items():
+            other_value = other_coeffs[key]
+            if not isclose(value, other_value):
+                return False
+        return True
+
+    def compare_dicts(self, other_hamiltonian: Hamiltonian) -> bool:
+        """
+        Compare the conversion dictionaries and coeff mappings of two
+        Hamiltonians.
+        """
+        comp_conv = self.compare_conversion_dict(other_hamiltonian)
+        comp_coeffs = self.compare_coeff_map(other_hamiltonian)
+        return comp_conv and comp_coeffs
+
     def __add__(self, other: Union[TensorProduct, Hamiltonian]) -> Hamiltonian:
         if isinstance(other, TensorProduct):
             self.add_term(other)
@@ -118,6 +158,31 @@ class Hamiltonian():
         for _, _, term in self.terms:
             node_ids.update(list(term.keys()))
         return node_ids
+
+    def system_size(self) -> int:
+        """
+        Returns the number of nodes on which this Hamiltonian acts.
+
+        This is equivalent to the system size purely of this Hamiltonian.
+        """
+        return len(self.node_ids())
+
+    def update_mappings(self,
+                        conversion_dict: Dict[str, ndarray] | None = None,
+                        coeffs_mapping: Dict[str, complex] | None = None):
+        """
+        Updates the conversion dictionary and the coefficients mapping.
+
+        Args:
+            conversion_dict (Dict[str, ndarray] | None, optional): The new
+                conversion dictionary to update with. Defaults to None.
+            coeffs_mapping (Dict[str, complex] | None, optional): The new
+                coefficients mapping to update with. Defaults to None.
+        """
+        if conversion_dict is not None:
+            self.conversion_dictionary.update(conversion_dict)
+        if coeffs_mapping is not None:
+            self.coeffs_mapping.update(coeffs_mapping)
 
     def add_term(self, term: Union[TensorProduct, tuple[Fraction, str, TensorProduct]]):
         """
@@ -194,9 +259,10 @@ class Hamiltonian():
                 errstr = "Hamiltonian and reference_ttn are incompatible!"
                 raise NotCompatibleException(errstr)
 
-    def pad_with_identities(self, reference_ttn: TreeTensorNetwork,
-                          mode: PadMode = PadMode.safe, 
-                          symbolic: bool = True) -> Hamiltonian:
+    def pad_with_identities(self,
+                            reference_ttn: TreeTensorNetwork,
+                            mode: PadMode = PadMode.safe, 
+                            symbolic: bool = True) -> Hamiltonian:
         """
         Pads a Hamiltonian with identities.
 
@@ -228,7 +294,9 @@ class Hamiltonian():
                            conversion_dictionary=self.conversion_dictionary,
                            coeffs_mapping=self.coeffs_mapping)
 
-    def to_matrix(self, ref_ttn: TreeTensorNetwork, use_padding: bool = True,
+    def to_matrix(self,
+                  ref_ttn: TreeTensorNetwork,
+                  use_padding: bool = True,
                   mode: PadMode = PadMode.safe) -> NumericOperator:
         """
         Creates a numeric operator that is equivalent to the Hamiltonian.
@@ -255,7 +323,9 @@ class Hamiltonian():
         """
         self.perform_compatibility_checks(mode=mode, reference_ttn=ref_ttn)
         if use_padding:
-            self.pad_with_identities(ref_ttn)
+            ham = self.pad_with_identities(ref_ttn)
+            return ham.to_matrix(ref_ttn=ref_ttn,
+                                 use_padding=False)
         full_tensor = asarray([0], dtype=complex)
         identifiers = list(ref_ttn.nodes.keys())
         for i, (frac, coeff, term) in enumerate(self.terms):
@@ -265,7 +335,7 @@ class Hamiltonian():
                 full_tensor = term_operator.operator * float(frac) * self.coeffs_mapping[coeff]
             else:
                 full_tensor = term_operator.operator * float(frac) * self.coeffs_mapping[coeff] + full_tensor
-        return NumericOperator(full_tensor.T, identifiers)
+        return NumericOperator(full_tensor, identifiers)
 
     def to_tensor(self, ref_ttn: TreeTensorNetwork, use_padding: bool = True,
                   mode: PadMode = PadMode.safe) -> NumericOperator:
@@ -291,12 +361,14 @@ class Hamiltonian():
             NumericOperator: Operator corresponding to the Hamiltonian. The
                 actual array is tensor valued.
         """
-        matrix_operator = self.to_matrix(ref_ttn,use_padding=use_padding,mode=mode)
+        matrix_operator = self.to_matrix(ref_ttn,
+                                         use_padding=use_padding,
+                                         mode=mode)
         shape = [node.open_dimension() for node in ref_ttn.nodes.values()]
         # remove 0 indices
         #shape = [dim for dim in shape if dim != 0]
         shape *= 2
-        tensor_operator = matrix_operator.operator.reshape(shape)
+        tensor_operator = matrix_operator.operator.T.reshape(shape)
         return NumericOperator(tensor_operator, matrix_operator.node_identifiers)
 
     def contains_duplicates(self) -> bool:
@@ -311,7 +383,7 @@ class Hamiltonian():
         terms_comp = [term[2] for term in self.terms]
         dup = [term for term in terms_comp if terms_comp.count(term) > 1]
         return len(dup) > 0
-    
+
     def include_identities(self,
                            dims: Union[int,list[int]],
                            ident_creation: Callable = lambda d: eye(d,dtype=complex)):

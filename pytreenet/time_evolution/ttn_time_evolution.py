@@ -12,6 +12,8 @@ from .time_evolution import TimeEvolution, TimeEvoConfig
 from ..ttns import TreeTensorNetworkState
 from ..ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
+from ..ttno.ttno_class import TreeTensorNetworkOperator
+from ..ttno.time_dep_ttno import AbstractTimeDepTTNO
 
 MAX_BOND_DIM_ID = "max_bond_dim"
 AVERAGE_BOND_DIM_ID = "average_bond_dim"
@@ -82,14 +84,10 @@ class TTNTimeEvolution(TimeEvolution):
                 information. Defaults to None.
         """
         super().__init__(initial_state, time_step_size, final_time, operators,
+                         config=config,
                          solver_options=solver_options)
         self._initial_state: TreeTensorNetworkState
         self.state: TreeTensorNetworkState
-
-        if config is None:
-            self.config = self.config_class()
-        else:
-            self.config = config
 
     def result_init_dictionary(self):
         """
@@ -211,3 +209,70 @@ class TTNTimeEvolution(TimeEvolution):
                 the current state.
         """
         return self.state.operator_expectation_value(operator)
+
+class TTNOBasedTimeEvolution(TTNTimeEvolution):
+    """
+    A time evolution for tree tensor networks based on TTNOs.
+
+    This class is used for time evolution algorithms that are based on
+    tree tensor network operators (TTNOs). It provides additional methods
+    for updating the Hamiltonian and resetting it to its initial state.
+    """
+
+    def __init__(self,
+                 initial_state: TreeTensorNetworkState,
+                 hamiltonian: TreeTensorNetworkOperator,
+                 time_step_size: float,
+                 final_time: float,
+                 operators: Union[List[Union[TensorProduct, TTNO]],
+                                  Dict[str, Union[TensorProduct, TTNO]],
+                                  TensorProduct,
+                                  TTNO],
+                 config: Union[TTNTimeEvolutionConfig, None] = None,
+                 solver_options: Union[Dict[str, Any], None] = None
+                 ) -> None:
+        """
+        Initializes the TTNOBasedTimeEvolution class.
+
+        Args:
+            initial_state (TreeTensorNetworkState): The initial state of the
+                time evolution.
+            hamiltonian (TreeTensorNetworkOperator): The Hamiltonian of the
+                system.
+            time_step_size (float): The time difference progressed by one time
+                step.
+            final_time (float): The final time until which the time evolution
+                runs.
+            operators (Union[List[Union[TensorProduct, TTNO]], TensorProduct, TTNO]):
+                Operators for which the expectation value should be recorded
+                during the time evolution.
+            config (Union[TTNTimeEvolutionConfig,None]): The configuration of
+                time evolution. Defaults to None.
+            solver_options (Union[Dict[str, Any], None], optional): Options for
+                the solver used in the time evolution. Defaults to None.
+        """
+        super().__init__(initial_state=initial_state,
+                         time_step_size=time_step_size,
+                         final_time=final_time,
+                         operators=operators,
+                         config=config,
+                         solver_options=solver_options)
+        if self.config.time_dep and not isinstance(hamiltonian, AbstractTimeDepTTNO):
+            errstr = "The Hamiltonian must be from the AbstractTimeDepTTNO class " \
+                     "if the time evolution is time-dependent!"
+            raise TypeError(errstr)
+        self.hamiltonian = hamiltonian
+
+    def update_hamiltonian(self):
+        """
+        Updates the Hamiltonian for the next time step.
+
+        This method is only required for time-dependent Hamiltonians.
+        """
+        self.hamiltonian.update(self.time_step_size)
+
+    def reset_hamiltonian(self):
+        """
+        Resets the Hamiltonian to its initial state.
+        """
+        self.hamiltonian.reset()

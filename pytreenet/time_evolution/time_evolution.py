@@ -25,7 +25,7 @@ class TimeEvoConfig:
     
     This is to ensure that all time evolution algorithms can be configured.
     """
-    pass
+    time_dep: bool = False
 
 class TimeEvolution:
     """
@@ -47,12 +47,16 @@ class TimeEvolution:
     """
     config_class = TimeEvoConfig
 
-    def __init__(self, initial_state: Any, time_step_size: float,
-                 final_time: float, operators: Union[List[Any], Dict[str, Any], Any],
-                 solver_options: Union[Dict[str, Any], None] = None):
+    def __init__(self,
+                 initial_state: Any,
+                 time_step_size: float,
+                 final_time: float,
+                 operators: Union[List[Any], Dict[str, Any], Any],
+                 solver_options: Union[Dict[str, Any], None] = None,
+                 config: Union[TimeEvoConfig, None] = None):
         """
-        Initialises a TimeEvoluion object.
-        
+        Initialises a TimeEvolution object.
+
         Args:
             initial_state (Any): The initial state.
             time_step_size (float): The size of one time step.
@@ -67,6 +71,9 @@ class TimeEvolution:
                 pass additional options to the solver. Refer to the
                 documentation of `ptn.time_evolution.TimeEvoMode` for further
                 information. Defaults to None.
+            config (Union[TimeEvoConfig, None], optional): The configuration
+                for the time evolution algorithm. If None, a default
+                configuration is used.
         """
         self._initial_state = initial_state
         self.state = deepcopy(initial_state)
@@ -76,6 +83,10 @@ class TimeEvolution:
         self._final_time = final_time
         self._num_time_steps = self._compute_num_time_steps()
         self.operators = self.init_operators(operators)
+        if config is None:
+            self.config = self.config_class()
+        else:
+            self.config = config
         if solver_options is None:
             self.solver_options = {}
         else:
@@ -187,6 +198,14 @@ class TimeEvolution:
             complex: The expectation value of the operator.
         """
         raise NotImplementedError()
+    
+    def update_hamiltonian(self):
+        """
+        Abstract method to update the Hamiltonian for the next time step.
+        
+        This is only required for time-dependent Hamiltonians.
+        """
+        raise NotImplementedError("This method should be implemented in a subclass!")
 
     def evaluate_operators(self, index: int):
         """
@@ -337,6 +356,16 @@ class TimeEvolution:
             if i != 0:  # We also measure the initial expectation_values
                 self.run_one_time_step()
             self.evaluate_and_save_results(evaluation_time, i)
+            if self.config_class.time_dep:
+                self.update_hamiltonian()
+
+    def reset_hamiltonian(self):
+        """
+        Resets the Hamiltonian to its initial state.
+
+        This is only required for time-dependent Hamiltonians.
+        """
+        raise NotImplementedError("This method should be implemented in a subclass!")
 
     def reset_to_initial_state(self):
         """
@@ -344,6 +373,8 @@ class TimeEvolution:
         """
         self.state = deepcopy(self._initial_state)
         self.results = Results()
+        if self.config_class.time_dep:
+            self.reset_hamiltonian()
 
 class EvoDirection(Enum):
     """
