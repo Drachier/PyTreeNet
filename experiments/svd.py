@@ -5,6 +5,7 @@ decomposition.
 import os
 import pickle
 import sys
+from PIL import Image
 
 import numpy as np
 from numpy.typing import NDArray
@@ -70,7 +71,33 @@ def run_cifar_10(dir_path: str
     avg_sing_values = [np.mean(sing_value, axis=0) for sing_value in sing_values]
     return tuple(avg_sing_values)
 
+def run_pic_compression(pic_path: str
+                        ) -> list[NDArray[np.float64]]:
+    """
+    Compress the picture at the given filepath.
+
+    Args:
+        pic_path (str): Path to the picture.
+
+    Return:
+        list[NDArray[np.float64]: The picture data after being compressed to
+            its 1st, 10th, 50th and last singular value.
+    
+    """
+    with Image.open(pic_path, mode='r') as pic:
+        gray_pic = pic.convert("L")
+        pic_arr = np.asarray(gray_pic)
+    u, s, vh = np.linalg.svd(pic_arr)
+    max_svals = [1,10,100]
+    out = []
+    for max_sval in max_svals:
+        comp = u[:,:max_sval] @ np.diag(s[:max_sval]) @ vh[:max_sval,:]
+        out.append(comp)
+    out.append(pic_arr)
+    return out
+
 def main(dir_path: str,
+         pic_path: str,
          plot_path: str | None = None
          ) -> None:
     """
@@ -78,6 +105,7 @@ def main(dir_path: str,
 
     Args:
         dir_path (str): The path to the CIFAR-10 dataset directory.
+        pic_path(str): The filepath to the picture to be truncated.
         plot_path (str): The path to save the plot. If None, the plot will not
             be saved.
     """
@@ -96,6 +124,9 @@ def main(dir_path: str,
     print(f"Blue: {avg_sing_values[2]}")
     # Plot the results
     plot(rand_avg, run_cifar_10(dir_path), savepath=plot_path)
+    print("Running picture Compression")
+    pic_data = run_pic_compression(pic_path)
+    plot_pic(pic_data, savepath=plot_path)
 
 def plot(sing_values: NDArray[np.float64],
          cifar10_vals: tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]],
@@ -113,11 +144,11 @@ def plot(sing_values: NDArray[np.float64],
     """
     matplotlib.use("Agg")
     config_matplotlib_to_latex()
-    fig_width, fig_height = set_size("thesis")
+    fig_width, fig_height = set_size("thesis", fraction=0.5)
     plt.figure(figsize=(fig_width, fig_height))
     plt.plot(sing_values,
              marker="s",
-             ms=5,
+             ms=2,
              linestyle=" ",
              color="black",
              label="random")
@@ -126,7 +157,7 @@ def plot(sing_values: NDArray[np.float64],
         plt.semilogy(cifar10_vals[i],
                  marker=marker,
                  alpha=0.7,
-                 ms=5,
+                 ms=2,
                  linestyle=" ",
                  label=f"CIFAR-10 {colour}",
                  color=colour)
@@ -136,14 +167,48 @@ def plot(sing_values: NDArray[np.float64],
     plt.grid(alpha=0.5)
     plt.legend()
     if savepath:
-        plt.savefig(savepath, bbox_inches="tight", format="pdf")
+        plt.savefig(savepath + "svd_comp.pdf", bbox_inches="tight", format="pdf")
+    else:
+        plt.show()
+
+def plot_pic(pic: list[NDArray[np.float64]],
+                savepath: str | None = None
+                ) -> None:
+    """
+    Plots the pictures in a 2 by 2 grid.
+
+    Args:
+        pic (list[NDArray[np.float64]]): The picture data with the data of
+            four different cases of truncation.
+        savepath (str | None): Directory path under which to save the plot.
+            If None, the picture is only shown. Defaults to None.
+
+    """
+    if len(pic) != 4:
+        raise ValueError("Plot requires exactly four pictures!")
+    size = set_size("thesis", fraction=0.5)
+    fig, axs = plt.subplots(2,2,figsize=size)
+    x_labels = [r"Max index 1",
+                r"Max index 10",
+                r"Max index 100",
+                r"Uncompressed"]
+    for i, ax in enumerate(axs.flatten()):
+        ax.imshow(pic[i])
+        ax.set_xticks([])
+        ax.set_xticklabels([])
+        ax.set_yticks([])
+        ax.set_yticklabels([])
+        ax.set_xlabel(x_labels[i])
+    if savepath:
+        plt.savefig(savepath + "picture.pdf", bbox_inches="tight", format="pdf")
     else:
         plt.show()
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python svd.py <path_to_cifar10_directory>")
+    if len(sys.argv) < 3:
+        print("Usage: python svd.py <path_to_cifar10_directory> <path_to_picture>")
         sys.exit(1)
     cifar10_dir = sys.argv[1]
-    plot_path = sys.argv[2] if len(sys.argv) > 2 else None
-    main(cifar10_dir, plot_path=plot_path)
+    PIC_PATH = sys.argv[2]
+    PLOT_PATH = sys.argv[3] if len(sys.argv) > 3 else None
+    main(cifar10_dir, PIC_PATH, plot_path=PLOT_PATH)

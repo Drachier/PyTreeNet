@@ -1302,6 +1302,22 @@ class TreeTensorNetwork(TreeStructure):
         assert self.root_id is not None, "The TTN has no root node!"
         return self.ensure_orth_center(self.root_id, mode=mode)
 
+    def orthogonalize_root(self,
+                           mode: SplitMode = SplitMode.REDUCED):
+        """
+        Orthogonalizes the TTN with respect to the root node.
+
+        Args:
+            mode: The mode to be used for the QR decomposition. For details refer to
+                `tensor_util.tensor_qr_decomposition`.
+
+        Raises:
+            NotCompatibleException: If the TTN has no root node.
+        """
+        if self.root_id is None:
+            raise NotCompatibleException("The TTN has no root node!")
+        self.canonical_form(self.root_id, mode=mode)
+
     # Functions below this are just wrappers of external functions that are
     # linked tightly to the TTN and its structure. This allows these functions
     # to be overwritten for subclasses of the TTN with more known structure.

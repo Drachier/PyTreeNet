@@ -2,7 +2,9 @@
 This module implements a class to store the simulation results of a time
 evolution algorithm in PyTreeNet.
 """
-from typing import Hashable, Any
+from __future__ import annotations
+from typing import Hashable, Any, Self
+import re
 
 from numpy.typing import NDArray, DTypeLike
 import numpy as np
@@ -23,12 +25,81 @@ class Results:
             name and its corresponding value.
     """
 
-    def __init__(self) -> None:
+    def __init__(self,
+                 metadata: dict[str,Any] | None = None
+                 ) -> None:
         """
         Initializes the Results object with the number of time steps.
+
+        Args:
+            metadata (dict[str, Any]): Metadata containing other information
+                about the simulation, not directly relevant to the results.
         """
         self.results: dict[Hashable, NDArray] = {}
         self.attributes: dict[str, list[tuple[str,Any]]] = {}
+        self.metadata = metadata if metadata is not None else {}
+
+    def close_to(self, other: Self) -> bool:
+        """
+        Checks if the results object is close to another results object.
+
+        Args:
+            other (Results): Another Results object to compare with.
+
+        Returns:
+            bool: True if the results are close, False otherwise.
+        """
+        if len(self.results) != len(other.results):
+            return False
+        for key, val in self.results.items():
+            if key not in other.results:
+                return False
+            if not np.allclose(val, other.results[key]):
+                return False
+        if self.metadata != other.metadata:
+            return False
+        if len(self.attributes) != len(other.attributes):
+            return False
+        for key, val in self.attributes.items():
+            if key not in other.attributes:
+                return False
+            if len(val) != len(other.attributes[key]):
+                return False
+            for attr in val:
+                if attr not in other.attributes[key]:
+                    return False
+        return True
+
+    def num_results(self) -> int:
+        """
+        Returns the number of results stored in the results object.
+
+        Returns:
+            int: The number of results.
+        """
+        return len(self.results)
+
+    def results_length(self) -> int:
+        """
+        Returns the length of the results arrays.
+
+        Returns:
+            int: The length of the results arrays.
+        """
+        self.not_initialized_error()
+        return len(self.results[TIMES_ID])
+
+    def shape(self) -> tuple[int, int]:
+        """
+        Returns the shape of the result.
+
+        Returns:
+            tuple[int, int]: A tuple containing the number of operators and the
+                length of the results arrays. This includes the time array and
+                the result at time zero.
+        """
+        return (self.num_results(),
+                self.results_length())
 
     def is_initialized(self) -> bool:
         """
@@ -174,6 +245,18 @@ class Results:
         return np.allclose(np.imag(op_results),
                            np.zeros_like(op_results))
 
+    def results_real(self) -> bool:
+        """
+        Checks if all results in the results object are real.
+
+        Returns:
+            bool: True if all results are real, False otherwise.
+        """
+        for operator in self.results:
+            if not self.result_real(operator):
+                return False
+        return True
+
     def operator_result(self,
                         operator: Hashable,
                         realise: bool = False
@@ -194,6 +277,59 @@ class Results:
             return np.real(op_results)
         return op_results
 
+    def _operator_key_desired(self,
+                              operator_key: Hashable,
+                              operators: list[Hashable] | re.Pattern | None
+                              ) -> bool:
+        """
+        Checks if the operator key matches the desired operators.
+
+        Args:
+            operator_key (Hashable): The key of the operator to check.
+            operators (list[Hashable] | re.Pattern | None): A list of operator
+                names or a regex pattern to filter operators. If None, all
+                operators except for the time are considered.
+        
+        Returns:
+            bool: True if the operator key matches the desired operators,
+                False otherwise.
+        """
+        if operators is None:
+            return operator_key != TIMES_ID
+        if isinstance(operators, list):
+            return operator_key in operators
+        if isinstance(operators, re.Pattern):
+            if not isinstance(operator_key, str):
+                errstr = "Operators must be strings to match against a regex pattern!"
+                raise TypeError(errstr)
+            return bool(operators.match(operator_key))
+        errstr = "Operators must be a list of Hashable or a regex pattern!"
+        raise TypeError(errstr)
+
+    def get_results(self,
+                operators: list[Hashable] | re.Pattern | None = None,
+                realise: bool = False
+                ) -> dict[Hashable, NDArray]:
+        """
+        Returns the results of the specified operators.
+
+        Args:
+            operators (list[Hashable] | re.Pattern | None): A list of operator
+                names or a regex pattern to filter operators. If None, all
+                operators except for the time are returned.
+            realise (bool): If True, returns the real parts of the results.
+        
+        Returns:
+            dict[Hashable, NDArray]: A dictionary containing the results of
+                the specified operators.
+        """
+        self.not_initialized_error()
+        return {
+            operator_key: self.operator_result(operator_key, realise=realise)
+            for operator_key in self.results
+            if self._operator_key_desired(operator_key, operators)
+        }
+
     def operator_results(self,
                          operators: list[Hashable] | None = None,
                          realise: bool = False
@@ -212,7 +348,7 @@ class Results:
         """
         self.not_initialized_error()
         if operators is None:
-            operators = self.results.keys()
+            operators = list(self.results.keys())
         out = np.zeros_like(self.results[operators[0]],
                             shape=(len(operators),
                                      len(self.results[operators[0]])),
@@ -257,7 +393,9 @@ class Results:
 
     @classmethod
     def load_from_h5(cls,
-                     file: str | File) -> None:
+                     file: str | File,
+                     loaded_ops: list[str] | None = None
+                     ) -> Self:
         """
         Loads the results from an HDF5 file.
 
@@ -265,6 +403,8 @@ class Results:
             file (str | File): The path to the HDF5 file or an open h5py File
              object. If a string is provided, the file will be opened in read
              mode.
+            loaded_ops (list[str] | None): A list of operator names to load into
+                the results object. If None, all operators are loaded.
         
         Returns:
             Results: An instance of the Results class containing the loaded
@@ -273,15 +413,23 @@ class Results:
         """
         if isinstance(file, str):
             with File(file, "r") as h5file:
-                return cls.load_from_h5(h5file)
+                return cls.load_from_h5(h5file,
+                                        loaded_ops=loaded_ops)
+        results = cls(metadata=dict(file.attrs))
+        if loaded_ops is None:
+            iterator = file.keys()
         else:
-            results = cls()
-            for i, key in enumerate(file.keys()):
-                loaded_data = file[key][:]
-                if i == 0:
-                    len_data = len(loaded_data)
-                else:
-                    if len(loaded_data) != len_data:
-                        raise ValueError("All datasets must have the same length!")
-                results.results[key] = loaded_data
-            return results
+            iterator = loaded_ops
+        for i, key in enumerate(iterator):
+            dset = file[key]
+            attrs = dset.attrs
+            for attr_key, attr_value in attrs.items():
+                results.set_attribute(key, attr_key, attr_value)
+            loaded_data = dset[:]
+            if i == 0:
+                len_data = len(loaded_data)
+            else:
+                if len(loaded_data) != len_data:
+                    raise ValueError("All datasets must have the same length!")
+            results.results[key] = loaded_data
+        return results

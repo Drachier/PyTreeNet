@@ -43,7 +43,7 @@ class TestFindTensorLegPermutation(unittest.TestCase):
         Test the permutation finding for a root, where the children of state
         and Hamiltonian are in the same order.
         """
-        state_node, _ = random_tensor_node((4,5,3,2))
+        state_node, _ = random_tensor_node((4,5,3))
         hamiltonian_node, _ = random_tensor_node((4,5,2,3))
         c_dict = {"c1":0, "c2":1}
         state_node.open_legs_to_children(c_dict)
@@ -429,27 +429,28 @@ class TestContractionMethodsSimple(unittest.TestCase):
         self.cache.update_tree_cache("root","c2")
 
     def test_find_tensor_leg_permutation_trivial(self):
-        state_node = GraphNode()
-        state_node.add_parent("root")
-        state_node.add_children(["c1","c2"])
-        hamiltonian_node = GraphNode()
-        hamiltonian_node.add_parent("root")
-        hamiltonian_node.add_children(["c1","c2"])
+        state_node = self.ttns.nodes["root"]
+        hamiltonian_node = self.hamiltonian.nodes["root"]
         permutation = find_tensor_leg_permutation(state_node,
                                                     hamiltonian_node)
-        correct_perm = tuple([3,5,7,0,2,4,6,1])
+        correct_perm = tuple([3,5,0,2,4,1])
         self.assertEqual(permutation, correct_perm)
 
     def test_find_tensor_leg_permutation_diff(self):
-        state_node = GraphNode()
-        state_node.add_parent("root")
-        state_node.add_children(["c1","c2"])
-        hamiltonian_node = GraphNode()
-        hamiltonian_node.add_parent("root")
-        hamiltonian_node.add_children(["c2","c1"])
+        """
+        Test the permutation finding for a node that has children and a parent.
+        The children of the state node and the Hamiltonian node are in different
+        order.
+        """
+        # Move centre to make the children in different order
+        self.ttns.canonical_form("c1")
+        self.ttns.canonical_form("c2")
+        state_node = self.ttns.nodes["root"]
+        hamiltonian_node = self.hamiltonian.nodes["root"]
+        print(state_node.children, hamiltonian_node.children)
         permutation = find_tensor_leg_permutation(state_node,
                                                     hamiltonian_node)
-        correct_perm = tuple([3,7,5,0,2,6,4,1])
+        correct_perm = tuple([5,3,0,4,2,1])
         self.assertEqual(permutation, correct_perm)
 
     def test_get_effective_site_hamiltonian_c1(self):

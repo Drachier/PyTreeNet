@@ -1,7 +1,7 @@
 from typing import Dict, List, Union, Any
 from dataclasses import dataclass
 
-from .ttn_time_evolution import TTNTimeEvolution
+from .ttn_time_evolution import TTNOBasedTimeEvolution
 from ..ttns import TreeTensorNetworkState
 from ..ttno import TreeTensorNetworkOperator
 from ..operators.tensorproduct import TensorProduct
@@ -18,7 +18,7 @@ class FixedBUGConfig(CommonBUGConfig):
     def __post_init__(self):
         self.fixed_rank = True
 
-class FixedBUG(TTNTimeEvolution):
+class FixedBUG(TTNOBasedTimeEvolution):
     """
     The fixed rank Basis-Update and Galerkin (BUG) time evolution algorithm.
     """
@@ -68,6 +68,7 @@ class FixedBUG(TTNTimeEvolution):
         """
 
         super().__init__(initial_state,
+                         hamiltonian,
                          time_step_size,
                          final_time,
                          operators,

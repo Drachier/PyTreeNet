@@ -21,7 +21,7 @@ class TestTEBDinit(unittest.TestCase):
         self.trotter_splitting = ptn.TrotterSplitting(self.steps)
         self.time_step_size = 0.1
         self.final_time = 1.0
-        self.operators = [random_tensor_product(self.initial_state, 1)]
+        self.operators = {"operaator": random_tensor_product(self.initial_state, 1)}
         self.svd_parameters = ptn.SVDParameters(100, 1e-10, 1e-15)
 
     def test_valid_init(self):

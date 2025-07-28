@@ -4,11 +4,9 @@ Implements the class for the second order two-site TDVP algorithm.
 from typing import List, Union, Any
 
 from .twositetdvp import TwoSiteTDVP, TwoSiteTDVPConfig
-from .tdvp_algorithm import TDVPConfig
 from ...ttns.ttns import TreeTensorNetworkState
 from ...ttno.ttno_class import TTNO
 from ...operators.tensorproduct import TensorProduct
-from ...util.tensor_splitting import SVDParameters
 
 class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
 
@@ -16,7 +14,6 @@ class SecondOrderTwoSiteTDVP(TwoSiteTDVP):
                  hamiltonian: TTNO,
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
-                 truncation_parameters: SVDParameters,
                  config: Union[TwoSiteTDVPConfig,None] = None,
                  solver_options: Union[dict[str, Any], None] = None
                  ) -> None:

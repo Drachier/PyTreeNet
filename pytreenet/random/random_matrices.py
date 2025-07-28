@@ -4,28 +4,41 @@ This module contains functions to generate random matrices.
 from typing import Tuple, Union
 
 import numpy as np
+import numpy.random as npr
 from scipy.linalg import expm
 
 from ..util.ttn_exceptions import positivity_check
 
-def crandn(size: Union[Tuple[int,...],int], *args) -> np.ndarray:
+def crandn(size: Union[Tuple[int,...],int],
+           *args,
+           seed=None,
+           loc: float = 0.0,
+           scale: float = 1.0
+           ) -> np.ndarray:
     """
     Draw random samples from the standard complex normal (Gaussian)
       distribution.
 
     Args:
         size (Tuple[int,...]): The size/shape of the output array.
+        *args: Additional dimensions to be added to the size.
+        seed (int, optional): Seed for the random number generator.
+            Defaults to None.
+        loc (float, optional): Mean of the distribution. Defaults to 0.0.
+        scale (float, optional): Standard deviation of the distribution.
+            Defaults to 1.0.
 
     Returns:
         np.ndarray: The array of random complex numbers.
     """
+    rng = npr.default_rng(seed)
     if isinstance(size, int) and len(args) > 0:
-        size = [size] + list(args)
+        size = tuple([size] + list(args))
     elif isinstance(size,int):
         size = (size,)
     # 1/sqrt(2) is a normalization factor
-    return (np.random.standard_normal(size)
-       + 1j*np.random.standard_normal(size)) / np.sqrt(2)
+    return (rng.normal(loc, scale, size) +
+       + 1j*rng.normal(loc, scale, size)) / np.sqrt(2)
 
 def crandn_like(array: np.ndarray) -> np.ndarray:
     """

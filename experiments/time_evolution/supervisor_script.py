@@ -1,99 +1,83 @@
 """
 This script is used to superwise the time evolution experiments in PyTreeNet.
 """
-import sys
 import os
-import json
-import subprocess
-import logging
-from enum import Enum
+from itertools import product
 
-from sim_script import (get_param_hash,
-                         CURRENT_PARAM_FILENAME)
-from parameters import generate_parameter_set
+from pytreenet.util.experiment_util.supervisor import (Supervisor,
+                                                       SIMSCRIPT_STANDARD_NAME)
+from pytreenet.operators.models.topology import Topology
+from pytreenet.special_ttn.special_states import TTNStructure
+from pytreenet.time_evolution.time_evo_enum import TimeEvoAlg
+from pytreenet.time_evolution.time_evolution import TimeEvoMode
 
-LOG_FILE_NAME = "log.txt"
+from sim_script import TotalParameters
 
-class Status(Enum):
+def generate_parameter_set() -> list[TotalParameters]:
     """
-    Enumeration for the status of a simulation.
+    Generates a set of parameters for time evolution experiments.
+    
+    Returns:
+        list[TotalParameters]: A list of tuples containing simulation and time evolution parameters.
     """
-    SUCCESS = "success"
-    FAILED = "failed"
-    RUNNING = "running"
-    TIMEOUT = "timeout"
-    UNKNOWN = "unknown"
+    time_step = 0.01
+    ext_magn = 0.1
+    final_time = 1.0
+    topology = Topology.CHAIN
+    ttn_structure = [TTNStructure.MPS, TTNStructure.BINARY]
+    num_sites = [5,10,15,20]
+    interaction_length = [2,3,4]
 
-def params_to_dict(params):
-    sim_params = params[0]
-    time_evo_params = params[1]
-    dictionary = sim_params.to_dict()
-    dictionary.update(time_evo_params.to_dict())
-    return dictionary
+    time_evo_modes = [TimeEvoMode.CHEBYSHEV,
+                      TimeEvoMode.EXPM,
+                      TimeEvoMode.RK45,
+                      TimeEvoMode.RK23,
+                      TimeEvoMode.BDF,
+                      TimeEvoMode.DOP853]
+    evo_alg = TimeEvoAlg.SITE2ORDER2TDVP
+    maximum_bond_dim = [1,2,5,10,20,25,50,75,100]
+    rel_svalue = 1e-15
+    abs_svalue = 1e-15
 
-if len(sys.argv) < 2:
-    print("Usage: python supervisor_script.py <save_directory> [--skip-existing]")
-    sys.exit(1)
+    atol=1e-8
+    rtol=1e-8
 
-save_directory = sys.argv[1]
-os.makedirs(save_directory, exist_ok=True)
-SKIP_EXISTING = "--skip-existing" in sys.argv
+    # Generate a list of simulation parameters with different configurations
+    iterator = product(num_sites,
+                       interaction_length,
+                       time_evo_modes,
+                       maximum_bond_dim,
+                       ttn_structure)
+    sim_params_list = []
+    for ns, il, time_evo_mode, max_bd, ttn_str in iterator:
+        sim_params = TotalParameters(ttns_structure=ttn_str,
+                                     topology=topology,
+                                     system_size=ns,
+                                     ext_magn=ext_magn,
+                                     interaction_range=il,
+                                     time_evo_method=time_evo_mode,
+                                     time_evo_algorithm=evo_alg,
+                                     time_step_size=time_step,
+                                     final_time=final_time,
+                                     max_bond_dim=max_bd,
+                                     rel_svalue=rel_svalue,
+                                     abs_svalue=abs_svalue,
+                                     atol=atol,
+                                     rtol=rtol)
+        sim_params_list.append(sim_params)
+    return sim_params_list
 
-INDEX_FILE = os.path.join(save_directory, "metadata.json")
-if SKIP_EXISTING and os.path.exists(INDEX_FILE):
-    with open(INDEX_FILE, "r") as f:
-        param_index = json.load(f)
-else:
-    param_index = {}
+def main():
+    """
+    Main function to set up and run the supervisor for time evolution experiments.
+    """
+    param_set = generate_parameter_set()
+    # The simulation script lies in the same directory as this script
+    sim_script_path = os.path.join(os.path.dirname(__file__),
+                                   SIMSCRIPT_STANDARD_NAME)
+    supervisor = Supervisor.from_commandline(param_set,
+                                             sim_script_path)
+    supervisor.run_simulations()
 
-# Configure logging
-log_path = os.path.join(save_directory, LOG_FILE_NAME)
-logging.basicConfig(
-    filename=log_path,
-    level=logging.INFO
-)
-
-# You will want to adjust parameters in the parameters.py file
-PARAMETER_SET = generate_parameter_set()
-for i, parameters in enumerate(PARAMETER_SET):
-
-    PARAM_HASH = get_param_hash(parameters[0], parameters[1])
-    if SKIP_EXISTING and PARAM_HASH in param_index:
-        logging.info("### Skipping existing simulation for parameters %d", i)
-        continue
-
-    logging.info("### Running simulation %d with hash %s", i, PARAM_HASH)
-
-    with open(os.path.join(save_directory, CURRENT_PARAM_FILENAME), "w") as f:
-        dictionary = params_to_dict(parameters)
-        json.dump(dictionary, f, indent=4)
-
-    status = Status.UNKNOWN
-    try:
-        result = subprocess.run(
-            ["python", "experiments/time_evolution/sim_script.py", save_directory],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=False,
-            timeout=3600  # 1 hour timeout
-        )
-        if result.returncode == 0:
-            status = Status.SUCCESS
-        else:
-            status = Status.FAILED
-    except subprocess.TimeoutExpired:
-        status = Status.TIMEOUT
-
-    logging.info("Return code: %s", status.value)
-    if result.stdout:
-        logging.info("STDOUT:\n%s", result.stdout)
-    if result.stderr:
-        logging.error("STDERR:\n%s", result.stderr)
-
-    # Update the index file with the status
-    dictionary = params_to_dict(parameters)
-    dictionary["status"] = status.value
-    param_index[PARAM_HASH] = dictionary
-    with open(INDEX_FILE, "w") as f:
-        json.dump(param_index, f, indent=4)
+if __name__ == "__main__":
+    main()

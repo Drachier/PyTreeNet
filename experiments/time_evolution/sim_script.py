@@ -3,112 +3,58 @@ This script simulates the time evolution of a multi-site ising model
 for different topologies.
 """
 from __future__ import annotations
-import sys
-from enum import Enum
 from dataclasses import dataclass
-from fractions import Fraction
 from time import time
-import hashlib
-import json
 import os
-import traceback
 
-import numpy as np
 from h5py import File
 
-from pytreenet.operators.common_operators import pauli_matrices, ket_i
 from pytreenet.operators.hamiltonian import Hamiltonian
 from pytreenet.operators.tensorproduct import TensorProduct
-from pytreenet.operators.sim_operators import (create_single_site_hamiltonian,
-                                               single_site_operators)
+from pytreenet.operators.models import local_magnetisation
 from pytreenet.ttns.ttns import TreeTensorNetworkState
-from pytreenet.special_ttn.binary import generate_binary_ttns
-from pytreenet.special_ttn.mps import MatrixProductState
-from pytreenet.special_ttn.star import StarTreeTensorState
-from pytreenet.time_evolution.time_evolution import TimeEvoMode
+from pytreenet.time_evolution.time_evolution import TimeEvoMode, TimeEvolution
 from pytreenet.time_evolution.time_evo_enum import TimeEvoAlg
 from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
 
+from pytreenet.operators.models.two_site_model import (IsingModel,
+                                                       IsingParameters)
+from pytreenet.special_ttn.special_states import (TTNStructure,
+                                                  generate_zero_state)
+from pytreenet.operators.models.topology import Topology
+from pytreenet.util.experiment_util.script_util import script_main
+
 NODE_PREFIX = "qubit"
-CURRENT_PARAM_FILENAME = "current_parameters.json"
-
-class TTNStructure(Enum):
-    """
-    Enum for different tree tensor network structures.
-    """
-    MPS = "mps"
-    BINARY = "binary"
-
-class Topology(Enum):
-    """
-    Enum for different topologies.
-    """
-    CHAIN = "chain"
-    TTOPOLOGY = "t_topology"
-    CAYLEY = "cayley"
+FILENAME_PREFIX = "simulation_"
 
 @dataclass
-class SimulationParameters:
+class LocalSimulationParameters(IsingParameters):
     """
     Dataclass to hold simulation parameters.
+
+    Attributes:
+        ttns_structure (TTNSTructure): The structure of the TTNS used for 
+            simulation.
+        topology (Topology): The system topology defining the Hamiltonian
+            used for simulation.
+        system_size (int): The characteristic size of the system. For a chain
+            this is the toal number of sites, for a star this is the chain
+            length, for a Cayley tree this is the depth.
     """
-    ttns_structure: TTNStructure
-    topology: Topology
-    num_sites: int
-    interaction_length: int
-    strength: float
+    ttns_structure: TTNStructure = TTNStructure.MPS
+    topology: Topology = Topology.CHAIN
+    system_size: int = 1
     init_bond_dim: int = 2
-
-    def to_dict(self) -> dict:
-        """
-        Convert the simulation parameters to a dictionary.
-        """
-        return {
-            "ttns_structure": self.ttns_structure.value,
-            "topology": self.topology.value,
-            "num_sites": self.num_sites,
-            "interaction_length": self.interaction_length,
-            "strength": self.strength,
-            "init_bond_dim": self.init_bond_dim
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "SimulationParameters":
-        """
-        Create a SimulationParameters instance from a dictionary.
-        """
-        ttns_structure = TTNStructure(data["ttns_structure"])
-        topology = Topology(data["topology"])
-        return cls(
-            ttns_structure,
-            topology,
-            data["num_sites"],
-            data["interaction_length"],
-            data["strength"],
-            init_bond_dim=data.get("init_bond_dim", 2)
-        )
-
-    def save_to_h5(self, file: File):
-        """
-        Saves the simulation parameters to an HDF5 file.
-        """
-        group = file.create_group("simulation_parameters")
-        group.attrs["ttns_structure"] = self.ttns_structure.value
-        group.attrs["topology"] = self.topology.value
-        group.attrs["num_sites"] = self.num_sites
-        group.attrs["interaction_length"] = self.interaction_length
-        group.attrs["strength"] = self.strength
-        group.attrs["init_bond_dim"] = self.init_bond_dim
 
 @dataclass
 class TimeEvolutionParameters:
     """
     Dataclass to hold time evolution parameters.
     """
-    time_evo_method: TimeEvoMode
-    time_evo_algorithm: TimeEvoAlg
-    time_step_size: float
-    final_time: float
+    time_evo_method: TimeEvoMode = TimeEvoMode.CHEBYSHEV
+    time_evo_algorithm: TimeEvoAlg = TimeEvoAlg.BUG
+    time_step_size: float = 0.01
+    final_time: float = 1.0
     ## For scipy methods
     atol: float = 1e-6
     rtol: float = 1e-6
@@ -117,85 +63,40 @@ class TimeEvolutionParameters:
     rel_svalue: float = 1e-6
     abs_svalue: float = 1e-6
 
-    def to_dict(self) -> dict:
-        """
-        Convert the time evolution parameters to a dictionary.
-        """
-        out = {
-            "time_evo_method": self.time_evo_method.value,
-            "time_evo_algorithm": self.time_evo_algorithm.value,
-            "time_step_size": self.time_step_size,
-            "final_time": self.final_time}
-        if self.time_evo_method.is_scipy():
-            out["atol"] = self.atol
-            out["rtol"] = self.rtol
-        if self.time_evo_algorithm.requires_svd():
-            out["max_bond_dim"] = self.max_bond_dim
-            out["rel_svalue"] = self.rel_svalue
-            out["abs_svalue"] = self.abs_svalue
-        return out
+@dataclass
+class TotalParameters(LocalSimulationParameters,
+                      TimeEvolutionParameters):
+    """
+    A dataclass to hold all parameters for the simulation.
+    """
 
-    @classmethod
-    def from_dict(cls, data: dict) -> "TimeEvolutionParameters":
-        """
-        Create a TimeEvolutionParameters instance from a dictionary.
-        """
-        time_evo_method = TimeEvoMode(data["time_evo_method"])
-        time_evo_algorithm = TimeEvoAlg(data["time_evo_algorithm"])
-        return cls(
-            time_evo_method,
-            time_evo_algorithm,
-            data["time_step_size"],
-            data["final_time"],
-            atol=data.get("atol", 1e-6),
-            rtol=data.get("rtol", 1e-6),
-            max_bond_dim=data.get("max_bond_dim", 100),
-            rel_svalue=data.get("rel_svalue", 1e-6),
-            abs_svalue=data.get("abs_svalue", 1e-6)
-        )
-
-    def save_to_h5(self, file: File):
-        """
-        Saves the time evolution parameters to an HDF5 file.
-        """
-        group = file.create_group("time_evolution_parameters")
-        group.attrs["time_evo_method"] = self.time_evo_method.value
-        group.attrs["time_evo_algorithm"] = self.time_evo_algorithm.value
-        if self.time_evo_method.is_scipy():
-            group.attrs["atol"] = self.atol
-            group.attrs["rtol"] = self.rtol
-        if self.time_evo_algorithm.requires_svd():
-            group.attrs["max_bond_dim"] = self.max_bond_dim
-            group.attrs["rel_svalue"] = self.rel_svalue
-            group.attrs["abs_svalue"] = self.abs_svalue
-
-def initial_state(sim_params: SimulationParameters
+def initial_state(sim_params: LocalSimulationParameters
                   ) -> TreeTensorNetworkState:
     """
     Generate the initial state based on the simulation parameters.
     """
-    init_bond_dim = sim_params.init_bond_dim
     phys_dim = 2
-    if sim_params.ttns_structure == TTNStructure.MPS and sim_params.topology == Topology.CHAIN:
-        state = MatrixProductState.constant_product_state(0,phys_dim,
-                                                          sim_params.num_sites,
-                                                          node_prefix=NODE_PREFIX)
-        state.pad_bond_dimensions(init_bond_dim)
-        return state
-    if sim_params.ttns_structure == TTNStructure.BINARY and sim_params.topology == Topology.CHAIN:
-        local_state = ket_i(0, phys_dim)
-        phys_tensor = np.zeros((init_bond_dim, phys_dim), dtype=complex)
-        phys_tensor[0,:] = local_state
-        state = generate_binary_ttns(sim_params.num_sites,
-                                     init_bond_dim,
-                                     phys_tensor,
-                                     phys_prefix=NODE_PREFIX,
-                                     )
-        return state
-    raise ValueError(f"Unsupported combination of structure {sim_params.ttns_structure} "
-                     f"and topology {sim_params.topology}.")
+    oned_structures = [TTNStructure.MPS,
+                       TTNStructure.BINARY]
+    if sim_params.topology == Topology.CHAIN and sim_params.ttns_structure in oned_structures:
+        system_size = sim_params.system_size
+    elif sim_params.topology == Topology.TTOPOLOGY and sim_params.ttns_structure in oned_structures:
+        system_size = 3 * sim_params.system_size
+    elif sim_params.topology == Topology.TTOPOLOGY and sim_params.ttns_structure == TTNStructure.TSTAR:
+        system_size = sim_params.system_size
+    else:
+        errstr = f"Unsupported combination of structure {sim_params.ttns_structure} "
+        errstr += f"and topology {sim_params.topology}."
+        raise ValueError(errstr)
+    state = generate_zero_state(system_size,
+                                sim_params.ttns_structure,
+                                phys_dim=phys_dim,
+                                node_prefix=NODE_PREFIX,
+                                bond_dim=sim_params.init_bond_dim)
+    assert isinstance(state, TreeTensorNetworkState)
+    return state
 
-def generate_ising_hamiltonian(sim_params: SimulationParameters
+def generate_ising_hamiltonian(sim_params: LocalSimulationParameters
                                 ) -> Hamiltonian:
     """
     Generate the Ising Hamiltonian based on the simulation parameters.
@@ -205,53 +106,68 @@ def generate_ising_hamiltonian(sim_params: SimulationParameters
 
     where J=1 is the interaction strength, g is the external field, and
     """
-    ext_field = sim_params.strength
-    hamiltonian = Hamiltonian()
-    x, _, z = pauli_matrices()
-    conv_dict = {"X": x, "Z": z}
-    coeff_map = {"J": 1.0+0.0j, "g": complex(ext_field)}
-    hamiltonian.conversion_dictionary = conv_dict
-    hamiltonian.coeffs_mapping = coeff_map
-    hamiltonian.include_identities([1,2])
-    if sim_params.topology == Topology.CHAIN:
-        qubits = [f"{NODE_PREFIX}{i}" for i in range(sim_params.num_sites)]
-        single_site = create_single_site_hamiltonian(qubits,
-                                                     "Z",
-                                                     (Fraction(-1), "g")
-                                                     )
-        hamiltonian.add_hamiltonian(single_site)
-        for i in range(sim_params.num_sites - sim_params.interaction_length):
-            ops = {}
-            for j in range(sim_params.interaction_length):
-                ops[f"{NODE_PREFIX}{i + j}"] = "X"
-            operator = TensorProduct(ops)
-            hamiltonian.add_term((Fraction(-1), "J", operator))
-        return hamiltonian
-    raise ValueError(f"Unsupported topology {sim_params.topology}.")
+    model = IsingModel.from_dataclass(sim_params)
+    return model.generate_by_topology(sim_params.topology,
+                                      sim_params.system_size,
+                                      site_id_prefix=NODE_PREFIX)
 
 def get_single_site_operators(length: int
                              ) -> dict[str, TensorProduct]:
     """
     Generate single-site operators for the given length.
     """
-    ops = single_site_operators(pauli_matrices()[2],
-                                [NODE_PREFIX + str(i) for i in range(length)],
-                                with_factor=False)
+    ops = local_magnetisation([NODE_PREFIX + str(i) for i in range(length)])
     return ops
 
-def get_param_hash(sim_params: SimulationParameters,
-                     time_evo_params: TimeEvolutionParameters) -> str:
+def set_up_time_evolution(sim_params: TimeEvolutionParameters,
+                          state: TreeTensorNetworkState,
+                          ttno: TreeTensorNetworkOperator,
+                          operators: dict[str, TensorProduct]
+                          ) -> TimeEvolution:
     """
-    Generate a hash for the simulation parameters.
-    """
-    param_dict = sim_params.to_dict()
-    param_dict.update(time_evo_params.to_dict())
-    param_str = json.dumps(param_dict, sort_keys=True)
-    hash = hashlib.sha256(param_str.encode()).hexdigest()[:30]
-    return hash
+    Set up the time evolution algorithm based on the simulation parameters.
 
-def run_one_simulation(sim_params: SimulationParameters,
-                       time_evo_params: TimeEvolutionParameters,
+    Args:
+        sim_params (TimeEvolutionParameters): The time evolution parameters.
+        state (TreeTensorNetworkState): The initial state of the system.
+        ttno (TreeTensorNetworkOperator): The operator representing the
+            Hamiltonian of the system.
+        operators (dict[str, TensorProduct]): The operators to be evaluated
+            during time evolution.
+    
+    Returns:
+        TimeEvolution: An instance of the time evolution algorithm.
+    """
+    if sim_params.time_evo_method.is_scipy():
+        solver_options = {
+            "atol": sim_params.atol,
+            "rtol": sim_params.rtol
+        }
+    else:
+        solver_options = None
+    time_evo_alg_kind = sim_params.time_evo_algorithm
+    config = time_evo_alg_kind.get_class().config_class()
+    config.record_bond_dim = True
+    config.record_norm = True
+    config.record_max_bdim = True
+    config.record_average_bdim = True
+    config.record_total_size = True
+    config.record_loschmidt_amplitude = True
+    config.time_evo_mode = sim_params.time_evo_method
+    if time_evo_alg_kind.requires_svd():
+        config.max_bond_dim = sim_params.max_bond_dim
+        config.rel_tol = sim_params.rel_svalue
+        config.total_tol = sim_params.abs_svalue
+    time_evo = time_evo_alg_kind.get_algorithm_instance(state,
+                                                        ttno,
+                                                        sim_params.time_step_size,
+                                                        sim_params.final_time,
+                                                        operators,
+                                                        config=config,
+                                                        solver_options=solver_options)
+    return time_evo
+
+def run_one_simulation(sim_params: TotalParameters,
                        save_file_root: str
                        ) -> float:
     """
@@ -272,81 +188,24 @@ def run_one_simulation(sim_params: SimulationParameters,
     hamiltonian = generate_ising_hamiltonian(sim_params)
     ttno = TreeTensorNetworkOperator.from_hamiltonian(hamiltonian, state)
     # Create operators to be evaluated during time evolution
-    operators = get_single_site_operators(sim_params.num_sites)
+    operators = get_single_site_operators(sim_params.system_size)
     # Set up the time evolution algorithm
-    if time_evo_params.time_evo_method.is_scipy():
-        solver_options = {
-            "atol": time_evo_params.atol,
-            "rtol": time_evo_params.rtol
-        }
-    else:
-        solver_options = None
-    time_evo_alg_kind = time_evo_params.time_evo_algorithm
-    config = time_evo_alg_kind.get_class().config_class()
-    config.record_bond_dim = True
-    config.record_norm = True
-    config.record_max_bdim = True
-    config.record_average_bdim = True
-    config.record_total_size = True
-    config.record_loschmidt_amplitude = True
-    config.time_evo_mode = time_evo_params.time_evo_method
-    if time_evo_alg_kind.requires_svd():
-        config.max_bond_dim = time_evo_params.max_bond_dim
-        config.rel_tol = time_evo_params.rel_svalue
-        config.total_tol = time_evo_params.abs_svalue
-    time_evo_alg = time_evo_alg_kind.get_algorithm_instance(state,
-                                                            ttno,
-                                                            time_evo_params.time_step_size,
-                                                            time_evo_params.final_time,
-                                                            operators,
-                                                            config=config,
-                                                            solver_options=solver_options)
+    time_evo_alg = set_up_time_evolution(sim_params, state, ttno, operators)
     # Run the time evolution
     start_time = time()
     time_evo_alg.run(pgbar=False)
     end_time = time()
     elapsed_time = end_time - start_time
-    param_hash = get_param_hash(sim_params, time_evo_params)
+    param_hash = sim_params.get_hash()
     # Save the results
-    save_file_path = os.path.join(save_file_root, f"simulation_{param_hash}.h5")
+    save_file_path = os.path.join(save_file_root, FILENAME_PREFIX + f"{param_hash}.h5")
     print(f"Saving results to {save_file_path}")
     with File(save_file_path, "w") as file:
         time_evo_alg.results.save_to_h5(file)
         sim_params.save_to_h5(file)
-        time_evo_params.save_to_h5(file)
         file.attrs["elapsed_time"] = elapsed_time
     return elapsed_time
 
-def load_params(path=CURRENT_PARAM_FILENAME
-                ) -> tuple[SimulationParameters, TimeEvolutionParameters]:
-    """
-    Load the parameters from a JSON file.
-    
-    Args:
-        path (str): The path to the JSON file containing the parameters.
-    
-    Returns:
-        tuple: A tuple containing SimulationParameters and TimeEvolutionParameters.
-    """
-    with open(path, "r") as f:
-        data = json.load(f)
-    sim_params = SimulationParameters.from_dict(data)
-    time_evo_params = TimeEvolutionParameters.from_dict(data)
-    return sim_params, time_evo_params
-
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python sim_script.py <save_directory>")
-        sys.exit(1)
-
-    try:
-        save_directory = sys.argv[1]
-        PARAM_PATH = os.path.join(save_directory, CURRENT_PARAM_FILENAME)
-        SIM_PARAMS, TIME_EVO_PARAMS = load_params(PARAM_PATH)
-        runtime = run_one_simulation(SIM_PARAMS, TIME_EVO_PARAMS, save_directory)
-        print(f"Simulation completed in {runtime:.2f} seconds.")
-        sys.exit(0)
-    except Exception as e:
-        print(f"An error occurred: {e}", file=sys.stderr)
-        traceback.print_exc()
-        sys.exit(1)
+    script_main(run_one_simulation,
+                TotalParameters)

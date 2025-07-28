@@ -175,13 +175,14 @@ def exact_single_site_operator(local_operator: ndarray,
             operator = kron(operator, identity)
     return operator
 
-def exact_zero_state(num_sites: int, local_dimension: int) -> ndarray:
+def exact_zero_state(num_sites: int,
+                     local_dimension: int = 2) -> ndarray:
     """
     Generate the exact zero state for a chain of quantum systems.
 
     Args:
         num_sites (int): The number of sites.
-        local_dimension (int): The local dimension.
+        local_dimension (int): The local dimension. Default is 2.
 
     Returns:
         ndarray: The zero state.
@@ -189,6 +190,28 @@ def exact_zero_state(num_sites: int, local_dimension: int) -> ndarray:
     """
     total_dim = local_dimension**num_sites
     return ket_i(0, total_dim)
+
+def exact_constant_product_state(value: int,
+                                 num_sites: int,
+                                 local_dimension: int = 2
+                                 ) -> ndarray:
+    """
+    Generate the exact constant product state for a chain of quantum systems.
+
+    Args:
+        value (int): The value to fill the state with.
+        num_sites (int): The number of sites.
+        local_dimension (int): The local dimension. Default is 2.
+
+    Returns:
+        ndarray: The constant product state.
+
+    """
+    local_tensor = ket_i(value, local_dimension)
+    out = asarray([1], dtype=complex)
+    for _ in range(num_sites):
+        out = kron(out, local_tensor)
+    return out
 
 def assert_square_matrix(operator: ndarray) -> None:
     """

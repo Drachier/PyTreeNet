@@ -387,11 +387,22 @@ class Node(GraphNode):
         """
         return super().nneighbours()
 
-    def nopen_legs(self):
+    def nopen_legs(self, trivial: bool = True):
         """
         Returns the number of open legs of this node.
+
+        Args:
+            trivial (bool): Whether to consider trivial legs, i.e. of
+                size 1, when counting open legs. Defaults to True
         """
-        return self.nlegs() - self.nvirt_legs()
+        if trivial:
+            num_triv = 0
+        else:
+            shape = self.shape
+            triv_legs = [i for i in range(self.nvirt_legs(),self.nlegs())
+                         if shape[i] == 1]
+            num_triv = len(triv_legs)
+        return self.nlegs() - self.nvirt_legs() - num_triv
 
     def open_dimension(self) -> int:
         """

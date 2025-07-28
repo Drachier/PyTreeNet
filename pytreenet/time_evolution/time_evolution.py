@@ -6,6 +6,8 @@ from typing import List, Union, Any, Dict, Iterable, Callable
 from enum import Enum
 from copy import deepcopy
 from math import modf
+from warnings import warn
+from dataclasses import dataclass
 
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -15,6 +17,15 @@ from numpy.typing import DTypeLike
 from ..util.ttn_exceptions import positivity_check, non_negativity_check
 from ..util import fast_exp_action
 from .results import Results
+
+@dataclass
+class TimeEvoConfig:
+    """
+    Abstract configuration for time evolution algorithms.
+    
+    This is to ensure that all time evolution algorithms can be configured.
+    """
+    time_dep: bool = False
 
 class TimeEvolution:
     """
@@ -34,13 +45,18 @@ class TimeEvolution:
         final_time (float): The time at which to conclude the time-evolution.
         operators (List[Any]): A list of operators to be evaluated.
     """
+    config_class = TimeEvoConfig
 
-    def __init__(self, initial_state: Any, time_step_size: float,
-                 final_time: float, operators: Union[List[Any], Dict[str, Any], Any],
-                 solver_options: Union[Dict[str, Any], None] = None):
+    def __init__(self,
+                 initial_state: Any,
+                 time_step_size: float,
+                 final_time: float,
+                 operators: Union[List[Any], Dict[str, Any], Any],
+                 solver_options: Union[Dict[str, Any], None] = None,
+                 config: Union[TimeEvoConfig, None] = None):
         """
-        Initialises a TimeEvoluion object.
-        
+        Initialises a TimeEvolution object.
+
         Args:
             initial_state (Any): The initial state.
             time_step_size (float): The size of one time step.
@@ -55,6 +71,9 @@ class TimeEvolution:
                 pass additional options to the solver. Refer to the
                 documentation of `ptn.time_evolution.TimeEvoMode` for further
                 information. Defaults to None.
+            config (Union[TimeEvoConfig, None], optional): The configuration
+                for the time evolution algorithm. If None, a default
+                configuration is used.
         """
         self._initial_state = initial_state
         self.state = deepcopy(initial_state)
@@ -64,7 +83,10 @@ class TimeEvolution:
         self._final_time = final_time
         self._num_time_steps = self._compute_num_time_steps()
         self.operators = self.init_operators(operators)
-        self._results = None
+        if config is None:
+            self.config = self.config_class()
+        else:
+            self.config = config
         if solver_options is None:
             self.solver_options = {}
         else:
@@ -176,6 +198,14 @@ class TimeEvolution:
             complex: The expectation value of the operator.
         """
         raise NotImplementedError()
+    
+    def update_hamiltonian(self):
+        """
+        Abstract method to update the Hamiltonian for the next time step.
+        
+        This is only required for time-dependent Hamiltonians.
+        """
+        raise NotImplementedError("This method should be implemented in a subclass!")
 
     def evaluate_operators(self, index: int):
         """
@@ -326,6 +356,16 @@ class TimeEvolution:
             if i != 0:  # We also measure the initial expectation_values
                 self.run_one_time_step()
             self.evaluate_and_save_results(evaluation_time, i)
+            if self.config_class.time_dep:
+                self.update_hamiltonian()
+
+    def reset_hamiltonian(self):
+        """
+        Resets the Hamiltonian to its initial state.
+
+        This is only required for time-dependent Hamiltonians.
+        """
+        raise NotImplementedError("This method should be implemented in a subclass!")
 
     def reset_to_initial_state(self):
         """
@@ -333,6 +373,8 @@ class TimeEvolution:
         """
         self.state = deepcopy(self._initial_state)
         self.results = Results()
+        if self.config_class.time_dep:
+            self.reset_hamiltonian()
 
 class EvoDirection(Enum):
     """
@@ -458,6 +500,12 @@ class TimeEvoMode(Enum):
                 forward = EvoDirection.from_bool(forward)
             exp_factor = forward.exp_factor()
             orig_shape = psi.shape
+            if not np.issubdtype(psi.dtype, np.complexfloating):
+                psi = psi.astype(np.complex64)
+                warnstr ="You supplied a real dtyped tensor, but the time"
+                warnstr += " evolution is complex. The tensor will be cast to "
+                warnstr += "complex64. This might impede performance!"
+                warn(warnstr, UserWarning)
             def ode_rhs(t, y_vec):
                 orig_array = y_vec.reshape(orig_shape)
                 action_result = time_evo_action(t, orig_array).flatten()
