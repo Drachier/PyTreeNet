@@ -53,6 +53,19 @@ class QuantumGate(ABC):
         self.symbol = symbol
         self.qubit_ids = qubit_ids
 
+    def __eq__(self, other: QuantumGate) -> bool:
+        """
+        Check equality of two quantum gates based on their symbol and qubit IDs.
+
+        Args:
+            other (object): The other object to compare with.
+
+        Returns:
+            bool: True if both gates have the same symbol and qubit IDs, False otherwise.
+        """
+        return (self.symbol == other.symbol and
+                self.qubit_ids == other.qubit_ids)
+
     @abstractmethod
     def get_generator(self) -> Hamiltonian:
         """
@@ -218,6 +231,22 @@ class PhaseGate(SingleQubitGate):
         super().__init__(QGate.PHASE.value + f"{phase}", qubit_id)
         self.phase = phase
 
+    def __eq__(self,
+               other: QuantumGate
+               ) -> bool:
+        """
+        Check equality of two quantum gates based on their symbol and qubit IDs.
+
+        Args:
+            other (QuantumGate): The other quantum gate to compare with.
+
+        Returns:
+            bool: True if both gates have the same symbol and qubit IDs, False otherwise.
+        """
+        if not isinstance(other, PhaseGate):
+            return False
+        return super().__eq__(other) and self.phase == other.phase
+
     def get_generator(self) -> Hamiltonian:
         """
         Get the generator of the Phase gate.
@@ -294,6 +323,16 @@ class CNOTGate(QuantumGate):
         super().__init__(QGate.CNOT.value, [control_qubit_id, target_qubit_id])
         self.control_qubit_id = control_qubit_id
         self.target_qubit_id = target_qubit_id
+
+    def __eq__(self, other: QuantumGate) -> bool:
+        """
+        Check equality of two CNOT gates.
+        """
+        if not isinstance(other, CNOTGate):
+            return False
+        return (self.control_qubit_id == other.control_qubit_id and
+                self.target_qubit_id == other.target_qubit_id and
+                super().__eq__(other))
 
     def get_generator(self) -> Hamiltonian:
         """
@@ -487,6 +526,18 @@ class ToffoliGate(QuantumGate):
         self.control_qubit_id1 = control_qubit_id1
         self.control_qubit_id2 = control_qubit_id2
         self.target_qubit_id = target_qubit_id
+
+    def __eq__(self, other: QuantumGate) -> bool:
+        """
+        Check equality of two Toffoli gates.
+        """
+        if not isinstance(other, ToffoliGate):
+            return False
+        contr_eq = {self.control_qubit_id1, self.control_qubit_id2} == \
+                   {other.control_qubit_id1, other.control_qubit_id2}
+        return (contr_eq and
+                self.target_qubit_id == other.target_qubit_id and
+                super().__eq__(other))
 
     def get_generator(self) -> Hamiltonian:
         """
