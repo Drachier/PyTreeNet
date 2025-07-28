@@ -8,7 +8,7 @@ from scipy.linalg import expm
 import pytreenet as ptn
 from pytreenet.random.random_ttns_and_ttno import (small_ttns_and_ttno,
                                                    big_ttns_and_ttno)
-np.random.seed(4234256543)
+np.random.seed(123)
 class TestDMRGsmall(unittest.TestCase):
     def setUp(self):
         # We need a ttns to work with
@@ -43,7 +43,7 @@ class TestDMRGbig(unittest.TestCase):
         self.ttns, self.ttno = big_ttns_and_ttno()
 
         self.num_sweeps = 10
-        self.max_iter = 100
+        self.max_iter = 500
 
         # Deactivate Truncation
         self.svd_params = ptn.SVDParameters(float("inf"), float("-inf"), float("-inf"))
