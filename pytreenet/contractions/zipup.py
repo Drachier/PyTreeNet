@@ -1,29 +1,36 @@
 """
 This module provides functions to multiply a TTNS with a TTNO
 """
-
 from __future__ import annotations
-from typing import Union, Callable
+from typing import TYPE_CHECKING
 from copy import deepcopy
+
 import numpy as np
-import scipy
+
 from ..core.node import Node
 from ..core.graph_node import find_children_permutation
-from ..core.truncation.svd_truncation import svd_truncation
 from .tree_cach_dict import PartialTreeCachDict
-# from ..util.tensor_util import tensor_matricization
 from .contraction_util import (contract_all_but_one_neighbour_block_to_ket,
                                contract_all_neighbour_blocks_to_ket,
-                               get_equivalent_legs, 
+                               get_equivalent_legs,
                                contract_all_but_one_neighbour_block_to_hamiltonian)
 from ..util.tensor_splitting import tensor_qr_decomposition_pivot
-from .state_operator_contraction import contract_operator_tensor_ignoring_one_leg, _node_state_phys_leg, _node_operator_input_leg, contract_ket_tensor_ignoring_one_leg
-import time
+from .state_operator_contraction import (contract_operator_tensor_ignoring_one_leg,
+                                         _node_state_phys_leg,
+                                         _node_operator_input_leg,
+                                         contract_ket_tensor_ignoring_one_leg)
+from ..util.tensor_splitting import SVDParameters
+
+if TYPE_CHECKING:
+    from ..ttns.ttns import TreeTensorNetworkState
+    from ..ttno.ttno_class import TreeTensorNetworkOperator
+
 __all__ = ['zipup']
 
 def zipup(operator: TreeTensorNetworkOperator,
           state: TreeTensorNetworkState,
-          svd_params: SVDParameters=None) -> TreeTensorNetworkState:
+          svd_params: SVDParameters = None
+          ) -> TreeTensorNetworkState:
     """
     Apply a TTNO to a TTNS.
 
@@ -35,6 +42,8 @@ def zipup(operator: TreeTensorNetworkOperator,
     Returns:    
         TreeTensorNetworkState: The result of the application of the TTNO to the TTNS.
     """
+    if svd_params is None:
+        svd_params = SVDParameters()
     dictionary = PartialTreeCachDict()
     # Getting a linear list of all identifiers
     computation_order = state.linearise()
@@ -49,9 +58,8 @@ def zipup(operator: TreeTensorNetworkOperator,
         q,r = contract_any(node_id, parent_id,
                              resl_ttns, operator,
                              dictionary, svd_params)
-        resl_ttns.nodes[node_id]._reset_permutation()
-        resl_ttns.nodes[node_id]._shape = q.shape
-        resl_ttns._tensors[node_id] = q
+        resl_ttns.nodes[node_id].link_tensor(q)
+        resl_ttns.replace_tensor(node_id, q)
         dictionary.add_entry(node_id,parent_id,r)
         # The children contraction results are not needed anymore.
         children = node.children
@@ -66,23 +74,21 @@ def zipup(operator: TreeTensorNetworkOperator,
     if state.root[0].nneighbours() > 2 and ttno_point > ttns_point:
         tensor = contract_node_with_environment_2(resl_ttns.root_id,
                                             resl_ttns, operator,
-                                           dictionary, svd_params)
+                                           dictionary)
     else:
         tensor = contract_node_with_environment(resl_ttns.root_id,
                                             resl_ttns, operator,
-                                           dictionary, svd_params)
-    resl_ttns.nodes[resl_ttns.root_id]._reset_permutation()
-    resl_ttns.nodes[resl_ttns.root_id]._shape = tensor.shape
-    resl_ttns._tensors[resl_ttns.root_id] = tensor
+                                           dictionary)
+    root_node = resl_ttns.nodes[resl_ttns.root_id]
+    root_node.link_tensor(tensor)
+    resl_ttns.replace_tensor(resl_ttns.root_id, tensor)
     resl_ttns.canonical_form(resl_ttns.root_id)
-    # resl_ttns = svd_truncation(resl_ttns, svd_params)
     return resl_ttns
 
 def contract_node_with_environment(node_id: str,
                                    state: TreeTensorNetworkState,
-                                   operator: TTNO,
-                                   dictionary: PartialTreeCachDict,
-                                   svd_params: SVDParameters) -> np.ndarray:
+                                   operator: TreeTensorNetworkOperator,
+                                   dictionary: PartialTreeCachDict) -> np.ndarray:
     """
     Contracts a node with its environment.
 
@@ -121,20 +127,19 @@ def contract_node_with_environment(node_id: str,
                                                            ket_node,
                                                            dictionary)
     op_node, op_tensor = operator[node_id]
-    state_legs, ham_legs = get_equivalent_legs(ket_node, op_node)
+    _, ham_legs = get_equivalent_legs(ket_node, op_node)
     ham_legs.append(_node_operator_input_leg(op_node)[0])
     block_legs = list(range(1,2*ket_node.nneighbours(),2))
     block_legs.append(0)
-    
+
     kethamblock = np.tensordot(ket_neigh_block, op_tensor,
                                axes=(block_legs, ham_legs))
     return kethamblock
 
 def contract_node_with_environment_2(node_id: str,
                                    state: TreeTensorNetworkState,
-                                   operator: TTNO,
-                                   dictionary: PartialTreeCachDict,
-                                   svd_params: SVDParameters) -> np.ndarray:
+                                   operator: TreeTensorNetworkOperator,
+                                   dictionary: PartialTreeCachDict) -> np.ndarray:
     """
     Contracts a node with its environment.
 
@@ -175,8 +180,8 @@ def contract_node_with_environment_2(node_id: str,
         cached_neighbour_tensor = dictionary.get_entry(neighbour_id, ket_node.identifier)
         result_tensor = np.tensordot(result_tensor, cached_neighbour_tensor,
                                      axes=([0], [1]))
-    
-    state_legs, ham_legs = get_equivalent_legs(ket_node, op_node)
+
+    state_legs, _ = get_equivalent_legs(ket_node, op_node)
     perm = find_children_permutation(ket_node, op_node)
     state_legs = [state_legs[i] for i in perm]
     state_legs.append(-1)
@@ -222,7 +227,7 @@ def contract_any(node_id: str, next_node_id: str,
                                                  state_node, state_tensor,
                                                  operator_node, operator_tensor,
                                                  dictionary, svd_params)
-    
+
 def contract_any_node_environment_but_one(ignored_node_id: str,
                                             ket_node: Node, ket_tensor: np.ndarray,
                                             op_node: Node, op_tensor: np.ndarray,
@@ -272,6 +277,7 @@ def contract_any_node_environment_but_one(ignored_node_id: str,
                                     dictionary, svd_params)
     
     return new_state_tensor, cache_tensor
+
 def contract_leaf(state_node: Node,
                   state_tensor: np.ndarray,
                   operator_node: Node,
@@ -355,8 +361,8 @@ def contract_subtrees_using_dictionary(ignored_node_id: str,
                     |_____|    |______|
     
     """
-    ttno_point = np.prod(op_node._shape[:-2])/np.prod(op_node._shape[-2:])
-    ttns_point = np.prod(ket_node._shape[:-1])/np.prod(ket_node._shape[-1:])
+    ttno_point = np.prod(op_node.shape[:-2])/np.prod(op_node.shape[-2:])
+    ttns_point = np.prod(ket_node.shape[:-1])/np.prod(ket_node.shape[-1:])
     if ket_node.nneighbours() > 2 and ttno_point > ttns_point:
         tensor = contract_all_but_one_neighbour_block_to_hamiltonian(op_tensor,
                                                                      op_node,
