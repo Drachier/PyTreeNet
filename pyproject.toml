@@ -19,12 +19,12 @@ dependencies = [
     "scipy >= 1.15.0",
     "tqdm >= 4.65.0",
     "h5py >= 3.10.0",
+    "pyscf>=2.10.0",
 ]
 
 [project.optional-dependencies]
 notebook = ["ipykernel >= 6.24.0",
             "matplotlib>=3.9.2",
-            "pyscf>=2.10.0",
             ]
 docs = ["sphinx >= 7.1.2", "sphinxcontrib-napoleon==0.7"]
 tests = ["pytest >= 8.3.3",
