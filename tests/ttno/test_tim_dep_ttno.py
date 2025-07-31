@@ -11,7 +11,8 @@ import numpy as np
 from pytreenet.random.random_matrices import crandn
 from pytreenet.random.random_ttno import generate_three_layer_ttno
 from pytreenet.ttno.time_dep_ttno import (TimeDependentTTNO,
-                                          FactorUpdatable)
+                                          FactorUpdatable,
+                                          DiscreetTimeTTNO)
 
 class TestFactorUpdatable(unittest.TestCase):
     """
@@ -196,6 +197,92 @@ class TestTimeDependentTTNODoubleUpdate(unittest.TestCase):
         correct = tensor + 3 * self.initial_values1
         found = self.time_dep_ttno.tensors["child_ly10"][self.indices1]
         np.testing.assert_allclose(correct, found)
+
+class TestDiscreetTimeDepTTNO(unittest.TestCase):
+    """
+    Test the discreet time dependent TTNO.
+    """
+
+    def setUp(self) -> None:
+        self.ttnos = [generate_three_layer_ttno()
+                      for _ in range(3)]
+        self.dt = 0.1
+        self.discreet_ttno = DiscreetTimeTTNO(deepcopy(self.ttnos),
+                                              self.dt)
+
+    def test_init(self):
+        """
+        Test the initialisation.
+        """
+        self.assertEqual(self.discreet_ttno,
+                         self.ttnos[0])
+        for i, ttno in enumerate(self.ttnos):
+            self.assertEqual(ttno, self.discreet_ttno.ttnos[i])
+        self.assertEqual(0,self.discreet_ttno.current_time_step)
+        self.assertEqual(0,self.discreet_ttno.current_time)
+        self.assertEqual(self.dt,self.discreet_ttno.dt)
+
+    def test_update_no_change(self):
+        """
+        Test the that the update method does not change the TTNO, if the time
+        step is too small.
+        """
+        time_step = 0.05
+        self.discreet_ttno.update(time_step)
+        self.assertEqual(self.ttnos[0], self.discreet_ttno)
+        self.assertEqual(0,self.discreet_ttno.current_time_step)
+        self.assertEqual(0.05,self.discreet_ttno.current_time)
+
+    def test_update_exacthit(self):
+        """
+        Test the that the update method changes the TTNO, if the time step is
+        exactly equal to the dt.
+        """
+        time_step = self.dt
+        self.discreet_ttno.update(time_step)
+        self.assertNotEqual(self.ttnos[0], self.discreet_ttno)
+        self.assertEqual(self.ttnos[1], self.discreet_ttno)
+        self.assertEqual(1,self.discreet_ttno.current_time_step)
+        self.assertEqual(self.dt,self.discreet_ttno.current_time)
+
+    def test_update_largerthandt(self):
+        """
+        Test the that the update method changes the TTNO, if the time step is
+        larger than the dt.
+        """
+        time_step = 0.12
+        self.discreet_ttno.update(time_step)
+        self.assertNotEqual(self.ttnos[0], self.discreet_ttno)
+        self.assertEqual(self.ttnos[1], self.discreet_ttno)
+        self.assertEqual(1,self.discreet_ttno.current_time_step)
+        self.assertEqual(time_step,self.discreet_ttno.current_time)
+
+    def test_update_multiple_steps(self):
+        """
+        Test the that the update method changes the TTNO, even if the time
+        steps do not exactly match the dt.
+        """
+        time_step = 0.075
+        self.discreet_ttno.update(time_step)
+        self.assertEqual(self.ttnos[0], self.discreet_ttno)
+        self.assertEqual(0,self.discreet_ttno.current_time_step)
+        self.assertEqual(time_step,self.discreet_ttno.current_time)
+        self.discreet_ttno.update(time_step)
+        self.assertNotEqual(self.ttnos[0], self.discreet_ttno)
+        self.assertEqual(self.ttnos[1], self.discreet_ttno)
+        self.assertEqual(1,self.discreet_ttno.current_time_step)
+        self.assertEqual(2*time_step,self.discreet_ttno.current_time)
+
+    def test_reset(self):
+        """
+        Test the reset method.
+        """
+        time_step = self.dt
+        self.discreet_ttno.update(time_step)
+        self.discreet_ttno.reset()
+        self.assertEqual(self.ttnos[0], self.discreet_ttno)
+        self.assertEqual(0,self.discreet_ttno.current_time_step)
+        self.assertEqual(0,self.discreet_ttno.current_time)
 
 if __name__ == "__main__":
     unittest.main()
