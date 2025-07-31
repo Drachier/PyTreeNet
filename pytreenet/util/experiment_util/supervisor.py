@@ -13,9 +13,9 @@ import logging
 import sys
 
 from .sim_params import SimulationParameters
+from .metadata_file import METADATAFILE_STANDARD_NAME
 
 LOGFILE_STANDARD_NAME = "log.txt"
-METADATAFILE_STANDARD_NAME = "metadata.json"
 CURRENTPARAMFILE_STANDARD_NAME = "current_parameters.json"
 SIMSCRIPT_STANDARD_NAME = "sim_script.py"
 
@@ -432,37 +432,3 @@ def check_script_path(simulation_script_path: str
     if not os.path.exists(simulation_script_path):
         errstr = f"{simulation_script_path} does not exist!"
         raise FileNotFoundError(errstr)
-
-def add_new_key_to_medata_file(save_directory: str,
-                               key: str,
-                               value: str,
-                               parameter_class: type[SimulationParameters],
-                               metadatafile_name: str = METADATAFILE_STANDARD_NAME
-                               ) -> None:
-    """
-    Adds a new key-value pair to the metadata file in the save directory.
-
-    This will also adapt the hashes of the existing parameter sets to include
-    the new key. The intended use case is to add a new key to the metadata
-    file that is was not yet present in the parameter sets.
-
-    Args:
-        save_directory (str): The directory where the metadata file is located.
-        key (str): The key to add to the metadata file.
-        value (str): The value to associate with the key.
-        parameter_class (type[SimulationParameters]): The class of the
-        metadatafile_name (str): The filename of the metadata file.
-            Defaults to `"metadata.json"`.
-    """
-    metadata_file_path = os.path.join(save_directory, metadatafile_name)
-    if not os.path.exists(metadata_file_path):
-        raise FileNotFoundError(f"Metadata file {metadata_file_path} does not exist!")
-    out = {}
-    with open(metadata_file_path, 'r') as f:
-        metadata_index = json.load(f)
-    for parameters in metadata_index.values():
-        parameters[key] = value
-        parameters_obj = parameter_class.from_dict(parameters)
-        out[parameters_obj.get_hash()] = parameters_obj.to_json_dict()
-    with open(metadata_file_path, 'w') as f:
-        json.dump(out, f, indent=4)

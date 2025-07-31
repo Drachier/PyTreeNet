@@ -10,6 +10,8 @@ from numpy.typing import NDArray, DTypeLike
 import numpy as np
 from h5py import File
 
+from ..util.std_utils import average_data
+
 TIMES_ID = "times"
 
 class Results:
@@ -307,7 +309,7 @@ class Results:
         raise TypeError(errstr)
 
     def get_results(self,
-                operators: list[Hashable] | re.Pattern | None = None,
+                operators: list[Hashable] | str | re.Pattern | None = None,
                 realise: bool = False
                 ) -> dict[Hashable, NDArray]:
         """
@@ -315,8 +317,9 @@ class Results:
 
         Args:
             operators (list[Hashable] | re.Pattern | None): A list of operator
-                names or a regex pattern to filter operators. If None, all
-                operators except for the time are returned.
+                names or a regex pattern to filter operators. If it is a
+                string, all operators starting with that string are returned.
+                If None, all operators except for the time are returned.
             realise (bool): If True, returns the real parts of the results.
         
         Returns:
@@ -324,6 +327,8 @@ class Results:
                 the specified operators.
         """
         self.not_initialized_error()
+        if isinstance(operators, str):
+            operators = re.compile(r"^" + operators + r"\d+$")
         return {
             operator_key: self.operator_result(operator_key, realise=realise)
             for operator_key in self.results
@@ -359,6 +364,28 @@ class Results:
         if realise:
             out = np.real(out)
         return out
+
+    def average_results(self,
+                        operators: list[Hashable] | str | re.Pattern | None = None,
+                        realise: bool = False
+                        ) -> NDArray:
+        """
+        Averages the results of the specified operators.
+
+        Args:
+            operators (list[Hashable] | None): A list of operator names or a
+                regex pattern to filter operators. If None, all operators
+                except for the time are averaged. If it is a string, all
+                operators starting with that string are averaged.
+            realise (bool): If True, averages the real parts of the results.
+        
+        Returns:
+            NDArray: An array containing the averaged results of the specified
+                operators.
+        """
+        results = self.get_results(operators=operators, realise=realise)
+        data = list(results.values())
+        return average_data(data)
 
     def save_to_h5(self,
                    file: str | File) -> None:

@@ -61,7 +61,18 @@ class SimulationParameters:
             param_dict (dict[str, Any]): A dictionary containing the simulation
                 parameters.
         """
-        return cls(**param_dict)
+        # We have to handle Enums manually
+        # because they may not be supported directly
+        type_hints = get_type_hints(cls)
+        kwargs = {}
+        for field in fields(cls):
+            if field.name in param_dict:
+                value = param_dict[field.name]
+                field_type = type_hints.get(field.name, field.type)
+                if isinstance(field_type, type) and issubclass(field_type, Enum) and not isinstance(value, Enum):
+                    value = field_type(value)
+                kwargs[field.name] = value
+        return cls(**kwargs)
 
     @classmethod
     def load_from_json(cls,
@@ -75,18 +86,7 @@ class SimulationParameters:
         """
         with open(filepath, "r") as file:
             data = json.load(file)
-        # We have to handle Enums manually
-        # because json does not support them directly
-        type_hints = get_type_hints(cls)
-        kwargs = {}
-        for field in fields(cls):
-            if field.name in data:
-                value = data[field.name]
-                field_type = type_hints.get(field.name, field.type)
-                if isinstance(field_type, type) and issubclass(field_type, Enum):
-                    value = field_type(value)
-                kwargs[field.name] = value
-        return cls(**kwargs)
+        return cls.from_dict(data)
 
     def get_hash(self) -> str:
         """
