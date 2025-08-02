@@ -221,6 +221,7 @@ class TestDiscreetTimeDepTTNO(unittest.TestCase):
         self.assertEqual(0,self.discreet_ttno.current_time_step)
         self.assertEqual(0,self.discreet_ttno.current_time)
         self.assertEqual(self.dt,self.discreet_ttno.dt)
+        self.assertTrue(isinstance(self.discreet_ttno, DiscreetTimeTTNO))
 
     def test_update_no_change(self):
         """

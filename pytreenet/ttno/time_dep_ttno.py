@@ -109,6 +109,7 @@ class DiscreetTimeTTNO(AbstractTimeDepTTNO):
 
         """
         if self.current_time_step == len(self.ttnos) - 1:
+            self.current_time += time_step_size
             # If we are at the last time step, we do not update anymore.
             return
         self.current_time += time_step_size
