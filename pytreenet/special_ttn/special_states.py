@@ -61,6 +61,17 @@ class TTNStructure(Enum):
             TTNStructure.TSTAR: "1",
             TTNStructure.EXACT: "."
         }[self]
+    
+    def label(self) -> str:
+        """
+        Returns a label associated with the tensor network structure.
+        """
+        return {
+            TTNStructure.MPS: "MPS",
+            TTNStructure.BINARY: "Binary TTN",
+            TTNStructure.TSTAR: "T-STAR",
+            TTNStructure.EXACT: "Exact"
+        }[self]
 
 
 STANDARD_NODE_PREFIX = "qubit"
