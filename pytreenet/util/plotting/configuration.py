@@ -1,10 +1,10 @@
 """
-This module contains helpful tools for plotting results.
+This module provides functions to configure the plotting.
 """
-from enum import Enum
-import matplotlib.pyplot as plt
 
-import numpy as np
+from enum import Enum
+
+import matplotlib.pyplot as plt
 
 class DocumentStyle(Enum):
     """
@@ -50,28 +50,6 @@ def set_size(width: float | str | DocumentStyle,
     fig_height_in = fig_width_in * golden_ratio * (subplots[0] / subplots[1])
     return (fig_width_in, fig_height_in)
 
-def compute_alphas(n: int, 
-                   min_alpha: float = 0.2,
-                   max_alpha: float = 1.0
-                   ) -> list[float]:
-    """
-    Compute a list of alpha values for plotting.
-
-    These alpha values represent the transparency of the lines in a plot.
-
-    Args:
-        n (int): Number of alpha values to compute.
-        min_alpha (float, optional): Minimum alpha value. Defaults to 0.2.
-        max_alpha (float, optional): Maximum alpha value. Defaults to 1.0.
-    
-    Returns:
-        list[float]: List of alpha values.
-    """
-    if n <= 1:
-        return [max_alpha]
-    alphas = np.linspace(min_alpha, max_alpha, n)
-    return alphas.tolist()
-
 def config_matplotlib_to_latex(style: DocumentStyle | str = DocumentStyle.THESIS):
     """
     Get the matplotlib configuration to use LaTeX for rendering text.
@@ -112,4 +90,7 @@ def config_matplotlib_to_latex(style: DocumentStyle | str = DocumentStyle.THESIS
             "xtick.labelsize": 8,
             "ytick.labelsize": 8
         }
+    else:
+        errstr = f"Unknown style {style}!"
+        raise ValueError(errstr)
     plt.rcParams.update(tex_fonts)
