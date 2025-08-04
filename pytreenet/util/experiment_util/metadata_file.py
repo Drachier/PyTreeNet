@@ -52,6 +52,8 @@ class MetadataFilter(UserDict):
 
         Args:
             data (dict[str, Any]): The dictionary to create the filter from.
+                Can contain lists as values to allow for multiple values to be
+                checked for a key.
 
         Returns:
             MetadataFilter: An instance of MetadataFilter.
@@ -95,6 +97,44 @@ class MetadataFilter(UserDict):
         if key in self.data:
             del self.data[key]
 
+    def add_to_criterium(self,
+                         key: str,
+                         value: Any
+                         ) -> None:
+        """
+        Adds a value to the list of values for a given key in the filter.
+
+        Args:
+            key (str): The key to add the value to.
+            value (Any): The value to add to the key.
+        """
+        if key not in self.data:
+            self.data[key] = value
+        elif isinstance(self.data[key], list):
+            if value not in self.data[key]:
+                self.data[key].append(value)
+        else:
+            self.data[key] = [self.data[key], value]
+
+    def remove_from_criterium(self,
+                                key: str,
+                                value: Any
+                                ) -> None:
+        """
+        Removes a value from the list of values for a given key in the filter.
+
+        Args:
+            key (str): The key to remove the value from.
+            value (Any): The value to remove from the key.
+        """
+        if key in self.data:
+            if isinstance(self.data[key], list):
+                if value in self.data[key]:
+                    self.data[key].remove(value)
+            else:
+                if self.data[key] == value:
+                    self.remove_criterium(key)
+
     def dict_valid(self,
                    dictionary: dict[str, Any]
                    ) -> bool:
@@ -113,8 +153,12 @@ class MetadataFilter(UserDict):
         for key, value in self.data.items():
             if key not in dictionary:
                 return False
-            if dictionary[key] != value:
-                return False
+            if isinstance(value, list):
+                if dictionary[key] not in value:
+                    return False
+            else:
+                if dictionary[key] != value:
+                    return False
         return True
 
     def _load_metadata_file(self,
@@ -194,6 +238,37 @@ class MetadataFilter(UserDict):
                 result = results_class.load_from_h5(file)
                 results.append(result)
         return results
+    
+    def load_unique_results(self,
+                           directory: str,
+                           results_class = Results,
+                           file_name_creation: Callable = standard_result_file_name,
+                           metadatafile_name: str = METADATAFILE_STANDARD_NAME
+                           ) -> Results:
+        """
+        Loads unique results from the metadata file in the given directory.
+
+        Args:
+            directory (str): The directory where the metadata file and the
+                simulation results files are located.
+            results_class: The class of the results to load.
+                Defaults to `Results`.
+            file_name_creation (Callable): A function to create the file name
+                from the hash value. Defaults to `standard_result_file_name`.
+            metadatafile_name (str): The filename of the metadata file.
+                Defaults to `"metadata.json"`.
+        
+        Returns:
+            Results: A single results object that matches the filter criteria.
+
+        Raises:
+            ValueError: If the number of results found is not exactly one.
+        """
+        results = self.load_valid_results(directory, results_class,
+                                          file_name_creation, metadatafile_name)
+        if len(results) != 1:
+            raise ValueError(f"Expected exactly one result, found: {len(results)}!")
+        return results[0]
 
     def load_valid_results_and_parameters(self,
                                           directory: str,
