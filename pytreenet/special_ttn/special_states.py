@@ -17,6 +17,7 @@ from .mps import MatrixProductState
 from .star import StarTreeTensorState
 from ..util.tensor_splitting import SplitMode
 
+
 class TTNStructure(Enum):
     """
     Enumeration for different types of tensor network structures.
@@ -26,7 +27,44 @@ class TTNStructure(Enum):
     TSTAR = "tstar"
     EXACT = "exact"
 
+    # The following methods are useful to keep plots consistent.
+
+    def colour(self) -> str:
+        """
+        Returns a color associated with the tensor network structure.
+        """
+        return {
+            TTNStructure.MPS: "tab:blue",
+            TTNStructure.BINARY: "tab:orange",
+            TTNStructure.TSTAR: "tab:green",
+            TTNStructure.EXACT: "black"
+        }[self]
+
+    def linestyle(self) -> str:
+        """
+        Returns a line style associated with the tensor network structure.
+        """
+        return {
+            TTNStructure.MPS: "dashed",
+            TTNStructure.BINARY: "dotted",
+            TTNStructure.TSTAR: "dashdot",
+            TTNStructure.EXACT: "solid"
+        }[self]
+
+    def marker(self) -> str:
+        """
+        Returns a marker style associated with the tensor network structure.
+        """
+        return {
+            TTNStructure.MPS: "o",
+            TTNStructure.BINARY: "*",
+            TTNStructure.TSTAR: "1",
+            TTNStructure.EXACT: "."
+        }[self]
+
+
 STANDARD_NODE_PREFIX = "qubit"
+
 
 def generate_constant_product_state(value: int,
                                     system_size: int,
@@ -84,9 +122,9 @@ def generate_constant_product_state(value: int,
         num_chains = 3
         centre_shape = [1] * (num_chains + 1)
         central_tensor = np.asarray([1],
-                                   dtype=np.complex64
-                                   ).reshape(centre_shape)
-        phys_tensors = [ket_i(value, phys_dim).reshape((1,1, phys_dim))
+                                    dtype=np.complex64
+                                    ).reshape(centre_shape)
+        phys_tensors = [ket_i(value, phys_dim).reshape((1, 1, phys_dim))
                         for _ in range(system_size-1)]
         # Final chain tensor has only one virtual leg.
         phys_tensors.append(ket_i(value, phys_dim).reshape((1, phys_dim)))
@@ -107,6 +145,7 @@ def generate_constant_product_state(value: int,
     errstr = f"Unsupported TTN structure: {structure}."
     errstr += "Cannot generate constant product state!"
     raise ValueError(errstr)
+
 
 def generate_zero_state(system_size: int,
                         structure: TTNStructure,
