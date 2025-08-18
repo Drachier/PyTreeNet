@@ -48,8 +48,8 @@ from typing import Tuple, Callable, Union, List, Dict, Self
 from copy import copy, deepcopy
 from collections import UserDict
 from uuid import uuid1
-import json 
-import os  
+import json
+import os
 
 import numpy as np
 from numpy import eye
@@ -436,7 +436,7 @@ class TreeTensorNetwork(TreeStructure):
         self._root_id = new_root_id
         self.tensors[new_root_id] = tensor
 
-    def conjugate(self) -> TreeTensorNetwork:
+    def conjugate(self) -> Self:
         """
         Returns a conjugated version of this TTN.
 
@@ -1416,7 +1416,7 @@ class TreeTensorNetwork(TreeStructure):
             json.dump(structure_data, f, indent=2)
 
     @classmethod
-    def load(cls, filepath: str) -> 'TreeTensorNetwork':
+    def load(cls, filepath: str) -> Self:
         """
         Loads a TreeTensorNetwork from files.
 

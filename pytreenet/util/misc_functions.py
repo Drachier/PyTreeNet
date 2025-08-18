@@ -1,13 +1,12 @@
 from __future__ import annotations
-from typing import List, Tuple, Dict, Union
+from typing import List, Union
 
 from copy import deepcopy
 
 import numpy as np
-from scipy.sparse.linalg import gmres as gmres
 import scipy
 
-from .tensor_splitting import SplitMode, SVDParameters
+from .tensor_splitting import SVDParameters
 
 from ..ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TTNO
@@ -15,163 +14,222 @@ from ..dmrg.variational_fitting import VariationalFitting
 from ..operators.hamiltonian import Hamiltonian
 from ..contractions.state_operator_contraction import get_matrix_element
 from ..contractions.tree_cach_dict import PartialTreeCachDict
-from ..core.graph_node import find_children_permutation
-from ..contractions.contraction_util import (contract_all_but_one_neighbour_block_to_ket,
-                               contract_all_neighbour_blocks_to_ket,
-                               get_equivalent_legs) 
+from ..contractions.contraction_util import get_equivalent_legs
 from ..util.tensor_splitting import SVDParameters
 
-def orthogonalise_gram_schmidt(ttns_list: List[TreeTensorNetworkState], max_bond_dim: int, num_sweeps:int) -> List[TreeTensorNetworkState]:
+def orthogonalise_gram_schmidt(ttns_list: List[TreeTensorNetworkState],
+                               max_bond_dim: int,
+                               num_sweeps: int
+                               ) -> List[TreeTensorNetworkState]:
     """
     Gram-Schmidt orthogonalisation of a list of TTNS.
+
+    Args:
+        ttns_list (List[TreeTensorNetworkState]): List of TTNS to
+            orthogonalise.
+        max_bond_dim (int): Maximum bond dimension of the resulting TTNS.
+        num_sweeps (int): Number of sweeps for the variational fitting.
+
+    Returns:
+        List[TreeTensorNetworkState]: List of orthogonalised TTNS.
     """
     ttns_list = deepcopy(ttns_list)
     for i in range(1, len(ttns_list)):
-        ttns_list[i] = orthogonalise_to(ttns_list[i], ttns_list[:i], max_bond_dim, num_sweeps)
-        ttns_list[i].canonical_form(ttns_list[i].root_id)
+        ttns_list[i] = orthogonalise_to(ttns_list[i],
+                                        ttns_list[:i],
+                                        max_bond_dim,
+                                        num_sweeps)
+        root_id = ttns_list[i].root_id
+        assert root_id is not None
+        ttns_list[i].canonical_form(root_id)
         ttns_list[i].normalize()
     return ttns_list
 
-def orthogonalise_cholesky(ttns_list: List[TreeTensorNetworkState], max_bond_dim: int, num_sweeps:int) -> List[TreeTensorNetworkState]:
+def orthogonalise_cholesky(ttns_list: List[TreeTensorNetworkState],
+                           max_bond_dim: int,
+                           num_sweeps: int
+                           ) -> List[TreeTensorNetworkState]:
     """
     Orthogonalises a list of TTNS using the Cholesky decomposition.
+
+    Args:
+        ttns_list (List[TreeTensorNetworkState]): List of TTNS to
+            orthogonalise.
+        max_bond_dim (int): Maximum bond dimension of the resulting TTNS.
+        num_sweeps (int): Number of sweeps for the variational fitting.
+    
+    Returns:
+        List[TreeTensorNetworkState]: List of orthogonalised TTNS.
     """
     ttns_list_return = deepcopy(ttns_list)
-    ovp = np.zeros((len(ttns_list), len(ttns_list)), dtype=np.complex128)
-    for i in range(len(ttns_list)):
-        ovp[i,i] = ttns_list[i].scalar_product()
+    ovp = np.zeros((len(ttns_list), len(ttns_list)),
+                   dtype=np.complex128)
+    for i, ttns in enumerate(ttns_list):
+        ovp[i,i] = ttns.scalar_product()
         for j in range(i+1, len(ttns_list)):
             ovp[i,j] = ttns_list[j].scalar_product(ttns_list[i])
             ovp[j,i] = ovp[i,j].conjugate()
-
-    # L = np.linalg.cholesky(ovp)
-    # L_inv = np.linalg.inv(L).T.conj()
     e,v = np.linalg.eigh(ovp)
     vs = np.where(e > 1e-12, 1.0 / np.sqrt(e), 0.0)
     L_inv = v@np.diag(vs)@v.T.conj()
     for i in range(len(ttns_list)):
-        ttns_list_return[i] = linear_combination(ttns_list, L_inv[:,i], max_bond_dim, num_sweeps)
+        ttns_list_return[i] = linear_combination(ttns_list,
+                                                 L_inv[:,i],
+                                                 max_bond_dim,
+                                                 num_sweeps)
     return ttns_list_return
 
-def orthogonalise_gep(ttno: TTNO,ttns_list: List[TreeTensorNetworkState], max_bond_dim: int, num_sweeps:int) -> List[TreeTensorNetworkState]:
+def orthogonalise_gep(ttno: TTNO,
+                      ttns_list: List[TreeTensorNetworkState],
+                      max_bond_dim: int,
+                      num_sweeps:int
+                      ) -> List[TreeTensorNetworkState]:
     """
     Orthogonalises a list of TTNS by solving generalised eigenvalue problem.
+
+    Args:
+        ttno (TTNO): The TTNO to use for the orthogonalisation.
+        ttns_list (List[TreeTensorNetworkState]): List of TTNS to
+            orthogonalise.
+        max_bond_dim (int): Maximum bond dimension of the resulting TTNS.
+        num_sweeps (int): Number of sweeps for the variational fitting.
+
+    Returns:
+        List[TreeTensorNetworkState]: List of orthogonalised TTNS.
     """
     ttns_list_return = deepcopy(ttns_list)
     ovp = np.zeros((len(ttns_list), len(ttns_list)), dtype=np.complex128)
     h = np.zeros((len(ttns_list), len(ttns_list)), dtype=np.complex128)
-    for i in range(len(ttns_list)):
-        ovp[i,i] = ttns_list[i].scalar_product().real
-        h[i,i] = ttns_list[i].operator_expectation_value(ttno).real
+    for i, ttns in enumerate(ttns_list):
+        ovp[i,i] = ttns.scalar_product().real
+        h[i,i] = ttns.operator_expectation_value(ttno).real
         for j in range(i+1, len(ttns_list)):
             ovp[i,j] = ttns_list[j].scalar_product(ttns_list[i]).real
             ovp[j,i] = ovp[i,j]
-            h[i,j] = get_matrix_element(ttns_list[i].conjugate(), ttno, ttns_list[j]).real
+            h[i,j] = get_matrix_element(ttns.conjugate(),
+                                        ttno,
+                                        ttns_list[j]).real
             h[j,i] = h[i,j]
-            
-
-    ew, ev = scipy.linalg.eigh(h, ovp)
+    # Solve the generalized eigenvalue problem
+    _, ev = scipy.linalg.eigh(h, ovp)
     ev = ev.real
     for i in range(len(ttns_list)):
-        ttns_list_return[i] = linear_combination(ttns_list, ev[:,i], max_bond_dim, num_sweeps)
-    
+        ttns_list_return[i] = linear_combination(ttns_list,
+                                                 ev[:,i],
+                                                 max_bond_dim,
+                                                 num_sweeps)
     return ttns_list_return
 
-def orthogonalise_to(ttns: TreeTensorNetworkState, state_list: Union[List[TreeTensorNetworkState], List[str]], max_bond_dim: int, num_sweeps:int) -> TreeTensorNetworkState:
+def orthogonalise_to(ttns: TreeTensorNetworkState,
+                     state_list: Union[List[TreeTensorNetworkState], List[str]],
+                     max_bond_dim: int,
+                     num_sweeps: int
+                     ) -> TreeTensorNetworkState:
     """
     Orthogonalises a TTNS to a list of TTNS.
 
     Args:
-        ttns: TreeTensorNetworkState: The TTNS to orthogonalise.
-        state_list: Union[List[TreeTensorNetworkState], List[str]]: The list of TTNS to orthogonalise to.
-        max_bond_dim: int: The maximum bond dimension of the resulting TTNS.
-        num_sweeps: int: The number of sweeps for the variational fitting.
+        ttns (TreeTensorNetworkState): The TTNS to orthogonalise.
+        state_list (Union[List[TreeTensorNetworkState], List[str]]): The list of
+            TTNS to orthogonalise to. If a list of strings is provided, the
+            strings are interpreted as file paths to load the TTNS from.
+        max_bond_dim (int): The maximum bond dimension of the resulting TTNS.
+        num_sweeps (int): The number of sweeps for the variational fitting.
     Returns:
         TreeTensorNetworkState: The orthogonalised TTNS.
     """
-    if isinstance(state_list, list) and len(state_list) > 0 and isinstance(state_list[0], str):
-        state_list = [TreeTensorNetworkState().load(path) for path in state_list]
-    coeffs = [1.0]
+    if len(state_list) == 0:
+        return ttns
+    if isinstance(state_list, list) and isinstance(state_list[0], str):
+        state_list = [TreeTensorNetworkState().load(path)
+                      for path in state_list]
+    coeffs = [1.0 + 1.0j]
     ttns_list = [ttns]
     for state in state_list:
+        assert isinstance(state, TreeTensorNetworkState)
         overlap = ttns.scalar_product(state)
-        if abs(overlap) >1e-4:
-            coeffs.append(-overlap)
+        if abs(overlap) > 1e-4:
+            coeffs.append(-1 * overlap)
             ttns_list.append(state)
-    
     return linear_combination(ttns_list, coeffs, max_bond_dim, num_sweeps)
 
-
-def linear_combination(ttns: List[TreeTensorNetworkState], coeffs: Union[float, complex, List[float], List[complex]], max_bond_dim: int, num_sweeps:int=10) -> TreeTensorNetworkState:
+def linear_combination(ttns: List[TreeTensorNetworkState],
+                       coeffs: Union[float, complex, List[float], List[complex]],
+                       max_bond_dim: int,
+                       num_sweeps: int = 10
+                       ) -> TreeTensorNetworkState:
     """
     Returns a linear combination of a list of TTNS.
     
     Args:
-        ttns: List[TreeTensorNetworkState]: The list of TTNS to combine.
-        coeffs: List[float | complex]: The coefficients of the linear combination.
-        max_bond_dim: int: The maximum bond dimension of the resulting TTNS.
-        num_sweeps: int: The number of sweeps for the variational fitting.
+        ttns (List[TreeTensorNetworkState]): The list of TTNS to combine.
+        coeffs (List[float | complex]): The coefficients of the linear combination.
+        max_bond_dim (int): The maximum bond dimension of the resulting TTNS.
+        num_sweeps (int): The number of sweeps for the variational fitting.
+
     Returns:
         TreeTensorNetworkState: The linear combination of the TTNS.
     """
-    
-    identity_ttno = TTNO.from_hamiltonian(Hamiltonian.identity_like(ttns[0],dtype=np.float64), ttns[0],dtype=np.float64)
-    
+    identity_ttno = TTNO.from_hamiltonian(Hamiltonian.identity_like(ttns[0],dtype=np.float64),
+                                          ttns[0],
+                                          dtype=np.float64)
     if isinstance(coeffs, (float, complex)):
         coeffs = [coeffs]*len(ttns)
+    assert isinstance(coeffs, list)
     abs_coeffs = [abs(coeff) for coeff in coeffs]
     ordering = np.argsort(abs_coeffs)[::-1]
-    
     # Filter out small coefficients using a mask
     mask = np.array([abs_coeffs[i] >= 1e-4 for i in ordering])
     ordering = ordering[mask]
     ttns = [ttns[i] for i in ordering]
     coeffs = [coeffs[i] for i in ordering]
-    
     y = deepcopy(ttns[0])
     y.canonical_form(y.root_id)
     y.pad_bond_dimensions(max_bond_dim)
     # y.normalize()
-    
-    varfit = VariationalFitting([identity_ttno]*len(ttns), deepcopy(ttns), y, num_sweeps, 100, SVDParameters(max_bond_dim, 1e-10, 1e-10), "one-site", coeffs, dtype=np.float64)
+    varfit = VariationalFitting([identity_ttno]*len(ttns),
+                                deepcopy(ttns),
+                                y,
+                                num_sweeps, 100,
+                                SVDParameters(max_bond_dim, 1e-10, 1e-10),
+                                "one-site",
+                                coeffs,
+                                dtype=np.float64)
     varfit.run()
     # varfit.y.normalize()
     return varfit.y
 
-
-def add(ttns1: TreeTensorNetworkState, ttns2: TreeTensorNetworkState, c1: Union[int, float, complex]=1.0, c2: Union[int, float, complex]=1.0, svd_params: SVDParameters=None) -> TreeTensorNetworkState:
+def add(ttns1: TreeTensorNetworkState,
+        ttns2: TreeTensorNetworkState,
+        c1: Union[int, float, complex] = 1.0,
+        c2: Union[int, float, complex] = 1.0,
+        svd_params: SVDParameters | None = None
+        ) -> TreeTensorNetworkState:
     """
     Adds two TreeTensorNetworkStates.
 
     Args:
         ttns1 (TreeTensorNetworkState): The first TreeTensorNetworkState.
         ttns2 (TreeTensorNetworkState): The second TreeTensorNetworkState.
-        c1 (Union[int, float, complex]): The scaling factor for the first TreeTensorNetworkState.
-        c2 (Union[int, float, complex]): The scaling factor for the second TreeTensorNetworkState.
-        svd_params (SVDParameters): The SVD parameters for the truncation.
+        c1 (Union[int, float, complex]): The scaling factor for the first
+            TreeTensorNetworkState.
+        c2 (Union[int, float, complex]): The scaling factor for the second
+            TreeTensorNetworkState.
+        svd_params (SVDParameters | None): The SVD parameters for the truncation.
 
     Returns:
         TreeTensorNetworkState: The resulting TreeTensorNetworkState.
     """
     if svd_params is None:
         svd_params = SVDParameters()
-    dictionary = PartialTreeCachDict()
-
     computation_order = ttns1.linearise() # Getting a linear list of all identifiers
-    
-    errstr = "The last element of the linearisation should be the root node."
-    assert computation_order[-1] == ttns1.root_id, errstr
-    assert computation_order[-1] == ttns2.root_id, errstr
-
     rest_ttns = deepcopy(ttns1)
     for node_id in computation_order[:-1]: # The last one is the root node
         _, legs_2 = get_equivalent_legs(ttns1.nodes[node_id], ttns2.nodes[node_id])
         legs_2.append(-1) # appending the physical leg
         t1 = ttns1.tensors[node_id]
         t2 = (ttns2.tensors[node_id]).transpose(legs_2)
-        
         tensor = block_diag_list([(t1), (t2)])
-        
         if np.isnan(tensor).any() or np.isinf(tensor).any():
             # decide whether to drop rows/cols or impute
             tensor = np.nan_to_num(tensor)
