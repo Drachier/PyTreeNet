@@ -447,6 +447,35 @@ class TreeTensorNetwork(TreeStructure):
             ttn_conj.tensors[node_id] = tensor.conj()
         return ttn_conj
 
+    def scale(self,
+              factor: int | float | complex,
+              inplace: bool = True) -> Self:
+        """
+        Scales the TTN by a given factor.
+
+        Args:
+            factor (int | float | complex): The factor by which to scale the TTN.
+            inplace (bool, optional): If True, the TTN is scaled in place.
+                Otherwise, a new TTN is returned with the scaled tensors.
+
+        Returns:
+            Self: The scaled TTN. If `inplace` is True, the original TTN is
+                returned, otherwise a new TTN is returned.
+        """
+        if inplace:
+            ttn = self
+        else:
+            ttn = deepcopy(self)
+        if ttn.orthogonality_center_id is not None:
+            # Keeps canonical form intact
+            ttn.tensors[ttn.orthogonality_center_id] *= factor
+        elif ttn.root_id is not None:
+            ttn.tensors[ttn.root_id] *= factor
+        else:
+            errstr = "Cannot scale an empty TTN!"
+            raise AssertionError(errstr)
+        return ttn
+
     def bond_dim(self, node_id: str,
                  neighbour_id: Union[str,None] = None) -> int:
         """

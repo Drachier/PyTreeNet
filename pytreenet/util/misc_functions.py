@@ -310,6 +310,4 @@ def scale(ttns: TreeTensorNetworkState, c: Union[int, float, complex]) -> TreeTe
     """
     Scales a TreeTensorNetworkState by a constant factor.
     """
-    ttns = deepcopy(ttns)
-    ttns.tensors[ttns.root_id] *= c
-    return ttns
+    return ttns.scale(c, inplace=False)
