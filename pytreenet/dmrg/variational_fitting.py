@@ -33,7 +33,7 @@ class VariationalFitting():
                  site: str,
                  coeffs: Union[float, complex, List[float], List[complex], None] = None,
                  residual_rank: int = 4,
-                 dtype: np.dtype = np.float64):
+                 dtype: np.dtype = np.complex128):
         """
         Initilises an instance of a ALS algorithm.
         
@@ -221,9 +221,9 @@ class VariationalFitting():
             ketblock_tensor = np.transpose(ketblock_tensor, axes=legs_block)
             if rho:
                 rho_tensor = np.tensordot(ketblock_tensor, ketblock_tensor.conj(),0)
-                return rho_tensor
+                return rho_tensor.astype(self.dtype)
             else:
-                return ketblock_tensor
+                return ketblock_tensor.astype(self.dtype)
 
     def update_tree_cache(self, node_id: str, next_node_id: str):
         """
@@ -277,9 +277,12 @@ class VariationalFitting():
             else:
                 coeffs = self.coeffs[state_idx]
             kvec += self._contract_two_ttns_except_node(node_id, state_idx, rho=False)*coeffs
-        
-        yf,exit_code = scipy.sparse.linalg.minres(hamiltonian_eff_site, kvec.reshape(-1), 
-                                                x0=self.y.tensors[node_id].reshape(-1),maxiter=self.max_iter)
+        if self.dtype == np.float64:
+            yf,exit_code = scipy.sparse.linalg.minres(hamiltonian_eff_site, kvec.reshape(-1), 
+                                                    x0=self.y.tensors[node_id].reshape(-1),maxiter=self.max_iter)
+        else:
+            yf,exit_code = scipy.sparse.linalg.gmres(hamiltonian_eff_site, kvec.reshape(-1), 
+                                                    x0=self.y.tensors[node_id].reshape(-1),maxiter=self.max_iter)
         y_norm = np.linalg.norm(yf)
         yf=yf/ y_norm
 

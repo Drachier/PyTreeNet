@@ -73,10 +73,12 @@ def orthogonalise_cholesky(ttns_list: List[TreeTensorNetworkState],
     vs = np.where(e > 1e-12, 1.0 / np.sqrt(e), 0.0)
     L_inv = v@np.diag(vs)@v.T.conj()
     for i in range(len(ttns_list)):
+        dtype = ttns_list[i].tensors[ttns_list[i].root_id].dtype
         ttns_list_return[i] = linear_combination(ttns_list,
-                                                 L_inv[:,i],
+                                                 L_inv[:,i].tolist(),
                                                  max_bond_dim,
-                                                 num_sweeps)
+                                                 num_sweeps,
+                                                 dtype)
     return ttns_list_return
 
 def orthogonalise_gep(ttno: TTNO,
@@ -151,12 +153,14 @@ def orthogonalise_to(ttns: TreeTensorNetworkState,
         if abs(overlap) > 1e-4:
             coeffs.append(-1 * overlap)
             ttns_list.append(state)
-    return linear_combination(ttns_list, coeffs, max_bond_dim, num_sweeps)
+    dtype = ttns.tensors[ttns.root_id].dtype
+    return linear_combination(ttns_list, coeffs, max_bond_dim, num_sweeps, dtype)
 
 def linear_combination(ttns: List[TreeTensorNetworkState],
                        coeffs: Union[float, complex, List[float], List[complex]],
                        max_bond_dim: int,
-                       num_sweeps: int = 10
+                       num_sweeps: int = 10,
+                       dtype: np.dtype = np.float64
                        ) -> TreeTensorNetworkState:
     """
     Returns a linear combination of a list of TTNS.
@@ -170,9 +174,9 @@ def linear_combination(ttns: List[TreeTensorNetworkState],
     Returns:
         TreeTensorNetworkState: The linear combination of the TTNS.
     """
-    identity_ttno = TTNO.from_hamiltonian(Hamiltonian.identity_like(ttns[0],dtype=np.float64),
+    identity_ttno = TTNO.from_hamiltonian(Hamiltonian.identity_like(ttns[0],dtype=dtype),
                                           ttns[0],
-                                          dtype=np.float64)
+                                          dtype=dtype)
     if isinstance(coeffs, (float, complex)):
         coeffs = [coeffs]*len(ttns)
     assert isinstance(coeffs, list)
@@ -194,7 +198,7 @@ def linear_combination(ttns: List[TreeTensorNetworkState],
                                 SVDParameters(max_bond_dim, 1e-10, 1e-10),
                                 "one-site",
                                 coeffs,
-                                dtype=np.float64)
+                                dtype=dtype)
     varfit.run()
     # varfit.y.normalize()
     return varfit.y

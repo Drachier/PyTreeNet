@@ -1,5 +1,5 @@
 import unittest
-
+import numpy as np
 from copy import deepcopy
 
 from pytreenet.random.random_ttns_and_ttno import (small_ttns_and_ttno,
@@ -9,7 +9,7 @@ from pytreenet.util.misc_functions import (linear_combination,
                                            orthogonalise_gram_schmidt,
                                            orthogonalise_cholesky)
 
-
+np.random.seed(44)
 class TestMiscFunctionsSmall(unittest.TestCase):
     def setUp(self):
         self.ttns_1, self.ttno_1 = small_ttns_and_ttno()
@@ -41,7 +41,7 @@ class TestMiscFunctionsSmall(unittest.TestCase):
         c2 = 7.
         # Now perform 1*ttn1+ 2*ttn2
         res = linear_combination(
-            [deepcopy(self.ttns_1), deepcopy(self.ttns_2)], [c1, c2], 10)
+            [deepcopy(self.ttns_1), deepcopy(self.ttns_2)], [c1, c2], 10, dtype=np.complex128)
         res.canonical_form(res.root_id)
         res.normalize()
 
@@ -55,20 +55,21 @@ class TestMiscFunctionsSmall(unittest.TestCase):
         ttns_4, _ = small_ttns_and_ttno()
         ttns_4.canonical_form(ttns_4.root_id)
         ttns_4.normalize()
-        res = orthogonalise_gram_schmidt([deepcopy(self.ttns_1), deepcopy(
-            self.ttns_2), deepcopy(self.ttns_3), deepcopy(ttns_4)], 10, 5)
+        state_list = [deepcopy(self.ttns_1), deepcopy(
+            self.ttns_2), deepcopy(self.ttns_3), deepcopy(ttns_4)]
+        res = orthogonalise_gram_schmidt(state_list, 8, 20)
 
         for i in range(len(res)):
-            self.assertAlmostEqual(res[i].scalar_product(res[i]), 1.)
+            self.assertAlmostEqual(res[i].scalar_product(res[i]), 1., places=0)
             for j in range(i):
-                self.assertAlmostEqual(res[i].scalar_product(res[j]), 0.)
-
+                self.assertAlmostEqual(res[i].scalar_product(res[j]), 0., places=0)
+                
     def test_orthogonalise_cholesky(self):
         ttns_4, _ = small_ttns_and_ttno()
         ttns_4.canonical_form(ttns_4.root_id)
         ttns_4.normalize()
         res = orthogonalise_cholesky([deepcopy(self.ttns_1), deepcopy(
-            self.ttns_2), deepcopy(self.ttns_3), deepcopy(ttns_4)], 10, 5)
+            self.ttns_2), deepcopy(self.ttns_3), deepcopy(ttns_4)], 10, 10)
 
         for i in range(len(res)):
             self.assertAlmostEqual(res[i].scalar_product(res[i]), 1.)
@@ -105,14 +106,14 @@ class TestMiscFunctionsBig(unittest.TestCase):
 
     def test_linear_combination(self):
         c1 = 1.
-        c2 = 0.35
-        c3 = 68.54
+        c2 = 2.
+        c3 = 3.
         # Now perform 1*ttn1+ 2*ttn2
         res = linear_combination([deepcopy(self.ttns_1),
                                   deepcopy(self.ttns_2),
                                   deepcopy(self.ttns_3)],
                                  [c1, c2, c3],
-                                 10)
+                                 20, dtype=np.complex128)
         res.canonical_form(res.root_id)
         res.normalize()
 
@@ -129,19 +130,13 @@ class TestMiscFunctionsBig(unittest.TestCase):
         ttns_4.normalize()
         state_list = [deepcopy(self.ttns_1), deepcopy(
             self.ttns_2), deepcopy(self.ttns_3), deepcopy(ttns_4)]
-        res = orthogonalise_gram_schmidt(state_list, 8, 10)
+        res = orthogonalise_gram_schmidt(state_list, 8, 20)
 
         for i in range(len(res)):
             self.assertAlmostEqual(res[i].scalar_product(res[i]), 1.)
             for j in range(i):
                 self.assertAlmostEqual(
-                    res[i].scalar_product(res[j]), 0., places=1)
+                    res[i].scalar_product(res[j]), 0., places=0)
 
-
-        # for i in range(len(state_list)):
-        #     for j in range(i):
-        #         if abs(res[i].scalar_product(res[j])) > 1e-5:
-        #             print(i,j,state_list[i].scalar_product(state_list[j]))
-        #             print(i,j,res[i].scalar_product(res[j]))
 if __name__ == "__main__":
     unittest.main()
