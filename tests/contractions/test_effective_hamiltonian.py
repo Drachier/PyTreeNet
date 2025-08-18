@@ -467,7 +467,7 @@ class TestContractionMethodsSimple(unittest.TestCase):
                                                             self.cache)
 
         self.assertTrue(allclose(ref_tensor, found_tensor))
-        
+
     def test_get_effective_two_site_hamiltonian_root_c2(self):
         # Copmute Reference
         ref_tensor = tensordot(self.cache.get_entry("c1", "root"),

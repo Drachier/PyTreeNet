@@ -78,6 +78,7 @@ class Hamiltonian():
             self.conversion_dictionary = conversion_dictionary
 
         self.coeffs_mapping = coeffs_mapping
+        coeffs_mapping["1"] = 1  # ensure that the default coefficient is 1
 
     def __str__(self) -> str:
         """
@@ -413,16 +414,27 @@ class Hamiltonian():
         """
         Return a Hamiltonian with the same ref_ttn structure but with all
         terms being identity operators.
+
+        Args:
+            ref_ttn (TreeTensorNetwork): The reference TTN that defines the
+                structure of the Hamiltonian.
+            scale (int | float, optional): The scale factor for the identity
+                operator. Defaults to 1.
+            dtype (type, optional): The data type of the identity operator.
+                Defaults to complex.
         """
         matrix_dict = {}
-        conversion_dict = {}
+        dims = set()
         for node_id, node in ref_ttn.nodes.items():
             dim = node.open_dimension()
             matrix_dict[node_id] = 'I' + str(dim)
-            conversion_dict['I' + str(dim)] = eye(dim,dtype=dtype)
+            # conversion_dict['I' + str(dim)] = eye(dim,dtype=dtype)
+            dims.add(dim)
+        ham = Hamiltonian()
         tp = TensorProduct(matrix_dict)
-        ham = Hamiltonian(conversion_dict)
         ham.add_term((Fraction(scale), "1", tp))
+        ham.include_identities(list(dims),
+                               ident_creation=lambda d: eye(d, dtype=dtype))
         return ham
 
 def deal_with_term_input(terms: Union[List[Union[Tuple[Fraction, str, TensorProduct], TensorProduct]], Tuple[Fraction, str, TensorProduct], TensorProduct, None] = None
@@ -443,12 +455,11 @@ def deal_with_term_input(terms: Union[List[Union[Tuple[Fraction, str, TensorProd
     """
     if terms is None:
         return []
-    elif isinstance(terms, TensorProduct):
+    if isinstance(terms, TensorProduct):
         return [(Fraction(1),"1",terms)]
-    elif isinstance(terms, tuple) and len(terms) == 3:
+    if isinstance(terms, tuple) and len(terms) == 3:
         return [terms]
-    else:
-        for index, term in enumerate(terms):
-            if isinstance(term, TensorProduct):
-                terms[index] = (Fraction(1),"1",term)
-        return terms
+    for index, term in enumerate(terms):
+        if isinstance(term, TensorProduct):
+            terms[index] = (Fraction(1),"1",term)
+    return terms

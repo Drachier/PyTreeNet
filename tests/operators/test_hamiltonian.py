@@ -155,8 +155,8 @@ class TestHamiltonianSimpleTree(unittest.TestCase):
         self.assertEqual(len(self.ref_ttn.nodes), len(identity_ham.terms[0][2]))
         open_dims = [self.ref_ttn.nodes[node_id].open_dimension()
                      for node_id in self.ref_ttn.nodes]
-        self.assertTrue((eye(prod(open_dims)) == identity_ham.to_matrix(self.ref_ttn).operator).all())
-        
+        total_dim = prod(open_dims)
+        self.assertTrue((eye(total_dim) == identity_ham.to_matrix(self.ref_ttn).operator).all())
 
 class TestConvDictMethods(unittest.TestCase):
 
