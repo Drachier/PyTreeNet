@@ -271,7 +271,7 @@ def contract_all_except_two_nodes(state_node: Node,
     Returns:
         np.ndarray: The resulting effective two-site Hamiltonian tensor::
 
-                _____                out              _____
+             _____                out              _____
             |     |____n-1                  0_____|     |
             |     |                               |     |
             |     |        |n           |         |     |

@@ -469,13 +469,13 @@ class TestContractionMethodsSimple(unittest.TestCase):
         self.assertTrue(allclose(ref_tensor, found_tensor))
 
     def test_get_effective_two_site_hamiltonian_root_c2(self):
-        # Copmute Reference
+        # Compute Reference
         ref_tensor = tensordot(self.cache.get_entry("c1", "root"),
                                   self.hamiltonian.tensors["root"],
                                   axes=(1,0))
         ref_tensor = tensordot(ref_tensor, self.hamiltonian.tensors["c2"],
                                axes=(2,0))
-        ref_tensor = transpose(ref_tensor, axes=(1,2,4,0,3,5))
+        ref_tensor = transpose(ref_tensor, axes=(1,4,2,0,5,3))
         ref_tensor = reshape(ref_tensor, (40,40))
         self.ttns.contract_nodes("c2", "root", 'TwoSite_c2_contr_root')
         found_tensor = get_effective_two_site_hamiltonian("c2",
@@ -483,7 +483,6 @@ class TestContractionMethodsSimple(unittest.TestCase):
                                                             self.ttns,
                                                             self.hamiltonian,
                                                             self.cache)
-
         self.assertTrue(allclose(ref_tensor, found_tensor))
 
     def test_get_effective_site_hamiltonian_c2(self):
