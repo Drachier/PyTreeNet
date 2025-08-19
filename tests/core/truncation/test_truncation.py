@@ -9,7 +9,8 @@ from pytreenet.random.random_matrices import random_unitary_matrix, crandn
 from pytreenet.util.tensor_splitting import SVDParameters
 from pytreenet.core.ttn import TreeTensorNetwork
 from pytreenet.core.node import Node
-from pytreenet.core.truncation.svd_truncation import linearized_svd_truncation
+from pytreenet.core.truncation.truncation import TruncationMode
+from pytreenet.core.truncation.truncation import TruncationEngine
 
 def singular_value_matrix() -> ndarray:
     """
@@ -62,7 +63,7 @@ class TestSVDSplitting(TestCase):
 
     def test_svd_splitting_0_1(self):
         """
-        Test if the SVD splitting works for the first and second site.
+        Test if the SVD splitting works for the first and second site using sweeping_onward_truncation.
         """
         # Build reference tree
         ref_tree = TreeTensorNetwork()
@@ -80,15 +81,14 @@ class TestSVDSplitting(TestCase):
                                         0, node_id(2), 1)
         ref_tree.contract_nodes("svals", node_id(0), new_identifier=node_id(0))
         ref_tree.canonical_form(node_id(0))
-        svd_params = SVDParameters(rel_tol=0.15)
-        ref_tree = linearized_svd_truncation(ref_tree, svd_params)
+        svd_params = SVDParameters(rel_tol=0.15, sum_trunc=False)
+        engine = TruncationEngine(ref_tree, TruncationMode.SWEEPING_ONWARD)
+        engine.truncate(ref_tree, svd_params)
         self.assertEqual(set([2,4]), set(ref_tree.nodes[node_id(0)].shape))
         self.assertEqual(set([2,4]), set(ref_tree.nodes[node_id(1)].shape))
         for node_ident, nodes in ref_tree.nodes.items():
             if node_ident not in [node_id(0),node_id(1)]:
                 self.assertEqual(set([4]), set(nodes.shape))
-
-
 
 if __name__ == "__main__":
     main()
