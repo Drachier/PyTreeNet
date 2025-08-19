@@ -15,8 +15,7 @@ from .state_state_contraction import contract_any_nodes as contract_any_nodes_st
 from .state_operator_contraction import (contract_any_node_environment_but_one as contract_any_nodes_operator,
                                          contract_operator_tensor_ignoring_one_leg)
 from ..ttns import TreeTensorNetworkState
-from pytreenet.contractions.contraction_util import get_equivalent_legs
-
+from ..time_evolution.time_evo_util.bug_util import adjust_ttn1_structure_to_ttn2
 
 if TYPE_CHECKING:
     from ..ttns.ttndo import BINARYTTNDO, SymmetricTTNDO
@@ -262,10 +261,10 @@ def contract_physical_nodes(ttndo: BINARYTTNDO,
         result_ttn = deepcopy(ttndo)
     else:
         result_ttn = ttndo
-    
+
     # Dictionary to track which nodes have been processed
     processed_nodes = {}
-    
+
     # Process nodes in a bottom-up manner to ensure we contract from leaves to root
     linearized_nodes = result_ttn.linearise()
 
@@ -275,11 +274,11 @@ def contract_physical_nodes(ttndo: BINARYTTNDO,
         # Skip already processed nodes
         if node_id in processed_nodes:
             continue
-            
+
         # Skip nodes that don't have a bra/ket suffix
         if not (node_id.endswith(bra_suffix) or node_id.endswith(ket_suffix)):
             continue
-            
+
         # Get the corresponding lateral node ID
         if node_id.endswith(ket_suffix):
             base_id = node_id[:-len(ket_suffix)]
@@ -287,42 +286,42 @@ def contract_physical_nodes(ttndo: BINARYTTNDO,
         else:  # node_id.endswith(bra_suffix)
             base_id = node_id[:-len(bra_suffix)]
             lateral_id = base_id + ket_suffix
-        
+
         # Skip if lateral node doesn't exist or already processed
         if lateral_id not in result_ttn.nodes or lateral_id in processed_nodes:
             continue
-            
+
         # Add to pairs for contraction
         node_pairs.append((node_id, lateral_id, base_id))
         processed_nodes[node_id] = True
         processed_nodes[lateral_id] = True
-    
+
     # Second pass: Determine the correct contraction order (leaves first, then up)
     node_pairs.sort(key=lambda pair: pair[0])
-    
+
     # Third pass: Contract node pairs in the determined order (from leaves to root)
     for _, (node_id, lateral_id, base_id) in enumerate(node_pairs):
         # Check if nodes still exist 
         if node_id not in result_ttn.nodes or lateral_id not in result_ttn.nodes:
             continue
-            
+
         node = result_ttn.nodes[node_id]
         lateral_node = result_ttn.nodes[lateral_id]
-        
+
         # Find the lateral connection
         lateral_connection = False
-        
+
         # Check if nodes are directly connected
         node_neighbors = node.neighbouring_nodes()
         if lateral_id in node_neighbors:
             lateral_connection = True
-                
+
         # If not found, check if the lateral node is connected to the primary node
         if not lateral_connection:
             lateral_node_neighbors = lateral_node.neighbouring_nodes()
             if node_id in lateral_node_neighbors:
                 lateral_connection = True
-        
+
         # If directly connected, contract the nodes
         if lateral_connection:
             # Always pass the ket node as the first parameter to contract_nodes
@@ -366,7 +365,7 @@ def trace_contracted_binary_ttndo(ttndo: 'BINARYTTNDO') -> complex:
             ttndo.nodes[node_id].link_tensor(tensor_trace)
 
             ttndo.contract_nodes(parent_id, node_id, parent_id)
-        else:    
+        else:
             node, tensor = ttndo[node_id]
             parent_id = node.parent
 
@@ -414,31 +413,31 @@ def contract_ttno_with_ttndo(ttno: TreeTensorNetworkOperator, ttndo: 'BINARYTTND
     
     Returns:
         TreeTensorNetworkOperator: The expanded TTNO after contraction
-        
+
     Raises:
         ValueError: If the TTNO and TTNDO do not have the same structure.
-    """    
+    """
     # Create a copy of the TTNO to modify
     ttndo_copy = deepcopy(ttndo)
-    ttno = adjust_ttn1_structure_to_ttn2(ttno, ttndo)
-    # Get the path for contractions using TDVPUpdatePathFinder
+    adjust_ttn1_structure_to_ttn2(ttno, ttndo)
+    # Get the path for contractions using SweepingUpdatePathFinder
     all_nodes = ttndo.linearise()
-    
+
     # Contract the TTNO tensors with the TTNDO tensors node by node
     for node_id in all_nodes:
         # Contract the tensors
         if node_id.startswith(ttndo.phys_prefix):
             ttno_ttndo_tensor = contract_tensors_ttno_with_ttndo(
-                ttno.tensors[node_id], 
+                ttno.tensors[node_id],
                 ttndo.tensors[node_id])
-            
+
             ttndo_copy.tensors[node_id] = ttno_ttndo_tensor
             ttndo_copy.nodes[node_id].link_tensor(ttno_ttndo_tensor)
         else:     
             ttno_ttndo_tensor = contract_tensors_ttno_with_ttns(
-                ttno.tensors[node_id], 
+                ttno.tensors[node_id],
                 ttndo.tensors[node_id])
-            
+
             ttndo_copy.tensors[node_id] = ttno_ttndo_tensor
             ttndo_copy.nodes[node_id].link_tensor(ttno_ttndo_tensor)
     return ttndo_copy
@@ -460,7 +459,7 @@ def contract_tensors_ttno_with_ttndo(A: ndarray, B: ndarray) -> ndarray:
     """
     # Contract the last leg of TTNO with the second-to-last leg of TTNDO
     C = tensordot(A, B, axes=((-1,), (-2,)))
-    
+
     # Construct the permutation array for proper leg ordering
     perm = []
     for i in range(((C.ndim-1)//2)):
@@ -468,10 +467,10 @@ def contract_tensors_ttno_with_ttndo(A: ndarray, B: ndarray) -> ndarray:
         perm.append(i + ((A.ndim-1)))
     perm.append((A.ndim-2))
     perm.append((C.ndim-1))
-    
+
     # Apply the permutation
     C = transpose(C, tuple(perm))
-    
+
     # Reshape to merge paired dimensions
     original_shape = C.shape
     new_shape = []
@@ -479,9 +478,9 @@ def contract_tensors_ttno_with_ttndo(A: ndarray, B: ndarray) -> ndarray:
         new_shape.append(original_shape[i] * original_shape[i + 1])
     new_shape.append(original_shape[-2])
     new_shape.append(original_shape[-1])
-    
+
     C = C.reshape(tuple(new_shape))
-    
+
     return C
 
 def contract_tensors_ttno_with_ttns(A: ndarray, B: ndarray) -> ndarray:
@@ -492,11 +491,11 @@ def contract_tensors_ttno_with_ttns(A: ndarray, B: ndarray) -> ndarray:
     are represented by regular TTNS tensors. The function contracts the last leg of the 
     TTNO tensor (A) with the last leg of the TTNS tensor (B), then reorders and reshapes
     the resulting tensor to maintain the proper tensor network structure.
-    
+
     Args:
         A (ndarray): The tensor from the TTNO.
         B (ndarray): The tensor from the TTNS (virtual node in physically binary TTNDO).
-    
+
     Returns:
         ndarray: The contracted tensor with properly rearranged legs and merged dimensions.
     """
@@ -514,33 +513,6 @@ def contract_tensors_ttno_with_ttns(A: ndarray, B: ndarray) -> ndarray:
     new_shape += (original_shape[-1],)
     C = C.reshape(new_shape)   
     return C
-
-def cehck_two_ttn_compatibility(ttn1, ttn2):
-    for nodes in ttn1.nodes:
-        legs = get_equivalent_legs(ttn1.nodes[nodes], ttn2.nodes[nodes])
-        assert legs[0] == legs[1]
-
-def adjust_ttn1_structure_to_ttn2(ttn1, ttn2):
-    try:
-        cehck_two_ttn_compatibility(ttn1, ttn2)
-        return ttn1
-    except AssertionError: 
-        ttn3 = deepcopy(ttn2)
-        for node_id in ttn3.nodes:
-            ttn1_neighbours = ttn1.nodes[node_id].neighbouring_nodes()
-            element_map = {elem: i for i, elem in enumerate(ttn1_neighbours)}
-            ttn1_neighbours = ttn2.nodes[node_id].neighbouring_nodes()
-            permutation = tuple(element_map[elem] for elem in ttn1_neighbours)
-            nneighbours = ttn2.nodes[node_id].nneighbours()
-            if len(ttn1.nodes[node_id].open_legs) == 1 :
-               ttn1_tensor = ttn1.tensors[node_id].transpose(permutation + (nneighbours,))
-            elif len(ttn1.nodes[node_id].open_legs) == 2 :
-                ttn1_tensor = ttn1.tensors[node_id].transpose(permutation + (nneighbours,nneighbours+1))
-            else:
-                raise NotImplementedError()
-            ttn3.tensors[node_id] = ttn1_tensor
-            ttn3.nodes[node_id].link_tensor(ttn1_tensor)
-    return ttn3   
 
 def binary_ttndo_ttno_expectation_value(ttno: TreeTensorNetworkOperator, ttndo: 'BINARYTTNDO') -> complex:
     """
