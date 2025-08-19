@@ -1,0 +1,31 @@
+{
+    "experiment_label": "truncation_analysis",
+    "ttns_structure": "intertwined_mps",
+    "num_sites": 10,
+    "coupling": 1.0,
+    "ext_magn": 0.5,
+    "relaxation_rate": 0.1,
+    "dephasing_rate": 0.1,
+    "init_bond_dim": 4,
+    "depth": 0,
+    "time_evo_mode": "RK45",
+    "time_evo_solver_options": {
+        "atol": 1e-06,
+        "rtol": 1e-06
+    },
+    "time_evo_algorithm": "prbug",
+    "time_step_size": 0.2,
+    "evaluation_time": 2,
+    "final_time": 4,
+    "truncation_mode": "recursive_downward",
+    "use_gpu": false,
+    "gpu_threshold": 400000.0,
+    "max_bond_dim": 10,
+    "max_product_dim": Infinity,
+    "randomized_cutoff": Infinity,
+    "rel_svalue": 1e-06,
+    "abs_svalue": 1e-06,
+    "renorm": false,
+    "sum_trunc": true,
+    "sum_renorm": false
+}
