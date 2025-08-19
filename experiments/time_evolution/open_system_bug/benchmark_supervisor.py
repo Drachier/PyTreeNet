@@ -3,26 +3,20 @@ import json
 import logging
 import os
 import subprocess
-from collections import defaultdict
 from enum import Enum
 from time import time
 from typing import Dict, List, Tuple, Any
 import h5py
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D 
 import pandas as pd
 from numpy import array, savez, load, ndarray
 from IPython.display import display, clear_output
 
 from experiments.time_evolution.open_system_bug.exact_time_evolution.TFI_1D_Qutip import TFI_1D_Qutip
-from experiments.time_evolution.open_system_bug.parameters import generate_parameter
 from experiments.time_evolution.open_system_bug.sim_script import (CURRENT_PARAM_FILENAME,
                                                                    INITIAL_STATE_ZERO,
-                                                                   TTNStructure,
                                                                    get_param_hash)
 from pytreenet.special_ttn.binary import PHYS_PREFIX
 from pytreenet.time_evolution.results import Results
-from pytreenet.util.tensor_splitting import SVDParameters
 
 
 class Status(Enum):
@@ -67,13 +61,27 @@ def setup_benchmark_directory(benchmark_dir):
     return existing_results, metadata_file
 
 def get_or_compute_exact(sim_params, time_evo_params, benchmark_dir):
-    # Build physical-only hash from key sim and time-evo fields
+    # Apply SPBUG-specific parameter modifications to match actual simulation
+    actual_time_step = time_evo_params.time_step_size
+    actual_eval_time = time_evo_params.evaluation_time
+    
+    # Check if we're dealing with SPBUG algorithm
+    from pytreenet.time_evolution.time_evo_enum import TimeEvoAlg
+    if hasattr(time_evo_params, 'time_evo_algorithm') and time_evo_params.time_evo_algorithm == TimeEvoAlg.SPBUG:
+        # Apply SPBUG modifications: double time step, halve evaluation time
+        actual_time_step = time_evo_params.time_step_size * 2
+        actual_eval_time = int(time_evo_params.evaluation_time / 2)
+    
+    # Build hash from key sim and time-evo fields including time discretization
+    # Use the actual parameters that the algorithm will use
     phys_hash_dict = {"num_sites": sim_params.num_sites,
                     "coupling": sim_params.coupling,
                     "ext_magn": sim_params.ext_magn,
                     "relaxation_rate": sim_params.relaxation_rate,
                     "dephasing_rate": sim_params.dephasing_rate,
-                    "final_time": time_evo_params.final_time}
+                    "final_time": time_evo_params.final_time,
+                    "time_step_size": actual_time_step,
+                    "evaluation_time": actual_eval_time}
 
     phys_hash = hashlib.md5(json.dumps(phys_hash_dict, sort_keys=True).encode()).hexdigest()
     exact_file = os.path.join(benchmark_dir, f"{phys_hash}_exact.npz")
@@ -95,8 +103,8 @@ def get_or_compute_exact(sim_params, time_evo_params, benchmark_dir):
     result, _ = tfi.evolve_system_lindblad(
         initial_state=initial_state,
         final_time=time_evo_params.final_time,
-        time_step_size=time_evo_params.time_step_size,
-        evaluation_time=time_evo_params.evaluation_time,
+        time_step_size=actual_time_step,
+        evaluation_time=actual_eval_time,
         jump_operators=jump_ops,
         e_ops=e_ops,
         options={'method':'bdf',
@@ -175,9 +183,9 @@ def run_single_benchmark(parameters,
             stderr=subprocess.PIPE,
             text=True,
             encoding='utf-8',
-            errors='replace',  # Replace problematic characters instead of failing
+            errors='replace',
             check=False,
-            timeout=3600)  # 1 hour timeout
+            timeout=5400)  # 1.5 hour timeout
 
         # Log subprocess output regardless of success/failure
         if result.stdout.strip():
@@ -215,6 +223,7 @@ def run_single_benchmark(parameters,
         exact_magns, exact_energy = get_or_compute_exact(sim_params, time_evo_params, benchmark_dir)
 
         # Check shapes before computing errors
+        print(f"Shapes - Bug: {bug_magns.shape}, Exact: {exact_magns.shape}")
         assert bug_magns.shape == exact_magns.shape
         assert bug_energy.shape == exact_energy.shape
 
@@ -249,19 +258,15 @@ def run_single_benchmark(parameters,
 
     return status, elapsed_time
 
-def run_benchmarks(benchmark_dir: str,
-                    ttn_structure: TTNStructure,
-                    svd_params_list: list[SVDParameters],
-                    depth: int | None = None,
-                    ask_overwrite: bool = False):
+def run_benchmarks(parameters,
+                   benchmark_dir: str,
+                   ask_overwrite: bool = False):
     """
-    Run benchmarks for a specific TTN structure with different SVD parameters.
+    Run benchmarks for a specific TTN structure with different time step levels.
 
     Args:
+        parameters: Simulation parameters to use for the benchmarks
         benchmark_dir: Unified directory for all benchmark results
-        ttn_structure: TTNStructure enum (MPS, BINARY, etc.)
-        svd_params_list: List of SVDParameters to test
-        depth: Optional depth parameter
         ask_overwrite: Whether to ask for skip/overwrite if the parameters already exist.
 
     Returns:
@@ -270,23 +275,16 @@ def run_benchmarks(benchmark_dir: str,
     # Setup benchmark directory
     existing_results, metadata_file = setup_benchmark_directory(benchmark_dir)
 
-    # Generate all parameter combinations
-    all_parameters = []
-    for svd_params in svd_params_list:
-        params = generate_parameter(ttn_structure=ttn_structure,
-                                    depth=depth,
-                                    svd_prams=svd_params)
-        all_parameters.extend(params)
-
     # Create DataFrame for live progress tracking
-    columns = ['Prameters Hash',
+    columns = ['Parameters Hash',
                'Algorithm',
-               'time_step_level',
-               'truncation_level',
+               'TTNDO structure',
+               'Time Step',
+               'Max Bond Dim',
+               'Max Product Dim',
                'Status',
                'CPU_time']
     df = pd.DataFrame(columns = columns)
-    print(f"🔧 TTNDO Structure: {ttn_structure.name} (depth = {depth})")
     display(df)
 
     # Run benchmarks
@@ -294,21 +292,27 @@ def run_benchmarks(benchmark_dir: str,
                         'failed': 0,
                         'timeout': 0,
                         'skipped': 0,
-                        'structure': ttn_structure.name,
                         'dataframe': df}
 
-    for _, parameters in enumerate(all_parameters, 1):
+    for _, parameters in enumerate(parameters, 1):
         sim_params, time_evo_params = parameters
         param_hash = get_param_hash(sim_params, time_evo_params)
 
         # Prepare row data before running benchmark
         algorithm = time_evo_params.time_evo_algorithm.value if time_evo_params.time_evo_algorithm else 'Unknown'
         method = time_evo_params.time_evo_mode.method.value if hasattr(time_evo_params, 'time_evo_mode') and time_evo_params.time_evo_mode else 'Unknown'
+        
+        # Get TTNDO structure from sim_params
+        ttndo_structure = getattr(sim_params, 'ttns_structure', 'Unknown')
+        if hasattr(ttndo_structure, 'value'):
+            ttndo_structure = ttndo_structure.value
 
-        row_data = {'Prameters Hash': param_hash[:12],
+        row_data = {'Parameters Hash': param_hash[:12],
                     'Algorithm': f"{algorithm} / {method}",
-                    'time_step_level': time_evo_params.time_step_level.value if time_evo_params.time_step_level else 'Unknown',
-                    'truncation_level': time_evo_params.truncation_level.value if time_evo_params.truncation_level else 'Unknown',
+                    'TTNDO structure': ttndo_structure,
+                    'Time Step': f"{time_evo_params.time_step_size:.3f}",
+                    'Max Bond Dim': time_evo_params.max_bond_dim,
+                    'Max Product Dim': time_evo_params.max_product_dim,
                     'Status': 'Running...',
                     'CPU_time': 0.0}
 
@@ -317,8 +321,6 @@ def run_benchmarks(benchmark_dir: str,
 
         # Update display
         clear_output(wait=True)
-        print(f"🔧 TTNDO Structure: {ttn_structure.name} (depth = {depth})")
-        print(f"Running {len(all_parameters)} simulations")
         display(df)
 
         # Run the benchmark
@@ -334,7 +336,6 @@ def run_benchmarks(benchmark_dir: str,
 
         # Update display with final results
         clear_output(wait=True)
-        print(f"🔧 TTNDO Structure: {ttn_structure.name} (depth = {depth})")
         display(df)
 
         # Update counters
@@ -439,8 +440,7 @@ class BenchmarkResultLoader:
         
         Args:
             filter_params: Dictionary containing parameter criteria to filter by.
-                          e.g. {"ttns_structure": "mps", "truncation_level": "fast"}
-                          or {"status": "success", "time_step_level": "coarse"}
+                          e.g. {"status": "success", "time_step_level": "coarse"}
         
         Returns:
             List[Tuple[Dict, Any]]: List of (parameters, results) 
@@ -496,7 +496,6 @@ class BenchmarkResultLoader:
 
         return matching_hashes
 
-
 def load_specific_result(param_hash: str, results_dir) -> Tuple[Dict, Any]:
     """Load a specific result by parameter hash."""
     loader = BenchmarkResultLoader(results_dir)
@@ -519,167 +518,3 @@ def load_filtered_results(filter_params: Dict, results_dir: str) -> List[Tuple[D
 
     loader = BenchmarkResultLoader(results_dir)
     return loader.filter_and_load_results(filter_params)
-
-
-def plot_benchmark_errors(filter_criteria, benchmark_dir, save_path=None, figsize=(15, 10)):
-    """
-    Create error vs time plots grouped by algorithm+method combinations.
-
-    Args:
-        filter_criteria: Dict to filter results (e.g., {"max_bond_dim": 8})
-        benchmark_dir: Directory containing benchmark results
-        save_path: Optional path to save the plots
-        figsize: Figure size (width, height)
-
-    Returns:
-        matplotlib.figure.Figure: The created figure
-    """
-    # Load filtered results
-    filtered_results = load_filtered_results(filter_criteria, benchmark_dir)
-
-    if not filtered_results:
-        print(f"❌ No results found for criteria: {filter_criteria}")
-        return None
-
-    print(f"📊 Found {len(filtered_results)} results matching criteria: {filter_criteria}")
-
-    # Extract TTN structure and depth from first result (they should be the same for all)
-    first_params = filtered_results[0][0]
-    ttn_structure = first_params.get('ttns_structure', 'unknown')
-    depth = first_params.get('depth', 'unknown')
-
-    # Group results by (algorithm, method)
-    groups = defaultdict(list)
-    loader = BenchmarkResultLoader(benchmark_dir)
-
-    for params, results in filtered_results:
-        algorithm = params.get('time_evo_algorithm', 'unknown')
-        method = params.get('time_evo_mode', 'unknown')
-        group_key = (algorithm, method)
-
-        # Load error arrays for this result
-        param_hash = params['benchmark_hash']
-        mag_error, energy_error = loader.load_error_arrays(param_hash)
-
-        # Get time array and norm data
-        times = results.results.get('times', None)
-        norm = results.results.get('norm', results.results.get('Identity', None))
-
-        if times is not None and norm is not None:
-            # Calculate norm deviation
-            norm_error = abs(norm - 1)
-
-            # Store all data for this simulation
-            sim_data = {
-                'params': params,
-                'times': times,
-                'energy_error': energy_error,
-                'mag_error': mag_error,
-                'norm_error': norm_error,
-                'truncation_level': params.get('truncation_level', 'unknown'),
-                'time_step_level': params.get('time_step_level', 'unknown')
-            }
-            groups[group_key].append(sim_data)
-
-    if not groups:
-        print("❌ No valid data found after loading error arrays")
-        return None
-
-    # Define color schemes
-    truncation_colors = {
-        'fast': 'blue',
-        'balanced': 'green', 
-        'rigorous': 'red',
-        'unknown': 'gray'
-    }
-
-    # Define line styles for time step levels
-    time_step_linestyles = {
-        'coarse': '-',      # solid line
-        'medium': '--',     # dashed line
-        'fine': ':',        # dotted line
-        'unknown': '-.'     # dash-dot line
-    }
-
-    # Create figure with subplots
-    n_groups = len(groups)
-    fig, axes = plt.subplots(n_groups, 3, figsize=figsize, squeeze=False)
-    fig.suptitle(f'TTNDO Structure: {ttn_structure} / depth = {depth}', 
-                 fontsize=16, fontweight='bold')
-
-    # Plot titles for the three error types
-    error_titles = ['Energy Error', 'Total Magnetization Error', 'Norm Deviation |norm - 1|']
-    error_keys = ['energy_error', 'mag_error', 'norm_error']
-
-    # Plot each group
-    for group_idx, ((algorithm, method), sims) in enumerate(groups.items()):
-        group_title = f"{algorithm} with {method} ODE-solver"
-
-        # Plot each error type
-        for error_idx, (error_key, error_title) in enumerate(zip(error_keys, error_titles)):
-            ax = axes[group_idx, error_idx]
-
-            # Plot each simulation in this group
-            for sim in sims:
-                trunc_level = sim['truncation_level']
-                time_level = sim['time_step_level']
-
-                # Get base color and line style
-                color = truncation_colors.get(trunc_level, 'gray')
-                linestyle = time_step_linestyles.get(time_level, '-.')
-
-                # Plot the error (no label to avoid individual legends)
-                times = sim['times']
-                error_data = sim[error_key]
-
-                # Handle potential shape mismatches
-                if len(times) != len(error_data):
-                    min_len = min(len(times), len(error_data))
-                    times = times[:min_len]
-                    error_data = error_data[:min_len]
-
-                ax.plot(times, error_data, color=color, linestyle=linestyle,
-                       linewidth=2, alpha=0.8)
-
-            # Customize subplot
-            ax.set_xlabel('Time')
-            ax.set_ylabel(error_title)
-            ax.set_title(group_title)
-            ax.grid(True, alpha=0.3)
-            ax.set_yscale('log')  # Use log scale for better error visualization
-    # Create a custom legend for the color scheme
-    legend_elements = []
-    for trunc, color in truncation_colors.items():
-        if trunc != 'unknown':
-            legend_elements.append(Line2D([0],
-                                    [0],
-                                    color=color, lw=4,
-                                    label=f'Truncation level: {trunc}'))
-
-    legend_elements.append(Line2D([0],
-                            [0],
-                            color='black',
-                            linestyle='-', lw=2,
-                            label='Time_step level: coarse'))
-    legend_elements.append(Line2D([0],
-                            [0], color='black',
-                            linestyle='--', lw=2,
-                            label='Time_step level: medium'))
-    legend_elements.append(Line2D([0],
-                            [0],
-                            color='black',
-                            linestyle=':',
-                            lw=2, label='Time_step level: fine'))
-
-    # Add main legend outside the plot area
-    fig.legend(handles=legend_elements, loc='center right', bbox_to_anchor=(1.2, 0.5), fontsize=14)
-
-    # Adjust layout with extra space for legend
-    plt.tight_layout()
-
-    # Save if requested
-    if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"💾 Plot saved to: {save_path}")
-
-    plt.show()

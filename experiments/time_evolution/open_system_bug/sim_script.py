@@ -32,35 +32,29 @@ from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
 from pytreenet.operators.common_operators import bosonic_operators
 from pytreenet.time_evolution.time_evolution import (TimeEvoMode,
                                                      TimeEvoMethod)
-from pytreenet.util.tensor_splitting import TruncationLevel
-
+from pytreenet.core.truncation.truncation import TruncationMode
+from pytreenet.gpu_config import enable_gpu_acceleration, disable_gpu_acceleration
 
 CURRENT_PARAM_FILENAME = "current_parameters.json"
 
 # Global initial quantum state
 INITIAL_STATE_ZERO = array([1.0, 0.0], dtype=complex128)  # |0⟩ state
 
-
-class TimeStepLevel(Enum):
-    """Labels representing grid fineness levels for the time step."""
-    COARSE = "coarse"
-    MEDIUM = "medium"
-    FINE = "fine"
-
 class TTNStructure(Enum):
     """
     Enum for different tree tensor network structures.
     """
-    MPS = "mps"
+    SYMMETRIC_MPS = "symmetric_mps"
+    INTERTWINED_MPS = "intertwined_mps"
     BINARY = "binary"
-    SYMMETRIC = "symmetric"
-
+    CAYLEY = "cayley"
 
 @dataclass
 class SimulationParameters:
     """
     Dataclass to hold simulation parameters.
     """
+    experiment_label: str
     ttns_structure: TTNStructure
     num_sites: int
     coupling: float
@@ -74,11 +68,13 @@ class SimulationParameters:
         """
         Convert the simulation parameters to a dictionary.
         """
-        return {"ttns_structure": self.ttns_structure.value,
-                "num_sites": self.num_sites,
-                "coupling": self.coupling,
-                "ext_magn": self.ext_magn,
-                "relaxation_rate": self.relaxation_rate,
+        return {
+            "experiment_label": self.experiment_label,
+            "ttns_structure": self.ttns_structure.value,
+            "num_sites": self.num_sites,
+            "coupling": self.coupling,
+            "ext_magn": self.ext_magn,
+            "relaxation_rate": self.relaxation_rate,
                 "dephasing_rate": self.dephasing_rate,
                 "init_bond_dim": self.init_bond_dim,
                 "depth": self.depth}
@@ -90,6 +86,7 @@ class SimulationParameters:
         """
         ttns_structure = TTNStructure(data["ttns_structure"])
         return cls(
+            data["experiment_label"],
             ttns_structure,
             data["num_sites"],
             data["coupling"],
@@ -104,6 +101,7 @@ class SimulationParameters:
         Saves the simulation parameters to an HDF5 file.
         """
         group = file.create_group("simulation_parameters")
+        group.attrs["experiment_label"] = self.experiment_label
         group.attrs["ttns_structure"] = self.ttns_structure.value
         group.attrs["num_sites"] = self.num_sites
         group.attrs["coupling"] = self.coupling
@@ -125,16 +123,35 @@ class TimeEvolutionParameters:
     evaluation_time: int
     final_time: float
 
-    # Optional label for time-step fineness
-    time_step_level: Optional[TimeStepLevel] = None
-
-    max_bond_dim: int = 100
+    truncation_mode: Optional[TruncationMode] = None
+    max_bond_dim: int = float("inf")
+    max_product_dim: int = float("inf")
+    randomized_cutoff: int = float("inf")
     rel_svalue: float = 1e-6
     abs_svalue: float = 1e-6
     renorm: bool = False
     sum_trunc: bool = False
     sum_renorm: bool = True
-    truncation_level: Optional[TruncationLevel] = None
+    use_gpu: bool = False
+    gpu_threshold: int = 4*1e5
+
+    def get_truncation_mode(self) -> Optional[TruncationMode]:
+        """
+        Get the truncation mode, automatically setting it based on the algorithm if None.
+        
+        Returns:
+            TruncationMode: The truncation mode to use.
+        """
+        if self.truncation_mode is not None:
+            return self.truncation_mode
+        
+        # Auto-set based on algorithm
+        if self.time_evo_algorithm in [TimeEvoAlg.SPBUG, TimeEvoAlg.FPBUG]:
+            return TruncationMode.SWEEPING_GREEDY
+        elif self.time_evo_algorithm == TimeEvoAlg.PRBUG:
+            return TruncationMode.RECURSIVE_GREEDY
+        else:
+            return None
 
     def to_dict(self) -> dict:
         """
@@ -146,11 +163,14 @@ class TimeEvolutionParameters:
             "time_evo_algorithm": self.time_evo_algorithm.value,
             "time_step_size": self.time_step_size,
             "evaluation_time": self.evaluation_time,
-            "time_step_level": self.time_step_level.value if self.time_step_level else None,
             "final_time": self.final_time,
-            "truncation_level": self.truncation_level.value if self.truncation_level else None}
+            "truncation_mode": self.get_truncation_mode().value if self.get_truncation_mode() is not None else None,
+            "use_gpu": self.use_gpu,
+            "gpu_threshold": self.gpu_threshold}
         if self.time_evo_algorithm.requires_svd():
             out["max_bond_dim"] = self.max_bond_dim
+            out["max_product_dim"] = self.max_product_dim
+            out["randomized_cutoff"] = self.randomized_cutoff
             out["rel_svalue"] = self.rel_svalue
             out["abs_svalue"] = self.abs_svalue
             out["renorm"] = self.renorm
@@ -169,23 +189,28 @@ class TimeEvolutionParameters:
         time_evo_mode = TimeEvoMode(method, solver_options)
 
         time_evo_algorithm = TimeEvoAlg(data["time_evo_algorithm"])
-        truncation_level = TruncationLevel(data["truncation_level"]) if data.get("truncation_level") else None
-        # Extract time_step_level if present
-        tsl = data.get("time_step_level")
-        time_step_level = TimeStepLevel(tsl) if tsl else None
+        
+        # Handle truncation_mode
+        truncation_mode = None
+        if "truncation_mode" in data and data["truncation_mode"] is not None:
+            truncation_mode = TruncationMode(data["truncation_mode"])
+
         return cls(time_evo_mode,
                     time_evo_algorithm,
                     data["time_step_size"],
                     data["evaluation_time"],
-                    final_time=data["final_time"],
-                    time_step_level=time_step_level,
+                    data["final_time"],
+                    truncation_mode=truncation_mode,
                     max_bond_dim=data.get("max_bond_dim", 100),
+                    max_product_dim=data.get("max_product_dim", float("inf")),
+                    randomized_cutoff=data.get("randomized_cutoff", float("inf")),
                     rel_svalue=data.get("rel_svalue", 1e-6),
                     abs_svalue=data.get("abs_svalue", 1e-6),
                     renorm=data.get("renorm", False),
                     sum_trunc=data.get("sum_trunc", False),
                     sum_renorm=data.get("sum_renorm", True),
-                    truncation_level=truncation_level)
+                    use_gpu=data.get("use_gpu", False),
+                    gpu_threshold=data.get("gpu_threshold", 4*1e5))
 
     def save_to_h5(self, file: File):
         """
@@ -194,22 +219,31 @@ class TimeEvolutionParameters:
         group = file.create_group("time_evolution_parameters")
         group.attrs["time_evo_mode"] = self.time_evo_mode.method.value
         group.attrs["time_evo_algorithm"] = self.time_evo_algorithm.value
-        group.attrs["truncation_level"] = self.truncation_level.value if self.truncation_level else ""
-        group.attrs["time_step_level"] = self.time_step_level.value if self.time_step_level else ""
 
         # Save solver options as a subgroup since they can be complex
         solver_group = group.create_group("solver_options")
         for key, value in self.time_evo_mode.solver_options.items():
             solver_group.attrs[key] = value
 
+        # Save truncation_mode, handling None values
+        if self.truncation_mode is not None:
+            group.attrs["truncation_mode"] = self.truncation_mode.value
+        else:
+            group.attrs["truncation_mode"] = "None"
+
+        # Save GPU parameters
+        group.attrs["use_gpu"] = self.use_gpu
+        group.attrs["gpu_threshold"] = self.gpu_threshold
+
         if self.time_evo_algorithm.requires_svd():
             group.attrs["max_bond_dim"] = self.max_bond_dim
+            group.attrs["max_product_dim"] = self.max_product_dim
+            group.attrs["randomized_cutoff"] = self.randomized_cutoff
             group.attrs["rel_svalue"] = self.rel_svalue
             group.attrs["abs_svalue"] = self.abs_svalue
             group.attrs["renorm"] = self.renorm
             group.attrs["sum_trunc"] = self.sum_trunc
             group.attrs["sum_renorm"] = self.sum_renorm
-
 
 def initial_ttndo(sim_params: SimulationParameters):
     """
@@ -223,7 +257,7 @@ def initial_ttndo(sim_params: SimulationParameters):
     # Use the global constant for the initial state |0⟩
     phys_tensor = INITIAL_STATE_ZERO
 
-    if sim_params.ttns_structure == TTNStructure.MPS:
+    if sim_params.ttns_structure == TTNStructure.INTERTWINED_MPS:
         ttns, ttndo = mps_ttndo_for_product_state(
             num_phys=sim_params.num_sites,
             bond_dim=init_bond_dim,
@@ -238,14 +272,22 @@ def initial_ttndo(sim_params: SimulationParameters):
             depth=depth)
         return ttns, ttndo
 
-    elif sim_params.ttns_structure == TTNStructure.SYMMETRIC:
+    elif sim_params.ttns_structure == TTNStructure.CAYLEY:
         ttns, ttndo = symmetric_ttndo_for_product_state(
             num_phys=sim_params.num_sites,
             bond_dim=init_bond_dim,
             phys_tensor=phys_tensor,
             depth=depth,
             root_bond_dim=init_bond_dim)
-        # Symmetric function only returns ttndo, so we return None for ttns
+        return ttns, ttndo
+
+    elif sim_params.ttns_structure == TTNStructure.SYMMETRIC_MPS:
+        ttns, ttndo = symmetric_ttndo_for_product_state(
+            num_phys=sim_params.num_sites,
+            bond_dim=init_bond_dim,
+            phys_tensor=phys_tensor,
+            depth=0,
+            root_bond_dim=init_bond_dim)
         return ttns, ttndo
 
     raise ValueError(f"Unsupported combination of structure {sim_params.ttns_structure}")
@@ -381,6 +423,12 @@ def run_one_simulation(sim_params: SimulationParameters,
     operators = open_ising_operators(sim_params,
                                      ising_ham)
 
+    # Configure GPU acceleration if requested
+    if time_evo_params.use_gpu:
+        enable_gpu_acceleration(threshold=time_evo_params.gpu_threshold, verbose=False)
+    else:
+        disable_gpu_acceleration()
+
     time_evo_alg_kind = time_evo_params.time_evo_algorithm
     config = time_evo_alg_kind.get_class().config_class()
     config.record_bond_dim = True
@@ -393,15 +441,27 @@ def run_one_simulation(sim_params: SimulationParameters,
 
     if time_evo_alg_kind.requires_svd():
         config.max_bond_dim = time_evo_params.max_bond_dim
+        config.max_product_dim = time_evo_params.max_product_dim
+        config.randomized_cutoff = time_evo_params.randomized_cutoff
         config.rel_tol = time_evo_params.rel_svalue
         config.total_tol = time_evo_params.abs_svalue
         config.renorm = time_evo_params.renorm
         config.sum_trunc = time_evo_params.sum_trunc
         config.sum_renorm = time_evo_params.sum_renorm
+        
+        # Set truncation mode automatically based on algorithm if not specified
+        truncation_mode = time_evo_params.get_truncation_mode()
+        if truncation_mode is not None:
+            config.truncation_mode = truncation_mode
+
+    # Halve time step size for SPBUG algorithm only
+    step_size = time_evo_params.time_step_size
+    if time_evo_alg_kind == TimeEvoAlg.SPBUG:
+        step_size = step_size * 2
 
     time_evo_alg = time_evo_alg_kind.get_algorithm_instance(ttndo,
                                                             lindbladian_ttno,
-                                                            time_evo_params.time_step_size,
+                                                            step_size,
                                                             time_evo_params.final_time,
                                                             operators,
                                                             config=config)
@@ -412,8 +472,14 @@ def run_one_simulation(sim_params: SimulationParameters,
 
     # Run the time evolution
     start_time = time()
+
+    # Double evaluation time for SPBUG algorithm only
+    eval_time = time_evo_params.evaluation_time
+    if time_evo_alg_kind == TimeEvoAlg.SPBUG:
+        eval_time = int(eval_time / 2)
+    
     with contextlib.redirect_stdout(stdout_capture), contextlib.redirect_stderr(stderr_capture):
-        time_evo_alg.run(time_evo_params.evaluation_time, pgbar=False)
+        time_evo_alg.run(eval_time, pgbar=False)
 
 
     end_time = time()
