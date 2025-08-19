@@ -15,8 +15,10 @@ from ..contractions.contraction_util import contract_all_but_one_neighbour_block
 
 from ..contractions.sandwich_caching import SandwichCache
 from ..contractions.effective_hamiltonians import get_effective_single_site_hamiltonian, get_effective_two_site_hamiltonian_nodes
-from .dmrg_utils import davidson
-# from pyscf.lib import davidson as pyscf_davidson
+try:
+    from pyscf.lib import davidson as davidson
+except ImportError:
+    from .dmrg_utils import davidson
 
 class DMRGAlgorithm():
     """
@@ -148,10 +150,22 @@ class DMRGAlgorithm():
         """
         hamiltonian_eff_site = get_effective_single_site_hamiltonian(node_id, self.state, self.hamiltonian, self.partial_tree_cache)
         
+        Afunc = lambda x:hamiltonian_eff_site@x
+        eps = 1e-8  # Small constant to avoid division by zero
+        diag = hamiltonian_eff_site.diagonal()
+        max_diag = np.max(np.abs(diag))
+        min_denom = max_diag * eps  # Scale eps with matrix size
+
+        precond_davidson = lambda dx, e, x0: dx/np.maximum(np.abs(diag - e), min_denom) * np.sign(diag - e)
+        
         shape = self.state.tensors[node_id].shape
-        l,v = davidson(hamiltonian_eff_site, [self.state.tensors[node_id].reshape(-1)],1,max_iter=self.max_iter)
-        self.state.tensors[node_id] = v[0].reshape(shape)
-        return l[0]
+        # l,v = davidson(hamiltonian_eff_site, [self.state.tensors[node_id].reshape(-1)],1,max_iter=self.max_iter)
+        # self.state.tensors[node_id] = v[0].reshape(shape)
+        # return l[0]
+        l,v = davidson(Afunc, self.state.tensors[node_id].reshape(-1), precond=precond_davidson, nroots=1,max_cycle=max(50,int(hamiltonian_eff_site.shape[0]*0.01)))
+        self.state.tensors[node_id] = v.reshape(shape)
+        return l
+    
     
     def _update_two_site(self, target_node_id: str, next_node_id: str) -> np.ndarray:
         """
@@ -177,9 +191,21 @@ class DMRGAlgorithm():
         next_node, next_tensor = self.hamiltonian[next_node_id]
         
         hamiltonian_eff_site = get_effective_two_site_hamiltonian_nodes(self.state.nodes[new_id], target_node, target_tensor, next_node, next_tensor, self.partial_tree_cache)
+        
+        Afunc = lambda x: hamiltonian_eff_site@x
+        
+        eps = 1e-8  # Small constant to avoid division by zero
+        diag = hamiltonian_eff_site.diagonal()
+        max_diag = np.max(np.abs(diag))
+        min_denom = max_diag * eps  # Scale eps with matrix size
 
-        eig_vals, eig_vecs = davidson(hamiltonian_eff_site, [self.state.tensors[new_id].reshape(-1)],1, max_iter=self.max_iter)
-        self.state.tensors[new_id] = eig_vecs[0].reshape(shape)
+        precond_davidson = lambda dx, e, x0: dx/np.maximum(np.abs(diag - e), min_denom) * np.sign(diag - e)
+        
+        eig_vals, eig_vecs = davidson(Afunc, self.state.tensors[new_id].reshape(-1), precond=precond_davidson, nroots=1,max_cycle=self.max_iter)
+        self.state.tensors[new_id] = eig_vecs.reshape(shape)
+
+        # eig_vals, eig_vecs = davidson(hamiltonian_eff_site, [self.state.tensors[new_id].reshape(-1)],1, max_iter=self.max_iter)
+        # self.state.tensors[new_id] = eig_vecs[0].reshape(shape)
         
         self.state.split_node_svd(new_id, u_legs, v_legs,
                                   u_identifier=target_node_id,
@@ -187,7 +213,7 @@ class DMRGAlgorithm():
                                   svd_params=self.svd_params)
         self.state.orthogonality_center_id = next_node_id
         self.update_tree_cache(target_node_id, next_node_id)
-        return eig_vals[0]
+        return eig_vals
     
     @staticmethod
     def create_two_site_id(node_id: str, next_node_id: str) -> str:

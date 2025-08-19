@@ -33,7 +33,7 @@ class VariationalFitting():
                  site: str,
                  coeffs: Union[float, complex, List[float], List[complex], None] = None,
                  residual_rank: int = 4,
-                 dtype: np.dtype = np.complex128):
+                 dtype: np.dtype = np.float64):
         """
         Initilises an instance of a ALS algorithm.
         
@@ -154,7 +154,7 @@ class VariationalFitting():
         partial_tree_cache_states_list = []
         for xi, oi in zip(self.x, self.O):
             partial_tree_cache_states_list.append(SandwichCache.init_cache_but_one(xi, oi,
-                                                self.update_path[0],self.y.conjugate()))
+                                                self.update_path[0],self.y, bra_state_conjugated=False))
         return partial_tree_cache_states_list
         
     def _contract_two_ttns_except_node(self,
@@ -252,7 +252,7 @@ class VariationalFitting():
                     legs of the tensor point.   
         """
         for cache in self.partial_tree_cache_states:
-            cache.bra_state = self.y.conjugate()
+            # cache.bra_state = self.y.conjugate()
             cache.update_tree_cache(node_id, next_node_id)
 
     def _update_one_site(self, node_id: str, next_node_id: str = None) -> np.ndarray:

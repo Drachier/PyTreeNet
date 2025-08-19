@@ -25,7 +25,7 @@ class TestVariationalFittingSmall(unittest.TestCase):
         state_y = deepcopy(self.ttns)
         state_y.pad_bond_dimensions(6)
         self.varfit_one_site = ptn.VariationalFitting([self.ttno], [self.ttns], state_y, self.num_sweeps,
-                             self.max_iter, self.svd_params, "one-site")
+                             self.max_iter, self.svd_params, "one-site", dtype=np.complex128)
 
     def test_one_site_als(self):
         state_num = zipup(self.ttno, self.ttns)
@@ -50,7 +50,7 @@ class TestVariationalFittingBig(unittest.TestCase):
         state_y = deepcopy(self.ttns)
         state_y.pad_bond_dimensions(6)
         self.varfit_one_site = ptn.VariationalFitting([self.ttno], [deepcopy(self.ttns)], state_y, self.num_sweeps,
-                             self.max_iter, self.svd_params, "one-site")
+                             self.max_iter, self.svd_params, "one-site", dtype=np.complex128)
 
     def test_one_site_als(self):
         state_num = zipup(self.ttno, self.ttns,self.svd_params)
@@ -75,7 +75,7 @@ class TestVariationalFittingMPS(unittest.TestCase):
         state_y = deepcopy(self.ttns)
         state_y.pad_bond_dimensions(6)
         self.varfit_one_site = ptn.VariationalFitting([self.ttno], [deepcopy(self.ttns)], state_y, self.num_sweeps,
-                             self.max_iter, self.svd_params, "one-site")
+                             self.max_iter, self.svd_params, "one-site", dtype=np.complex128)
 
     def test_one_site_als(self):
         state_num = zipup(self.ttno, self.ttns,self.svd_params)

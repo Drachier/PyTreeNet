@@ -409,6 +409,7 @@ def contract_any(node_id: str, next_node_id: str,
                  operator: TreeTensorNetworkOperator,
                  dictionary: PartialTreeCachDict,
                  bra_state: Union[TreeTensorNetworkState,None] = None,
+                 bra_state_conjugated: bool = True,
                  id_trafo_op: Union[Callable,None] = None,
                  id_trafo_bra: Union[Callable,None] = None
                     ) -> np.ndarray:
@@ -431,6 +432,7 @@ def contract_any(node_id: str, next_node_id: str,
             already contracted subtrees.
         bra_state (Union[TreeTensorNetworkState,None]): The TTNS representing
             the bra state.
+        bra_state_conjugated (bool): Whether the bra state is conjugated.
         id_trafo_op (Union[Callable,None], optional): A function that transforms
             the node identifier of the ket neighours to the identifiers of the
             operator node's neighbours. If None, the identity is assumed.
@@ -447,6 +449,8 @@ def contract_any(node_id: str, next_node_id: str,
         bra_node, bra_tensor = state_node, state_tensor.conj()
     else:
         bra_node, bra_tensor = bra_state[node_id]
+    if not bra_state_conjugated:
+        bra_tensor = bra_tensor.conj()
     return contract_any_node_environment_but_one(next_node_id,
                                                  state_node, state_tensor,
                                                  operator_node, operator_tensor,

@@ -29,7 +29,8 @@ class SandwichCache(PartialTreeCachDict):
                  state: TreeTensorNetworkState,
                  hamiltonian: TreeTensorNetworkOperator,
                  dictionary: Union[Dict[Tuple[str,str],ndarray],None] = None,
-                 bra_state: TreeTensorNetworkState = None
+                 bra_state: TreeTensorNetworkState = None,
+                 bra_state_conjugated: bool = True
                  ) -> None:
         """
         Initializes the SandwichCache.
@@ -47,6 +48,7 @@ class SandwichCache(PartialTreeCachDict):
         self.state = state
         self.hamiltonian = hamiltonian
         self.bra_state = bra_state
+        self.bra_state_conjugated = bra_state_conjugated
 
     def close_to(self, other: SandwichCache) -> bool:
         """
@@ -90,15 +92,15 @@ class SandwichCache(PartialTreeCachDict):
 
         """
         update_tree_cache(self, self.state, self.hamiltonian,
-                            node_id, next_node_id,
-                            bra_state=self.bra_state)
+                            node_id, next_node_id, self.bra_state, self.bra_state_conjugated)
 
     @classmethod
     def init_cache_but_one(cls,
                             state: TreeTensorNetworkState,
                             hamiltonian: TreeTensorNetworkOperator,
                             left_out_id: str,
-                            bra_state: TreeTensorNetworkState = None) -> SandwichCache:
+                            bra_state: TreeTensorNetworkState = None,
+                            bra_state_conjugated: bool = True) -> SandwichCache:
         """
         Initialises the caching for the partial trees. 
         
@@ -115,7 +117,7 @@ class SandwichCache(PartialTreeCachDict):
             bra_state (TreeTensorNetworkState, optional): The bra state to be
                 used for the update. Defaults to None.
         """
-        cache = cls(state, hamiltonian, bra_state=bra_state)
+        cache = cls(state, hamiltonian, bra_state=bra_state, bra_state_conjugated=bra_state_conjugated)
         rev_update_path, next_node_id_dict = _find_caching_path(state,
                                                                 left_out_id)
         for node_id in rev_update_path[:-1]:
@@ -128,7 +130,8 @@ def update_tree_cache(cache: SandwichCache,
                       hamiltonian: TreeTensorNetworkOperator,
                       node_id: str,
                       next_node_id: str,
-                      bra_state: TreeTensorNetworkState = None):
+                      bra_state: TreeTensorNetworkState = None,
+                      bra_state_conjugated: bool = True):
     """
     Updates the cache tensor for given node identifiers.
 
@@ -147,8 +150,7 @@ def update_tree_cache(cache: SandwichCache,
     """
     new_tensor = contract_any(node_id, next_node_id,
                                 state, hamiltonian,
-                                cache,
-                                bra_state=bra_state)
+                                cache, bra_state, bra_state_conjugated)
     cache.add_entry(node_id, next_node_id, new_tensor)
 
 def _find_caching_path(state: TreeTensorNetworkState,

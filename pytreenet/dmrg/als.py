@@ -143,7 +143,7 @@ class AlternatingLeastSquares():
         """
         identity_ttno = TTNO.from_hamiltonian(Hamiltonian.identity_like(self.state_b, dtype=np.float64), self.state_b,dtype=np.float64)
         return SandwichCache.init_cache_but_one(self.state_b, identity_ttno,
-                                                self.update_path[0],self.state_x.conjugate())
+                                                self.update_path[0],self.state_x, bra_state_conjugated=False)
         
     def _contract_two_ttns_except_node(self,
                                    node_id: str, rho: bool=False) -> np.ndarray:
@@ -221,7 +221,7 @@ class AlternatingLeastSquares():
             next_node_id (str): The identifier of the node to which the open
                     legs of the tensor point.   
         """
-        self.partial_tree_cache_states.bra_state = self.state_x.conjugate()
+        # self.partial_tree_cache_states.bra_state = self.state_x.conjugate()
         self.partial_tree_cache_states.update_tree_cache(node_id, next_node_id)
 
     def _update_one_site(self, node_id: str, next_node_id: str = None) -> np.ndarray:
