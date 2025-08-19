@@ -1,6 +1,7 @@
 
 from __future__ import annotations
 from typing import Tuple, Optional
+from dataclasses import dataclass, field
 
 from numpy import ndarray, concatenate, eye, allclose, transpose
 
@@ -12,6 +13,50 @@ from ...contractions.tree_cach_dict import PartialTreeCachDict
 from ...contractions.state_state_contraction import contract_any_nodes
 from ...core.canonical_form import _build_leg_specs
 from ...util.tensor_util import compute_transfer_tensor
+from .. import TimeEvoMode, TimeEvoMethod
+from ...util.tensor_splitting import tensor_qr_decomposition, SplitMode, SVDParameters
+from ..ttn_time_evolution import TTNTimeEvolutionConfig
+from ...core.truncation import TruncationMode
+from ...contractions.contraction_util import get_equivalent_legs
+
+@dataclass
+class BUGConfig(TTNTimeEvolutionConfig, SVDParameters):
+    """
+    Configuration class for the BUG (Basis-Update and Galerkin) algorithms.
+
+    Attributes:
+        deep (bool): If True, creates deep copies of the entire TTNS during each update step. 
+            If False, only copies the relevant nodes at each point, which is more memory 
+            efficient. Defaults to False.
+        time_evo_mode (TimeEvoMode): Specifies the local time evolution algorithm and its 
+            configuration. Defaults to RK45 method with standard tolerances. The algorithm 
+            and options can be accessed as:
+            - Method name: `FPBUG.config.time_evo_mode.method.value` (returns string)
+            - Solver options: `FPBUG.config.time_evo_mode.solver_options` (returns dict)
+            See TimeEvoMode documentation for complete method descriptions and options.
+        truncation_mode (TruncationMode): Specifies the truncation method used during
+            tensor decompositions. Defaults to RECURSIVE_GREEDY, which is suitable for
+            TTN structures. The other recommended method for this algorithm is
+            RECURSIVE_DOWNWARD, which performs recursive truncation on children bonds, down
+            to the leaf nodes.
+
+    Notes:
+        - SVDParameters control the truncation behavior during tensor decompositions 
+
+    Examples:
+        >>> config = PRBUGConfig()  # Uses defaults
+        >>> print(config.time_evo_mode.method.value)  # "RK45"
+        >>> print(config.time_evo_mode.solver_options)  # {'atol': 1e-06, 'rtol': 1e-06}
+
+        >>> # Custom configuration
+        >>> config = PRBUGConfig(
+        ...     deep=True,
+        ...     time_evo_mode=TimeEvoMode(TimeEvoMethod.RK23, {'atol': 1e-8}),
+        ...     rel_tol=1e-10,)
+    """
+    deep: bool = False
+    time_evo_mode: TimeEvoMode = field(default_factory=lambda: TimeEvoMode(TimeEvoMethod.RK45))
+    truncation_mode: TruncationMode = None
 
 
 def basis_change_tensor_id(node_id: str) -> str:
@@ -46,8 +91,9 @@ def concat_along_parent_leg(node: Node,
         ndarray: The concatenated tensor with doubled parent leg dimension,
             but with the same leg order as the input tensors.
     """
-    return concatenate((old_tensor, updated_tensor),
-                        axis=node.parent_leg)
+    return concat_along_specific_leg(old_tensor,
+                                     updated_tensor,
+                                     node.parent_leg)
 
 def concat_along_specific_leg(old_tensor: ndarray,
                              updated_tensor: ndarray,
@@ -127,9 +173,8 @@ def _compute_new_basis_tensor_qr(node: Node,
     for i, original_leg_index in enumerate(out_legs_int):
         leg_map_orig_to_qr[original_leg_index] = i
 
-    if neighbour_id is not None:
-        neighbour_leg_idx = node.neighbour_index(neighbour_id)
-        leg_map_orig_to_qr[neighbour_leg_idx] = qr_bond_idx
+    neighbour_leg_idx = node.neighbour_index(neighbour_id)
+    leg_map_orig_to_qr[neighbour_leg_idx] = qr_bond_idx
 
     orig_leg_indices = []
     if not node.is_root():
@@ -143,14 +188,6 @@ def _compute_new_basis_tensor_qr(node: Node,
         to_original_perm.append(leg_map_orig_to_qr[original_leg_index])
 
     new_basis_tensor = transpose(new_basis_tensor, to_original_perm)
-
-    check_node = Node(identifier=node.identifier)
-    if not node.is_root():
-        check_node.add_parent(node.parent)
-    for child_id in node.children:
-        check_node.add_child(child_id)
-
-    assert node.neighbouring_nodes() == check_node.neighbouring_nodes()
 
     return new_basis_tensor
 
@@ -265,7 +302,7 @@ def find_new_basis_replacement_leg_specs(node: Node
 
     Args:
         node (GraphNode): The node to replace.
-    
+
     Returns:
         Tuple[LegSpecification,LegSpecification]: (legs_basis_change,
             legs_new_basis) The leg specifications associated to the basis
@@ -274,3 +311,49 @@ def find_new_basis_replacement_leg_specs(node: Node
     legs_basis_change = LegSpecification(node.parent,[],[])
     leg_new_basis = LegSpecification(None,node.children,node.open_legs)
     return legs_basis_change, leg_new_basis
+
+
+
+def adjust_node1_structure_to_node2(start_ttn, tartget_ttn, node_id):
+    """
+    Update specific node of start_ttn leg perputation and children to match the 
+    the structure of this node in tartget_ttn.
+    Args:
+        start_ttn (TreeTensorNetworkState): The starting TTN state.
+        tartget_ttn (TreeTensorNetworkState): The target TTN state.
+        node_id (str): The identifier of the node to adjust.
+    """
+    start_node = start_ttn.nodes[node_id]
+    target_node = tartget_ttn.nodes[node_id]
+    legs = get_equivalent_legs(start_node,
+                               target_node)
+    if legs[0] != legs[1]:
+        start_node_neighbours = start_node.neighbouring_nodes()
+        element_map = {elem: i for i, elem in enumerate(start_node_neighbours)}
+        target_node_neighbours = target_node.neighbouring_nodes()
+        permutation = tuple(element_map[elem] for elem in target_node_neighbours)
+        nneighbours = target_node.nneighbours()
+        if len(start_node.open_legs) == 1:
+            permutation = permutation + (nneighbours,)
+        elif len(start_node.open_legs) == 2:
+            permutation = permutation + (nneighbours,nneighbours+1)
+        else:
+            raise NotImplementedError()
+        start_ttn.nodes[node_id].update_leg_permutation(permutation , start_ttn.tensors[node_id].shape)
+        assert start_node.parent_leg == target_node.parent_leg
+        start_node.children = target_node.children.copy()
+
+def adjust_ttn1_structure_to_ttn2(start_ttn, tartget_ttn):
+    """
+    Adjusts the structure of start_ttn to match tartget_ttn by updating the leg permutations
+    and children of nodes in start_ttn based on the corresponding nodes in tartget_ttn.
+    Args:
+        start_ttn (TreeTensorNetworkState): The starting TTN state.
+        tartget_ttn (TreeTensorNetworkState): The target TTN state.
+    """
+    for node_id in start_ttn.nodes.keys():
+        try:
+            legs = get_equivalent_legs(start_ttn.nodes[node_id], tartget_ttn.nodes[node_id])
+            assert legs[0] == legs[1]
+        except AssertionError:
+            adjust_node1_structure_to_node2(start_ttn, tartget_ttn, node_id)
