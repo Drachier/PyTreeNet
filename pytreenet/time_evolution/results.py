@@ -406,22 +406,21 @@ class Results:
             with File(file, "r") as h5file:
                 return cls.load_from_h5(h5file,
                                         loaded_ops=loaded_ops)
+        results = cls(metadata=dict(file.attrs))
+        if loaded_ops is None:
+            iterator = file.keys()
         else:
-            results = cls(metadata=dict(file.attrs))
-            if loaded_ops is None:
-                iterator = file.keys()
+            iterator = loaded_ops
+        for i, key in enumerate(iterator):
+            dset = file[key]
+            attrs = dset.attrs
+            for attr_key, attr_value in attrs.items():
+                results.set_attribute(key, attr_key, attr_value)
+            loaded_data = dset[:]
+            if i == 0:
+                len_data = len(loaded_data)
             else:
-                iterator = loaded_ops
-            for i, key in enumerate(iterator):
-                dset = file[key]
-                attrs = dset.attrs
-                for attr_key, attr_value in attrs.items():
-                    results.set_attribute(key, attr_key, attr_value)
-                loaded_data = dset[:]
-                if i == 0:
-                    len_data = len(loaded_data)
-                else:
-                    if len(loaded_data) != len_data:
-                        raise ValueError("All datasets must have the same length!")
-                results.results[key] = loaded_data
-            return results
+                if len(loaded_data) != len_data:
+                    raise ValueError("All datasets must have the same length!")
+            results.results[key] = loaded_data
+        return results

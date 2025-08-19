@@ -351,7 +351,7 @@ def symmetric_ttndo_for_product_state(
         num_phys: int,
         bond_dim: int,
         phys_tensor: ndarray,
-        depth: int = 0,
+        depth: int | None = 0,
         root_id: str = "ttndo_root",
         root_bond_dim= 2) -> tuple[TreeTensorNetworkState,
                                    SymmetricTTNDO]:
@@ -593,7 +593,7 @@ class BINARYTTNDO(TreeTensorNetworkState):
 def binary_ttndo_for_product_state(num_phys: int,
                                    bond_dim: int,
                                    phys_tensor: ndarray,
-                                   depth: int) -> tuple[TreeTensorNetworkState, BINARYTTNDO]:
+                                   depth: int | None = None) -> tuple[TreeTensorNetworkState, BINARYTTNDO]:
     """
     Creates a binary TTNDO, where only physical nodes have dual representation.
     Virtual nodes are intialized with Identiry and have only one open leg and the structure 
