@@ -18,7 +18,7 @@ from ...ttno.ttno_class import TTNO
 from ...operators.tensorproduct import TensorProduct
 from ...contractions.sandwich_caching import SandwichCache
 from ..time_evo_util.effective_time_evolution import single_site_time_evolution
-from ..time_evo_util.update_path import TDVPUpdatePathFinder
+from ..time_evo_util.update_path import SweepingUpdatePathFinder
 from ...time_evolution.time_evo_util import PathFinderMode
 
 @dataclass
@@ -154,7 +154,7 @@ class TDVPAlgorithm(TTNTimeEvolution):
             List[str]: The order in which the nodes in the TTN should be time
                 evolved.
         """
-        return TDVPUpdatePathFinder(self.initial_state , self.config.main_path_mode).find_path()
+        return SweepingUpdatePathFinder(self.initial_state , self.config.main_path_mode).find_path()
 
     def _init_partial_tree_cache(self) -> SandwichCache:
         """
