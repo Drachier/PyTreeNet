@@ -244,8 +244,11 @@ class AlternatingLeastSquares():
         kvec_shape = kvec.shape
         if kvec_shape != shape:
             print("kvec_shape",kvec_shape,"shape",shape)
-        
-        y,exit_code = scipy.sparse.linalg.minres(hamiltonian_eff_site, kvec.reshape(-1), 
+        if self.dtype == np.complex128:
+            y,exit_code = scipy.sparse.linalg.gmres(hamiltonian_eff_site, kvec.reshape(-1), 
+                                                x0=self.state_x.tensors[node_id].reshape(-1),maxiter=self.max_iter)
+        else:
+            y,exit_code = scipy.sparse.linalg.minres(hamiltonian_eff_site, kvec.reshape(-1), 
                                                 x0=self.state_x.tensors[node_id].reshape(-1),maxiter=self.max_iter)
         y_norm = np.linalg.norm(y)
         y=y/ y_norm

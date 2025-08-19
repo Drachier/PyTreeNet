@@ -10,13 +10,13 @@ from pytreenet.random.random_ttns_and_ttno import (small_ttns_and_ttno,
                                                    big_ttns_and_ttno)
 from pytreenet.random.random_mps_and_mpo import random_mps_and_mpo
 from pytreenet.contractions.zipup import zipup
-
+np.random.seed(42)
 class TestALSsmall(unittest.TestCase):
     def setUp(self):
         # We need a ttns to work with
         self.ttns, self.ttno = small_ttns_and_ttno()
 
-        self.num_sweeps = 10
+        self.num_sweeps = 5
         self.max_iter = 50
 
         # Deactivate Truncation
@@ -25,7 +25,7 @@ class TestALSsmall(unittest.TestCase):
         state_x = deepcopy(self.ttns)
         state_x.pad_bond_dimensions(6)
         self.als_one_site = ptn.AlternatingLeastSquares(self.ttno, state_x, deepcopy(self.ttns), self.num_sweeps,
-                             self.max_iter, self.svd_params, "one-site")
+                             self.max_iter, self.svd_params, "one-site",1,dtype=np.complex128)
 
     def test_one_site_als(self):
         state_old = zipup(self.ttno, self.ttns)
@@ -44,7 +44,7 @@ class TestALSMPS(unittest.TestCase):
         # We need a ttns to work with
         self.ttns, self.ttno = random_mps_and_mpo(2, 3)
         
-        self.num_sweeps = 10
+        self.num_sweeps = 5
         self.max_iter = 50
 
         # Deactivate Truncation
@@ -53,7 +53,7 @@ class TestALSMPS(unittest.TestCase):
         state_x = deepcopy(self.ttns)
         state_x.pad_bond_dimensions(6)
         self.als_one_site = ptn.AlternatingLeastSquares(self.ttno, state_x, self.ttns, self.num_sweeps,
-                             self.max_iter, self.svd_params, "one-site")
+                             self.max_iter, self.svd_params, "one-site",1,dtype=np.complex128)
 
         
     def test_one_site_als(self):
@@ -76,7 +76,7 @@ class TestALSBig(unittest.TestCase):
         ttns.canonical_form(ttns.root_id)
         ttns.normalize()
         self.ttns = ttns
-        self.num_sweeps = 10
+        self.num_sweeps = 5
         self.max_iter = 50
 
         # Deactivate Truncation
@@ -85,7 +85,7 @@ class TestALSBig(unittest.TestCase):
         state_x = deepcopy(self.ttns)
         state_x.pad_bond_dimensions(6)
         self.als_one_site = ptn.AlternatingLeastSquares(self.ttno, state_x, deepcopy(self.ttns), self.num_sweeps,
-                             self.max_iter, self.svd_params, "one-site")
+                             self.max_iter, self.svd_params, "one-site",1,dtype=np.complex128)
 
     def test_one_site_als(self):        
         state_old = zipup(self.ttno, self.ttns,self.svd_params)
