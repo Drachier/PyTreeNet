@@ -61,11 +61,9 @@ def lobpcg_single(ttno:TTNO, state_x: TreeTensorNetworkState,precond_func: Calla
                 H[k,j] = H[j,k].conj()
                 M[j,k] = xrp_list[k].scalar_product(xrp_list[j])
                 M[k,j] = M[j,k].conj()
-        print("H", H)
-        print("M", M)
         ew, ev = scipy.linalg.eigh(H, M)
         ev = ev.real
-        state_x = linear_combination(xrp_list, ev[:,0], int(svd_params.max_bond_dim), num_sweeps = num_sweeps)
+        state_x = linear_combination(xrp_list, ev[:,0].tolist(), int(svd_params.max_bond_dim), num_sweeps = num_sweeps)
         # print("state_x",state_x.bond_dims().values())
         if state_p is None:
             state_p = scale(state_r, ev[1,0])
@@ -75,7 +73,6 @@ def lobpcg_single(ttno:TTNO, state_x: TreeTensorNetworkState,precond_func: Calla
         norm = state_x.normalise()
         rayleigh = ew[0].real 
         energy.append(rayleigh)
-        print("iteration", i, "rayleigh", rayleigh, "rayleigh of truncated state", state_x.operator_expectation_value(ttno).real, norm)
    
     return state_x, energy
 
@@ -84,7 +81,6 @@ def lobpcg_block(ttno:TTNO, state_x_list: List[TreeTensorNetworkState],precond_f
     n_states = len(state_x_list)
     energies = []
     rayleigh = [state.operator_expectation_value(ttno).real for state in state_x_list]
-    print("rayleigh", rayleigh)
     state_p_list = None 
     
     for i in range(max_iter):
@@ -142,8 +138,5 @@ def lobpcg_block(ttno:TTNO, state_x_list: List[TreeTensorNetworkState],precond_f
         state_p_list = state_p_list_new
         rayleigh = ew[:n_states].real 
         energies.append(rayleigh)
-        for ix, s in enumerate(state_x_list):
-            norm = s.normalise()  
-            print("iteration", i, "state", ix, "rayleigh", rayleigh[ix], "rayleigh of truncated state", s.operator_expectation_value(ttno).real, norm)
     return state_x_list, np.array(energies).T.tolist()
    

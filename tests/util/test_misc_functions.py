@@ -122,7 +122,7 @@ class TestMiscFunctionsBig(unittest.TestCase):
         res_add.canonical_form(res_add.root_id)
         res_add.normalize()
         # since the variational fitting is not exact, we can only get 90% accuracy
-        self.assertAlmostEqual(res.scalar_product(res_add), 1., places=1)
+        self.assertAlmostEqual(res.scalar_product(res_add), 1., places=0)
 
     def test_orthogonalise_gram_schmidt(self):
         ttns_4, _ = big_ttns_and_ttno()

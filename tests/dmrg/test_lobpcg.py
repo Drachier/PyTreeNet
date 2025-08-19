@@ -27,21 +27,9 @@ class TestDMRGsmall(unittest.TestCase):
         state_x, energy = ptn.lobpcg_single(self.ttno, self.ttns, precond, self.svd_params, self.num_sweeps, [])
 
         numerical_ttno = self.ttno.as_matrix()[0]
-        print("check hermitian", np.allclose(numerical_ttno, numerical_ttno.conj().T))
         
         numerical_state = state_x.completely_contract_tree()[0]
         numerical_state = numerical_state.flatten()
-
-        print("residual", np.linalg.norm(numerical_ttno@numerical_state -energy[-1]* numerical_state))
-        
-        print("residual", np.linalg.norm(numerical_ttno@numerical_state +energy[-1]* numerical_state))
-        
-        
-        
-        # num_res,num_vec = np.linalg.eigh(numerical_ttno)
-        # print("num_res", num_res)
-        # for i in range(len(num_res)):
-        #     print("overlap", i, num_vec[:,i].conj()@numerical_state)
         
 if __name__ == "__main__":
     unittest.main()
