@@ -4,12 +4,15 @@ This module provides functions to contract a TTNS with a TTNO
 
 from __future__ import annotations
 from typing import Union, Callable, TYPE_CHECKING
+from enum import Enum
 
 import numpy as np
 
 from .tree_cach_dict import PartialTreeCachDict
 from .contraction_util import (contract_all_but_one_neighbour_block_to_ket,
                                contract_all_neighbour_blocks_to_ket,
+                               contract_all_but_one_neighbour_block_to_hamiltonian,
+                               contract_all_neighbour_blocks_to_hamiltonian,
                                get_equivalent_legs)
 from .state_state_contraction import contract_node_with_environment_nodes as env_contract_node_state
 
@@ -55,14 +58,115 @@ def expectation_value(state: TreeTensorNetworkState,
         for child_id in children:
             dictionary.delete_entry(child_id,node_id)
     # Now everything remaining is contracted into the root tensor.
-    return complex(contract_node_with_environment(state.root_id,
+    contr_order = compare_contr_orders(state.root[0], operator.root[0])
+    # Compare which contraction is more efficient, first TTNS then TTNO
+    # (contract_node_with_environment) or first TTNO then TTNS
+    # (contract_node_with_environment_2).
+    if state.root[0].nneighbours() > 1 and contr_order is FirstContraction.OPERATOR:
+    # if 0:
+        result = contract_node_with_environment_2(state.root_id,
                                                   state, operator,
-                                                  dictionary))
+                                                  dictionary)
+    else:
+        result = contract_node_with_environment(state.root_id,
+                                                  state, operator,
+                                                  dictionary)
+    return complex(result)
+
+def get_matrix_element(bra_state: TreeTensorNetworkState, 
+                       operator: TreeTensorNetworkOperator,
+                       ket_state: TreeTensorNetworkState) -> complex:
+    """
+    Computes the matrix element of an operator between a bra and a ket state.
+
+    The operator is given as a TTNO and the state as a TTNS. The matrix
+    element is obtained by "sandwiching" the operator between the bra and
+    ket state: <bra|H|state>.
+
+    Args:
+        bra_state (TreeTensorNetworkState): The TTNS representing the bra state.
+        operator (TreeTensorNetworkOperator): The TTNO representing the Operator.
+        ket_state (TreeTensorNetworkState): The TTNS representing the ket state.
+
+    Returns:
+        complex: The expectation value.
+    """
+    dictionary = PartialTreeCachDict()
+    # Getting a linear list of all identifiers
+    computation_order = ket_state.linearise()
+    errstr = "The last element of the linearisation should be the root node."
+    assert computation_order[-1] == ket_state.root_id, errstr
+    assert computation_order[-1] == operator.root_id, errstr
+    for node_id in computation_order[:-1]: # The last one is the root node
+        node = ket_state.nodes[node_id]
+        parent_id = node.parent
+        # Due to the linearisation the children should already be contracted.
+        block = contract_any(node_id, parent_id,
+                             ket_state, operator,
+                             dictionary,
+                             bra_state=bra_state)
+        dictionary.add_entry(node_id,parent_id,block)
+        # The children contraction results are not needed anymore.
+        children = node.children
+        for child_id in children:
+            dictionary.delete_entry(child_id,node_id)
+    # Now everything remaining is contracted into the root tensor.
+    contr_order = compare_contr_orders(ket_state.root[0], operator.root[0])
+    # Compare which contraction is more efficient, first TTNS then TTNO
+    # (contract_node_with_environment) or first TTNO then TTNS
+    # (contract_node_with_environment_2).
+    if ket_state.root[0].nneighbours() > 1 and contr_order is FirstContraction.OPERATOR:
+    # if 0:
+        result = contract_node_with_environment_2(ket_state.root_id,
+                                                  ket_state, operator,
+                                                  dictionary,
+                                                  bra_state=bra_state)
+    else:
+        result = contract_node_with_environment(ket_state.root_id,
+                                                  ket_state, operator,
+                                                  dictionary,
+                                                  bra_state=bra_state)
+    return complex(result)
+
+class FirstContraction(Enum):
+    """
+    An enum to decide which node is contracted to the environments first.
+
+    Attributes
+        KET (str): Contract the ket node first.
+        OPERATOR (str): Contract the operator node first.
+    """
+    KET = "ket"
+    OPERATOR = "operator"
+
+def compare_contr_orders(ket_node: Node,
+                         op_node: Node
+                         ) -> FirstContraction:
+    """
+    Compares the contraction cost of different orders of contracting.
+
+    Args:
+        ket_node (Node): The ket node.
+        op_node (Node): The operator node.
+    
+    Returns:
+        FirstContraction: The preferred contraction order.
+    """
+    phys_dim = ket_node.open_dimension()
+    op_neigh_dim = op_node.virtual_dimension()
+    ket_neigh_dim = ket_node.virtual_dimension()
+    cost_lhs = (phys_dim - 1) * op_neigh_dim * ket_neigh_dim
+    cost_rhs = phys_dim * (op_neigh_dim -  ket_neigh_dim)
+    if cost_lhs >= cost_rhs:
+        return FirstContraction.KET
+    return FirstContraction.OPERATOR
 
 def contract_node_with_environment(node_id: str,
                                    state: TreeTensorNetworkState,
                                    operator: TreeTensorNetworkOperator,
-                                   dictionary: PartialTreeCachDict) -> np.ndarray:
+                                   dictionary: PartialTreeCachDict,
+                                   bra_state: Union[TreeTensorNetworkState,None] = None
+                                   ) -> np.ndarray:
     """
     Contracts a node with its environment.
 
@@ -75,7 +179,8 @@ def contract_node_with_environment(node_id: str,
         operator (TreeTensorNetworkOperator): The TTNO representing the Hamiltonian.
         dictionary (PartialTreeCacheDict): The dictionary containing the
          already contracted subtrees.
-    
+        bra_state (Union[TreeTensorNetworkState,None]): The TTNS representing the bra state.
+
     Returns:
         np.ndarray: The resulting tensor. A and B are the tensors in state1 and
             state2, respectively, corresponding to the node with the identifier
@@ -106,11 +211,18 @@ def contract_node_with_environment(node_id: str,
                                              op_node,
                                              op_tensor,
                                              dictionary)
-    bra_tensor = ket_tensor.conj()
     # TODO: Getting legs can also be done smarter, but works well enough for now.
-    state_legs =list(range(ket_node.nlegs()))
-    return np.tensordot(bra_tensor, kethamblock,
+    state_legs = list(range(ket_node.nlegs()))
+
+    if bra_state is None:
+        bra_tensor = ket_tensor.conj()
+        return np.tensordot(bra_tensor, kethamblock,
                         axes=(state_legs,state_legs))
+    bra_node, bra_tensor = bra_state[node_id]
+    _, bra_legs = get_equivalent_legs(ket_node, bra_node)
+    bra_legs.extend(bra_node.open_legs)
+    return np.tensordot(bra_tensor, kethamblock,
+                        axes=(bra_legs,state_legs))
 
 def contract_ket_ham_with_envs(ket_node: Node,
                               ket_tensor: np.ndarray,
@@ -159,6 +271,80 @@ def contract_ket_ham_with_envs(ket_node: Node,
     kethamblock = np.tensordot(ket_neigh_block, ham_tensor,
                                axes=(block_legs, ham_legs))
     return kethamblock
+
+def contract_node_with_environment_2(node_id: str,
+                                   state: TreeTensorNetworkState,
+                                   operator: TreeTensorNetworkOperator,
+                                   dictionary: PartialTreeCachDict,
+                                   bra_state: Union[TreeTensorNetworkState,None] = None
+                                   ) -> np.ndarray:
+    """
+    Contracts a node with its environment.
+
+    Assumes that all subtrees starting from this node are already contracted
+    and the results stored in the dictionary.
+
+    Args:
+        node_id (str): The identifier of the node.
+        state (TreeTensorNetworkState): The TTNS representing the state.
+        operator (TTNO): The TTNO representing the Hamiltonian.
+        dictionary (PartialTreeCacheDict): The dictionary containing the
+         already contracted subtrees.
+        bra_state (Union[TreeTensorNetworkState,None]): The TTNS representing
+         the bra state. If not given, the bra state is assumed to be the
+         conjugate of the ket state.
+
+    Returns:
+        np.ndarray: The resulting tensor. A and B are the tensors in state1 and
+            state2, respectively, corresponding to the node with the identifier
+            node_id. C aer the tensors in the dictionary corresponding to the
+            subtrees going away from the node::
+
+                            ______
+                 _____     |      |      _____
+                |     |____|  A*  |_____|     |
+                |     |    |______|     |     |
+                |     |        |        |     |
+                |     |     ___|__      |     |
+                |     |    |      |     |     |
+                |     |____|      |_____|     |
+                |  C1 |    |   H  |     |  C2 |
+                |     |    |______|     |     |
+                |     |        |        |     |
+                |     |     ___|__      |     |
+                |     |    |      |     |     |
+                |     |____|  A   |_____|     |
+                |_____|    |______|     |_____|
+    
+    """
+    ket_node, ket_tensor = state[node_id]
+    op_node, op_tensor = operator[node_id]
+    op_neigh_block = contract_all_neighbour_blocks_to_hamiltonian(op_tensor,
+                                                                   op_node,
+                                                                   dictionary)
+
+    _, ket_legs = get_equivalent_legs(op_node, ket_node)
+    ket_legs.append(ket_node.open_legs)
+    nopen_op = op_node.nopen_legs()
+    block_legs = list(range(nopen_op,2*op_node.nneighbours()+nopen_op,2))
+    block_contr_open_legs = list(range(nopen_op // 2))
+    block_legs.extend(block_contr_open_legs)
+    kethamblock = np.tensordot(op_neigh_block, ket_tensor,
+                               axes=(block_legs, ket_legs))
+    if bra_state is None:
+        bra_tensor = ket_tensor.conj()
+        bra_legs = ket_legs
+    else:
+        bra_node, bra_tensor = bra_state[node_id]
+        _, bra_legs = get_equivalent_legs(op_node, bra_node)
+        bra_legs.extend(bra_node.open_legs)
+
+    nopen_ket = ket_node.nopen_legs()
+    block_legs = list(range(nopen_ket,op_node.nneighbours()+nopen_ket))+list(range(nopen_ket))
+
+    result = np.tensordot(bra_tensor, kethamblock,
+                        axes=(bra_legs,block_legs))
+    return result
 
 def contract_single_site_operator_env(ket_node: Node,
                                       ket_tensor: np.ndarray,
@@ -221,7 +407,12 @@ def contract_single_site_operator_env(ket_node: Node,
 def contract_any(node_id: str, next_node_id: str,
                  state: TreeTensorNetworkState,
                  operator: TreeTensorNetworkOperator,
-                 dictionary: PartialTreeCachDict) -> np.ndarray:
+                 dictionary: PartialTreeCachDict,
+                 bra_state: Union[TreeTensorNetworkState,None] = None,
+                 bra_state_conjugated: bool = True,
+                 id_trafo_op: Union[Callable,None] = None,
+                 id_trafo_bra: Union[Callable,None] = None
+                    ) -> np.ndarray:
     """
     Contracts any node. 
     
@@ -239,16 +430,33 @@ def contract_any(node_id: str, next_node_id: str,
         operator (TreeTensorNetworkOperator): The TTNO representing the Hamiltonian.
         dictionary (PartialTreeCachDict): The dictionary containing the
             already contracted subtrees.
-        
+        bra_state (Union[TreeTensorNetworkState,None]): The TTNS representing
+            the bra state.
+        bra_state_conjugated (bool): Whether the bra state is conjugated.
+        id_trafo_op (Union[Callable,None], optional): A function that transforms
+            the node identifier of the ket neighours to the identifiers of the
+            operator node's neighbours. If None, the identity is assumed.
+        id_trafo_bra (Union[Callable,None], optional): A function that transforms
+            the node identifier of the ket neighours to the identifiers of the
+            bra node's neighbours. If None, the identity is assumed.
+
     Returns:
         np.ndarray: The contracted tensor.
     """
     state_node, state_tensor = state[node_id]
     operator_node, operator_tensor = operator[node_id]
+    if bra_state is None:
+        bra_node, bra_tensor = state_node, state_tensor.conj()
+    else:
+        bra_node, bra_tensor = bra_state[node_id]
+    if not bra_state_conjugated:
+        bra_tensor = bra_tensor.conj()
     return contract_any_node_environment_but_one(next_node_id,
                                                  state_node, state_tensor,
                                                  operator_node, operator_tensor,
-                                                 dictionary)
+                                                 dictionary,
+                                                 bra_node=bra_node,
+                                                 bra_tensor=bra_tensor)
 
 def contract_any_node_environment_but_one(ignored_node_id: str,
                                             ket_node: Node, ket_tensor: np.ndarray,
@@ -438,29 +646,49 @@ def contract_subtrees_using_dictionary(ignored_node_id: str,
                     |_____|    |______|
     
     """
-    tensor = contract_all_but_one_neighbour_block_to_ket(ket_tensor,
-                                                         ket_node,
-                                                         ignored_node_id,
-                                                         dictionary)
-    tensor = contract_operator_tensor_ignoring_one_leg(tensor,
-                                                       ket_node,
-                                                       op_tensor,
-                                                       op_node,
-                                                       ignored_node_id,
-                                                       id_trafo=id_trafo_op)
     if bra_node is None and bra_tensor is None:
         bra_node = ket_node
         bra_tensor = ket_tensor.conj()
     elif bra_node is None or bra_tensor is None:
         errstr = "Either both bra_node and bra_tensor must be None or both must be given!"
         raise ValueError(errstr)
-    environment_block = contract_bra_tensor_ignore_one_leg(bra_tensor,
-                                                           bra_node,
-                                                           tensor,
-                                                           ket_node,
-                                                           ignored_node_id,
-                                                           id_trafo=id_trafo_bra)
+    contraction_order = compare_contr_orders(ket_node, op_node)
+    if ket_node.nneighbours() > 1 and contraction_order is FirstContraction.OPERATOR:
+        tensor = contract_all_but_one_neighbour_block_to_hamiltonian(op_tensor,
+                                                                     op_node,
+                                                                     ignored_node_id,
+                                                                     dictionary)
+        tensor = contract_ket_tensor_ignoring_one_leg(tensor,
+                                                      op_node,
+                                                      ket_tensor,
+                                                      ket_node,
+                                                      ignored_node_id,
+                                                      id_trafo=id_trafo_op)
+        environment_block = contract_bra_tensor_ignore_one_leg(bra_tensor,
+                                                                bra_node,
+                                                                tensor,
+                                                                op_node,
+                                                                ignored_node_id,
+                                                                id_trafo=id_trafo_bra)
+    else:
+        tensor = contract_all_but_one_neighbour_block_to_ket(ket_tensor,
+                                                         ket_node,
+                                                         ignored_node_id,
+                                                         dictionary)
+        tensor = contract_operator_tensor_ignoring_one_leg(tensor,
+                                                       ket_node,
+                                                       op_tensor,
+                                                       op_node,
+                                                       ignored_node_id,
+                                                       id_trafo=id_trafo_op)
+        environment_block = contract_bra_tensor_ignore_one_leg(bra_tensor,
+                                                                bra_node,
+                                                                tensor,
+                                                                ket_node,
+                                                                ignored_node_id,
+                                                                id_trafo=id_trafo_bra)
     return environment_block
+
 
 def contract_ket_ham_ignoring_one_leg(ket_tensor: np.ndarray,
                                       ket_node: Node,
@@ -646,6 +874,73 @@ def contract_bra_tensor_ignore_one_leg(bra_tensor: np.ndarray,
     legs_bra_tensor.extend(_node_state_phys_leg(bra_node))
     return np.tensordot(ketopblock_tensor, bra_tensor,
                         axes=(legs_tensor, legs_bra_tensor))
+    
+def contract_ket_tensor_ignoring_one_leg(current_tensor: np.ndarray,
+                                              op_node: Node,
+                                              ket_tensor: np.ndarray,
+                                              ket_node: Node,
+                                              ignoring_node_id: str,
+                                              id_trafo: Union[Callable,None] = None
+                                              ) -> np.ndarray:
+    """
+    Contracts the ket tensor with the current operator block tensor.
+
+    The current tensor is the operator block tensor of this node to which all but
+    one neighbour blocks are already contracted. The blocks are the already
+    contracted subtrees starting from this node. The subtree that is not
+    contracted is the one that the remaining legs point towards.
+    
+    Args:
+        current_tensor (np.ndarray): The current operator block tensor.
+        op_node (Node): The operator node.
+        ket_tensor (np.ndarray): The ket tensor.
+        ket_node (Node): The ket node.
+        ignoring_node_id (str): The identifier of the node to which the
+            virtual leg should not point.
+        id_trafo (Union[Callable,None], optional): A function that transforms
+            the node identifier of the ket neighours to the identifiers of the
+            operator node's neighbours. If None, the identity is assumed.
+
+    Returns:
+        np.ndarray: The contracted tensor::
+    
+                        
+                                    ______
+                                   |      |
+                            _______|      |
+                            1,2,3..|      |
+                           |       |      |
+              nneighbour+1 |       |      |
+                         __|__     |      |
+                    ____|     |____|      |
+            nneighbour  |  H  |    |  C   |
+                        |_____|    |      |
+                           |       |      |
+                           |       |      |
+                         __|__     |      |
+                    ____|     |____|      |
+                     0  |  A  |    |      |
+                        |_____|    |______|
+    
+    
+    """
+    _, ket_legs = get_equivalent_legs(op_node, ket_node,
+                                     [ignoring_node_id],
+                                     id_trafo=id_trafo)
+    # Due to the legs to the bra tensor, the legs of the current tensor are a
+    # bit more complicated
+    tensor_legs = list(range(3,2*ket_node.nneighbours(),2))
+    # Adding the physical legs
+    tensor_legs.append(2)
+    ket_legs.append(-1)
+   
+    result= np.tensordot(current_tensor, ket_tensor,
+                        axes=(tensor_legs, ket_legs))
+    permutation = [ket_node.nneighbours()+1] + list(range(2,ket_node.nneighbours()+1))+[0,1]
+    
+    result = np.transpose(result, permutation)
+    return result
+
 
 def single_node_expectation_value(node: Node,
                                   ket_tensor: np.ndarray,

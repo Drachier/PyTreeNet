@@ -378,3 +378,6 @@ class TestSandwichCacheInitButOne(unittest.TestCase):
                                                         ref_ttno,
                                                         "site7")
         self.assertTrue(ref_cache.close_to(found_cache))
+        
+if __name__ == "__main__":
+    unittest.main()
