@@ -43,7 +43,6 @@ class TestFindTensorLegPermutation(unittest.TestCase):
         and Hamiltonian are in the same order.
         """
         state_node, _ = random_tensor_node((4,5,3))
-        state_node, _ = random_tensor_node((4,5,3))
         hamiltonian_node, _ = random_tensor_node((4,5,2,3))
         c_dict = {"c1":0, "c2":1}
         state_node.open_legs_to_children(c_dict)

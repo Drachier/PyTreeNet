@@ -11,6 +11,7 @@ from ..tensorproduct import TensorProduct
 from ..sim_operators import (create_single_site_observables)
 from ..common_operators import pauli_matrices
 from ...core.ttn import TreeTensorNetwork
+from ...util.std_utils import average_data
 
 from .topology import Topology
 from .two_site_model import (HeisenbergModel,
@@ -232,14 +233,7 @@ def total_magnetisation(local_magnetisations: List[ndarray]
             M = 1/L \sum_i^L m_i
 
     """
-    if len(local_magnetisations) == 0:
-        raise ValueError("No local magnetisations given!")
-    num_sites = len(local_magnetisations)
-    magn = zeros((num_sites, local_magnetisations[0].shape[0]),
-                 dtype=local_magnetisations[0].dtype)
-    for i in range(num_sites):
-        magn[i] = local_magnetisations[i]
-    return mean(magn, axis=0)
+    return average_data(local_magnetisations)
 
 def bose_hubbard_model(
         structure: Union[TreeTensorNetwork, List[Tuple[str, str]]],

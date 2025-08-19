@@ -10,6 +10,8 @@ from numpy.typing import NDArray, DTypeLike
 import numpy as np
 from h5py import File
 
+from ..util.std_utils import average_data
+
 TIMES_ID = "times"
 
 class Results:
@@ -25,12 +27,81 @@ class Results:
             name and its corresponding value.
     """
 
-    def __init__(self) -> None:
+    def __init__(self,
+                 metadata: dict[str,Any] | None = None
+                 ) -> None:
         """
         Initializes the Results object with the number of time steps.
+
+        Args:
+            metadata (dict[str, Any]): Metadata containing other information
+                about the simulation, not directly relevant to the results.
         """
         self.results: dict[Hashable, NDArray] = {}
         self.attributes: dict[str, list[tuple[str,Any]]] = {}
+        self.metadata = metadata if metadata is not None else {}
+
+    def close_to(self, other: Self) -> bool:
+        """
+        Checks if the results object is close to another results object.
+
+        Args:
+            other (Results): Another Results object to compare with.
+
+        Returns:
+            bool: True if the results are close, False otherwise.
+        """
+        if len(self.results) != len(other.results):
+            return False
+        for key, val in self.results.items():
+            if key not in other.results:
+                return False
+            if not np.allclose(val, other.results[key]):
+                return False
+        if self.metadata != other.metadata:
+            return False
+        if len(self.attributes) != len(other.attributes):
+            return False
+        for key, val in self.attributes.items():
+            if key not in other.attributes:
+                return False
+            if len(val) != len(other.attributes[key]):
+                return False
+            for attr in val:
+                if attr not in other.attributes[key]:
+                    return False
+        return True
+
+    def num_results(self) -> int:
+        """
+        Returns the number of results stored in the results object.
+
+        Returns:
+            int: The number of results.
+        """
+        return len(self.results)
+
+    def results_length(self) -> int:
+        """
+        Returns the length of the results arrays.
+
+        Returns:
+            int: The length of the results arrays.
+        """
+        self.not_initialized_error()
+        return len(self.results[TIMES_ID])
+
+    def shape(self) -> tuple[int, int]:
+        """
+        Returns the shape of the result.
+
+        Returns:
+            tuple[int, int]: A tuple containing the number of operators and the
+                length of the results arrays. This includes the time array and
+                the result at time zero.
+        """
+        return (self.num_results(),
+                self.results_length())
 
     def close_to(self, other: Self) -> bool:
         """
@@ -300,7 +371,7 @@ class Results:
         raise TypeError(errstr)
 
     def get_results(self,
-                operators: list[Hashable] | re.Pattern | None = None,
+                operators: list[Hashable] | str | re.Pattern | None = None,
                 realise: bool = False
                 ) -> dict[Hashable, NDArray]:
         """
@@ -308,8 +379,9 @@ class Results:
 
         Args:
             operators (list[Hashable] | re.Pattern | None): A list of operator
-                names or a regex pattern to filter operators. If None, all
-                operators except for the time are returned.
+                names or a regex pattern to filter operators. If it is a
+                string, all operators starting with that string are returned.
+                If None, all operators except for the time are returned.
             realise (bool): If True, returns the real parts of the results.
         
         Returns:
@@ -317,6 +389,8 @@ class Results:
                 the specified operators.
         """
         self.not_initialized_error()
+        if isinstance(operators, str):
+            operators = re.compile(r"^" + operators + r"\d+$")
         return {
             operator_key: self.operator_result(operator_key, realise=realise)
             for operator_key in self.results
@@ -352,6 +426,28 @@ class Results:
         if realise:
             out = np.real(out)
         return out
+
+    def average_results(self,
+                        operators: list[Hashable] | str | re.Pattern | None = None,
+                        realise: bool = False
+                        ) -> NDArray:
+        """
+        Averages the results of the specified operators.
+
+        Args:
+            operators (list[Hashable] | None): A list of operator names or a
+                regex pattern to filter operators. If None, all operators
+                except for the time are averaged. If it is a string, all
+                operators starting with that string are averaged.
+            realise (bool): If True, averages the real parts of the results.
+        
+        Returns:
+            NDArray: An array containing the averaged results of the specified
+                operators.
+        """
+        results = self.get_results(operators=operators, realise=realise)
+        data = list(results.values())
+        return average_data(data)
 
     def save_to_h5(self,
                    file: str | File) -> None:
@@ -396,6 +492,8 @@ class Results:
             file (str | File): The path to the HDF5 file or an open h5py File
              object. If a string is provided, the file will be opened in read
              mode.
+            loaded_ops (list[str] | None): A list of operator names to load into
+                the results object. If None, all operators are loaded.
         
         Returns:
             Results: An instance of the Results class containing the loaded

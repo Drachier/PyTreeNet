@@ -5,11 +5,7 @@ from scipy.linalg import expm
 import pytest
 
 import pytreenet as ptn
-from pytreenet.core.node import Node
-from pytreenet.ttns.ttns import TreeTensorNetworkState
-from pytreenet.operators.tensorproduct import TensorProduct
-from pytreenet.time_evolution.time_evolution import TimeEvolution
-from pytreenet.time_evolution.time_evolution import EvoDirection, TimeEvoMode, TimeEvoMethod
+from pytreenet.time_evolution.time_evolution import EvoDirection, TimeEvoMode
 from pytreenet.time_evolution.results import Results
 from pytreenet.random import crandn
 from pytreenet.random.random_matrices import random_hermitian_matrix
@@ -86,11 +82,7 @@ class TestTimeEvolutionInit(unittest.TestCase):
         '''
         The results are only initialised once a time evolution is run.
         '''
-        # Create a Results object and add the metadata attribute to match what close_to expects
-        expected_results = Results()
-        expected_results.metadata = {}
-        self.time_evol.results.metadata = {}
-        self.assertTrue(self.time_evol.results.close_to(expected_results))
+        self.time_evol.results.close_to(Results())
 
 class TestTimeEvolutionMethods(unittest.TestCase):
     def setUp(self):

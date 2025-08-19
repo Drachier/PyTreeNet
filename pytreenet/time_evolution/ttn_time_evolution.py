@@ -223,7 +223,6 @@ class TTNOBasedTimeEvolution(TTNTimeEvolution):
                                   TensorProduct,
                                   TTNO],
                  config: Union[TTNTimeEvolutionConfig, None] = None,
-                 solver_options: Union[Dict[str, Any], None] = None
                  ) -> None:
         """
         Initializes the TTNOBasedTimeEvolution class.
@@ -242,8 +241,6 @@ class TTNOBasedTimeEvolution(TTNTimeEvolution):
                 during the time evolution.
             config (Union[TTNTimeEvolutionConfig,None]): The configuration of
                 time evolution. Defaults to None.
-            solver_options (Union[Dict[str, Any], None], optional): Options for
-                the solver used in the time evolution. Defaults to None.
         """
         super().__init__(initial_state=initial_state,
                          time_step_size=time_step_size,

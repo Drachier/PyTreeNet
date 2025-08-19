@@ -65,7 +65,6 @@ class TimeEvolution:
                 for which to compute the expectation values. Can be a single
                 operator or a list of operators. If a dictionary is given, the
                 results can be called by using the keys of the dictionary.
-
             config (Union[TimeEvoConfig, None], optional): The configuration
                 for the time evolution algorithm. If None, a default
                 configuration is used.

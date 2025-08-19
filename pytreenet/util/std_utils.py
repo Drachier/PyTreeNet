@@ -7,7 +7,7 @@ from collections import Counter
 
 import numpy as np
 from scipy.linalg import expm
-from scipy.sparse.linalg import expm_multiply, eigsh
+from scipy.sparse.linalg import expm_multiply
 from scipy.sparse.linalg import expm as expm_sparse
 from scipy.sparse import csr_matrix
 
@@ -63,7 +63,8 @@ def compare_lists_by_value(list1: List, list2: List) -> bool:
 
 def compare_lists_by_identity(list1: List, list2: List) -> bool:
     """
-    Compares two lists by their identity (memory address) The elements and their orders should match.
+    Compares two lists by their identity (memory address) The elements and
+     their orders should match.
 
     Args:
         list1 (List): First list
@@ -197,3 +198,17 @@ def postivise_range(rng: range, size: int) -> range:
     else:
         stop = rng.stop
     return range(start, stop, rng.step)
+
+def average_data(data: List[np.ndarray]) -> np.ndarray:
+    """
+    Computes the average of a list of arrays.
+
+    Args:
+        data (List[np.ndarray]): The list of arrays to average.
+
+    Returns:
+        np.ndarray: The average of the input arrays.
+    """
+    if not data:
+        raise ValueError("No data provided for averaging!")
+    return np.mean(np.array(data), axis=0)
