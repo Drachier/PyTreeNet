@@ -703,7 +703,8 @@ class TreeTensorNetwork(TreeStructure):
         transpose_perm = (this_tensors_indices[0:this_tensors_leg_index]
                           + (this_tensors_indices[-1], )
                           + this_tensors_indices[this_tensors_leg_index:-1])
-        self.tensors[node_id] = new_tensor.transpose(transpose_perm)
+        self.tensors[node_id] = new_tensor
+        self._nodes[node_id].update_leg_permutation(transpose_perm , new_tensor.shape)
 
     def absorb_matrix_into_neighbour_leg(self, node_id: str, neighbour_id: str,
                                          tensor: np.ndarray, tensor_leg: int = 1):
