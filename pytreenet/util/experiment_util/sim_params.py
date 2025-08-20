@@ -10,6 +10,7 @@ import json
 from hashlib import sha256
 
 from h5py import File
+import numpy as np
 
 @dataclass
 class SimulationParameters:
@@ -32,6 +33,8 @@ class SimulationParameters:
         for name, value in self.__dict__.items():
             if isinstance(value, Enum):
                 out[name] = value.value
+            elif isinstance(value, (np.generic,)):       # numpy scalar (e.g. np.float64)
+                out[name] = value.item()
             else:
                 out[name] = value
         return out

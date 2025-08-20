@@ -10,9 +10,7 @@ from collections import UserDict
 from h5py import File
 
 from ...time_evolution.results import Results
-
-if TYPE_CHECKING:
-    from .sim_params import SimulationParameters
+from .sim_params import SimulationParameters
 
 METADATAFILE_STANDARD_NAME = "metadata.json"
 
@@ -340,5 +338,40 @@ def add_new_key_to_metadata_file(save_directory: str,
         parameters[key] = value
         parameters_obj = parameter_class.from_dict(parameters)
         out[parameters_obj.get_hash()] = parameters_obj.to_json_dict()
+    with open(metadata_file_path, 'w') as f:
+        json.dump(out, f, indent=4)
+
+def generate_metadata_file(
+    save_directory: str,
+    metadatafile_name: str = METADATAFILE_STANDARD_NAME,
+    parameter_class: type[SimulationParameters] = SimulationParameters):
+    """
+    Generates a metadata file, using the .h5 files in the save directory.
+
+    Args:
+        save_directory (str): The directory where the metadata file should be
+            created.
+        metadatafile_name (str): The filename of the metadata file.
+            Defaults to `"metadata.json"`.
+        parameter_class (type[SimulationParameters]): The class of the
+            parameters to load. Defaults to `SimulationParameters`.
+        
+    Raises:
+        FileNotFoundError: If no .h5 files are found in the save directory.
+    """
+    metadata_file_path = os.path.join(save_directory, metadatafile_name)
+    if not os.path.exists(save_directory):
+        raise FileNotFoundError(f"Save directory {save_directory} does not exist!")
+    out = {}
+    for file_name in os.listdir(save_directory):
+        if file_name.endswith('.h5'):
+            file_path = os.path.join(save_directory, file_name)
+            with File(file_path, 'r') as file:
+                parameters = dict(file.attrs)
+                parameters_obj = parameter_class.from_dict(parameters)
+                hash = parameters_obj.get_hash()
+                out[hash] = parameters_obj.to_json_dict()
+    if len(out) == 0:
+        raise FileNotFoundError(f"No .h5 files found in {save_directory}!")
     with open(metadata_file_path, 'w') as f:
         json.dump(out, f, indent=4)
