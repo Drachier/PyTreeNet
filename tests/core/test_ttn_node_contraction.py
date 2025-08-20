@@ -4,7 +4,7 @@ import unittest
 from copy import deepcopy
 
 import numpy as np
-
+from pytreenet.util import NoConnectionException
 from pytreenet.core.ttn import TreeTensorNetwork
 from pytreenet.core.node import Node
 from pytreenet.random import crandn

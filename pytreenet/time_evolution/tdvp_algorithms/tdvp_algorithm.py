@@ -7,10 +7,10 @@ Reference:
         Tensor Networks", DOI: 10.21468/SciPostPhys.8.2.024
 """
 from __future__ import annotations
-from typing import Union, List, Any
+from typing import Union, List
 from dataclasses import dataclass, field
 
-from ..time_evolution import TimeEvoMode, EvoDirection
+from ..time_evolution import TimeEvoMode, EvoDirection, TimeEvoMethod
 from ..ttn_time_evolution import TTNOBasedTimeEvolution, TTNTimeEvolutionConfig
 from ...util.tensor_splitting import SplitMode
 from ...ttns import TreeTensorNetworkState

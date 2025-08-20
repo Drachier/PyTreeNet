@@ -97,7 +97,9 @@ class TestTensorUtilSimple(unittest.TestCase):
 
     def test_truncated_tensor_svd(self):
         truncation_parameter_list = (
-            (15, 0.01, 1e-15), (200, 0.9, 1e-15), (200, 0.01, 35))
+            (15, float("inf"), float("inf"), 0.01, 1e-15), 
+            (200, float("inf"), float("inf"),  0.9, 1e-15), 
+            (200,  float("inf"), float("inf"), 0.01, 35))
 
         for parameters in truncation_parameter_list:
             svd_params = SVDParameters(*parameters)
@@ -317,7 +319,7 @@ class TestSingularValueTruncation(unittest.TestCase):
         Tests the truncation of singular values, however no truncation should
          happen given the parameters.
         """
-        svd_params = SVDParameters(10,0,0)
+        svd_params = SVDParameters(10, rel_tol = 0, total_tol= 0)
         found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
                                                             svd_params)
         self.assertTrue(allclose(self.s_values,found_s))
@@ -328,7 +330,7 @@ class TestSingularValueTruncation(unittest.TestCase):
         Tests the truncation of singular values caused by the maximum bond
          dimension given.
         """
-        svd_params = SVDParameters(6,0,0)
+        svd_params = SVDParameters(6, rel_tol = 0, total_tol= 0)
         found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
                                                             svd_params)
         correct_s = self.s_values[:6]
@@ -341,7 +343,7 @@ class TestSingularValueTruncation(unittest.TestCase):
          tolerance given.
         """
         abs_tol = 0.15
-        svd_params = SVDParameters(10,0,abs_tol)
+        svd_params = SVDParameters(10, rel_tol = 0, total_tol= abs_tol)
         found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
                                                             svd_params)
         correct_s = self.s_values[:5]
@@ -355,7 +357,7 @@ class TestSingularValueTruncation(unittest.TestCase):
          tolerance given.
         """
         rel_tol = 0.5
-        svd_params = SVDParameters(10,rel_tol,0)
+        svd_params = SVDParameters(10, rel_tol = rel_tol, total_tol= 0)
         found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
                                                             svd_params)
         correct_s = self.s_values[:3]
@@ -368,7 +370,7 @@ class TestSingularValueTruncation(unittest.TestCase):
         Tests the truncation of singular values if all singular values were
             truncated.
         """
-        svd_params = SVDParameters(10,0,3)
+        svd_params = SVDParameters(10, rel_tol = 0, total_tol= 3)
         found_s, truncated_s = truncate_singular_values(deepcopy(self.s_values),
                                                             svd_params)
         print("TEST SPEAKING: This warning is intended to be shown!")
@@ -444,7 +446,7 @@ class TestSingularValueDecompositions(unittest.TestCase):
         """
         Tests the truncated SVD of a random tensor.
         """
-        svd_params = SVDParameters(6,0,0)
+        svd_params = SVDParameters(6, rel_tol = 0, total_tol= 0)
         u, s, vh = truncated_tensor_svd(self.tensor,self.u_legs,self.v_legs,
                                             svd_params)
         u_ref, s_ref, vh_ref = tensor_svd(self.tensor,self.u_legs,self.v_legs,
@@ -461,7 +463,7 @@ class TestSingularValueDecompositions(unittest.TestCase):
         Tests the contracted truncated tensor svd, for which the singular
          values are contracted into the V-tensor.
         """
-        svd_params = SVDParameters(6,0,0)
+        svd_params = SVDParameters(6, rel_tol = 0, total_tol= 0)
         u, vh = contr_truncated_svd_splitting(self.tensor,
                                                   self.u_legs,self.v_legs,
                                                   svd_params=svd_params)
@@ -478,7 +480,7 @@ class TestSingularValueDecompositions(unittest.TestCase):
         Tests the contracted truncated tensor svd, for which the singular
          values are contracted into the U-tensor.
         """
-        svd_params = SVDParameters(6,0,0)
+        svd_params = SVDParameters(6, rel_tol = 0, total_tol= 0)
         u, vh = contr_truncated_svd_splitting(self.tensor,
                                                   self.u_legs,self.v_legs,
                                                   contr_mode=ContractionMode.UCONTR,
@@ -496,7 +498,7 @@ class TestSingularValueDecompositions(unittest.TestCase):
         Tests the contracted truncated tensor svd, for which the singular
          values are distributed equally between U and V-tensors.
         """
-        svd_params = SVDParameters(6,0,0)
+        svd_params = SVDParameters(6, rel_tol = 0, total_tol= 0)
         u, vh = contr_truncated_svd_splitting(self.tensor,
                                                   self.u_legs,self.v_legs,
                                                   contr_mode=ContractionMode.EQUAL,

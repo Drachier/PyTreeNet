@@ -1,9 +1,10 @@
 import unittest
-from copy import deepcopy, copy
+from copy import deepcopy
 
 import numpy as np
 
 from pytreenet.core.ttn import TreeTensorNetwork
+from pytreenet.core.node import Node
 from pytreenet.util.tensor_splitting import SVDParameters
 from pytreenet.util import compute_transfer_tensor
 from pytreenet.random import (random_tensor_node,

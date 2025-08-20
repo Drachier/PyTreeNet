@@ -3,7 +3,7 @@ import numpy as np
 
 from copy import deepcopy
 
-from pytreenet.core.canonical_form import canonical_form
+from pytreenet.core.canonical_form import canonical_form, SplitMode
 
 from pytreenet.core.canonical_form import _find_smallest_distance_neighbour
 from pytreenet.util.tensor_util import compute_transfer_tensor
@@ -166,7 +166,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
     def test_canoncial_form_root_center_keep(self):
         reference_ttn = deepcopy(self.ttn)
         canonical_form(self.ttn, "root",
-                           mode=SplitMode.KEEP)
+                           mode= SplitMode.KEEP)
 
         ref_tensor = reference_ttn.completely_contract_tree(to_copy=True)[0]
         found_tensor = self.ttn.completely_contract_tree(to_copy=True)[0]
