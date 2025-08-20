@@ -5,18 +5,24 @@ from typing import Tuple, List
 import numpy as np
 from scipy.linalg import expm
 
-import pytreenet as ptn
-from pytreenet.contractions.state_operator_contraction import (contract_leaf, 
-                                                               contract_subtrees_using_dictionary)
-from pytreenet.random import (random_tensor_node,
-                              random_hermitian_matrix)
+from pytreenet.special_ttn.mps import MatrixProductState
+from pytreenet.ttno.ttno_class import TTNO
+from pytreenet.operators.tensorproduct import TensorProduct
+from pytreenet.operators.common_operators import bosonic_operators
+from pytreenet.contractions.state_operator_contraction import contract_leaf, contract_subtrees_using_dictionary
+from pytreenet.random import random_tensor_node, random_hermitian_matrix
 from pytreenet.contractions.sandwich_caching import SandwichCache
+from pytreenet.util.tensor_splitting import tensor_qr_decomposition, SplitMode
+from pytreenet.ttns import TreeTensorNetworkState
+from pytreenet.time_evolution.tdvp_algorithms.firstorderonesite import FirstOrderOneSiteTDVP
+from pytreenet.time_evolution.tdvp_algorithms.tdvp_algorithm import TDVPAlgorithm
+from pytreenet.time_evolution.tdvp_algorithms.secondorderonesite import SecondOrderOneSiteTDVP
 
 class TestTDVPonMPS(unittest.TestCase):
     """
     We want to completely test a run of the TDVP algorithm on a simple MPS.
     """
-    def _create_mps(self) -> Tuple[ptn.MatrixProductState, ptn.MatrixProductState]:
+    def _create_mps(self) -> Tuple[MatrixProductState, MatrixProductState]:
         """
         Create a simple MPS.
         """
@@ -25,29 +31,29 @@ class TestTDVPonMPS(unittest.TestCase):
         _, tensor2 = random_tensor_node((5,6,4), "site_2")
         _, tensor3 = random_tensor_node((6,5), "site_3")
         tensor_list = [tensor0, tensor1, tensor2, tensor3]
-        mps = ptn.MatrixProductState.from_tensor_list(tensor_list,root_site=1,
+        mps = MatrixProductState.from_tensor_list(tensor_list,root_site=1,
                                                       node_prefix="site_")
         ref_mps = deepcopy(mps)
         return mps, ref_mps
 
-    def _create_hamiltonian_mpo(self, mps) -> ptn.TTNO:
+    def _create_hamiltonian_mpo(self, mps) -> TTNO:
         """
         Create a simple Hamiltonian as a TTNO.
         """
         matrix = random_hermitian_matrix((2*3*4*5))
         matrix = matrix.reshape(2,3,4,5,2,3,4,5)
         leg_dict = {"site_"+str(i): i for i in range(4)}
-        mpo = ptn.TTNO.from_tensor(mps, matrix, leg_dict)
+        mpo = TTNO.from_tensor(mps, matrix, leg_dict)
         return mpo
 
-    def _create_operators(self) -> List[ptn.TensorProduct]:
+    def _create_operators(self) -> List[TensorProduct]:
         """
         Generate the operators to be measured.
         """
-        operators = [ptn.bosonic_operators(i)[2] for i in range(2,6)]
+        operators = [bosonic_operators(i)[2] for i in range(2,6)]
         operators = [{f"site_{i}": op} for i, op in enumerate(operators)]
-        operators = [ptn.TensorProduct(ops) for ops in operators]
-        operators.append(ptn.TensorProduct({f"site_{i-2}": np.eye(i) for i in range(2,6)}))
+        operators = [TensorProduct(ops) for ops in operators]
+        operators.append(TensorProduct({f"site_{i-2}": np.eye(i) for i in range(2,6)}))
         return operators
 
     def _init_ref_cache(self, ref_mps, mpo) -> SandwichCache:
@@ -79,7 +85,7 @@ class TestTDVPonMPS(unittest.TestCase):
         ref_cache_dict.add_entry("site_2", "site_3", cache2)
         return ref_cache_dict
 
-    def _check_cache_initialization(self, tdvp: ptn.FirstOrderOneSiteTDVP,
+    def _check_cache_initialization(self, tdvp: FirstOrderOneSiteTDVP,
                                     ref_cache_dict: SandwichCache):
         """
         Check that the cache is correctly initialized.
@@ -94,12 +100,12 @@ class TestTDVPonMPS(unittest.TestCase):
         self.assertTrue(np.allclose(ref_cache_dict.get_entry("site_2", "site_3"),
                                     tdvp.partial_tree_cache.get_entry("site_2", "site_3")))
 
-    def _check_init_tdvp1(self, tdvp: ptn.TDVPAlgorithm,
-                          ref_mps: ptn.TreeTensorNetworkState):
+    def _check_init_tdvp1(self, tdvp: TDVPAlgorithm,
+                          ref_mps: TreeTensorNetworkState):
         """
         Checks that the tdvp algorithm is correctly initialized.
         """
-        mps: ptn.TreeTensorNetworkState = tdvp.state
+        mps: TreeTensorNetworkState = tdvp.state
         correct_update_path = ["site_" + str(3-i) for i in range(4)]
         self.assertEqual(correct_update_path, tdvp.update_path)
         correct_orth_path = [[i] for i in correct_update_path[1:]]
@@ -111,10 +117,10 @@ class TestTDVPonMPS(unittest.TestCase):
         self._check_cache_initialization(tdvp, ref_cache_dict)
 
     def reference_update_of_site_3(self,
-                                   ref_mps: ptn.TreeTensorNetworkState,
-                                   mpo: ptn.TTNO,
+                                   ref_mps: TreeTensorNetworkState,
+                                   mpo: TTNO,
                                    ref_cache_dict: SandwichCache,
-                                   time_step_size: float) -> ptn.TreeTensorNetworkState:
+                                   time_step_size: float) -> TreeTensorNetworkState:
         """
         Explicitely computes the update of the site_3 tensor of the MPS.
         """
@@ -126,10 +132,10 @@ class TestTDVPonMPS(unittest.TestCase):
         u = u.reshape(6,5,6,5)
         ref_mps.tensors["site_3"] = np.tensordot(u, ref_mps.tensors["site_3"],
                                                  axes=((2,3),(0,1)))
-        q, r = ptn.tensor_qr_decomposition(ref_mps.tensors["site_3"],
+        q, r = tensor_qr_decomposition(ref_mps.tensors["site_3"],
                                            (len(ref_mps.nodes["site_3"].shape)-1, ),
                                            (ref_mps.nodes["site_3"].neighbour_index("site_2"), ),
-                                           mode= ptn.SplitMode.KEEP)
+                                           mode= SplitMode.KEEP)
         ref_mps.tensors["site_3"] = q.transpose(1,0)
         node_id = "site_3"
         state_node, state_tensor = ref_mps[node_id]
@@ -154,10 +160,10 @@ class TestTDVPonMPS(unittest.TestCase):
         return ref_mps
 
     def reference_update_of_site_2(self,
-                                   ref_mps: ptn.TreeTensorNetworkState,
-                                   mpo: ptn.TTNO,
+                                   ref_mps: TreeTensorNetworkState,
+                                   mpo: TTNO,
                                    ref_cache_dict: SandwichCache,
-                                   time_step_size: float) -> ptn.TreeTensorNetworkState:
+                                   time_step_size: float) -> TreeTensorNetworkState:
         """
         Explicitely computes the update of the site_2 tensor of the MPS.
         """
@@ -172,8 +178,8 @@ class TestTDVPonMPS(unittest.TestCase):
         u = u.reshape(5,6,4,5,6,4)
         updated_site = np.tensordot(u, ref_mps.tensors["site_2"],
                                     axes=((3,4,5),(0,1,2)))
-        q, r = ptn.tensor_qr_decomposition(updated_site, (1,2), (0, ),
-                                           mode= ptn.SplitMode.KEEP)
+        q, r = tensor_qr_decomposition(updated_site, (1,2), (0, ),
+                                           mode= SplitMode.KEEP)
         ref_mps.tensors["site_2"] = q.transpose(2,0,1)
         node_id = "site_2"
         state_node, state_tensor = ref_mps[node_id]
@@ -199,10 +205,10 @@ class TestTDVPonMPS(unittest.TestCase):
         return ref_mps
 
     def reference_update_of_site_1(self,
-                                   ref_mps: ptn.TreeTensorNetworkState,
-                                   mpo: ptn.TTNO,
+                                   ref_mps: TreeTensorNetworkState,
+                                   mpo: TTNO,
                                    ref_cache_dict: SandwichCache,
-                                   time_step_size: float) -> ptn.TreeTensorNetworkState:
+                                   time_step_size: float) -> TreeTensorNetworkState:
         """
         Explicitely computes the update of the site_1 tensor of the MPS.
         """
@@ -218,8 +224,8 @@ class TestTDVPonMPS(unittest.TestCase):
         u = u.reshape(5,4,3,5,4,3)
         updated_site = np.tensordot(u, ref_mps.tensors["site_1"],
                                     axes=((3,4,5),(0,1,2)))
-        q, r = ptn.tensor_qr_decomposition(updated_site, (0,2), (1, ),
-                                             mode= ptn.SplitMode.KEEP)
+        q, r = tensor_qr_decomposition(updated_site, (0,2), (1, ),
+                                             mode= SplitMode.KEEP)
         ref_mps.tensors["site_1"] = q.transpose(0,2,1)
         # In the actual TDVP the order of children changed
         ref_mps.nodes["site_1"].swap_two_child_legs("site_0","site_2")
@@ -248,10 +254,10 @@ class TestTDVPonMPS(unittest.TestCase):
         return ref_mps
 
     def reference_update_of_site_0(self,
-                                   ref_mps: ptn.TreeTensorNetworkState,
-                                   mpo: ptn.TTNO,
+                                   ref_mps: TreeTensorNetworkState,
+                                   mpo: TTNO,
                                    ref_cache_dict: SandwichCache,
-                                   time_step_size: float) -> Tuple[ptn.TreeTensorNetworkState,SandwichCache]:
+                                   time_step_size: float) -> Tuple[TreeTensorNetworkState,SandwichCache]:
         """
         Explicitely computes the update of the site_0 tensor of the MPS.
         """
@@ -265,7 +271,7 @@ class TestTDVPonMPS(unittest.TestCase):
         ref_mps.tensors["site_0"] = np.tensordot(u, ref_mps.tensors["site_0"],
                                                  axes=((2,3),(0,1)))
         ref_mps.move_orthogonalization_center("site_3",
-                                              mode=ptn.SplitMode.KEEP)
+                                              mode=SplitMode.KEEP)
         ref_cache_dict = self._init_ref_cache(ref_mps, mpo)
         return ref_mps, ref_cache_dict
 
@@ -281,11 +287,11 @@ class TestTDVPonMPS(unittest.TestCase):
         # Generating the TDVP algorithm
         time_step_size = 0.1
         final_time = 1.0
-        tdvp = ptn.FirstOrderOneSiteTDVP(mps, mpo,
+        tdvp = FirstOrderOneSiteTDVP(mps, mpo,
                                          time_step_size, final_time,
                                          operators)
-        mps : ptn.TreeTensorNetworkState = tdvp.state
-        ref_mps.orthogonalize("site_3", mode=ptn.SplitMode.KEEP)
+        mps : TreeTensorNetworkState = tdvp.state
+        ref_mps.orthogonalize("site_3", mode=SplitMode.KEEP)
 
         # Checking for correct initialization
         self._check_init_tdvp1(tdvp, ref_mps)
@@ -353,7 +359,7 @@ class TestTDVPonMPS(unittest.TestCase):
         operators = self._create_operators()
         time_step_size = 0.1
         final_time = 1.0
-        tdvp = ptn.FirstOrderOneSiteTDVP(mps, mpo,
+        tdvp = FirstOrderOneSiteTDVP(mps, mpo,
                                          time_step_size, final_time,
                                          operators)
         ref_tdvp = deepcopy(tdvp)
@@ -372,7 +378,7 @@ class TestTDVPonMPS(unittest.TestCase):
             self.assertTrue(np.allclose(ref_tdvp.partial_tree_cache.get_entry(node_id, next_node_id),
                                         tdvp.partial_tree_cache.get_entry(node_id, next_node_id)))
 
-    def _check_init_tdvp2(self, tdvp: ptn.SecondOrderOneSiteTDVP):
+    def _check_init_tdvp2(self, tdvp: SecondOrderOneSiteTDVP):
         """
         Performs the additional checks needed for the second order TDVP.
         """
@@ -382,7 +388,7 @@ class TestTDVPonMPS(unittest.TestCase):
         self.assertEqual(correct_backwards_orth_path, tdvp.backwards_orth_path)
 
     def _reference_final_forward_update(self,
-                                        ref_tdvp: ptn.FirstOrderOneSiteTDVP) -> ptn.FirstOrderOneSiteTDVP:
+                                        ref_tdvp: FirstOrderOneSiteTDVP) -> FirstOrderOneSiteTDVP:
         """
         A reference implmentation of the final forward update.
         The final node must be time evolved by 2*(time_step_size/2),
@@ -406,7 +412,7 @@ class TestTDVPonMPS(unittest.TestCase):
         return ref_tdvp
 
     def _reference_first_backwards_link_update(self,
-                                               ref_tdvp: ptn.FirstOrderOneSiteTDVP) -> ptn.FirstOrderOneSiteTDVP:
+                                               ref_tdvp: FirstOrderOneSiteTDVP) -> FirstOrderOneSiteTDVP:
         """
         A reference implmentation of the first backwards link update.
          In this case the link between site_0 and site_1 is updated.
@@ -414,9 +420,9 @@ class TestTDVPonMPS(unittest.TestCase):
         ref_mps = ref_tdvp.state
         mpo = ref_tdvp.hamiltonian
         cache_dict = ref_tdvp.partial_tree_cache
-        q, r = ptn.tensor_qr_decomposition(ref_mps.tensors["site_0"],
+        q, r = tensor_qr_decomposition(ref_mps.tensors["site_0"],
                                            (1, ), (0, ),
-                                           mode=ptn.SplitMode.KEEP)
+                                           mode=SplitMode.KEEP)
         ref_mps.tensors["site_0"] = q.transpose(1,0)
         node_id = "site_0"
         state_node, state_tensor = ref_mps[node_id]
@@ -440,7 +446,7 @@ class TestTDVPonMPS(unittest.TestCase):
         return ref_tdvp
 
     def _reference_backward_update_site_1(self,
-                                          ref_tdvp: ptn.FirstOrderOneSiteTDVP) -> ptn.FirstOrderOneSiteTDVP:
+                                          ref_tdvp: FirstOrderOneSiteTDVP) -> FirstOrderOneSiteTDVP:
         """
         A reference implmentation of the backward update of the site_1 tensor.
         """
@@ -464,9 +470,9 @@ class TestTDVPonMPS(unittest.TestCase):
                                     axes=((3,4,5),(0,1,2)))
         ref_mps.tensors["site_1"] = updated_site
         self.assertTrue(ref_mps.is_in_canonical_form("site_1"))
-        q, r = ptn.tensor_qr_decomposition(ref_mps.tensors["site_1"],
+        q, r = tensor_qr_decomposition(ref_mps.tensors["site_1"],
                                            (0,2), (1, ),
-                                           mode= ptn.SplitMode.KEEP)
+                                           mode= SplitMode.KEEP)
         ref_mps.tensors["site_1"] = q.transpose(0,2,1)
         # The order of the two children is changed in the actual tdvp
         ref_mps.nodes["site_1"].swap_two_child_legs("site_0","site_2")
@@ -495,7 +501,7 @@ class TestTDVPonMPS(unittest.TestCase):
         return ref_tdvp
     
     def _reference_backward_update_site_2(self,
-                                          ref_tdvp: ptn.FirstOrderOneSiteTDVP) -> ptn.FirstOrderOneSiteTDVP:
+                                          ref_tdvp: FirstOrderOneSiteTDVP) -> FirstOrderOneSiteTDVP:
         """
         A reference implmentation of the backward update of the site_2 tensor.
         """
@@ -520,9 +526,9 @@ class TestTDVPonMPS(unittest.TestCase):
         ref_mps.tensors["site_2"] = updated_site
         self.assertTrue(ref_mps.is_in_canonical_form("site_2"))
         # Link update
-        q, r = ptn.tensor_qr_decomposition(ref_mps.tensors["site_2"],
+        q, r = tensor_qr_decomposition(ref_mps.tensors["site_2"],
                                            (0,2), (1, ),
-                                           mode= ptn.SplitMode.KEEP)
+                                           mode= SplitMode.KEEP)
         ref_mps.tensors["site_2"] = q.transpose(0,2,1)
         node_id = "site_2"
         state_node, state_tensor = ref_mps[node_id]
@@ -548,7 +554,7 @@ class TestTDVPonMPS(unittest.TestCase):
         return ref_tdvp
     
     def _reference_final_backwards_update(self,
-                                          ref_tdvp: ptn.FirstOrderOneSiteTDVP) -> ptn.FirstOrderOneSiteTDVP:
+                                          ref_tdvp: FirstOrderOneSiteTDVP) -> FirstOrderOneSiteTDVP:
         """
         A reference implementation of the final backwards update.
         """
@@ -585,15 +591,15 @@ class TestTDVPonMPS(unittest.TestCase):
         # Initialise the TDVP algorithms
         time_step_size = 0.1
         final_time = 1.0
-        tdvp = ptn.SecondOrderOneSiteTDVP(mps, mpo,
+        tdvp = SecondOrderOneSiteTDVP(mps, mpo,
                                           time_step_size, final_time,
                                           operators)
-        ref_tdvp =  ptn.FirstOrderOneSiteTDVP(mps, mpo,
+        ref_tdvp =  FirstOrderOneSiteTDVP(mps, mpo,
                                               time_step_size / 2,
                                               final_time,
                                               operators)
-        mps : ptn.TreeTensorNetworkState = tdvp.state
-        ref_mps : ptn.TreeTensorNetworkState = ref_tdvp.state
+        mps : TreeTensorNetworkState = tdvp.state
+        ref_mps : TreeTensorNetworkState = ref_tdvp.state
 
         # Checking for correct initialization
         self._check_init_tdvp1(tdvp, ref_mps)
@@ -654,7 +660,7 @@ class TestTDVPonMPS(unittest.TestCase):
         # Initialise the TDVP algorithms
         time_step_size = 0.1
         final_time = 1.0
-        tdvp = ptn.SecondOrderOneSiteTDVP(mps, mpo,
+        tdvp = SecondOrderOneSiteTDVP(mps, mpo,
                                           time_step_size, final_time,
                                           operators)
         ref_tdvp =  deepcopy(tdvp)

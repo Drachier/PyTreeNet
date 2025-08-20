@@ -6,9 +6,13 @@ import numpy as np
 from scipy.linalg import expm
 
 import pytreenet as ptn
-from pytreenet.contractions.state_operator_contraction import (contract_any)
-from pytreenet.contractions.effective_hamiltonians import (get_effective_bond_hamiltonian)
-from pytreenet.contractions.tree_cach_dict import PartialTreeCachDict
+from pytreenet.operators.tensorproduct import TensorProduct
+from pytreenet.ttno.ttno_class import TTNO
+from pytreenet.core.leg_specification import LegSpecification
+from pytreenet.operators.hamiltonian import Hamiltonian
+from pytreenet.time_evolution.tdvp_algorithms.onesitetdvp import OneSiteTDVP
+from pytreenet.contractions.state_operator_contraction import contract_any
+from pytreenet.contractions.effective_hamiltonians import get_effective_bond_hamiltonian
 from pytreenet.operators.common_operators import pauli_matrices
 from pytreenet.random import (random_hermitian_matrix,
                               random_small_ttns,
@@ -30,18 +34,18 @@ class TestContractionMethods(unittest.TestCase):
                                 "c2_op": random_hermitian_matrix(size=4),
                                 "I4": np.eye(4)}
         self.ref_tree = random_small_ttns()
-        tensor_prod = [ptn.TensorProduct({"c1": "I3", "root": "root_op1", "c2": "I4"}),
-                       ptn.TensorProduct(
+        tensor_prod = [TensorProduct({"c1": "I3", "root": "root_op1", "c2": "I4"}),
+                       TensorProduct(
                            {"c1": "c1_op", "root": "root_op1", "c2": "I4"}),
-                       ptn.TensorProduct(
+                       TensorProduct(
                            {"c1": "c1_op", "root": "root_op2", "c2": "c2_op"}),
-                       ptn.TensorProduct(
+                       TensorProduct(
                            {"c1": "c1_op", "root": "I2", "c2": "c2_op"})
                        ]
-        ham = ptn.Hamiltonian(tensor_prod, self.conversion_dict)
-        operator = ptn.TensorProduct({"root": crandn((2, 2))})
-        self.hamiltonian = ptn.TTNO.from_hamiltonian(ham, self.ref_tree)
-        self.tdvp = ptn.OneSiteTDVP(self.ref_tree, self.hamiltonian,
+        ham = Hamiltonian(tensor_prod, self.conversion_dict)
+        operator = TensorProduct({"root": crandn((2, 2))})
+        self.hamiltonian = TTNO.from_hamiltonian(ham, self.ref_tree)
+        self.tdvp = OneSiteTDVP(self.ref_tree, self.hamiltonian,
                                     0.1, 1, operator)
 
         # Computing the other cached tensors for use
@@ -79,8 +83,8 @@ class TestContractionMethods(unittest.TestCase):
 
     def test_update_cache_after_split_c1_to_root(self):
         node_id = "c1"
-        q_legs = ptn.LegSpecification(None, [], [1])
-        r_legs = ptn.LegSpecification("root", [], [])
+        q_legs = LegSpecification(None, [], [1])
+        r_legs = LegSpecification("root", [], [])
         self.tdvp.state.split_node_qr(node_id, q_legs, r_legs,
                                       q_identifier=node_id,
                                       r_identifier=self.tdvp.create_link_id(node_id, "root"))
@@ -100,8 +104,8 @@ class TestContractionMethods(unittest.TestCase):
 
     def test_update_cache_after_split_c2_to_root(self):
         node_id = "c2"
-        q_legs = ptn.LegSpecification(None, [], [1])
-        r_legs = ptn.LegSpecification("root", [], [])
+        q_legs = LegSpecification(None, [], [1])
+        r_legs = LegSpecification("root", [], [])
         self.tdvp.state.split_node_qr(node_id, q_legs, r_legs,
                                       q_identifier=node_id,
                                       r_identifier=self.tdvp.create_link_id(node_id, "root"))
@@ -121,8 +125,8 @@ class TestContractionMethods(unittest.TestCase):
 
     def test_update_cache_after_split_root_to_c1(self):
         node_id = "root"
-        q_legs = ptn.LegSpecification(None, ["c2"], [2], is_root=True)
-        r_legs = ptn.LegSpecification(None, ["c1"], [])
+        q_legs = LegSpecification(None, ["c2"], [2], is_root=True)
+        r_legs = LegSpecification(None, ["c1"], [])
         self.tdvp.state.split_node_qr(node_id, q_legs, r_legs,
                                       q_identifier=node_id,
                                       r_identifier=self.tdvp.create_link_id(node_id, "c1"))
@@ -146,8 +150,8 @@ class TestContractionMethods(unittest.TestCase):
 
     def test_update_cache_after_split_root_to_c2(self):
         node_id = "root"
-        q_legs = ptn.LegSpecification(None, ["c1"], [2], is_root=True)
-        r_legs = ptn.LegSpecification(None, ["c2"], [])
+        q_legs = LegSpecification(None, ["c1"], [2], is_root=True)
+        r_legs = LegSpecification(None, ["c2"], [])
         self.tdvp.state.split_node_qr(node_id, q_legs, r_legs,
                                       q_identifier=node_id,
                                       r_identifier=self.tdvp.create_link_id(node_id, "c2"))
@@ -171,8 +175,8 @@ class TestContractionMethods(unittest.TestCase):
 
     def test_split_updated_site_c1(self):
         node_id = "c1"
-        q_legs = ptn.LegSpecification(None, [], [1])
-        r_legs = ptn.LegSpecification("root", [], [])
+        q_legs = LegSpecification(None, [], [1])
+        r_legs = LegSpecification("root", [], [])
         ref_state = deepcopy(self.tdvp.state)
         ref_state.split_node_qr(node_id, q_legs, r_legs,
                                 q_identifier=node_id,
@@ -194,8 +198,8 @@ class TestContractionMethods(unittest.TestCase):
 
     def test_split_updated_site_c2(self):
         node_id = "c2"
-        q_legs = ptn.LegSpecification(None, [], [1])
-        r_legs = ptn.LegSpecification("root", [], [])
+        q_legs = LegSpecification(None, [], [1])
+        r_legs = LegSpecification("root", [], [])
         ref_state = deepcopy(self.tdvp.state)
         ref_state.split_node_qr(node_id, q_legs, r_legs,
                                 q_identifier=node_id,
@@ -214,8 +218,8 @@ class TestContractionMethods(unittest.TestCase):
     def test_split_updated_site_root_to_c1(self):
         node_id = "c1"
         root_id = "root"
-        q_legs = ptn.LegSpecification(None, ["c2"], [2], is_root=True)
-        r_legs = ptn.LegSpecification(None, [node_id], [])
+        q_legs = LegSpecification(None, ["c2"], [2], is_root=True)
+        r_legs = LegSpecification(None, [node_id], [])
         ref_state = deepcopy(self.tdvp.state)
         ref_state.split_node_qr(root_id, q_legs, r_legs,
                                 q_identifier=root_id,
@@ -232,8 +236,8 @@ class TestContractionMethods(unittest.TestCase):
     def test_split_updated_site_root_to_c2(self):
         node_id = "c2"
         root_id = "root"
-        q_legs = ptn.LegSpecification(None, ["c1"], [2], is_root=True)
-        r_legs = ptn.LegSpecification(None, [node_id], [])
+        q_legs = LegSpecification(None, ["c1"], [2], is_root=True)
+        r_legs = LegSpecification(None, [node_id], [])
         ref_state = deepcopy(self.tdvp.state)
         ref_state.split_node_qr(root_id, q_legs, r_legs,
                                 q_identifier=root_id,
@@ -365,10 +369,10 @@ class TestContractionMethodsComplicated(unittest.TestCase):
 
     def setUp(self) -> None:
         ref_tree = random_big_ttns_two_root_children()
-        hamiltonian = ptn.TTNO.from_hamiltonian(random_hamiltonian_compatible(),
+        hamiltonian = TTNO.from_hamiltonian(random_hamiltonian_compatible(),
                                                 ref_tree)
-        self.tdvp = ptn.OneSiteTDVP(ref_tree, hamiltonian, 0.1, 1,
-                                    ptn.TensorProduct({"site0": pauli_matrices()[0]}))
+        self.tdvp = OneSiteTDVP(ref_tree, hamiltonian, 0.1, 1,
+                                    TensorProduct({"site0": pauli_matrices()[0]}))
         # To correctly compute the contractions we need all potential cached tensors
         non_init_pairs = [("site4", "site3"), ("site3", "site5"), ("site3", "site1"),
                           ("site1", "site2"), ("site1",
@@ -379,8 +383,8 @@ class TestContractionMethodsComplicated(unittest.TestCase):
 
     def test_update_cache_after_1_root_to_2(self):
         node_id = "site1"
-        q_legs = ptn.LegSpecification("site0", ["site3"], [3])
-        r_legs = ptn.LegSpecification(None, ["site2"], [])
+        q_legs = LegSpecification("site0", ["site3"], [3])
+        r_legs = LegSpecification(None, ["site2"], [])
         self.tdvp.state.split_node_qr(node_id, q_legs, r_legs,
                                       q_identifier=node_id,
                                       r_identifier=self.tdvp.create_link_id(node_id, "site2"))
@@ -408,8 +412,8 @@ class TestContractionMethodsComplicated(unittest.TestCase):
 
     def test_update_cache_after_1_root_to_3(self):
         node_id = "site1"
-        q_legs = ptn.LegSpecification("site0", ["site2"], [3])
-        r_legs = ptn.LegSpecification(None, ["site3"], [])
+        q_legs = LegSpecification("site0", ["site2"], [3])
+        r_legs = LegSpecification(None, ["site3"], [])
         self.tdvp.state.split_node_qr(node_id, q_legs, r_legs,
                                       q_identifier=node_id,
                                       r_identifier=self.tdvp.create_link_id(node_id, "site3"))
@@ -437,8 +441,8 @@ class TestContractionMethodsComplicated(unittest.TestCase):
     def test_split_updated_site_1_to_2(self):
         node_id = "site1"
         next_node_id = "site2"
-        q_legs = ptn.LegSpecification("site0", ["site3"], [3])
-        r_legs = ptn.LegSpecification(None, ["site2"], [])
+        q_legs = LegSpecification("site0", ["site3"], [3])
+        r_legs = LegSpecification(None, ["site2"], [])
         ref_state = deepcopy(self.tdvp.state)
         ref_state.split_node_qr(node_id, q_legs, r_legs,
                                 q_identifier=node_id,
@@ -455,8 +459,8 @@ class TestContractionMethodsComplicated(unittest.TestCase):
     def test_split_updated_site_1_to_3(self):
         node_id = "site1"
         next_node_id = "site3"
-        q_legs = ptn.LegSpecification("site0", ["site2"], [3])
-        r_legs = ptn.LegSpecification(None, ["site3"], [])
+        q_legs = LegSpecification("site0", ["site2"], [3])
+        r_legs = LegSpecification(None, ["site3"], [])
         ref_state = deepcopy(self.tdvp.state)
         ref_state.split_node_qr(node_id, q_legs, r_legs,
                                 q_identifier=node_id,

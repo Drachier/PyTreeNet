@@ -3,7 +3,8 @@ from copy import deepcopy, copy
 
 import numpy as np
 
-import pytreenet as ptn
+from pytreenet.core.ttn import TreeTensorNetwork
+from pytreenet.util.tensor_splitting import SVDParameters
 from pytreenet.util import compute_transfer_tensor
 from pytreenet.random import (random_tensor_node,
                                random_small_ttns,
@@ -15,7 +16,7 @@ from pytreenet.random.random_ttn import (random_big_ttns_two_root_children,
 class TestTreeTensorNetworkBasics(unittest.TestCase):
 
     def setUp(self):
-        self.tensortree = ptn.TreeTensorNetwork()
+        self.tensortree = TreeTensorNetwork()
         self.node1, self.tensor1 = random_tensor_node((2, 3, 4, 5), identifier="orig_root")
         self.node2, self.tensor2 = random_tensor_node((2, 3), identifier="child1")
         self.node3, self.tensor3 = random_tensor_node((2, 3, 4, 5), identifier="child2")
@@ -72,7 +73,7 @@ class TestTreeTensorNetworkBasics(unittest.TestCase):
         self.assertEqual(self.tensortree.nodes["orig_root"].parent, "new_root")
 
     def test_root_property(self):
-        ttn = ptn.TreeTensorNetwork()
+        ttn = TreeTensorNetwork()
         node0, tensor0 = random_tensor_node((4,3,2),"node0")
         tensor0_ref_transposed = np.transpose(tensor0, (2,1,0))
         node1, tensor1 = random_tensor_node((2, ),"node1")
@@ -194,7 +195,7 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
 
     def setUp(self):
         self.tensortree = random_small_ttns()
-        self.svd_params = ptn.SVDParameters(max_bond_dim=float("inf"),
+        self.svd_params = SVDParameters(max_bond_dim=float("inf"),
                                             rel_tol=float("-inf"),
                                             total_tol=float("-inf"))
 
@@ -223,17 +224,17 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
 
     def test_legs_before_combination_root_c1(self):
         found = self.tensortree.legs_before_combination("root", "c1")
-        correct_root = ptn.LegSpecification(None,["c2"], [1], None)
+        correct_root = LegSpecification(None,["c2"], [1], None)
         correct_root.is_root = True
-        correct_c1 = ptn.LegSpecification(None, [], [2], None)
+        correct_c1 = LegSpecification(None, [], [2], None)
         self.assertEqual(found[0], correct_root)
         self.assertEqual(found[1], correct_c1)
 
     def test_legs_before_combination_c2_root(self):
         found = self.tensortree.legs_before_combination("c2", "root")
-        correct_root = ptn.LegSpecification(None,["c1"], [2], None)
+        correct_root = LegSpecification(None,["c1"], [2], None)
         correct_root.is_root = True
-        correct_c2 = ptn.LegSpecification(None, [], [1], None)
+        correct_c2 = LegSpecification(None, [], [1], None)
         self.assertEqual(found[1], correct_root)
         self.assertEqual(found[0], correct_c2)
 
@@ -286,9 +287,9 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         self.tensortree.contract_nodes("root", "c1", new_identifier="contr")
         ref_tree = deepcopy(self.tensortree)
 
-        root_legs = ptn.LegSpecification(None, ["c2"], [1], None)
+        root_legs = LegSpecification(None, ["c2"], [1], None)
         root_legs.is_root = True
-        c1_legs = ptn.LegSpecification(None, [], [2], None)
+        c1_legs = LegSpecification(None, [], [2], None)
         self.tensortree.split_node_svd("contr", root_legs, c1_legs,
                                        "root", "c1",
                                        self.svd_params)
@@ -336,9 +337,9 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
         self.tensortree.contract_nodes("c2", "root", new_identifier="contr")
         ref_tree = deepcopy(self.tensortree)
 
-        root_legs = ptn.LegSpecification(None, ["c1"], [2], None)
+        root_legs = LegSpecification(None, ["c1"], [2], None)
         root_legs.is_root = True
-        c2_legs = ptn.LegSpecification(None, [], [1], None)
+        c2_legs = LegSpecification(None, [], [1], None)
         self.tensortree.split_node_svd("contr", c2_legs, root_legs,
                                        "c2", "root",
                                        self.svd_params)
@@ -509,7 +510,7 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
 
 class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def setUp(self):
-        self.ttn = ptn.TreeTensorNetwork()
+        self.ttn = TreeTensorNetwork()
 
         node1, tensor1 = random_tensor_node((2, 3, 4, 5), identifier="id1")
         node2, tensor2 = random_tensor_node((2, 3, 4, 5), identifier="id2")
@@ -569,7 +570,7 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         contracted_node, contracted_tensor = self.ttn["id8contrid9"]
 
         # Test Node
-        self.assertTrue(isinstance(contracted_node, ptn.Node))
+        self.assertTrue(isinstance(contracted_node, Node))
         self.assertEqual(contracted_node.children, [])
         self.assertEqual(contracted_node.parent, "id1")
 
@@ -586,7 +587,7 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         contracted_node, contracted_tensor = self.ttn[contracted_id]
 
         # Test Node
-        self.assertTrue(isinstance(contracted_node, ptn.Node))
+        self.assertTrue(isinstance(contracted_node, Node))
         self.assertEqual(contracted_node.children, ["id6"])
         self.assertEqual(contracted_node.parent, "id2")
 
@@ -605,7 +606,7 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
 
         # Test Node
         child_ids = ["id3", "id6", "id7"]
-        self.assertTrue(isinstance(contracted_node, ptn.Node))
+        self.assertTrue(isinstance(contracted_node, Node))
         self.assertEqual(contracted_node.children, child_ids)
         self.assertEqual(contracted_node.parent, "id1")
 
@@ -625,7 +626,7 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
 
         # Test Node
         child_ids = ["id8", "id3", "id5"]
-        self.assertTrue(isinstance(contracted_node, ptn.Node))
+        self.assertTrue(isinstance(contracted_node, Node))
         self.assertEqual(contracted_node.children, child_ids)
         self.assertTrue(contracted_node.is_root())
 
@@ -639,58 +640,58 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
 
     def test_legs_before_combination_leaf_only_child(self):
         found_legs8, found_legs9 = self.ttn.legs_before_combination("id8", "id9")
-        ref_legs8 = ptn.LegSpecification("id1", [], [1,2], None)
-        ref_legs9 = ptn.LegSpecification(None, None, [3,4,5], None)
+        ref_legs8 = LegSpecification("id1", [], [1,2], None)
+        ref_legs9 = LegSpecification(None, None, [3,4,5], None)
         self.assertEqual(ref_legs8, found_legs8)
         self.assertEqual(ref_legs9, found_legs9)
 
         # And reverse
         rev_legs9, rev_legs8 = self.ttn.legs_before_combination("id9", "id8")
-        ref_legs8 = ptn.LegSpecification("id1", [], [4,5], None)
-        ref_legs9 = ptn.LegSpecification(None, None, [1,2,3], None)
+        ref_legs8 = LegSpecification("id1", [], [4,5], None)
+        ref_legs9 = LegSpecification(None, None, [1,2,3], None)
         self.assertEqual(ref_legs8, rev_legs8)
         self.assertEqual(ref_legs9, rev_legs9)
 
     def test_legs_before_combination_leaf_not_only_child(self):
         found_legs5, found_legs7 = self.ttn.legs_before_combination("id5", "id7")
-        ref_legs5 = ptn.LegSpecification("id2", ["id6"], [2], None)
-        ref_legs7 = ptn.LegSpecification(None, None, [3,4,5], None)
+        ref_legs5 = LegSpecification("id2", ["id6"], [2], None)
+        ref_legs7 = LegSpecification(None, None, [3,4,5], None)
         self.assertEqual(ref_legs5, found_legs5)
         self.assertEqual(ref_legs7, found_legs7)
 
         # And reverse
         rev_legs7, rev_legs5 = self.ttn.legs_before_combination("id7", "id5")
-        ref_legs5 = ptn.LegSpecification("id2", ["id6"], [5], None)
-        ref_legs7 = ptn.LegSpecification(None, None, [2,3,4], None)
+        ref_legs5 = LegSpecification("id2", ["id6"], [5], None)
+        ref_legs7 = LegSpecification(None, None, [2,3,4], None)
         self.assertEqual(ref_legs5, rev_legs5)
         self.assertEqual(ref_legs7, rev_legs7)
 
     def test_legs_before_combination_middle_node(self):
         found_legs2, found_legs5 = self.ttn.legs_before_combination("id2", "id5")
-        ref_legs2 = ptn.LegSpecification("id1", ["id3"], [4], None)
-        ref_legs5 = ptn.LegSpecification(None, ["id6", "id7"], [5], None)
+        ref_legs2 = LegSpecification("id1", ["id3"], [4], None)
+        ref_legs5 = LegSpecification(None, ["id6", "id7"], [5], None)
         self.assertEqual(ref_legs2, found_legs2)
         self.assertEqual(ref_legs5, found_legs5)
 
         # And reverse
         rev_legs5, rev_legs2 = self.ttn.legs_before_combination("id5", "id2")
-        ref_legs2 = ptn.LegSpecification("id1", ["id3"], [5], None)
-        ref_legs5 = ptn.LegSpecification(None, ["id6", "id7"], [4], None)
+        ref_legs2 = LegSpecification("id1", ["id3"], [5], None)
+        ref_legs5 = LegSpecification(None, ["id6", "id7"], [4], None)
         self.assertEqual(ref_legs2, rev_legs2)
         self.assertEqual(ref_legs5, rev_legs5)
 
     def test_legs_before_combination_root(self):
         found_legs1, found_legs2 = self.ttn.legs_before_combination("id1", "id2")
-        ref_legs1 = ptn.LegSpecification(None, ["id8"], [3,4], None)
-        ref_legs2 = ptn.LegSpecification(None, ["id3", "id5"], [5], None)
+        ref_legs1 = LegSpecification(None, ["id8"], [3,4], None)
+        ref_legs2 = LegSpecification(None, ["id3", "id5"], [5], None)
         ref_legs1.is_root = True
         self.assertEqual(ref_legs1, found_legs1)
         self.assertEqual(ref_legs2, found_legs2)
 
         # And reverse
         rev_legs2, rev_legs1 = self.ttn.legs_before_combination("id2", "id1")
-        ref_legs1 = ptn.LegSpecification(None, ["id8"], [4,5], None)
-        ref_legs2 = ptn.LegSpecification(None, ["id3", "id5"], [3], None)
+        ref_legs1 = LegSpecification(None, ["id8"], [4,5], None)
+        ref_legs2 = LegSpecification(None, ["id3", "id5"], [3], None)
         ref_legs1.is_root = True
         self.assertEqual(ref_legs1, rev_legs1)
         self.assertEqual(ref_legs2, rev_legs2)
@@ -698,8 +699,8 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def test_tensor_split_leaf_q1parent_vs_r3open(self):
         q_legs = {"parent_leg": "id8", "child_legs": [], "open_legs": []}
         r_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1, 2, 3]}
-        q_legs = ptn.LegSpecification("id8", [], [])
-        r_legs = ptn.LegSpecification(None, [], [1,2,3])
+        q_legs = LegSpecification("id8", [], [])
+        r_legs = LegSpecification(None, [], [1,2,3])
         self.ttn.split_node_qr("id9", q_legs, r_legs,
                                q_identifier="q9", r_identifier="r9")
 
@@ -722,8 +723,8 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def test_tensor_splitqr_leaf_r3open_vs_q1parent(self):
         r_legs = {"parent_leg": "id8", "child_legs": [], "open_legs": []}
         q_legs = {"parent_leg": None, "child_legs": [], "open_legs": [1, 2, 3]}
-        r_legs = ptn.LegSpecification("id8", [], [])
-        q_legs = ptn.LegSpecification(None, [], [1,2,3])
+        r_legs = LegSpecification("id8", [], [])
+        q_legs = LegSpecification(None, [], [1,2,3])
         self.ttn.split_node_qr("id9", q_legs, r_legs,
                                q_identifier="q9", r_identifier="r9")
 
@@ -744,8 +745,8 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         self.assertTrue(np.allclose(np.eye(q_tensor.shape[0]), found_identity))
 
     def test_tensor_splitqr_node_q1parent1open_vs_r1child1open(self):
-        q_legs = ptn.LegSpecification("id1", [], [2])
-        r_legs = ptn.LegSpecification(None, ["id9"], [3])
+        q_legs = LegSpecification("id1", [], [2])
+        r_legs = LegSpecification(None, ["id9"], [3])
         self.ttn.split_node_qr("id8", q_legs, r_legs,
                                q_identifier="q8", r_identifier="r8")
 
@@ -771,8 +772,8 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         self.assertTrue(np.allclose(np.eye(q_tensor.shape[1]), found_identity))
 
     def test_tensor_splitqr_node_q1parent1child_vs_r1child1open(self):
-        q_legs = ptn.LegSpecification("id2", ["id6"], [])
-        r_legs = ptn.LegSpecification(None, ["id7"], [3])
+        q_legs = LegSpecification("id2", ["id6"], [])
+        r_legs = LegSpecification(None, ["id7"], [3])
 
         self.ttn.split_node_qr("id5", q_legs, r_legs,
                                q_identifier="q5", r_identifier="r5")
@@ -800,9 +801,9 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         self.assertTrue(np.allclose(np.eye(q_tensor.shape[1]), found_identity))
 
     def test_tensor_splitqr_root_q1child1open_vs_r1child1open(self):
-        q_legs = ptn.LegSpecification(None, ["id2"], [2], None)
+        q_legs = LegSpecification(None, ["id2"], [2], None)
         q_legs.is_root = True
-        r_legs = ptn.LegSpecification(None, ["id8"], [3], None)
+        r_legs = LegSpecification(None, ["id8"], [3], None)
         self.ttn.split_node_qr("id1", q_legs, r_legs,
                                q_identifier="q1", r_identifier="r1")
 

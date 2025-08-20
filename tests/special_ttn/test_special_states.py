@@ -5,10 +5,8 @@ import pytest
 
 import numpy as np
 
-from pytreenet.ttns.ttns import TreeTensorNetworkState
 from pytreenet.special_ttn.special_states import (generate_constant_product_state,
-                                                  generate_zero_state,
-                                                  TTNStructure)
+                                                  generate_zero_state, TTNStructure)
 
 @pytest.mark.parametrize("structure", [TTNStructure.MPS, TTNStructure.BINARY])
 def test_generate_zero_state_1d(structure):

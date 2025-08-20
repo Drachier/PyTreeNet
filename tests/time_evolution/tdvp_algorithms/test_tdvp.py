@@ -5,7 +5,13 @@ from copy import deepcopy
 import numpy as np
 from scipy.linalg import expm
 
-import pytreenet as ptn
+from pytreenet.operators.tensorproduct import TensorProduct
+from pytreenet.ttno.ttno_class import TTNO
+from pytreenet.operators.hamiltonian import Hamiltonian
+from pytreenet.time_evolution.tdvp_algorithms.tdvp_algorithm import TDVPAlgorithm
+from pytreenet.operators.common_operators import pauli_matrices
+from pytreenet.util.tensor_splitting import SplitMode
+from pytreenet.contractions.tree_cach_dict import PartialTreeCachDict
 from pytreenet.contractions.state_operator_contraction import (contract_any)
 from pytreenet.contractions.effective_hamiltonians import (get_effective_single_site_hamiltonian)
 from pytreenet.random import (random_hermitian_matrix,
@@ -25,15 +31,15 @@ class TestTDVPInit(unittest.TestCase):
                                 "c2_op": random_hermitian_matrix(size=4),
                                 "I4": np.eye(4)}
         self.ref_tree = random_small_ttns()
-        tensor_prod = [ptn.TensorProduct({"c1": "I3", "root": "root_op1", "c2": "I4"}),
-                       ptn.TensorProduct({"c1": "c1_op", "root": "root_op1", "c2": "I4"}),
-                       ptn.TensorProduct({"c1": "c1_op", "root": "root_op2", "c2": "c2_op"}),
-                       ptn.TensorProduct({"c1": "c1_op", "root": "I2", "c2": "c2_op"})
+        tensor_prod = [TensorProduct({"c1": "I3", "root": "root_op1", "c2": "I4"}),
+                       TensorProduct({"c1": "c1_op", "root": "root_op1", "c2": "I4"}),
+                       TensorProduct({"c1": "c1_op", "root": "root_op2", "c2": "c2_op"}),
+                       TensorProduct({"c1": "c1_op", "root": "I2", "c2": "c2_op"})
                        ]
-        ham = ptn.Hamiltonian(tensor_prod, self.conversion_dict)
-        operator = ptn.TensorProduct({"root": crandn((2,2))})
-        self.hamiltonian = ptn.TTNO.from_hamiltonian(ham, self.ref_tree)
-        self.tdvp = ptn.TDVPAlgorithm(self.ref_tree, self.hamiltonian,
+        ham = Hamiltonian(tensor_prod, self.conversion_dict)
+        operator = TensorProduct({"root": crandn((2,2))})
+        self.hamiltonian = TTNO.from_hamiltonian(ham, self.ref_tree)
+        self.tdvp = TDVPAlgorithm(self.ref_tree, self.hamiltonian,
                                       0.1, 1, operator)
 
     def test_init_hamiltonian(self):
@@ -55,7 +61,7 @@ class TestTDVPInit(unittest.TestCase):
     def test_init_partial_tree_cache(self):
         # Creating reference
         ref_tdvp = deepcopy(self.tdvp)
-        partial_tree_cache = ptn.PartialTreeCachDict()
+        partial_tree_cache = PartialTreeCachDict()
         c2_block = contract_any("c2", "root",
                                 ref_tdvp.state,
                                 ref_tdvp.hamiltonian,
@@ -82,15 +88,15 @@ class TestContractionMethods(unittest.TestCase):
                                 "c2_op": random_hermitian_matrix(size=4),
                                 "I4": np.eye(4)}
         self.ref_tree = random_small_ttns()
-        tensor_prod = [ptn.TensorProduct({"c1": "I3", "root": "root_op1", "c2": "I4"}),
-                       ptn.TensorProduct({"c1": "c1_op", "root": "root_op1", "c2": "I4"}),
-                       ptn.TensorProduct({"c1": "c1_op", "root": "root_op2", "c2": "c2_op"}),
-                       ptn.TensorProduct({"c1": "c1_op", "root": "I2", "c2": "c2_op"})
+        tensor_prod = [TensorProduct({"c1": "I3", "root": "root_op1", "c2": "I4"}),
+                       TensorProduct({"c1": "c1_op", "root": "root_op1", "c2": "I4"}),
+                       TensorProduct({"c1": "c1_op", "root": "root_op2", "c2": "c2_op"}),
+                       TensorProduct({"c1": "c1_op", "root": "I2", "c2": "c2_op"})
                        ]
-        ham = ptn.Hamiltonian(tensor_prod, self.conversion_dict)
-        operator = ptn.TensorProduct({"root": crandn((2,2))})
-        self.hamiltonian = ptn.TTNO.from_hamiltonian(ham, self.ref_tree)
-        self.tdvp = ptn.TDVPAlgorithm(self.ref_tree, self.hamiltonian,
+        ham = Hamiltonian(tensor_prod, self.conversion_dict)
+        operator = TensorProduct({"root": crandn((2,2))})
+        self.hamiltonian = TTNO.from_hamiltonian(ham, self.ref_tree)
+        self.tdvp = TDVPAlgorithm(self.ref_tree, self.hamiltonian,
                                       0.1, 1, operator)
 
         # Computing the other cached tensors for use
@@ -106,7 +112,7 @@ class TestContractionMethods(unittest.TestCase):
     def test_move_orth_and_update_cache_for_path_c1_to_c2(self):
         ref_tdvp = deepcopy(self.tdvp)
         ref_tdvp.state.move_orthogonalization_center("c2",
-                                                     mode=ptn.SplitMode.KEEP)
+                                                     mode=SplitMode.KEEP)
         update_c1_cache = contract_any("c1", "root",
                                        ref_tdvp.state, ref_tdvp.hamiltonian,
                                        ref_tdvp.partial_tree_cache)
@@ -123,7 +129,7 @@ class TestContractionMethods(unittest.TestCase):
         path1 = ["c1","root"]
         ref_tdvp = deepcopy(self.tdvp)
         ref_tdvp.state.move_orthogonalization_center("root",
-                                                     mode=ptn.SplitMode.KEEP)
+                                                     mode=SplitMode.KEEP)
         update_c1_cache = contract_any("c1", "root",
                                        ref_tdvp.state,
                                        ref_tdvp.hamiltonian,
@@ -143,7 +149,7 @@ class TestContractionMethods(unittest.TestCase):
             self.assertTrue(np.allclose(correct_cache,found_cache))
 
         ref_tdvp.state.move_orthogonalization_center("c2",
-                                                     mode=ptn.SplitMode.KEEP)
+                                                     mode=SplitMode.KEEP)
         update_root_to_c2_cache = contract_any("root", "c2",
                                                ref_tdvp.state, ref_tdvp.hamiltonian,
                                                ref_tdvp.partial_tree_cache)
@@ -205,7 +211,7 @@ class TestContractionMethods(unittest.TestCase):
     def test_update_site_root(self):
         node_id = "root"
         self.tdvp.state.move_orthogonalization_center(node_id,
-                                                      mode=ptn.SplitMode.KEEP)
+                                                      mode=SplitMode.KEEP)
         self.tdvp.update_tree_cache("c1", node_id)
         ref_state = deepcopy(self.tdvp.state)
         eff_site_ham = get_effective_single_site_hamiltonian(node_id,
@@ -225,7 +231,7 @@ class TestContractionMethods(unittest.TestCase):
     def test_update_site_c2(self):
         node_id = "c2"
         self.tdvp.state.move_orthogonalization_center(node_id,
-                                                      mode=ptn.SplitMode.KEEP)
+                                                      mode=SplitMode.KEEP)
         self.tdvp.update_tree_cache("c1", "root")
         self.tdvp.update_tree_cache("root", node_id)
         ref_state = deepcopy(self.tdvp.state)
@@ -246,10 +252,10 @@ class TestContractionMethods(unittest.TestCase):
 class TestTDVPInitComplicated(unittest.TestCase):
     def setUp(self):
         self.ref_tree = random_big_ttns_two_root_children()
-        self.hamiltonian = ptn.TTNO.from_hamiltonian(random_hamiltonian_compatible(),
+        self.hamiltonian = TTNO.from_hamiltonian(random_hamiltonian_compatible(),
                                                      self.ref_tree)
-        self.tdvp = ptn.TDVPAlgorithm(self.ref_tree, self.hamiltonian, 0.1,1,
-                                      ptn.TensorProduct({"site0": ptn.pauli_matrices()[0]}))
+        self.tdvp = TDVPAlgorithm(self.ref_tree, self.hamiltonian, 0.1,1,
+                                      TensorProduct({"site0": pauli_matrices()[0]}))
 
     def test_init_hamiltonian(self):
         self.assertEqual(self.hamiltonian, self.tdvp.hamiltonian)
@@ -391,10 +397,10 @@ class TestContractionMethodsComplicated(unittest.TestCase):
 
     def setUp(self) -> None:
         ref_tree = random_big_ttns_two_root_children()
-        hamiltonian = ptn.TTNO.from_hamiltonian(random_hamiltonian_compatible(),
+        hamiltonian = TTNO.from_hamiltonian(random_hamiltonian_compatible(),
                                                      ref_tree)
-        self.tdvp = ptn.TDVPAlgorithm(ref_tree, hamiltonian, 0.1,1,
-                                      ptn.TensorProduct({"site0": ptn.pauli_matrices()[0]}))
+        self.tdvp = TDVPAlgorithm(ref_tree, hamiltonian, 0.1,1,
+                                      TensorProduct({"site0": pauli_matrices()[0]}))
         # To correctly compute the contractions we need all potential cached tensors
         non_init_pairs = [("site4","site3"),("site3","site5"),("site3","site1"),
                           ("site1","site2"),("site1","site0"),("site0","site6"),

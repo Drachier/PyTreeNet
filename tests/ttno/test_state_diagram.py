@@ -1,6 +1,8 @@
 import unittest
 
 import pytreenet as ptn
+from pytreenet.ttns.ttns import TreeTensorNetwork
+from pytreenet.operators.hamiltonian import Hamiltonian
 from pytreenet.random import random_tensor_node
 from pytreenet.ttno import (HyperEdge,
                             StateDiagram)
@@ -70,7 +72,7 @@ def check_vertex_coll(state_diagram, corr_edge, num_vertices, num_connected_hes)
 
 class TestonSingleStateDiagram(unittest.TestCase):
     def setUp(self):
-        self.ref_tree = ptn.TreeTensorNetwork()
+        self.ref_tree = TreeTensorNetwork()
 
         node1, tensor1 = random_tensor_node((2, 2, 2), identifier="site1")
         node2, tensor2 = random_tensor_node((2, 2, 2, 2), identifier="site2")
@@ -389,7 +391,7 @@ class TestonSingleStateDiagram(unittest.TestCase):
 
 class TestFromHamiltonian(unittest.TestCase):
     def setUp(self):
-        self.ref_tree = ptn.TreeTensorNetwork()
+        self.ref_tree = TreeTensorNetwork()
 
         node1, tensor1 = random_tensor_node((2, 2, 2), identifier="site1")
         node2, tensor2 = random_tensor_node((2, 2, 2, 2), identifier="site2")
@@ -476,7 +478,7 @@ class TestFromHamiltonian(unittest.TestCase):
                  "site6": "6",
                  "site7": "7"}
         terms = [term1]
-        hamiltonian = ptn.Hamiltonian(terms=terms)
+        hamiltonian = Hamiltonian(terms=terms)
 
         sd = StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
 
@@ -522,7 +524,7 @@ class TestFromHamiltonian(unittest.TestCase):
                  "site6": "62",
                  "site7": "72"}
         terms = [term1, term2]
-        hamiltonian = ptn.Hamiltonian(terms=terms)
+        hamiltonian = Hamiltonian(terms=terms)
 
         sd = StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
 
@@ -563,7 +565,7 @@ class TestFromHamiltonian(unittest.TestCase):
                  "site7": "73"}
 
         terms = [term1, term2, term3]
-        hamiltonian = ptn.Hamiltonian(terms=terms)
+        hamiltonian = Hamiltonian(terms=terms)
 
         sd = StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
 
@@ -618,7 +620,7 @@ class TestFromHamiltonian(unittest.TestCase):
                  "site7": "73"}
 
         terms = [term1, term2, term3]
-        hamiltonian = ptn.Hamiltonian(terms=terms)
+        hamiltonian = Hamiltonian(terms=terms)
 
         sd = StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
 
@@ -705,7 +707,7 @@ class TestFromHamiltonian(unittest.TestCase):
                  "site7": "73"}
 
         terms = [term1, term2, term3, term4]
-        hamiltonian = ptn.Hamiltonian(terms=terms)
+        hamiltonian = Hamiltonian(terms=terms)
 
         sd = StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
 
@@ -761,7 +763,7 @@ class TestFromHamiltonian(unittest.TestCase):
 class TestFromHamiltonianAsymmetric(unittest.TestCase):
 
     def setUp(self):
-        self.ref_tree = ptn.TreeTensorNetwork()
+        self.ref_tree = TreeTensorNetwork()
 
         node1, tensor1 = random_tensor_node((2, 2, 2), identifier="site1")
         node2, tensor2 = random_tensor_node((2, 2, 2, 2), identifier="site2")
@@ -796,7 +798,7 @@ class TestFromHamiltonianAsymmetric(unittest.TestCase):
                  {'site1': 'I', 'site2': 'I', 'site3': 'I', 'site4': 'I',
                   'site5': 'I', 'site6': 'I', 'site7': 'I', 'site8': 'I'}]
 
-        hamiltonian = ptn.Hamiltonian(terms=terms)
+        hamiltonian = Hamiltonian(terms=terms)
 
         sd = StateDiagram.from_hamiltonian(hamiltonian, self.ref_tree)
 

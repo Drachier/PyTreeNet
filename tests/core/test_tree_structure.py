@@ -7,14 +7,15 @@ import unittest
 from copy import deepcopy
 from itertools import combinations
 
-import pytreenet as ptn
+from pytreenet.core.tree_structure import TreeStructure
+from pytreenet.core.graph_node import GraphNode
 from pytreenet.random import crandn
 from pytreenet.special_ttn.star import StarTreeTensorState
 from pytreenet.special_ttn.binary import generate_binary_ttns
 
 class TestTreeStructureInit(unittest.TestCase):
     def test_init(self):
-        ts = ptn.TreeStructure()
+        ts = TreeStructure()
         self.assertEqual(None, ts.root_id)
         self.assertEqual(0, len(ts.nodes))
 
@@ -22,9 +23,9 @@ class TestTreeStructureBuildingMethods(unittest.TestCase):
     def setUp(self) -> None:
         # We need to create some nodes to add to the tree structure
         self.identifiers = ["node" + str(i) for i in range(9)]
-        self.nodes =  [ptn.GraphNode(identifier=self.identifiers[i])
+        self.nodes =  [GraphNode(identifier=self.identifiers[i])
                  for i in range(len(self.identifiers))]
-        self.ts = ptn.TreeStructure()
+        self.ts = TreeStructure()
 
     def test_add_root(self):
         self.ts.add_root(self.nodes[0])
@@ -74,9 +75,9 @@ class TestTreeStructureBuildingMethods(unittest.TestCase):
 class TestTreeStructureMethods(unittest.TestCase):
     def setUp(self) -> None:
         self.identifiers = ["node" + str(i) for i in range(9)]
-        self.nodes =  [ptn.GraphNode(identifier=self.identifiers[i])
+        self.nodes =  [GraphNode(identifier=self.identifiers[i])
                  for i in range(len(self.identifiers))]
-        self.ts = ptn.TreeStructure()
+        self.ts = TreeStructure()
         self.ts.add_root(self.nodes[0])
         self.ts.add_child_to_parent(self.nodes[1], self.identifiers[0])
         self.ts.add_child_to_parent(self.nodes[2], self.identifiers[1])
@@ -131,7 +132,7 @@ class TestTreeStructureMethods(unittest.TestCase):
                 self.assertEqual(correct, found2)
 
     def test_replace_node_in_neighbours(self):
-        new_node = ptn.GraphNode(identifier="new")
+        new_node = GraphNode(identifier="new")
         node1 = self.nodes[1]
         new_node.children = deepcopy(node1.children)
         new_node.parent = node1.parent
@@ -146,7 +147,7 @@ class TestTreeStructureMethods(unittest.TestCase):
         self.assertFalse(self.nodes[4].is_child_of(self.identifiers[1]))
 
     def test_replace_node_in_neighbours_root(self):
-        new_node = ptn.GraphNode(identifier="new")
+        new_node = GraphNode(identifier="new")
         node0 = self.nodes[0]
         new_node.children = deepcopy(node0.children)
         new_node.parent = node0.parent
@@ -160,7 +161,7 @@ class TestTreeStructureMethods(unittest.TestCase):
         self.assertFalse(self.nodes[7].is_child_of(self.identifiers[1]))
 
     def test_replace_node_in_some_neighbours_parent_and_children(self):
-        new_node = ptn.GraphNode(identifier="new")
+        new_node = GraphNode(identifier="new")
         new_node.children = [self.identifiers[5]]
         new_node.parent = self.identifiers[1]
         self.ts._nodes["new"] = new_node
@@ -175,7 +176,7 @@ class TestTreeStructureMethods(unittest.TestCase):
         self.assertFalse(self.nodes[6].is_child_of("new"))
 
     def test_replace_node_in_some_neighbours_leaf(self):
-        new_node = ptn.GraphNode(identifier="new")
+        new_node = GraphNode(identifier="new")
         new_node.parent = self.identifiers[2]
         self.ts._nodes["new"] = new_node
         self.ts.replace_node_in_some_neighbours("new",
@@ -185,7 +186,7 @@ class TestTreeStructureMethods(unittest.TestCase):
         self.assertFalse(self.nodes[2].is_parent_of(self.identifiers[3]))
 
     def test_replace_node_in_some_neighbours_root(self):
-        new_node = ptn.GraphNode(identifier="new")
+        new_node = GraphNode(identifier="new")
         new_node.parent = self.identifiers[2]
         self.ts._nodes["new"] = new_node
         self.ts.replace_node_in_some_neighbours("new",

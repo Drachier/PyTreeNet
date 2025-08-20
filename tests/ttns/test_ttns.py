@@ -7,7 +7,7 @@ from copy import deepcopy
 
 import numpy as np
 
-import pytreenet as ptn
+from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.random import random_small_ttns, crandn
 
 class TestTreeTensorNetworkStateSimple(unittest.TestCase):
@@ -18,10 +18,10 @@ class TestTreeTensorNetworkStateSimple(unittest.TestCase):
         # Initialise initial state
         self.initial_state = random_small_ttns()
         # Operators
-        single_site_operator = ptn.TensorProduct({"root": crandn((2,2))})
-        two_site_operator = ptn.TensorProduct({"c1": crandn((3,3)),
+        single_site_operator = TensorProduct({"root": crandn((2,2))})
+        two_site_operator = TensorProduct({"c1": crandn((3,3)),
                                                "c2": crandn((4,4))})
-        three_site_operator = ptn.TensorProduct({"root": crandn((2,2)),
+        three_site_operator = TensorProduct({"root": crandn((2,2)),
                                                  "c1": crandn((3,3)),
                                                  "c2": crandn((4,4))})
         self.operators = [single_site_operator,
