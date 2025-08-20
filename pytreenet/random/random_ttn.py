@@ -6,11 +6,158 @@ tensors.
 """
 from __future__ import annotations
 from typing import Union, List, Tuple
-from enum import Enum
-
+from numpy import random, exp, arange, maximum, ones, sqrt, diag, linalg
+from numpy.linalg import svd
 from ..core.ttn import TreeTensorNetwork
 from .random_node import random_tensor_node
 from .random_ttns import RandomTTNSMode
+
+
+def generate_random_ttn(ttn,
+                        large_scale=1,
+                        small_scale=1e-8,
+                        decay_type='power',
+                        decay_rate=1):
+    """
+    Converts a given TTN to a random TreeTensorNetworkState with 
+    structured random singular values on each node tensor. Looks at the
+    generate_random_tensor function for more details.
+    """
+    for ndoes_id, tensors in ttn.tensors.items():
+        shape = tensors.shape
+        random_tensor = generate_random_tensor(shape, 
+                                                large_scale=large_scale,
+                                                small_scale=small_scale,
+                                                decay_type=decay_type,
+                                                decay_rate=decay_rate)
+        ttn.tensors[ndoes_id] = random_tensor
+        ttn.nodes[ndoes_id].link_tensor(random_tensor)
+    norm = sqrt(abs(ttn.scalar_product()))
+    ttn.normalise(norm)
+    return ttn
+
+
+
+def generate_random_tensor(shape,
+                           large_scale,
+                           small_scale,
+                           decay_type,
+                           decay_rate):
+    """
+    Generate a complex tensor with structured singular values.
+    
+    Args:
+        shape: Shape of the tensor
+        large_scale: Scale for large values
+        small_scale: Scale for smallest values
+        decay_type: 'exponential', 'power', or 'constant' decay
+        decay_rate: Rate of decay (higher = faster decay)
+    """
+    if len(shape) == 2:
+        # Your existing matrix code here
+        min_dim = min(shape)
+
+        # Generate complex unitary matrices
+        U_real, _ = linalg.qr(random.randn(shape[0], min_dim))
+        U_imag, _ = linalg.qr(random.randn(shape[0], min_dim))
+        U = U_real + 1j * U_imag
+
+        V_real, _ = linalg.qr(random.randn(shape[1], min_dim))
+        V_imag, _ = linalg.qr(random.randn(shape[1], min_dim))
+        V = V_real + 1j * V_imag
+
+        # Create singular values based on decay type
+        singular_values = _generate_singular_values(min_dim, large_scale, 
+                                                   small_scale, decay_type, decay_rate)
+
+        # Create diagonal matrix with correct dimensions
+        S = diag(singular_values)
+        tensor = U @ S @ V.T.conj()
+
+    else:
+        # Higher-order tensor generation
+        tensor = _generate_hosvd_tensor(shape, large_scale, 
+                                          small_scale, decay_type, decay_rate)
+
+    return tensor
+
+def _generate_singular_values(dim, large_scale, small_scale, decay_type, decay_rate):
+    """Generate singular values with specified decay pattern."""
+    if decay_type == 'exponential':
+        singular_values = large_scale * exp(-decay_rate * arange(dim))
+        singular_values = maximum(singular_values, small_scale)
+    elif decay_type == 'power':
+        singular_values = large_scale / ((arange(dim) + 1) ** decay_rate)
+        singular_values = maximum(singular_values, small_scale)
+    else:
+        raise ValueError("Unsupported decay type. Use 'exponential' or 'power'.")
+
+    # Add some randomness
+    singular_values *= (1 + 0.2 * random.randn(dim))
+    singular_values = abs(singular_values)
+    singular_values = singular_values / linalg.norm(singular_values)
+
+    return singular_values
+
+def _generate_hosvd_tensor(shape, large_scale, small_scale, decay_type, decay_rate):
+    """Generate tensor using Higher-Order SVD with controlled mode singular values."""
+    # Start with a random tensor
+    tensor_real = random.randn(*shape)
+    tensor_imag = random.randn(*shape)
+    tensor = tensor_real + 1j * tensor_imag
+
+    # Apply HOSVD and reconstruct with controlled singular values
+    for mode in range(len(shape)):
+        # Unfold tensor along current mode
+        unfolded = _unfold_tensor(tensor, mode)
+
+        # Compute SVD
+        U, s, Vt = svd(unfolded, full_matrices=False)
+        
+        # Replace singular values with controlled ones
+        controlled_s = _generate_singular_values(len(s), large_scale, 
+                                                small_scale, decay_type, decay_rate)
+
+        # Reconstruct with controlled singular values
+        reconstructed = U @ diag(controlled_s) @ Vt
+
+        # Fold back to tensor
+        tensor = _fold_tensor(reconstructed, mode, shape)
+
+    return tensor
+
+def _unfold_tensor(tensor, mode):
+    """Unfold tensor along specified mode."""
+    shape = tensor.shape
+    # Move the mode dimension to the front
+    dims = list(range(len(shape)))
+    dims[0], dims[mode] = dims[mode], dims[0]
+
+    # Transpose and reshape
+    tensor_transposed = tensor.transpose(dims)
+    unfolded = tensor_transposed.reshape(shape[mode], -1)
+
+    return unfolded
+
+def _fold_tensor(matrix, mode, original_shape):
+    """Fold matrix back to tensor of original shape."""
+    # Reshape to transposed tensor shape
+    dims = list(range(len(original_shape)))
+    dims[0], dims[mode] = dims[mode], dims[0]
+
+    transposed_shape = [original_shape[i] for i in dims]
+    tensor_transposed = matrix.reshape(transposed_shape)
+
+    # Transpose back to original mode order
+    inverse_dims = [0] * len(dims)
+    for i, d in enumerate(dims):
+        inverse_dims[d] = i
+
+    tensor = tensor_transposed.transpose(inverse_dims)
+
+    return tensor
+
+
 
 def random_small_ttns(mode: RandomTTNSMode = RandomTTNSMode.DIFFVIRT) -> TreeTensorNetwork:
     """
