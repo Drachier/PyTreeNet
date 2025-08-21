@@ -77,6 +77,7 @@ def main():
                                    SIMSCRIPT_STANDARD_NAME)
     supervisor = Supervisor.from_commandline(param_set,
                                              sim_script_path)
+    supervisor.timeout = 10 * 60 * 60  # 10 hours
     supervisor.run_simulations()
 
 if __name__ == "__main__":
