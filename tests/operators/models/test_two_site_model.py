@@ -14,6 +14,7 @@ from pytreenet.operators.models.two_site_model import (TwoSiteModel,
                                                        IsingModel,
                                                        FlippedIsingModel,
                                                        BoseHubbardModel)
+from pytreenet.operators.models.topology import Topology
 
 class TestTwoSiteModel(unittest.TestCase):
     """
@@ -647,6 +648,125 @@ class TestHeisenbergModel(unittest.TestCase):
                       hamiltonian.coeffs_mapping)
         self.assertEqual(hamiltonian.coeffs_mapping[factor_symb],
                          ext_z)
+
+    def build_for_chain(self,
+                        num_sites: int,
+                        factors: tuple[float,float,float],
+                        exts: tuple[float,float,float]
+                        ) -> np.ndarray:
+        """
+        Build the hamiltonian matrix exactly from numpy arrays.
+        """
+        ident = np.eye(2, dtype=complex)
+        px, py, pz = pauli_matrices()
+        ham = np.zeros((2**num_sites,2**num_sites), dtype=complex)
+        for i in range(num_sites):
+            term_tsx = np.eye(1)
+            term_tsy = np.eye(1)
+            term_tsz = np.eye(1)
+            term_ssx = np.eye(1)
+            term_ssy = np.eye(1)
+            term_ssz = np.eye(1)
+            for j in range(num_sites):
+                if j == i:
+                    term_tsx = -1 * factors[0] * np.kron(term_tsx,px)
+                    term_tsy = -1 * factors[1] * np.kron(term_tsy,py)
+                    term_tsz = -1 * factors[2] * np.kron(term_tsz,pz)
+                    term_ssx = -1 * exts[0] * np.kron(term_ssx,px)
+                    term_ssy = -1 * exts[1] * np.kron(term_ssy,py)
+                    term_ssz = -1 * exts[2] * np.kron(term_ssz,pz)
+                elif j == i + 1:
+                    term_tsx = np.kron(term_tsx,px)
+                    term_tsy = np.kron(term_tsy,py)
+                    term_tsz = np.kron(term_tsz,pz)
+                    term_ssx = np.kron(term_ssx,ident)
+                    term_ssy = np.kron(term_ssy,ident)
+                    term_ssz = np.kron(term_ssz,ident)
+                else:
+                    term_tsx = np.kron(term_tsx,ident)
+                    term_tsy = np.kron(term_tsy,ident)
+                    term_tsz = np.kron(term_tsz,ident)
+                    term_ssx = np.kron(term_ssx,ident)
+                    term_ssy = np.kron(term_ssy,ident)
+                    term_ssz = np.kron(term_ssz,ident)
+            if i != num_sites - 1:
+                ham += term_tsx
+                ham += term_tsy
+                ham += term_tsz
+            ham += term_ssx
+            ham += term_ssy
+            ham += term_ssz
+        return ham
+
+    def test_matrix_for_chain(self):
+        """
+        Tests that the correct matrix is produced for a chain topology.
+        """
+        num_sites = 5
+        factors = (1,2,5)
+        ext = (0.1,0.2,0.5)
+        model = HeisenbergModel(x_factor=factors[0],
+                                y_factor=factors[1],
+                                z_factor=factors[2],
+                                ext_x=ext[0],
+                                ext_y=ext[1],
+                                ext_z=ext[2])
+        found = model.generate_matrix(Topology.CHAIN,num_sites)
+        correct = self.build_for_chain(num_sites,
+                                       factors,
+                                       ext)
+        np.testing.assert_allclose(correct, found)
+
+    def test_matrix_for_t(self):
+        """
+        Tests the creation of the Hamiltonian matrix for a T-shape.
+        """
+        sys_size = 3
+        factors = (1,2,5)
+        ext = (0.1,0.2,0.5)
+        model = HeisenbergModel(x_factor=factors[0],
+                                y_factor=factors[1],
+                                z_factor=factors[2],
+                                ext_x=ext[0],
+                                ext_y=ext[1],
+                                ext_z=ext[2])
+        found = model.generate_matrix(Topology.TTOPOLOGY,sys_size)
+        # On each branch we get the same hamiltonian
+        branch_ham = self.build_for_chain(sys_size,
+                                          factors,
+                                          ext)
+        one_branch_ident = np.eye(2**sys_size,
+                                   dtype=complex)
+        two_branch_ident = np.kron(one_branch_ident,one_branch_ident)
+        tot_dim = 2**Topology.TTOPOLOGY.num_sites(sys_size)
+        total_ham = np.zeros((tot_dim,tot_dim),
+                             dtype=complex)
+        total_ham += np.kron(branch_ham,two_branch_ident)
+        total_ham += np.kron(one_branch_ident,np.kron(branch_ham,one_branch_ident))
+        total_ham += np.kron(two_branch_ident, branch_ham)
+        # We need the term in the middle
+        mid_adjacent = [sys_size*i for i in range(3)]
+        mid_adjacent_pairs = [(mid_adjacent[0],mid_adjacent[1]),
+                              (mid_adjacent[0],mid_adjacent[2]),
+                              (mid_adjacent[1],mid_adjacent[2])]
+        terms = [[np.eye(1) for _ in range(3)]
+                 for _ in range(len(factors))]
+        for i in range(Topology.TTOPOLOGY.num_sites(sys_size)):
+            for pauli_index, pauli_terms in enumerate(terms):
+                for pair_index, pair in enumerate(mid_adjacent_pairs):
+                    if i == pair[0]:
+                        factor = -1 * factors[pauli_index]
+                        local_matrix = factor * pauli_matrices()[pauli_index]
+                    elif i == pair[1]:
+                        local_matrix = pauli_matrices()[pauli_index]
+                    else:
+                        local_matrix = np.eye(2)
+                    pauli_terms[pair_index] = np.kron(pauli_terms[pair_index],
+                                                        local_matrix)
+        for termp in terms:
+            for termfin in termp:
+                total_ham += termfin
+        np.testing.assert_allclose(total_ham, found)
 
 class TestIsingModel(unittest.TestCase):
     """
