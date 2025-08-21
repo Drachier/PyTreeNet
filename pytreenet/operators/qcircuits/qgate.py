@@ -25,6 +25,7 @@ class QGate(Enum):
     """
     Enumerator for the different types of quantum gates.
     """
+    IDENTITY = "I"
     PAULI_X = "X"
     PAULI_Y = "Y"
     PAULI_Z = "Z"

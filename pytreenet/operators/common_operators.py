@@ -165,11 +165,11 @@ def superposition(rel_phase: float = 0) -> np.ndarray:
     Generates a superposition state with equal weights.
 
     Args:
-        rel_phase (float, optional): The relative phase of the superposition.
-            Defaults to 0.
+        rel_phase (float, optional): The relative phase of the superposition
+            in radians. Defaults to 0.
 
     Returns:
         np.ndarray: The superposition state.
 
     """
-    return np.array([1, np.exp(1j*rel_phase)], dtype=complex) / np.sqrt(2)
+    return np.array([1, np.exp(1j*rel_phase * np.pi)], dtype=complex) / np.sqrt(2)
