@@ -4,10 +4,21 @@ This module contains unittests for Quantum Circuit classes.
 import unittest
 from copy import deepcopy
 
+import numpy as np
+
 from pytreenet.operators.hamiltonian import Hamiltonian
 from pytreenet.operators.qcircuits.qcircuit import (QCLevel,
                                                     QCircuit,
                                                     CompiledQuantumCircuit)
+from pytreenet.special_ttn.mps import MatrixProductState
+from pytreenet.time_evolution.bug import BUG, BUGConfig
+from pytreenet.time_evolution.time_evolution import TimeEvoMode
+from pytreenet.ttns.ttns import TreeTensorNetworkState
+from pytreenet.operators.common_operators import (ket_i,
+                                                  superposition)
+from pytreenet.core.node import Node
+from pytreenet.operators.models import (local_magnetisation_from_topology,
+                                        Topology)
 from pytreenet.operators.qcircuits.qgate import (QGate,
                                                  InvolutarySingleSiteGate,
                                                  CNOTGate)
@@ -344,3 +355,123 @@ class TestCompiledQCircuit(unittest.TestCase):
         level2.add_hamiltonian(z_gate.get_generator())
         self.assertEqual(level2, self.comp_circuit.get_level(2))
 
+def q_name(n: int) -> str:
+    q_prefix = "qubit"
+    return f"{q_prefix}{n}"
+
+def run_circuit(qc: QCircuit) -> np.ndarray:
+    """
+    Compiles and runs the time evolution for a single qubit quantum circuit.
+
+    Args:
+        qc (QCircuit): The quantum circuit to run.
+
+    Returns:
+        np.ndarray: The final state.
+    """
+    num_qb = qc.width()
+    if num_qb == 1:
+        mps = TreeTensorNetworkState()
+        tensor = ket_i(0, 2)
+        mps.add_root(Node(identifier=q_name(0)),
+                      tensor)
+    elif num_qb == 2:
+        mps = MatrixProductState.constant_product_state(0,2,2,
+                                                    node_prefix="qubit",
+                                                    bond_dimensions=[2])
+    comp_qc = qc.compile()
+    ttno = comp_qc.to_time_dep_ttno(mps)
+    ops = local_magnetisation_from_topology(Topology.CHAIN, num_qb,
+                                            site_prefix="qubit")
+    final_time = qc.depth() * 1
+    time_step_size = 0.01
+    config = BUGConfig(time_evo_mode=TimeEvoMode.RK45,
+                    time_dep=True)
+    solver_options = {"rtol": 1e-6, "atol": 1e-6}
+    bug = BUG(mps, ttno, time_step_size, final_time, ops,
+            config=config,
+            solver_options=solver_options)
+    bug.run(evaluation_time="inf")
+    return bug.state.completely_contract_tree()[0]
+
+class TestCompiledQCircuitRunning(unittest.TestCase):
+    """
+    Runs the time evolution for the compiled circuit generator for some simple
+    circuits to which we know the solution
+    """
+
+    def test_x_gate(self):
+        """
+        An x-gate should flip the state over time.
+        """
+        qc = QCircuit()
+        qc.add_x(q_name(0))
+        found = run_circuit(qc)
+        correct = ket_i(1,2)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-10)
+
+    def test_two_x_gate(self):
+        """
+        Two x-gates, one after the other, should yield the initial state.
+        """
+        qc = QCircuit()
+        qc.add_x(q_name(0))
+        qc.add_x(q_name(0),level_index=1)
+        found = run_circuit(qc)
+        correct = ket_i(0,2)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-10)
+
+    def test_hadamard_gate(self):
+        """
+        The Hadamard gate should yield the equal superposition state.
+        """
+        qc = QCircuit()
+        qc.add_hadamard(q_name(0))
+        found = run_circuit(qc)
+        correct = superposition()
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-10)
+
+    def test_x_and_hadamard(self):
+        """
+        Test the circuit with first an x and then a Hadamard gate.
+        This should yield the equal superposition with opposite sign.
+        """
+        qc = QCircuit()
+        qc.add_x(q_name(0))
+        qc.add_hadamard(q_name(0), level_index=1)
+        found = run_circuit(qc)
+        correct = superposition(rel_phase=1)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-10)
+
+    def test_hadamard_and_z(self):
+        """
+        Test the circuit with first a Hadamard and then a Z-gate.
+        This should also yield the equal superposition with opposite sign.
+        """
+        qc = QCircuit()
+        qc.add_hadamard(q_name(0))
+        qc.add_z(q_name(0), level_index=1)
+        found = run_circuit(qc)
+        correct = superposition(rel_phase=1)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-10)
+
+    def test_x_and_cnot(self):
+        """
+        Test the two-qubit circuit where we first apply an X-gate on the first
+        qubit and then a CNOT.
+        This should yield the |11> state
+        """
+        qc = QCircuit()
+        qc.add_x(q_name(0))
+        qc.add_cnot(q_name(0), q_name(1), level_index=1)
+        found = run_circuit(qc)
+        correct = ket_i(3,4)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-10)
+    
+    

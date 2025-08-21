@@ -198,7 +198,7 @@ class TimeEvolution:
             complex: The expectation value of the operator.
         """
         raise NotImplementedError()
-    
+
     def update_hamiltonian(self):
         """
         Abstract method to update the Hamiltonian for the next time step.
@@ -356,7 +356,7 @@ class TimeEvolution:
             if i != 0:  # We also measure the initial expectation_values
                 self.run_one_time_step()
             self.evaluate_and_save_results(evaluation_time, i)
-            if self.config_class.time_dep:
+            if self.config.time_dep and i != 0:
                 self.update_hamiltonian()
 
     def reset_hamiltonian(self):

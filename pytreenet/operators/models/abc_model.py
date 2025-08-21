@@ -5,10 +5,15 @@ from abc import ABC, abstractmethod
 from typing import Self
 import inspect
 
+import numpy as np
+import numpy.typing as npt
+
 from .topology import Topology
 from ..hamiltonian import Hamiltonian
 from ...core.ttn import TreeTensorNetwork
+from ...ttno.ttno_class import TreeTensorNetworkOperator
 from ...util.ttn_exceptions import non_negativity_check
+from ...special_ttn.mps import MatrixProductState
 
 class Model(ABC):
     """
@@ -250,6 +255,27 @@ class Model(ABC):
         errstr = f"Unsupported topology: {topology}."
         errstr += "Cannot generate Hamiltonian!"
         raise ValueError(errstr)
+
+    def generate_matrix(self,
+                        topology: Topology,
+                        size_parameter: int
+                        ) -> npt.NDArray[np.complex64]:
+        """
+        Generates the Hamiltonian matrix for the specified topology and size.
+        """
+        if topology not in [Topology.CHAIN, Topology.TTOPOLOGY]:
+            errstr = f"Exact solution not implemented for this topology: {topology}!"
+            raise NotImplementedError(errstr)
+        hamiltonian = self.generate_by_topology(topology,
+                                                size_parameter)
+        # We need a reference ttns to buid the ttno.
+        # We use an MPS, as it can represent all sites by simply being on the chain.
+        num_sites = topology.num_sites(size_parameter)
+        mps = MatrixProductState.constant_product_state(0,2,num_sites)
+        ttno = TreeTensorNetworkOperator.from_hamiltonian(hamiltonian,
+                                                          mps)
+        matrix, _ = ttno.as_matrix()
+        return matrix
 
 def generate_chain_indices(num_sites: int,
                            site_ids: str = "site"

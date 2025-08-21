@@ -5,7 +5,7 @@ constructed from a symbolic expression.
 from __future__ import annotations
 from typing import List, Iterable
 from abc import ABC, abstractmethod
-from copy import copy, deepcopy
+from copy import deepcopy
 
 from numpy import ndarray
 
@@ -36,8 +36,8 @@ class AbstractTimeDepTTNO(TreeTensorNetworkOperator, ABC):
 
     def _copy_ttno_attributes(self,
                               ttno: TreeTensorNetworkOperator):
-        self._nodes = copy(ttno.nodes)
-        self._tensors = copy(ttno.tensors)
+        self._tensors = ttno.tensors
+        self._nodes = ttno.nodes
         self._tensors.nodes = self._nodes
         self.orthogonality_center_id = ttno.orthogonality_center_id
         self._root_id = ttno.root_id
@@ -109,6 +109,7 @@ class DiscreetTimeTTNO(AbstractTimeDepTTNO):
 
         """
         if self.current_time_step == len(self.ttnos) - 1:
+            self.current_time += time_step_size
             # If we are at the last time step, we do not update anymore.
             return
         self.current_time += time_step_size
@@ -125,13 +126,11 @@ class DiscreetTimeTTNO(AbstractTimeDepTTNO):
         """
         self.current_time_step = 0
         self.current_time = 0
-        self.set_ttno_to_time_step(0)    
+        self.set_ttno_to_time_step(0)
 
 class TimeDependentTTNO(AbstractTimeDepTTNO):
     """
     A Tree Tensor Network Operator that can be updated in time.
-
-    This class is a subclass of the TreeTensorNetworkOperator class.
 
     Attributes:
         updatables: A list of objects that have some methods to update the

@@ -3,10 +3,6 @@ This module contains unit tests for the depreceiated model generation functions.
 Use the model classes instead.
 """
 from unittest import TestCase, main as unitmain
-from fractions import Fraction
-
-from numpy import eye
-import numpy as np
 
 from pytreenet.operators.models.two_site_model import (BoseHubbardModel,
                                                         FlippedIsingModel,
