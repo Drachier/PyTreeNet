@@ -1,19 +1,11 @@
 """
 A module to provide various commonly used models for simulations.
 """
-from typing import List, Tuple, Union, Dict
+from typing import List, Tuple, Union
 from warnings import warn
 
-from numpy import ndarray
-
 from ..hamiltonian import Hamiltonian
-from ..tensorproduct import TensorProduct
-from ..sim_operators import (create_single_site_observables)
-from ..common_operators import pauli_matrices
 from ...core.ttn import TreeTensorNetwork
-from ...util.std_utils import average_data
-
-from .topology import Topology
 from .two_site_model import (HeisenbergModel,
                                 IsingModel,
                                 FlippedIsingModel,
