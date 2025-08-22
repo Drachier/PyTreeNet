@@ -49,8 +49,8 @@ def heisenberg_model(structure: TreeTensorNetwork | list[tuple[str,str]],
                                   y_factor=y_factor,
                                   z_factor=z_factor,
                                   ext_z=ext_magn)
-    heisenberg_model = HeisenbergModel.from_dataclass(params)
-    return heisenberg_model.generate_hamiltonian(structure)
+    model = HeisenbergModel.from_dataclass(params)
+    return model.generate_hamiltonian(structure)
 
 def ising_model(ref_tree: Union[TreeTensorNetwork, List[Tuple[str, str]]],
                 ext_magn: float,
