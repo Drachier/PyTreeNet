@@ -211,7 +211,7 @@ def cupy_svd(matrix: np.ndarray, full_matrices: bool) -> Tuple[np.ndarray, np.nd
 
     return u, s, vh
 
-def cupy_randomized_svd(matrix: np.ndarray, k: int, n_iter: int = 4,
+def cupy_randomized_svd(matrix: np.ndarray, k: int, n_iter: int = 1,
                         random_state: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     GPU implementation of randomized SVD using CuPy.
@@ -265,6 +265,90 @@ def cupy_randomized_svd(matrix: np.ndarray, k: int, n_iter: int = 4,
     # Move results back to CPU
     return cp.asnumpy(U_k), cp.asnumpy(s_k), cp.asnumpy(Vh_k)
 
+def randomized_svd(matrix, k, n_iter=1, random_state=None):
+    """
+    Rank-k approximation of matrix using randomized SVD with power iterations.
+
+    Args:
+        matrix : array_like, shape (m, n)
+            Input matrix (real or complex)
+        k : int
+            Target rank for the approximation (must be ≤ min(m, n))
+        n_iter : int, default=4
+            Number of power iterations (≥ 0)
+        random_state : int, optional
+            Seed for random number generation
+
+    Returns:
+        U_k : ndarray, shape (m, k)
+            Left singular vectors
+        s_k : ndarray, shape (k,)
+            Singular values (sorted in descending order)
+        Vh_k : ndarray, shape (k, n)
+            Conjugate transpose of right singular vectors
+
+    """
+    m, n = matrix.shape
+    max_rank = min(m, n)
+    
+    if k > max_rank:
+        raise ValueError(
+            f"Target rank k={k} exceeds maximum possible rank {max_rank} "
+            f"for matrix shape {matrix.shape}")
+
+    # NO OVERSAMPLING: ℓ = k exactly
+    # This guarantees ℓ ≤ min(m, n) whenever k ≤ min(m, n)
+    ell = k
+
+    # Set up random number generator
+    rng = np.random.RandomState(random_state)
+
+    # Generate random matrix Ω ∈ ℝ^(n×k) or ℂ^(n×k)
+    if np.iscomplexobj(matrix):
+        # Complex case: Gaussian entries with real and imaginary parts
+        Omega = (rng.randn(n, ell) + 1j * rng.randn(n, ell)).astype(matrix.dtype)
+    else:
+        # Real case: Standard Gaussian entries
+        Omega = rng.randn(n, ell).astype(matrix.dtype)
+
+    # ALGORITHM : Randomized SVD with q power iterations
+    
+    # Step 1-3: Initial range finding
+    Y0 = matrix @ Omega                    # Y₀ = AΩ
+    Q, _ = np.linalg.qr(Y0, mode='reduced') # [Q₀, R₀] = qr(Y₀)
+
+    # Steps 4-9: Power iterations (if n_iter > 0)
+    for iteration in range(n_iter):
+        # Step 5: Ỹⱼ ← A† Qⱼ₋₁
+        Y_hat = matrix.conj().T @ Q
+        
+        # Step 6: [Q̃ⱼ, R̃ⱼ] ← qr(Ỹⱼ)  
+        Q_hat, _ = np.linalg.qr(Y_hat, mode='reduced')
+        
+        # Step 7: Yⱼ ← AQ̃ⱼ
+        Y = matrix @ Q_hat
+        
+        # Step 8: [Qⱼ, Rⱼ] ← qr(Yⱼ)
+        Q, _ = np.linalg.qr(Y, mode='reduced')
+
+    # Steps 10-14: Final factorization
+    # Step 11: B ← Q† A
+    B = Q.conj().T @ matrix
+    
+    # Step 12: [Ũ, Σ, Ṽ†] ← svd(B)
+    U_tilde, s, Vh = np.linalg.svd(B, full_matrices=False)
+    
+    # Step 13: U ← QŨ  
+    U = Q @ U_tilde
+    
+    # Step 14: Return rank-k approximation
+    # Since ℓ = k, we get exactly k singular values (no truncation needed!)
+    U_k = U[:, :k]
+    s_k = s[:k] 
+    Vh_k = Vh[:k, :]
+
+    return U_k, s_k, Vh_k
+
 def tensor_svd(tensor: np.ndarray,
                u_legs: Tuple[int,...],
                v_legs: Tuple[int,...],
@@ -308,15 +392,14 @@ def tensor_svd(tensor: np.ndarray,
     flag = False
     config = GPUConfig()
     if min_dim >= randomized_cutoff:
-        if config.gpu_available:
+        k = randomized_cutoff
+        n_iter = 2
+        if config.use_gpu:
             if config.verbose:
                 print(f"Using GPU randomized SVD for tensor size: {matrix.size}")
-            k = randomized_cutoff
-            n_iter = 4  # Number of power iterations
             u, s, vh = cupy_randomized_svd(matrix, k, n_iter)
         else:
-            warn("Running randomized SVD on CPU is not efficient, falling back to regular SVD.")
-            u, s, vh = np.linalg.svd(matrix, full_matrices=full_matrices)
+            u, s, vh = randomized_svd(matrix, k, n_iter)
         flag = True
 
     elif config.should_use_gpu(matrix.size) and not flag:
