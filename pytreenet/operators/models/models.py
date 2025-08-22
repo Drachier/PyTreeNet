@@ -4,7 +4,7 @@ A module to provide various commonly used models for simulations.
 from typing import List, Tuple, Union, Dict
 from warnings import warn
 
-from numpy import ndarray, zeros, mean
+from numpy import ndarray
 
 from ..hamiltonian import Hamiltonian
 from ..tensorproduct import TensorProduct
@@ -180,60 +180,6 @@ def flipped_ising_model_2D(grid: Union[tuple[str,int,int],list[list[str]]],
     return model.generate_2d_model(len(grid),
                                    num_cols=len(grid[0]),
                                    site_ids=grid)
-
-def local_magnetisation_from_topology(topology: Topology,
-                                      system_size: int,
-                                      site_prefix: str = "site"
-                                        ) -> Dict[str, TensorProduct]:
-    """
-    Generates the local magnetisation operator for a given topology.
-
-    Args:
-        topology (Topology): The topology of the system.
-        system_size (int): The characteristic size of the system.
-        site_prefix (str): The prefix for the site identifiers.
-        Defaults to "site".
-    """
-    num_sites = topology.num_sites(system_size)
-    structure = [site_prefix + str(i)
-                 for i in range(num_sites)]
-    return local_magnetisation(structure)
-
-def local_magnetisation(structure: Union[TreeTensorNetwork,List[str]]
-                        ) -> Dict[str,TensorProduct]:
-    """
-    Generates the local magnetisation operator for a given tree structure.
-
-    Args:
-        structure (Union[TreeTensorNetwork,List[str]]): The tree structure for
-            which the local magnetisation operator should be generated. Can
-            also be a list of node identifiers.
-    
-    Returns:
-        Dict[str,TensorProduct]: The local magnetisation operators.
-
-    """
-    sigma_z = pauli_matrices()[2]
-    return create_single_site_observables(sigma_z, structure)
-
-def total_magnetisation(local_magnetisations: List[ndarray]
-                        ) -> ndarray:
-    """
-    Computes the total magnetisation from the local magnetisations.
-    
-    Args:
-        local_magnetisations (List[ndarray]): The local magnetisations as a
-            list of arrays, where each array contains the local magnetisations
-            for one site for different times.
-
-    Returns:
-        ndarray: The total magnetisation
-
-        .. math::
-            M = 1/L \sum_i^L m_i
-
-    """
-    return average_data(local_magnetisations)
 
 def bose_hubbard_model(
         structure: Union[TreeTensorNetwork, List[Tuple[str, str]]],
