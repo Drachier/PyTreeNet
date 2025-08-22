@@ -16,7 +16,10 @@ from pytreenet.ttns.ttns import TreeTensorNetworkState
 from pytreenet.time_evolution.time_evolution import TimeEvoMode, TimeEvolution
 from pytreenet.time_evolution.time_evo_enum import TimeEvoAlg
 from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
-
+from pytreenet.operators.exact_operators import (exact_zero_state,
+                                                 exact_ising_hamiltonian,
+                                                 exact_local_magnetisation)
+from pytreenet.time_evolution.exact_time_evolution import (ExactTimeEvolution)
 from pytreenet.operators.models.two_site_model import (IsingModel,
                                                        IsingParameters)
 from pytreenet.special_ttn.special_states import (TTNStructure,
@@ -167,7 +170,48 @@ def set_up_time_evolution(sim_params: TimeEvolutionParameters,
                                                         solver_options=solver_options)
     return time_evo
 
-def run_one_simulation(sim_params: TotalParameters,
+def exact_simulation(sim_params: LocalSimulationParameters,
+                     save_file_root: str
+                     ) -> float:
+    """
+    Run an exact simulation of the Ising model with the given parameters.
+
+    Args:
+        sim_params (LocalSimulationParameters): The simulation parameters.
+        save_file_root (str): The root path for saving the results.
+
+    Returns:
+        float: The elapsed time for the simulation.
+    """
+    # Initialize the state
+    state = exact_zero_state(sim_params.system_size)
+    # Generate the Hamiltonian
+    hamiltonian = exact_ising_hamiltonian(sim_params.factor,
+                                          sim_params.ext_magn,
+                                          sim_params.interaction_range)
+    operators = exact_local_magnetisation([NODE_PREFIX + str(i) for i in range(sim_params.system_size)])
+    # Create the time evolution algorithm
+    time_evo_alg = ExactTimeEvolution(state,
+                                      hamiltonian,
+                                      sim_params.time_step_size,
+                                      sim_params.final_time,
+                                      operators)
+    # Run the time evolution
+    start_time = time()
+    time_evo_alg.run(pgbar=False)
+    end_time = time()
+    elapsed_time = end_time - start_time
+    param_hash = sim_params.get_hash()
+    # Save the results
+    save_file_path = os.path.join(save_file_root, FILENAME_PREFIX + f"{param_hash}.h5")
+    print(f"Saving results to {save_file_path}")
+    with File(save_file_path, "w") as file:
+        time_evo_alg.results.save_to_h5(file)
+        sim_params.save_to_h5(file)
+        file.attrs["elapsed_time"] = elapsed_time
+    return elapsed_time
+
+def run_ttn_simulation(sim_params: TotalParameters,
                        save_file_root: str
                        ) -> float:
     """
@@ -205,6 +249,26 @@ def run_one_simulation(sim_params: TotalParameters,
         sim_params.save_to_h5(file)
         file.attrs["elapsed_time"] = elapsed_time
     return elapsed_time
+
+def run_one_simulation(sim_params: TotalParameters,
+                       save_file_root: str
+                       ) -> float:
+    """
+    Run a single simulation with the given parameters.
+    
+    Args:
+        sim_params (SimulationParameters): The simulation parameters.
+        time_evo_params (TimeEvolutionParameters): The time evolution
+            parameters.
+        save_file_root (str): The root path for saving the results.
+    
+    Returns:
+        float: The simulation time.
+    """
+    if sim_params.time_evo_algorithm == TimeEvoAlg.EXACT:
+        return exact_simulation(sim_params, save_file_root)
+    else:
+        return run_ttn_simulation(sim_params, save_file_root)
 
 if __name__ == "__main__":
     script_main(run_one_simulation,

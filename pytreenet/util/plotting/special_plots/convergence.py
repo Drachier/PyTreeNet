@@ -140,6 +140,15 @@ class ConvergingResults:
             conv_param=conv_param,
             x_values=x_values
         )
+    
+    def limx(self) -> tuple[float, float]:
+        """
+        Get the x-axis limits for the plot.
+
+        Returns:
+            tuple[float, float]: The minimum and maximum x values.
+        """
+        return (np.min(self.x_values), np.max(self.x_values))
 
     def compute_alphas(self) -> list[float]:
         """
@@ -216,6 +225,17 @@ class ReferenceResults:
         self.y = y
         self.line_config = line_config
 
+    def limx(self) -> tuple[float, float]:
+        """
+        Get the x-axis limits for the reference results.
+
+        Returns:
+            tuple[float, float]: The minimum and maximum x values.
+        """
+        if len(self.x) == 0:
+            raise ValueError("No x values provided for reference results!")
+        return (np.min(self.x), np.max(self.x))
+
     def plot_on_axis(self,
                      ax: Axes | None = None):
         """
@@ -256,5 +276,13 @@ def plot_convergence(results: list[ConvergingResults],
     for result in results:
         result.plot_on_axis(ax=ax)
     axis_config.apply_to_axis(ax=ax)
+    xlims = [result.limx() for result in results]
+    try:
+        xlims.append(exact_results.limx())
+    except ValueError:
+        pass
+    ax.set_xlim(np.min([xlim[0] for xlim in xlims]),
+                np.max([xlim[1] for xlim in xlims]))
+    ax.legend()
     save_figure(fig,
                 filename=save_path)

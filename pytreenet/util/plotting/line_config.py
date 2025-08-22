@@ -72,12 +72,10 @@ class LineConfig:
             if self.label is None:
                 raise ValueError("No label provided for legend!")
             label = self.label
-            exclude = set()
-        else:
-            exclude = {'label'}
+        kwargs = self.to_kwargs()
+        kwargs['label'] = label
         ax.plot([], [],
-                **self.to_kwargs(exclude=exclude),
-                label=label)
+                **kwargs)
 
 def config_from_ttn_structure(
     ttn_structure: TTNStructure,
