@@ -283,6 +283,5 @@ def plot_convergence(results: list[ConvergingResults],
         pass
     ax.set_xlim(np.min([xlim[0] for xlim in xlims]),
                 np.max([xlim[1] for xlim in xlims]))
-    ax.legend()
     save_figure(fig,
                 filename=save_path)
