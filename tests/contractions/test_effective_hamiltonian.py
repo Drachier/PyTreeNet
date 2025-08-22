@@ -2,7 +2,6 @@ import unittest
 
 from numpy import tensordot, transpose, allclose, reshape
 
-from pytreenet.core.graph_node import GraphNode
 from pytreenet.random.random_ttns_and_ttno import (small_ttns_and_ttno,
                                                    big_ttns_and_ttno,
                                                    RandomTTNSMode)

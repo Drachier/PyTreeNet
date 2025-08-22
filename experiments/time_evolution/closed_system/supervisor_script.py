@@ -9,7 +9,7 @@ from pytreenet.util.experiment_util.supervisor import (Supervisor,
 from pytreenet.operators.models.topology import Topology
 from pytreenet.special_ttn.special_states import TTNStructure
 from pytreenet.time_evolution.time_evo_enum import TimeEvoAlg
-from pytreenet.time_evolution.time_evolution import TimeEvoMode
+from pytreenet.time_evolution.time_evolution import TimeEvoMode, TimeEvoMethod
 
 from sim_script import TotalParameters
 
@@ -28,12 +28,13 @@ def generate_parameter_set() -> list[TotalParameters]:
     num_sites = [5,10,15,20]
     interaction_length = [2]
 
-    time_evo_modes = [TimeEvoMode.CHEBYSHEV,
-                      TimeEvoMode.EXPM,
-                      TimeEvoMode.RK45,
-                      TimeEvoMode.RK23,
-                      TimeEvoMode.BDF,
-                      TimeEvoMode.DOP853]
+    time_evo_modes = [TimeEvoMode(TimeEvoMethod.CHEBYSHEV),
+                      TimeEvoMode(TimeEvoMethod.EXPM),
+                      TimeEvoMode(TimeEvoMethod.RK45),
+                      TimeEvoMode(TimeEvoMethod.RK23),
+                      TimeEvoMode(TimeEvoMethod.BDF),
+                      TimeEvoMode(TimeEvoMethod.DOP853)]
+
     evo_alg = TimeEvoAlg.BUG
     maximum_bond_dim = [1,2,5,10,20,25,50,75,100]
     rel_svalue = 1e-15

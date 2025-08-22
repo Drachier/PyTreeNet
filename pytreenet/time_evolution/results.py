@@ -103,6 +103,68 @@ class Results:
         return (self.num_results(),
                 self.results_length())
 
+    def close_to(self, other: Self) -> bool:
+        """
+        Checks if the results object is close to another results object.
+
+        Args:
+            other (Results): Another Results object to compare with.
+
+        Returns:
+            bool: True if the results are close, False otherwise.
+        """
+        if len(self.results) != len(other.results):
+            return False
+        for key, val in self.results.items():
+            if key not in other.results:
+                return False
+            if not np.allclose(val, other.results[key]):
+                return False
+        if self.metadata != other.metadata:
+            return False
+        if len(self.attributes) != len(other.attributes):
+            return False
+        for key, val in self.attributes.items():
+            if key not in other.attributes:
+                return False
+            if len(val) != len(other.attributes[key]):
+                return False
+            for attr in val:
+                if attr not in other.attributes[key]:
+                    return False
+        return True
+
+    def num_results(self) -> int:
+        """
+        Returns the number of results stored in the results object.
+
+        Returns:
+            int: The number of results.
+        """
+        return len(self.results)
+
+    def results_length(self) -> int:
+        """
+        Returns the length of the results arrays.
+
+        Returns:
+            int: The length of the results arrays.
+        """
+        self.not_initialized_error()
+        return len(self.results[TIMES_ID])
+
+    def shape(self) -> tuple[int, int]:
+        """
+        Returns the shape of the result.
+
+        Returns:
+            tuple[int, int]: A tuple containing the number of operators and the
+                length of the results arrays. This includes the time array and
+                the result at time zero.
+        """
+        return (self.num_results(),
+                self.results_length())
+
     def is_initialized(self) -> bool:
         """
         Checks if the results object is initialized.

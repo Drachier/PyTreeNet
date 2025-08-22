@@ -6,7 +6,7 @@ from copy import deepcopy
 
 import numpy as np
 
-import pytreenet as ptn
+from pytreenet.contractions.state_state_contraction import contract_two_ttns
 from pytreenet.random import (random_small_ttns,
                               random_big_ttns_two_root_children,
                               RandomTTNSMode)
@@ -27,7 +27,7 @@ class TestContractTwoTTNsSimple(unittest.TestCase):
         refs = [deepcopy(ttns), deepcopy(ttns2)]
 
         # Contracting the two TTNs
-        result = ptn.contract_two_ttns(ttns, ttns2)
+        result = contract_two_ttns(ttns, ttns2)
 
         # Check that the original TTNs are not affected
         self.assertEqual(refs[0], ttns)
@@ -59,7 +59,7 @@ class TestContractTwoTTNsSimple(unittest.TestCase):
         refs = [deepcopy(ttns), deepcopy(ttns2)]
 
         # Contracting the two TTNs
-        result = ptn.contract_two_ttns(ttns, ttns2,
+        result = contract_two_ttns(ttns, ttns2,
                                        id_trafo=id_trafo)
 
         # Check that the original TTNs are not affected
@@ -90,7 +90,7 @@ class TestContractTwoTTNsComplicated(unittest.TestCase):
         Test the contraction of two complicated TTNS.
         """
         # Contracting the two TTNs
-        result = ptn.contract_two_ttns(self.ttns1, self.ttns2)
+        result = contract_two_ttns(self.ttns1, self.ttns2)
 
         # Check that the original TTNs are not affected
         self.assertEqual(self.refs[0], self.ttns1)

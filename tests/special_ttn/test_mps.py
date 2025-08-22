@@ -3,14 +3,16 @@ import unittest
 import numpy as np
 
 import pytreenet as ptn
+from pytreenet.special_ttn.mps import MatrixProductTree, MatrixProductState
+from pytreenet.core.node import Node
 from pytreenet.random import crandn
 
 class TestMPT_Attaching(unittest.TestCase):
     def setUp(self) -> None:
-        self.mpt = ptn.MatrixProductTree()
-        self.mpt.add_root(ptn.Node(identifier="site2"), crandn((4, 5, 2)))
+        self.mpt = MatrixProductTree()
+        self.mpt.add_root(Node(identifier="site2"), crandn((4, 5, 2)))
 
-        self.nodes = [ptn.Node(identifier="site"+str(i)) for i in (0, 1, 3, 4)]
+        self.nodes = [Node(identifier="site"+str(i)) for i in (0, 1, 3, 4)]
         shapes = [(3, 2), (3, 4, 2), (5, 3, 2), (3, 2)]
         self.tensors = [crandn(shape) for shape in shapes]
 
@@ -140,7 +142,7 @@ class TestMPT_classmethods(unittest.TestCase):
         self.tensors = [crandn(shape) for shape in shapes]
 
     def test_from_tensor_list_root_at_2(self):
-        mpt = ptn.MatrixProductTree.from_tensor_list(self.tensors,
+        mpt = MatrixProductTree.from_tensor_list(self.tensors,
                                                      root_site=2)
 
         ref_mpt = np.tensordot(self.tensors[2],
@@ -160,7 +162,7 @@ class TestMPT_classmethods(unittest.TestCase):
         self.assertTrue(np.allclose(ref_mpt, found_mpt))
 
     def test_from_tensor_list_root_at_0(self):
-        mpt = ptn.MatrixProductTree.from_tensor_list(self.tensors,
+        mpt = MatrixProductTree.from_tensor_list(self.tensors,
                                                      root_site=0)
 
         ref_mpt = np.tensordot(self.tensors[0],
@@ -180,7 +182,7 @@ class TestMPT_classmethods(unittest.TestCase):
         self.assertTrue(np.allclose(ref_mpt, found_mpt))
 
     def test_from_tensor_list_root_at_last_node(self):
-        mpt = ptn.MatrixProductTree.from_tensor_list(self.tensors,
+        mpt = MatrixProductTree.from_tensor_list(self.tensors,
                                                      root_site=4)
 
         ref_mpt = np.tensordot(self.tensors[4],
@@ -204,26 +206,26 @@ class TestMPS(unittest.TestCase):
 
     def test_neg_dimension(self):
         self.assertRaises(ValueError,
-                          ptn.MatrixProductState.constant_product_state,
+                          MatrixProductState.constant_product_state,
                           0, -1, 10)
 
     def test_state_larger_dimension(self):
         self.assertRaises(ValueError,
-                          ptn.MatrixProductState.constant_product_state,
+                          MatrixProductState.constant_product_state,
                           3, 2, 10)
 
     def test_neg_state(self):
         self.assertRaises(ValueError,
-                          ptn.MatrixProductState.constant_product_state,
+                          MatrixProductState.constant_product_state,
                           -2, 2, 10)
 
     def test_neg_num_sites(self):
         self.assertRaises(ValueError,
-                          ptn.MatrixProductState.constant_product_state,
+                          MatrixProductState.constant_product_state,
                           0, 2, -2)
 
     def test_constant_prod_state_all_bond_dim_1(self):
-        mps = ptn.MatrixProductState.constant_product_state(0,2,5)
+        mps = MatrixProductState.constant_product_state(0,2,5)
         for node in mps.nodes.values():
             if not node.is_root():
                 self.assertEqual(1, node.shape[0])
@@ -236,17 +238,17 @@ class TestMPS(unittest.TestCase):
 
     def test_to_little_custom_bond_dime(self):
         self.assertRaises(ValueError,
-                          ptn.MatrixProductState.constant_product_state,
+                          MatrixProductState.constant_product_state,
                           0,2,5,bond_dimensions=[0])
 
     def test_to_many_custom_bond_dime(self):
         self.assertRaises(ValueError,
-                          ptn.MatrixProductState.constant_product_state,
+                          MatrixProductState.constant_product_state,
                           0,2,5,bond_dimensions=[0,1,2,3,4,5])
 
     def test_contant_prod_state_custom_bond_dim(self):
         bond_dim = [2,4,4,2]
-        mps = ptn.MatrixProductState.constant_product_state(0,2,5,
+        mps = MatrixProductState.constant_product_state(0,2,5,
                                                             root_site=2,
                                                             bond_dimensions=bond_dim)
         for node_id in ("site0","site4"):

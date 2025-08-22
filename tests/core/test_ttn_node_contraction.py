@@ -4,8 +4,9 @@ import unittest
 from copy import deepcopy
 
 import numpy as np
-
-import pytreenet as ptn
+from pytreenet.util import NoConnectionException
+from pytreenet.core.ttn import TreeTensorNetwork
+from pytreenet.core.node import Node
 from pytreenet.random import crandn
 
 class TestTensorContration(unittest.TestCase):
@@ -17,29 +18,29 @@ class TestTensorContration(unittest.TestCase):
         self.tensors = {"site"+str(i): crandn(shape)
                         for i, shape in enumerate(shapes)}
 
-        self.ttn = ptn.TreeTensorNetwork()
-        self.ttn.add_root(ptn.Node(identifier="site0"), self.tensors["site0"])
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site1"),
+        self.ttn = TreeTensorNetwork()
+        self.ttn.add_root(Node(identifier="site0"), self.tensors["site0"])
+        self.ttn.add_child_to_parent(Node(identifier="site1"),
                                      self.tensors["site1"], 2, "site0", 2)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site2"),
+        self.ttn.add_child_to_parent(Node(identifier="site2"),
                                      self.tensors["site2"], 0, "site0", 2)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site3"),
+        self.ttn.add_child_to_parent(Node(identifier="site3"),
                                      self.tensors["site3"], 1, "site0", 2)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site4"),
+        self.ttn.add_child_to_parent(Node(identifier="site4"),
                                      self.tensors["site4"], 0, "site1", 2)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site5"),
+        self.ttn.add_child_to_parent(Node(identifier="site5"),
                                      self.tensors["site5"], 2, "site1", 2)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site6"),
+        self.ttn.add_child_to_parent(Node(identifier="site6"),
                                      self.tensors["site6"], 0, "site5", 1)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site7"),
+        self.ttn.add_child_to_parent(Node(identifier="site7"),
                                         self.tensors["site7"], 0, "site5", 2)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site8"),
+        self.ttn.add_child_to_parent(Node(identifier="site8"),
                                      self.tensors["site8"], 2, "site3", 1)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site9"),
+        self.ttn.add_child_to_parent(Node(identifier="site9"),
                                      self.tensors["site9"], 0, "site8", 2)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site10"),
+        self.ttn.add_child_to_parent(Node(identifier="site10"),
                                         self.tensors["site10"], 0, "site8", 2)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site11"),
+        self.ttn.add_child_to_parent(Node(identifier="site11"),
                                      self.tensors["site11"], 0, "site8", 3)
 
     def check_children(self, node_id: str, child_ids: List[str]):
@@ -375,7 +376,7 @@ class TestTensorContration(unittest.TestCase):
 
         # Contraction order ((6,7),5)
         self.setUp()
-        self.assertRaises(ptn.NoConnectionException, self.ttn.contract_nodes, "site6", "site7")
+        self.assertRaises(NoConnectionException, self.ttn.contract_nodes, "site6", "site7")
 
     def test_contract_node_with_three_leaf_children(self):
         """
@@ -490,7 +491,7 @@ class TestTensorContration(unittest.TestCase):
 
         # Contraction order ((4,5),1)
         self.setUp()
-        self.assertRaises(ptn.NoConnectionException, self.ttn.contract_nodes, "site4", "site5")
+        self.assertRaises(NoConnectionException, self.ttn.contract_nodes, "site4", "site5")
 
     def test_contract_root_with_children(self):
         """
@@ -635,29 +636,29 @@ class TestTensorContractionOpenLegs(unittest.TestCase):
         self.tensors = {"site"+str(i): crandn(shape)
                         for i, shape in enumerate(shapes)}
 
-        self.ttn = ptn.TreeTensorNetwork()
-        self.ttn.add_root(ptn.Node(identifier="site0"), self.tensors["site0"])
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site1"),
+        self.ttn = TreeTensorNetwork()
+        self.ttn.add_root(Node(identifier="site0"), self.tensors["site0"])
+        self.ttn.add_child_to_parent(Node(identifier="site1"),
                                      self.tensors["site1"], 2, "site0", 2)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site2"),
+        self.ttn.add_child_to_parent(Node(identifier="site2"),
                                      self.tensors["site2"], 0, "site0", 2)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site3"),
+        self.ttn.add_child_to_parent(Node(identifier="site3"),
                                      self.tensors["site3"], 1, "site0", 2)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site4"),
+        self.ttn.add_child_to_parent(Node(identifier="site4"),
                                      self.tensors["site4"], 0, "site1", 2)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site5"),
+        self.ttn.add_child_to_parent(Node(identifier="site5"),
                                      self.tensors["site5"], 2, "site1", 2)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site6"),
+        self.ttn.add_child_to_parent(Node(identifier="site6"),
                                      self.tensors["site6"], 0, "site5", 1)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site7"),
+        self.ttn.add_child_to_parent(Node(identifier="site7"),
                                         self.tensors["site7"], 0, "site5", 2)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site8"),
+        self.ttn.add_child_to_parent(Node(identifier="site8"),
                                      self.tensors["site8"], 3, "site3", 1)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site9"),
+        self.ttn.add_child_to_parent(Node(identifier="site9"),
                                      self.tensors["site9"], 1, "site8", 2)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site10"),
+        self.ttn.add_child_to_parent(Node(identifier="site10"),
                                         self.tensors["site10"], 0, "site8", 2)
-        self.ttn.add_child_to_parent(ptn.Node(identifier="site11"),
+        self.ttn.add_child_to_parent(Node(identifier="site11"),
                                      self.tensors["site11"], 0, "site8", 4)
 
     def check_children(self, node_id: str, child_ids: List[str]):
@@ -996,7 +997,7 @@ class TestTensorContractionOpenLegs(unittest.TestCase):
 
         # Contraction order ((6,7),5)
         self.setUp()
-        self.assertRaises(ptn.NoConnectionException, self.ttn.contract_nodes, "site6", "site7")
+        self.assertRaises(NoConnectionException, self.ttn.contract_nodes, "site6", "site7")
 
     def test_contract_node_with_three_leaf_children(self):
         """
@@ -1119,7 +1120,7 @@ class TestTensorContractionOpenLegs(unittest.TestCase):
 
         # Contraction order ((4,5),1)
         self.setUp()
-        self.assertRaises(ptn.NoConnectionException, self.ttn.contract_nodes, "site4", "site5")
+        self.assertRaises(NoConnectionException, self.ttn.contract_nodes, "site4", "site5")
 
     def test_contract_root_with_children(self):
         """

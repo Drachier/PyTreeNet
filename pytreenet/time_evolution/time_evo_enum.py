@@ -11,7 +11,9 @@ from pytreenet.time_evolution.tdvp_algorithms.secondorderonesite import SecondOr
 from pytreenet.time_evolution.tdvp_algorithms.secondordertwosite import SecondOrderTwoSiteTDVP
 from pytreenet.time_evolution.tebd import TEBD
 from pytreenet.time_evolution.fixed_bug import FixedBUG
-from pytreenet.time_evolution.bug import BUG
+from pytreenet.time_evolution.bug_algorithms.prbug import PRBUG
+from pytreenet.time_evolution.bug_algorithms.fpbug import FPBUG
+from pytreenet.time_evolution.bug_algorithms.spbug import SPBUG
 
 class TimeEvoAlg(Enum):
     """
@@ -24,6 +26,9 @@ class TimeEvoAlg(Enum):
     TEBD = "tebd"
     FIXEDBUG = "fixedbug"
     BUG = "bug"
+    PRBUG = "prbug"
+    FPBUG = "fpbug"
+    SPBUG = "spbug"
     EXACT = "exact"
 
     def ttn_method(self) -> bool:
@@ -38,21 +43,28 @@ class TimeEvoAlg(Enum):
         """
         return self in {TimeEvoAlg.SITE1ORDER1TDVP,
                         TimeEvoAlg.SITE1ORDER2TDVP,
-                        TimeEvoAlg.SITE2ORDER2TDVP}
+                        TimeEvoAlg.SITE2ORDER2TDVP,
+                        TimeEvoAlg.BUG}
 
     def is_bug(self) -> bool:
         """
         Returns True if the algorithm is a bug.
         """
         return self in {TimeEvoAlg.FIXEDBUG,
-                        TimeEvoAlg.BUG}
+                        TimeEvoAlg.BUG,
+                        TimeEvoAlg.PRBUG,
+                        TimeEvoAlg.FPBUG,
+                        TimeEvoAlg.SPBUG}
 
     def requires_svd(self) -> bool:
         """
         Returns True if the algorithm requires SVD.
         """
         return self in {TimeEvoAlg.SITE2ORDER2TDVP,
-                        TimeEvoAlg.BUG}
+                        TimeEvoAlg.BUG,
+                        TimeEvoAlg.PRBUG,
+                        TimeEvoAlg.FPBUG,
+                        TimeEvoAlg.SPBUG}
 
     def get_class(self) -> type[TimeEvolution]:
         """
@@ -68,8 +80,12 @@ class TimeEvoAlg(Enum):
             return TEBD
         if self is TimeEvoAlg.FIXEDBUG:
             return FixedBUG
-        if self is TimeEvoAlg.BUG:
-            return BUG
+        if self is TimeEvoAlg.PRBUG:
+            return PRBUG
+        if self is TimeEvoAlg.FPBUG:
+            return FPBUG
+        if self is TimeEvoAlg.SPBUG:
+            return SPBUG
         if self is TimeEvoAlg.EXACT:
             return ExactTimeEvolution
         raise ValueError(f"Unknown time evolution algorithm: {self}")

@@ -3,7 +3,7 @@ import numpy as np
 
 from copy import deepcopy
 
-import pytreenet as ptn
+from pytreenet.core.canonical_form import canonical_form, SplitMode
 
 from pytreenet.core.canonical_form import _find_smallest_distance_neighbour
 from pytreenet.util.tensor_util import compute_transfer_tensor
@@ -50,7 +50,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
     def test_canoncial_form_c1_center(self):
         reference_ttn = deepcopy(self.ttn)
 
-        ptn.canonical_form(self.ttn, "c1")
+        canonical_form(self.ttn, "c1")
 
         ref_tensor = reference_ttn.completely_contract_tree()[0]
         found_tensor = self.ttn.completely_contract_tree(to_copy=True)[0]
@@ -77,7 +77,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
     def test_canoncial_form_root_center(self):
         reference_ttn = deepcopy(self.ttn)
 
-        ptn.canonical_form(self.ttn, "root")
+        canonical_form(self.ttn, "root")
 
         ref_tensor = reference_ttn.completely_contract_tree()[0]
         found_tensor = self.ttn.completely_contract_tree(to_copy=True)[0]
@@ -102,7 +102,7 @@ class TestCanonicalFormSimple(unittest.TestCase):
     def test_canoncial_form_c2_center(self):
         reference_ttn = deepcopy(self.ttn)
 
-        ptn.canonical_form(self.ttn, "c2")
+        canonical_form(self.ttn, "c2")
 
         ref_tensor = reference_ttn.completely_contract_tree()[0]
         ref_tensor = np.transpose(ref_tensor, axes=(0,2,1))
@@ -129,8 +129,8 @@ class TestCanonicalFormSimple(unittest.TestCase):
 
     def test_canoncial_form_c1_center_keep(self):
         reference_ttn = deepcopy(self.ttn)
-        ptn.canonical_form(self.ttn, "c1",
-                           mode=ptn.SplitMode.KEEP)
+        canonical_form(self.ttn, "c1",
+                           mode=SplitMode.KEEP)
 
         ref_tensor = reference_ttn.completely_contract_tree(to_copy=True)[0]
         found_tensor = self.ttn.completely_contract_tree(to_copy=True)[0]
@@ -165,8 +165,8 @@ class TestCanonicalFormSimple(unittest.TestCase):
 
     def test_canoncial_form_root_center_keep(self):
         reference_ttn = deepcopy(self.ttn)
-        ptn.canonical_form(self.ttn, "root",
-                           mode=ptn.SplitMode.KEEP)
+        canonical_form(self.ttn, "root",
+                           mode= SplitMode.KEEP)
 
         ref_tensor = reference_ttn.completely_contract_tree(to_copy=True)[0]
         found_tensor = self.ttn.completely_contract_tree(to_copy=True)[0]
@@ -200,8 +200,8 @@ class TestCanonicalFormSimple(unittest.TestCase):
 
     def test_canoncial_form_c2_center_keep(self):
         reference_ttn = deepcopy(self.ttn)
-        ptn.canonical_form(self.ttn, "c2",
-                           mode=ptn.SplitMode.KEEP)
+        canonical_form(self.ttn, "c2",
+                           mode=SplitMode.KEEP)
 
         ref_tensor = reference_ttn.completely_contract_tree(to_copy=True)[0]
         ref_tensor = np.transpose(ref_tensor, axes=(0,2,1))
@@ -243,7 +243,7 @@ class TestCanoncialFormComplicated(unittest.TestCase):
 
     def test_canoncial_form_0_center(self):
         center_id = "site" + str(0)
-        ptn.canonical_form(self.ttn, center_id)
+        canonical_form(self.ttn, center_id)
 
         ref_tensor = self.ref_ttn.completely_contract_tree()[0]
         found_tensor = self.ttn.completely_contract_tree(to_copy=True)[0]
@@ -251,7 +251,7 @@ class TestCanoncialFormComplicated(unittest.TestCase):
 
     def test_canoncial_form_1_center(self):
         center_id = "site" + str(1)
-        ptn.canonical_form(self.ttn, center_id)
+        canonical_form(self.ttn, center_id)
 
         ref_tensor = self.ref_ttn.completely_contract_tree()[0]
         found_tensor = self.ttn.completely_contract_tree(to_copy=True)[0]

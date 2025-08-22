@@ -11,13 +11,14 @@ from scipy.linalg import issymmetric, ishermitian
 
 from .hamiltonian import Hamiltonian, deal_with_term_input
 from .tensorproduct import TensorProduct
+from ..ttns.ttndo import BRA_SUFFIX, KET_SUFFIX
 
 def generate_lindbladian(hamiltonian: Hamiltonian,
                          jump_operators: Union[List[tuple[Fraction, str, TensorProduct]], List[TensorProduct], TensorProduct, None],
                          jump_operator_dict: Dict[str, ndarray],
                          jump_coeff_mapping: Dict[str, complex],
-                         ket_suffix: str = "_ket",
-                         bra_suffix: str = "_bra"
+                         ket_suffix: str = KET_SUFFIX,
+                         bra_suffix: str = BRA_SUFFIX
                          ) -> Hamiltonian:
     """
     Generates a Linfbladian superoperator from a given system Hamiltonian.
@@ -150,7 +151,7 @@ def _add_jump_operators(lindbladian: Hamiltonian,
     lindbladian.conversion_dictionary.update(conjugate_dict)
     lindbladian.conversion_dictionary.update(jump_operator_dict)
     # Add we need to add the numerical values of the coefficients
-    i_coeffs = {label + "*j": 1j*value
+    i_coeffs = {label + "*j": 1j* (value**2)
                 for label, value in jump_coeff_mapping.items()}
     lindbladian.coeffs_mapping.update(i_coeffs)
 

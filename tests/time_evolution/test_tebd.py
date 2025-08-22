@@ -5,7 +5,11 @@ from copy import deepcopy
 import numpy as np
 from scipy.linalg import expm
 
-import pytreenet as ptn
+from pytreenet.time_evolution.trotter import TrotterStep, TrotterSplitting
+from pytreenet.util.tensor_splitting import SVDParameters
+from pytreenet.operators.operator import NumericOperator
+from pytreenet.time_evolution.tebd import TEBD
+from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.random import (random_small_ttns,
                               random_tensor_product,
                               crandn)
@@ -17,15 +21,15 @@ class TestTEBDinit(unittest.TestCase):
         self.initial_state = random_small_ttns()
         self.tensor_products = [random_tensor_product(self.initial_state,2),
                                 random_tensor_product(self.initial_state,2)]
-        self.steps = [ptn.TrotterStep(tp,1) for tp in self.tensor_products]
-        self.trotter_splitting = ptn.TrotterSplitting(self.steps)
+        self.steps = [TrotterStep(tp,1) for tp in self.tensor_products]
+        self.trotter_splitting = TrotterSplitting(self.steps)
         self.time_step_size = 0.1
         self.final_time = 1.0
         self.operators = {"operaator": random_tensor_product(self.initial_state, 1)}
-        self.svd_parameters = ptn.SVDParameters(100, 1e-10, 1e-15)
+        self.svd_parameters = SVDParameters(100, 1e-10, 1e-15)
 
     def test_valid_init(self):
-        tebd = ptn.TEBD(self.initial_state, self.trotter_splitting,
+        tebd = TEBD(self.initial_state, self.trotter_splitting,
                         self.time_step_size, self.final_time, self.operators,
                         self.svd_parameters)
 
@@ -47,30 +51,30 @@ class TestTEBDsmall(unittest.TestCase):
         self.final_time = 1.0
 
         # Trotter operators
-        operator_r = ptn.TensorProduct({"root": crandn((2,2))})
-        operator_r_c1 = ptn.TensorProduct({"root": crandn((2,2)),
+        operator_r = TensorProduct({"root": crandn((2,2))})
+        operator_r_c1 = TensorProduct({"root": crandn((2,2)),
                                            "c1": crandn((3,3))})
-        operator_r_c2 = ptn.TensorProduct({"c2": crandn((4,4)), # Opposite order, to expected order
+        operator_r_c2 = TensorProduct({"c2": crandn((4,4)), # Opposite order, to expected order
                                            "root": crandn((2,2))})
         self.tps = [operator_r, operator_r_c1, operator_r_c2]
         self.trotter_factor = 0.2
-        self.steps = [ptn.TrotterStep(tp,0.2) for tp in self.tps]
-        self.trotter = ptn.TrotterSplitting(self.steps)
+        self.steps = [TrotterStep(tp,0.2) for tp in self.tps]
+        self.trotter = TrotterSplitting(self.steps)
 
         # Operators to measure
         num_ops = 3
         self.meas_operators = [random_tensor_product(self.ttns, 2) for i in range(num_ops)]
 
         # Deactivate Truncation
-        self.svd_params = ptn.SVDParameters(float("inf"), float("-inf"), float("-inf"))
+        self.svd_params = SVDParameters(float("inf"), float("-inf"), float("-inf"))
 
         # Initialise TEBD
-        self.tebd = ptn.TEBD(self.ttns, self.trotter, self.time_step_size,
+        self.tebd = TEBD(self.ttns, self.trotter, self.time_step_size,
                              self.final_time, self.meas_operators,
                              svd_parameters=self.svd_params)
 
         # Initialise TEBD No truncation
-        self.tebd_no_trunc = ptn.TEBD(self.ttns, self.trotter, self.time_step_size,
+        self.tebd_no_trunc = TEBD(self.ttns, self.trotter, self.time_step_size,
                              self.final_time, self.meas_operators,
                              svd_parameters=self.svd_params)
 
@@ -192,7 +196,7 @@ class TestTEBDsmall(unittest.TestCase):
         self.assertTrue(np.allclose(reference_state, found_state))
 
     def test_apply_one_trotter_step__three_sites(self):
-        operator = ptn.NumericOperator(crandn((24,24)), ["root", "c1", "c2"])
+        operator = NumericOperator(crandn((24,24)), ["root", "c1", "c2"])
         self.assertRaises(NotImplementedError, self.tebd_no_trunc._apply_one_trotter_step,
                           operator)
 

@@ -333,11 +333,20 @@ class TreeTensorNetwork(TreeStructure):
         tensors_equal = np.allclose(test_tensor, tensor)
         return tensors_equal
 
+
+
     def ensure_shape_matching(self, new_tensor: np.ndarray, tensor_leg: int,
                               old_node: Node, old_leg: int,
-                              new_node_id: Union[str,None] = None):
+                              new_node_id: Union[str,None] = None,
+                              adapt_shape: bool = False) -> Union[np.ndarray, None]:
         """
         Ensures that the dimensions of the legs of two tensors are compatible.
+        
+        This function has two modes of operation based on the adapt_shape parameter:
+        - If adapt_shape=False (default): Only checks compatibility and raises an 
+          exception if dimensions don't match. Returns None.
+        - If adapt_shape=True: Returns a modified tensor with compatible dimensions,
+          padding with zeros or truncating as needed.
 
         Args:
             new_tensor (np.ndarray): The tensor with the new leg.
@@ -345,21 +354,65 @@ class TreeTensorNetwork(TreeStructure):
             old_node (Node): The node with the old leg.
             old_leg (int): The leg of the old node to be compared.
             new_node_id (Union[str,None], optional): The identifier of the new
-                node. Defaults to None.
+                node for error messages. Defaults to None.
+            adapt_shape (bool, optional): If False, only check compatibility and 
+                raise exception on mismatch. If True, return a modified tensor
+                with compatible dimensions. Defaults to False.
 
+        Returns:
+            Union[np.ndarray, None]: 
+                - None if adapt_shape=False (only performs compatibility check)
+                - Modified np.ndarray if adapt_shape=True (tensor with compatible dimensions)
+                
         Raises:
-            NotCompatibleException: If the dimensions of the legs of the two
-                tensors are not compatible.
+            NotCompatibleException: If adapt_shape=False and dimensions don't match.
         """
         if new_node_id is None:
-            new_node_id = "the new node"
-        new_dimension = new_tensor.shape[tensor_leg]
-        old_dimension = old_node.shape[old_leg]
-        if new_dimension != old_dimension:
-            errstr = f"Dimensionality of leg {tensor_leg} of {new_node_id}"
-            errstr += " is not compatible with"
-            errstr += f" leg {old_leg} of {old_node.identifier}"
-            raise NotCompatibleException(errstr)
+           new_node_id = "the new node"
+
+        if not adapt_shape:
+            new_dimension = new_tensor.shape[tensor_leg]
+            old_dimension = old_node.shape[old_leg]
+            if new_dimension != old_dimension:
+                errstr = f"Dimensionality of leg {tensor_leg} of {new_node_id}"
+                errstr += " is not compatible with"
+                errstr += f" leg {old_leg} of {old_node.identifier}"
+                raise NotCompatibleException(errstr)
+            return None  # Compatibility check passed, return None
+        else:
+            # Adapt shape mode: return modified tensor
+            new_dimension = new_tensor.shape[tensor_leg]
+            old_dimension = old_node.shape[old_leg]
+            
+            # If dimensions match, no action needed
+            if new_dimension == old_dimension:
+                return new_tensor
+            
+            # Create a new shape with the matching dimension
+            new_shape = list(new_tensor.shape)
+            new_shape[tensor_leg] = old_dimension
+            
+            # Create a new tensor with the modified shape
+            modified_tensor = np.zeros(tuple(new_shape), dtype=new_tensor.dtype)
+            
+            # Copy data from the original tensor, up to the minimum dimension
+            min_dim = min(new_dimension, old_dimension)
+            
+            # Prepare slices for copying data
+            source_slices = []
+            target_slices = []
+            
+            for i in new_tensor.shape:
+                if i == tensor_leg:
+                    source_slices.append(slice(0, min_dim))
+                    target_slices.append(slice(0, min_dim))
+                else:
+                    source_slices.append(slice(None))
+                    target_slices.append(slice(None))
+            
+            # Copy the data
+            modified_tensor[tuple(target_slices)] = new_tensor[tuple(source_slices)]
+            return modified_tensor
 
     def add_root(self, node: Node, tensor: np.ndarray):
         """
@@ -374,7 +427,8 @@ class TreeTensorNetwork(TreeStructure):
         self.tensors[node.identifier] = tensor
 
     def add_child_to_parent(self, child: Node, tensor: np.ndarray,
-                            child_leg: int, parent_id: str, parent_leg: int):
+                            child_leg: int, parent_id: str, parent_leg: int,
+                            compatible: bool = True):
         """
         Adds a child node to a parent node in the TTN.
 
@@ -389,23 +443,41 @@ class TreeTensorNetwork(TreeStructure):
             parent_id (str): The identifier of the parent node.
             parent_leg (int): The leg of the parent tensor to be connected to the
                 child tensor.
-
+            compatible (bool, optional): Controls shape compatibility behavior.
+                - If True (default): Only checks dimensions match and raises exception on mismatch.
+                - If False: Automatically adapts the child tensor dimensions to match the parent,
+                  padding with zeros or truncating as needed. Defaults to True.
+                  
         Raises:
-            NotCompatibleException: If the dimensions of the legs of the child
-                and parent are not the same.
+            NotCompatibleException: If compatible=True and the dimensions of the child
+                and parent legs don't match.            
         """
         self.ensure_existence(parent_id)
         parent_node = self._nodes[parent_id]
         child_id = child.identifier
-        self.ensure_shape_matching(tensor, child_leg,
-                                   parent_node, parent_leg,
-                                   child_id)
-        child.link_tensor(tensor)
-        self._add_node(child)
-        child.open_leg_to_parent(parent_id, child_leg)
-        parent_node.open_leg_to_child(child_id, parent_leg)
-        self.tensors[child_id] = tensor
-
+        
+        if not compatible:
+            # Get the modified tensor with compatible dimensions
+            modified_tensor = self.ensure_shape_matching(tensor, child_leg,
+                                                        parent_node, parent_leg,
+                                                        child_id, True)
+            
+            # Use the modified tensor instead of the original
+            child.link_tensor(modified_tensor)
+            self._add_node(child)
+            child.open_leg_to_parent(parent_id, child_leg)
+            parent_node.open_leg_to_child(child_id, parent_leg)
+            self.tensors[child_id] = modified_tensor
+        else:
+            self.ensure_shape_matching(tensor, child_leg,
+                                    parent_node, parent_leg,
+                                    child_id)
+            child.link_tensor(tensor)
+            self._add_node(child)
+            child.open_leg_to_parent(parent_id, child_leg)
+            parent_node.open_leg_to_child(child_id, parent_leg)
+            self.tensors[child_id] = tensor
+       
     def add_parent_to_root(self, root_leg: int, parent: Node,
                            tensor: np.ndarray, parent_leg: int):
         """
@@ -421,6 +493,10 @@ class TreeTensorNetwork(TreeStructure):
             tensor (np.ndarray): The tensor associated with the parent node.
             parent_leg (int): The leg of the parent tensor to be connected to the
                 root tensor.
+                
+        Raises:
+            NotCompatibleException: If the dimensions of the parent and root 
+                legs don't match.
         """
         self.ensure_existence(self.root_id)
         former_root_node = self.root[0]
@@ -572,9 +648,19 @@ class TreeTensorNetwork(TreeStructure):
             new_bond_dim (int): The new bond dimension to be set between all
                 neighbouring nodes.
         """
-        for node_id, node in self.nodes.items():
-            if not node.is_root():
-                parent_id = node.parent
+        while True:
+            bonds_to_pad = []
+
+            for node_id, node in self.nodes.items():
+                if not node.is_root():
+                    parent_id = node.parent
+                    if self.bond_dim(node_id, parent_id) < new_bond_dim:
+                        bonds_to_pad.append((node_id, parent_id))
+
+            if not bonds_to_pad:
+                break
+
+            for node_id, parent_id in bonds_to_pad:
                 if self.bond_dim(node_id, parent_id) < new_bond_dim:
                     self.pad_bond_dimension(node_id, parent_id, new_bond_dim)
 
@@ -607,7 +693,7 @@ class TreeTensorNetwork(TreeStructure):
 
         """
         m_shape = absorbed_matrix.shape
-        if len(absorbed_matrix) != 2 or m_shape[0] != m_shape[1]:
+        if len(m_shape) != 2:
             errstr = self._absorption_warning()
             raise AssertionError(errstr)
         node_tensor = self.tensors[node_id]
@@ -617,7 +703,8 @@ class TreeTensorNetwork(TreeStructure):
         transpose_perm = (this_tensors_indices[0:this_tensors_leg_index]
                           + (this_tensors_indices[-1], )
                           + this_tensors_indices[this_tensors_leg_index:-1])
-        self.tensors[node_id] = new_tensor.transpose(transpose_perm)
+        self.tensors[node_id] = new_tensor
+        self._nodes[node_id].update_leg_permutation(transpose_perm , new_tensor.shape)
 
     def absorb_matrix_into_neighbour_leg(self, node_id: str, neighbour_id: str,
                                          tensor: np.ndarray, tensor_leg: int = 1):
@@ -640,7 +727,7 @@ class TreeTensorNetwork(TreeStructure):
         """
         node = self.nodes[node_id]
         neighbour_leg = node.neighbour_index(neighbour_id)
-        self.absorb_matrix(node_id, tensor, tensor_leg, neighbour_leg)
+        self.absorb_matrix(node_id, tensor, neighbour_leg, tensor_leg)
 
     def absorb_into_open_legs(self, node_id: str,
                               tensor: np.ndarray,
@@ -697,10 +784,11 @@ class TreeTensorNetwork(TreeStructure):
     def replace_tensor(self,
                        node_id: str,
                        new_tensor: np.ndarray,
-                       permutation: Union[None, List[int]] = None):
+                       permutation: Union[None, List[int]] = None,
+                       new_shape = False):
         """
         Replaces the tensor associated with a node.
-
+    
         Args:
             node_id (str): The identifier of the node.
             new_tensor (np.ndarray): The new tensor to be associated with the
@@ -708,8 +796,13 @@ class TreeTensorNetwork(TreeStructure):
             permutation (Union[None, List[int]], optional): A permutation to
                 be applied to the new tensor to match the leg ordering of the
                 node. Defaults to None.
+            new_shape (bool, optional): Whether the shape of the node should be
+                updated to the new tensor. Defaults to False.
 
         """
+        if new_shape:
+            self._nodes[node_id]._shape = new_tensor.shape 
+
         self._nodes[node_id].replace_tensor(new_tensor,
                                             permutation=permutation)
         self._tensors[node_id] = new_tensor
@@ -845,6 +938,31 @@ class TreeTensorNetwork(TreeStructure):
             self.contract_nodes(node_id, child_id,
                                 new_identifier=new_identifier)
 
+    def contract_to_parent(self, node_id: str, new_identifier: Union[str,None] = None):
+        """
+        Contracts a node with its parent node.
+
+        This is done by contracting the node with its parent node, similar to
+        contract_all_children but in the opposite direction.
+
+        Args:
+            node_id (str): Identifier of the child node to be contracted with its parent.
+            new_identifier (str, optional): An identifier for the new tensor.
+                Defaults to the parent node identifier.
+        
+        Raises:
+            AssertionError: If the node is a root node (has no parent).
+        """
+        node = self.nodes[node_id]
+        if node.is_root():
+            raise AssertionError("Root node has no parent!")
+            
+        parent_id = node.parent
+        if new_identifier is None:
+            new_identifier = parent_id
+            
+        self.contract_nodes(parent_id, node_id, new_identifier=new_identifier)
+
     def legs_before_combination(self, node1_id: str,
                                 node2_id: str) -> Tuple[LegSpecification, LegSpecification]:
         """
@@ -893,6 +1011,29 @@ class TreeTensorNetwork(TreeStructure):
         elif node2.is_root():
             spec2.is_root = True
         return (spec1, spec2)
+
+
+    def update_children_and_leg_permutation(self, node_id: str, new_children: List[str]):
+        """
+        Updates the shape and leg permutation of a node.
+
+        Args:
+            node_id (str): The identifier of the node to be updated.
+        """
+        
+        node , tensor = self[node_id]
+        node = self._nodes[node_id]
+        
+        element_map = {elem: i for i, elem in enumerate(node.children)}
+        permutation = tuple(element_map[elem] for elem in new_children)
+        node.children = new_children
+        if node.is_root():
+           # root has no parent leg
+           tensor_perm = permutation + (len(permutation) , )
+        else:
+           tensor_perm = (0,) + tuple(x + 1 for x in permutation) + (len(permutation) + 1,)
+
+        self._nodes[node_id].update_leg_permutation(tensor_perm , tensor.shape) 
 
     def split_nodes(self, node_id: str,
                      out_legs: LegSpecification, in_legs: LegSpecification,
@@ -1161,7 +1302,8 @@ class TreeTensorNetwork(TreeStructure):
     def split_node_replace(self, node_id: str,
                            tensor_a: np.ndarray, tensor_b: np.ndarray,
                            identifier_a: str, identifier_b: str,
-                           legs_a: LegSpecification, legs_b: LegSpecification):
+                           legs_a: LegSpecification, legs_b: LegSpecification,
+                           strict_checks: bool = True,):
         """
         Replaces a node with two new nodes of compatible shape.
 
@@ -1179,14 +1321,18 @@ class TreeTensorNetwork(TreeStructure):
                 first new node.
             legs_b (LegSpecification): The legs which should be part of the
                 second new node.
+            strict_checks (bool, optional): If True, the dimensions of the
+                tensors are checked to be compatible with the legs.
         """
         self.split_nodes(node_id, legs_a, legs_b, idiots_splitting,
                          identifier_a, identifier_b,
-                         a_tensor=tensor_a, b_tensor=tensor_b)
+                         a_tensor=tensor_a, b_tensor=tensor_b,
+                         strict_checks=strict_checks)
 
 
     def move_orthogonalization_center(self, new_center_id: str,
-                                      mode: SplitMode = SplitMode.REDUCED):
+                                      split_function = split_qr_contract_r_to_neighbour,
+                                      **kwargs):
         """
         Moves the orthogonalization center to a different node.
 
@@ -1194,44 +1340,50 @@ class TreeTensorNetwork(TreeStructure):
         there should already be an orthogonalisation center.
 
         Args:
-            new_center (str): The identifier of the new orthogonalisation
+            new_center_id (str): The identifier of the new orthogonalisation
                 center.
-            mode: The mode to be used for the QR decomposition. For details refer to
-                `tensor_util.tensor_qr_decomposition`.
+            split_function: The function to use for splitting nodes (QR or SVD).
+                Defaults to split_qr_contract_r_to_neighbour.
+            **kwargs: Additional keyword arguments to pass to the splitting function.
+                Common parameters include:
+                - mode: The mode to use for QR decomposition (when using split_qr_contract_r_to_neighbour).
+                - svd_params: SVD parameters for SVD-based decomposition.
         """
         if self.orthogonality_center_id is None:
             errstr = "The TTN is not in canonical form, so the orth. center cannot be moved!"
             raise AssertionError(errstr)
-        self.qr_from_to(self.orthogonality_center_id, new_center_id, mode=mode)
-
-    def qr_from_to(self,
-                   start_id: str,
-                   end_id: str,
-                   mode: SplitMode = SplitMode.REDUCED):
+        self.orth_from_to(self.orthogonality_center_id, new_center_id, split_function, **kwargs)
+            
+    def orth_from_to(self,
+                     start_id: str,
+                     end_id: str,
+                     split_function = split_qr_contract_r_to_neighbour,
+                     **kwargs):
         """
-        Perform a chain of QR decompositions from one node to another.
+        Perform a chain of decompositions from one node to another.
 
         Args:
             start_id (str): The identifier of the starting node.
             end_id (str): The identifier of the ending node.
-            mode: The mode to be used for the QR decomposition. For details refer to
-                `tensor_util.tensor_qr_decomposition`.
-        
-        """
+            split_function: The function to use for splitting nodes (QR or SVD).
+                Defaults to split_qr_contract_r_to_neighbour.
+            **kwargs: Additional keyword arguments to pass to the splitting function.
+                Common parameters include:
+                - mode: The mode to use for QR decomposition (when using split_qr_contract_r_to_neighbour).
+                - svd_params: SVD parameters for SVD-based decomposition.
+        """        
         if start_id == end_id:
             # We are done already.
             return
         path = self.path_from_to(start_id, end_id)
         pairs = zip(path[:-1], path[1:])
         for current_id, next_id in pairs:
-            split_qr_contract_r_to_neighbour(self,
-                                    current_id,
-                                    next_id,
-                                    mode=mode)
+            split_function(self, current_id, next_id, **kwargs)
         if self.orthogonality_center_id in path:
             self.orthogonality_center_id = end_id
         elif self.orthogonality_center_id is not None:
             self.orthogonality_center_id = None
+
 
     def assert_orth_center(self, node_id: str,
                            object_name: str = "node"):
@@ -1319,11 +1471,11 @@ class TreeTensorNetwork(TreeStructure):
     # Functions below this are just wrappers of external functions that are
     # linked tightly to the TTN and its structure. This allows these functions
     # to be overwritten for subclasses of the TTN with more known structure.
-    # The additional structure allows for more efficent algorithms than the
-    # general case.
-
-    def canonical_form(self, orthogonality_center_id: str,
-                       mode: SplitMode = SplitMode.REDUCED):
+    # The additional structure allows for more efficent algorithms than the    # general case.
+    
+    def canonical_form(self, orthogonality_center_id: str, 
+                       split_function: callable = split_qr_contract_r_to_neighbour,
+                       **kwargs):
         """
         Brings the TTN in canonical form with respect to a given orthogonality
          center.
@@ -1335,27 +1487,35 @@ class TreeTensorNetwork(TreeStructure):
         Args:
             orthogonality_center_id (str): The new orthogonality center of the
                 TTN.
-            mode: The mode to be used for the QR decomposition. For details
-                refer to `tensor_util.tensor_qr_decomposition`.
+            split_function: The function to use for splitting nodes (QR or SVD).
+                Defaults to split_qr_contract_r_to_neighbour.
+            **kwargs: Additional keyword arguments to pass to the splitting function.
+                Common parameters include:
+                - mode: The mode to use for QR decomposition (when using split_qr_contract_r_to_neighbour).
+                - svd_params: SVD parameters for SVD-based decomposition.
         """
         if self.orthogonality_center_id is None:
-            canonical_form(self, orthogonality_center_id, mode=mode)
+            canonical_form(self, orthogonality_center_id, split_function, **kwargs)
         else:
-            self.move_orthogonalization_center(orthogonality_center_id,
-                                               mode=mode)
+            self.move_orthogonalization_center(orthogonality_center_id, split_function, **kwargs)
 
     def orthogonalize(self, orthogonality_center_id: str,
-                      mode: SplitMode = SplitMode.REDUCED):
+                      split_function: callable = split_qr_contract_r_to_neighbour,
+                      **kwargs):
         """
         Wrapper of canonical form.
 
         Args:
             orthogonality_center_id (str): The new orthogonality center of the
                 TTN.
-            mode: The mode to be used for the QR decomposition. For details
-                refer to `tensor_util.tensor_qr_decomposition`.
+            split_function: The function to use for splitting nodes (QR or SVD).
+                Defaults to split_qr_contract_r_to_neighbour.
+            **kwargs: Additional keyword arguments to pass to the splitting function.
+                Common parameters include:
+                - mode: The mode to use for QR decomposition (when using split_qr_contract_r_to_neighbour).
+                - svd_params: SVD parameters for SVD-based decomposition.
         """
-        self.canonical_form(orthogonality_center_id, mode=mode)
+        self.canonical_form(orthogonality_center_id, split_function, **kwargs)
 
     def completely_contract_tree(self,
                                  to_copy: bool=False) -> Tuple[np.ndarray, List[str]]:
@@ -1401,7 +1561,12 @@ def pull_tensor_from_different_ttn(old_ttn: TreeTensorNetwork,
     perm = relative_leg_permutation(old_node, new_node,
                                     modify_function=mod_fct)
     old_tensor = old_ttn.tensors[node_id]
+
+    new_node._shape = old_tensor.shape 
+    new_node._leg_permutation = perm
+
     new_ttn.replace_tensor(node_id, deepcopy(old_tensor), perm)
+
 
 def get_tensor_from_different_ttn(old_ttn: TreeTensorNetwork,
                                   new_ttn: TreeTensorNetwork,

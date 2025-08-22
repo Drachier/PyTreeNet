@@ -1,8 +1,13 @@
 import unittest
 
 import numpy as np
+from sympy import im
 
-import pytreenet as ptn
+from pytreenet.ttno.ttno_class import TTNO
+from pytreenet.operators.tensorproduct import TensorProduct
+from pytreenet.operators.hamiltonian import Hamiltonian
+from pytreenet.time_evolution.tdvp_algorithms.secondorderonesite import SecondOrderOneSiteTDVP
+from pytreenet.operators.common_operators import pauli_matrices
 from pytreenet.random import (random_hermitian_matrix,
                               random_small_ttns,
                               random_big_ttns_two_root_children,
@@ -19,15 +24,15 @@ class TestSecondOrderOneSiteTDVPInitSimple(unittest.TestCase):
                                 "c2_op": random_hermitian_matrix(size=4),
                                 "I4": np.eye(4)}
         self.ref_tree = random_small_ttns()
-        tensor_prod = [ptn.TensorProduct({"c1": "I3", "root": "root_op1", "c2": "I4"}),
-                       ptn.TensorProduct({"c1": "c1_op", "root": "root_op1", "c2": "I4"}),
-                       ptn.TensorProduct({"c1": "c1_op", "root": "root_op2", "c2": "c2_op"}),
-                       ptn.TensorProduct({"c1": "c1_op", "root": "I2", "c2": "c2_op"})
+        tensor_prod = [TensorProduct({"c1": "I3", "root": "root_op1", "c2": "I4"}),
+                       TensorProduct({"c1": "c1_op", "root": "root_op1", "c2": "I4"}),
+                       TensorProduct({"c1": "c1_op", "root": "root_op2", "c2": "c2_op"}),
+                       TensorProduct({"c1": "c1_op", "root": "I2", "c2": "c2_op"})
                        ]
-        ham = ptn.Hamiltonian(tensor_prod, self.conversion_dict)
-        operator = ptn.TensorProduct({"root": crandn((2,2))})
-        self.hamiltonian = ptn.TTNO.from_hamiltonian(ham, self.ref_tree)
-        self.tdvp = ptn.SecondOrderOneSiteTDVP(self.ref_tree, self.hamiltonian,
+        ham = Hamiltonian(tensor_prod, self.conversion_dict)
+        operator = TensorProduct({"root": crandn((2,2))})
+        self.hamiltonian = TTNO.from_hamiltonian(ham, self.ref_tree)
+        self.tdvp = SecondOrderOneSiteTDVP(self.ref_tree, self.hamiltonian,
                                                0.1, 1, operator)
 
     def test_init_second_order_update_path(self):
@@ -46,24 +51,24 @@ class TestSecondOrderOneSiteTDVPUpdatesSimple(unittest.TestCase):
                                 "c2_op": random_hermitian_matrix(size=4),
                                 "I4": np.eye(4)}
         self.ref_tree = random_small_ttns()
-        tensor_prod = [ptn.TensorProduct({"c1": "I3", "root": "root_op1", "c2": "I4"}),
-                       ptn.TensorProduct({"c1": "c1_op", "root": "root_op1", "c2": "I4"}),
-                       ptn.TensorProduct({"c1": "c1_op", "root": "root_op2", "c2": "c2_op"}),
-                       ptn.TensorProduct({"c1": "c1_op", "root": "I2", "c2": "c2_op"})
+        tensor_prod = [TensorProduct({"c1": "I3", "root": "root_op1", "c2": "I4"}),
+                       TensorProduct({"c1": "c1_op", "root": "root_op1", "c2": "I4"}),
+                       TensorProduct({"c1": "c1_op", "root": "root_op2", "c2": "c2_op"}),
+                       TensorProduct({"c1": "c1_op", "root": "I2", "c2": "c2_op"})
                        ]
-        ham = ptn.Hamiltonian(tensor_prod, self.conversion_dict)
-        operator = ptn.TensorProduct({"root": crandn((2,2))})
-        self.hamiltonian = ptn.TTNO.from_hamiltonian(ham, self.ref_tree)
-        self.tdvp = ptn.SecondOrderOneSiteTDVP(self.ref_tree, self.hamiltonian,
+        ham = Hamiltonian(tensor_prod, self.conversion_dict)
+        operator = TensorProduct({"root": crandn((2,2))})
+        self.hamiltonian = TTNO.from_hamiltonian(ham, self.ref_tree)
+        self.tdvp = SecondOrderOneSiteTDVP(self.ref_tree, self.hamiltonian,
                                                0.1, 1, operator)
 
 class TestSecondOrderOneSiteTDVPInitComplicated(unittest.TestCase):
     def setUp(self):
         self.ref_tree = random_big_ttns_two_root_children()
-        self.hamiltonian = ptn.TTNO.from_hamiltonian(random_hamiltonian_compatible(),
+        self.hamiltonian = TTNO.from_hamiltonian(random_hamiltonian_compatible(),
                                                      self.ref_tree)
-        self.tdvp = ptn.SecondOrderOneSiteTDVP(self.ref_tree, self.hamiltonian, 0.1,1,
-                                      ptn.TensorProduct({"site0": ptn.pauli_matrices()[0]}))
+        self.tdvp = SecondOrderOneSiteTDVP(self.ref_tree, self.hamiltonian, 0.1,1,
+                                      TensorProduct({"site0": pauli_matrices()[0]}))
 
     def test_init_second_order_update_path(self):
         correct_path = ["site7","site6","site0","site1",

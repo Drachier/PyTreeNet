@@ -27,6 +27,7 @@ docs = ["sphinx >= 7.1.2", "sphinxcontrib-napoleon==0.7"]
 tests = ["pytest >= 8.3.3",
          "coverage >= 7.8.0",
 ]
+gpu = ["cupy >= 12.0.0"]
 
 [project.urls]
 Repository = "https://github.com/Drachier/PyTreeNet"

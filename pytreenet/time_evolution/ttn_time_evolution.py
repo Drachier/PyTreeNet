@@ -5,7 +5,7 @@ It mostly deals with the recording of bond dimensions.
 """
 
 from __future__ import annotations
-from typing import List, Union, Dict, Tuple, Any
+from typing import List, Union, Dict, Tuple
 from dataclasses import dataclass
 
 from .time_evolution import TimeEvolution, TimeEvoConfig
@@ -52,8 +52,7 @@ class TTNTimeEvolution(TimeEvolution):
                                   Dict[str, Union[TensorProduct, TTNO]],
                                   TensorProduct,
                                   TTNO],
-                 config: Union[TTNTimeEvolutionConfig,None] = None,
-                 solver_options: Union[Dict[str, Any], None] = None
+                 config: Union[TTNTimeEvolutionConfig,None] = None
                  ) -> None:
         """
         A time evolution for a tree tensor network state.
@@ -70,24 +69,19 @@ class TTNTimeEvolution(TimeEvolution):
                 during the time evolution.
             config (Union[TTNTimeEvolutionConfig,None]): The configuration of
                 time evolution. Defaults to None.
-            solver_options (Union[Dict[str, Any], None], optional): Most time
-                evolutions algorithms use some kind of solver to resolve a
-                partial differential equation. This dictionary can be used to
-                pass additional options to the solver. Refer to the
-                documentation of `ptn.time_evolution.TimeEvoMode` for further
-                information. Defaults to None.
-                solver_options (Union[Dict[str, Any], None], optional): Most time
-                evolutions algorithms use some kind of solver to resolve a
-                partial differential equation. This dictionary can be used to
-                pass additional options to the solver. Refer to the
-                documentation of `ptn.time_evolution.TimeEvoMode` for further
-                information. Defaults to None.
         """
         super().__init__(initial_state, time_step_size, final_time, operators,
-                         config=config,
-                         solver_options=solver_options)
+                         config=config,)
         self._initial_state: TreeTensorNetworkState
         self.state: TreeTensorNetworkState
+
+        # Convert initial state entris to complex
+        self.state.to_complex(128)
+        self._initial_state.to_complex(128)
+
+        # Convert initial state entris to complex
+        self.state.to_complex(128)
+        self._initial_state.to_complex(128)
 
     def result_init_dictionary(self):
         """
@@ -229,7 +223,6 @@ class TTNOBasedTimeEvolution(TTNTimeEvolution):
                                   TensorProduct,
                                   TTNO],
                  config: Union[TTNTimeEvolutionConfig, None] = None,
-                 solver_options: Union[Dict[str, Any], None] = None
                  ) -> None:
         """
         Initializes the TTNOBasedTimeEvolution class.
@@ -248,15 +241,12 @@ class TTNOBasedTimeEvolution(TTNTimeEvolution):
                 during the time evolution.
             config (Union[TTNTimeEvolutionConfig,None]): The configuration of
                 time evolution. Defaults to None.
-            solver_options (Union[Dict[str, Any], None], optional): Options for
-                the solver used in the time evolution. Defaults to None.
         """
         super().__init__(initial_state=initial_state,
                          time_step_size=time_step_size,
                          final_time=final_time,
                          operators=operators,
-                         config=config,
-                         solver_options=solver_options)
+                         config=config)
         if self.config.time_dep and not isinstance(hamiltonian, AbstractTimeDepTTNO):
             errstr = "The Hamiltonian must be from the AbstractTimeDepTTNO class " \
                      "if the time evolution is time-dependent!"

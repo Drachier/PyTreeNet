@@ -1,13 +1,13 @@
 import unittest
 
-import pytreenet as ptn
+from pytreenet.ttns.ttns import TreeTensorNetwork
 from pytreenet.ttno import SingleTermDiagram
 from pytreenet.random import random_tensor_node
 
 class TestStateDiagram(unittest.TestCase):
 
     def setUp(self):
-        self.ref_tree = ptn.TreeTensorNetwork()
+        self.ref_tree = TreeTensorNetwork()
 
         node1, tensor1 = random_tensor_node((2, 2, 2), identifier="site1")
         node2, tensor2 = random_tensor_node((2, 2, 2, 2), identifier="site2")
@@ -28,7 +28,7 @@ class TestStateDiagram(unittest.TestCase):
         self.term = {"site1": "1", "site2": "2", "site3": "3",
                      "site4": "4", "site5": "5", "site6": "6", "site7": "7"}
 
-        self.state_diagram_empty = SingleTermDiagram(ptn.TreeTensorNetwork())
+        self.state_diagram_empty = SingleTermDiagram(TreeTensorNetwork())
 
     def test_from_single_term(self):
         state_diagram = SingleTermDiagram.from_single_term(

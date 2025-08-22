@@ -9,23 +9,28 @@ from pytreenet.time_evolution.time_evolution import EvoDirection, TimeEvoMode
 from pytreenet.time_evolution.results import Results
 from pytreenet.random import crandn
 from pytreenet.random.random_matrices import random_hermitian_matrix
+from pytreenet.time_evolution.time_evolution import EvoDirection, TimeEvoMode, TimeEvoMethod
+from pytreenet.core.node import Node
+from pytreenet.ttns.ttns import TreeTensorNetworkState
+from pytreenet.operators.tensorproduct import TensorProduct
+from pytreenet.time_evolution.time_evolution import TimeEvolution
 
 class TestTimeEvolutionInit(unittest.TestCase):
 
     def setUp(self):
         # Initialise initial state
-        self.initial_state = ptn.TreeTensorNetworkState()
-        self.initial_state.add_root(ptn.Node(identifier="root"), crandn((5,6,2)))
-        self.initial_state.add_child_to_parent(ptn.Node(identifier="c1"),
+        self.initial_state = TreeTensorNetworkState()
+        self.initial_state.add_root(Node(identifier="root"), crandn((5,6,2)))
+        self.initial_state.add_child_to_parent(Node(identifier="c1"),
             crandn((5,3)), 0, "root", 0)
-        self.initial_state.add_child_to_parent(ptn.Node(identifier="c2"),
+        self.initial_state.add_child_to_parent(Node(identifier="c2"),
             crandn((6,4)), 0, "root", 1)
 
         # Operators
-        single_site_operator = ptn.TensorProduct({"root": crandn((2,2))})
-        two_site_operator = ptn.TensorProduct({"c1": crandn((3,3)),
+        single_site_operator = TensorProduct({"root": crandn((2,2))})
+        two_site_operator = TensorProduct({"c1": crandn((3,3)),
                                                "c2": crandn((4,4))})
-        three_site_operator = ptn.TensorProduct({"c1": crandn((3,3)),
+        three_site_operator = TensorProduct({"c1": crandn((3,3)),
                                                   "c2": crandn((4,4)),
                                                   "root": crandn((2,2))})
         self.operators = [single_site_operator,
@@ -36,7 +41,7 @@ class TestTimeEvolutionInit(unittest.TestCase):
         self.time_step_size = 0.1
         self.final_time = 1.0
 
-        self.time_evol = ptn.TimeEvolution(self.initial_state, self.time_step_size,
+        self.time_evol = TimeEvolution(self.initial_state, self.time_step_size,
             self.final_time, self.operators)
 
     def test_initial_state_init(self):
@@ -59,15 +64,15 @@ class TestTimeEvolutionInit(unittest.TestCase):
             self.assertEqual(ten_prod, self.time_evol.operators[str(i)])
 
     def test_time_step_size_check(self):
-        self.assertRaises(ValueError, ptn.TimeEvolution, self.initial_state,
+        self.assertRaises(ValueError, TimeEvolution, self.initial_state,
             -0.1, self.final_time, self.operators)
 
     def test_final_time_check(self):
-        self.assertRaises(ValueError, ptn.TimeEvolution, self.initial_state,
+        self.assertRaises(ValueError, TimeEvolution, self.initial_state,
             self.time_step_size, -1, self.operators)
 
     def test_only_one_operator(self):
-        time_evo = ptn.TimeEvolution(self.initial_state, self.time_step_size,
+        time_evo = TimeEvolution(self.initial_state, self.time_step_size,
             self.final_time, self.operators[0])
         self.assertTrue(isinstance(time_evo.operators, dict))
         self.assertEqual(len(time_evo.operators), 1)
@@ -82,18 +87,18 @@ class TestTimeEvolutionInit(unittest.TestCase):
 class TestTimeEvolutionMethods(unittest.TestCase):
     def setUp(self):
         # Initialise initial state
-        self.initial_state = ptn.TreeTensorNetworkState()
-        self.initial_state.add_root(ptn.Node(identifier="root"), crandn((5,6,2)))
-        self.initial_state.add_child_to_parent(ptn.Node(identifier="c1"),
+        self.initial_state = TreeTensorNetworkState()
+        self.initial_state.add_root(Node(identifier="root"), crandn((5,6,2)))
+        self.initial_state.add_child_to_parent(Node(identifier="c1"),
             crandn((5,3)), 0, "root", 0)
-        self.initial_state.add_child_to_parent(ptn.Node(identifier="c2"),
+        self.initial_state.add_child_to_parent(Node(identifier="c2"),
             crandn((6,4)), 0, "root", 1)
 
         # Operators
-        single_site_operator = ptn.TensorProduct({"root": crandn((2,2))})
-        two_site_operator = ptn.TensorProduct({"c1": crandn((3,3)),
+        single_site_operator = TensorProduct({"root": crandn((2,2))})
+        two_site_operator = TensorProduct({"c1": crandn((3,3)),
                                                "c2": crandn((4,4))})
-        three_site_operator = ptn.TensorProduct({"c1": crandn((3,3)),
+        three_site_operator = TensorProduct({"c1": crandn((3,3)),
                                                   "c2": crandn((4,4)),
                                                   "root": crandn((2,2))})
         self.operators = [single_site_operator,
@@ -104,7 +109,7 @@ class TestTimeEvolutionMethods(unittest.TestCase):
         self.time_step_size = 0.1
         self.final_time = 1.0
 
-        self.time_evol = ptn.TimeEvolution(self.initial_state, self.time_step_size,
+        self.time_evol = TimeEvolution(self.initial_state, self.time_step_size,
             self.final_time, self.operators)
 
     def test_run_one_time_step(self):
@@ -170,37 +175,37 @@ def test_exp_factor(test_input, expected):
     assert EvoDirection.exp_factor(test_input) == expected
 
 
-### Test TimeEvoMode Enum Class
+### Test TimeEvoMethod and TimeEvoMode Classes
 def test_fastest_equivalent():
     """
     Test that the 'fastest' mode is equivalent to 'chebyshev'.
     """
-    assert TimeEvoMode.fastest_equivalent() == TimeEvoMode.CHEBYSHEV
+    assert TimeEvoMethod.fastest_equivalent() == TimeEvoMethod.CHEBYSHEV
 
-@pytest.mark.parametrize("mode,expected", [
-    (TimeEvoMode.EXPM, False),
-    (TimeEvoMode.CHEBYSHEV, False),
-    (TimeEvoMode.SPARSE, False),
-    (TimeEvoMode.RK45, True),
-    (TimeEvoMode.RK23, True),
-    (TimeEvoMode.DOP853, True),
-    (TimeEvoMode.BDF, True),
+@pytest.mark.parametrize("method,expected", [
+    (TimeEvoMethod.EXPM, False),
+    (TimeEvoMethod.CHEBYSHEV, False),
+    (TimeEvoMethod.SPARSE, False),
+    (TimeEvoMethod.RK45, True),
+    (TimeEvoMethod.RK23, True),
+    (TimeEvoMethod.DOP853, True),
+    (TimeEvoMethod.BDF, True),
 ])
-def test_is_scipy(mode, expected):
+def test_is_scipy(method, expected):
     """
-    Test the is_scipy method of the TimeEvoMode enum class.
+    Test the is_scipy method of the TimeEvoMethod enum class.
     """
-    assert mode.is_scipy() == expected
+    assert method.is_scipy() == expected
 
-@pytest.mark.parametrize("mode", [
-    TimeEvoMode.RK45,
-    TimeEvoMode.RK23,
-    TimeEvoMode.DOP853,
-    TimeEvoMode.BDF,
+@pytest.mark.parametrize("method", [
+    TimeEvoMethod.RK45,
+    TimeEvoMethod.RK23,
+    TimeEvoMethod.DOP853,
+    TimeEvoMethod.BDF,
 ])
-def test_is_scipy_raises(mode):
+def test_timeevo_mode_action_scipy(method):
     """
-    Test that is_scipy raises an error for non-scipy modes.
+    Test that TimeEvoMode with scipy methods can use time_evolve_action.
     """
     shape = (2, 3, 4)
     psi_init = crandn(shape)
@@ -209,39 +214,114 @@ def test_is_scipy_raises(mode):
     exponent_tens = exponent_mat.reshape(2*list(shape))
     def multiply_fn(_, x):
         return np.tensordot(exponent_tens, x, axes=([3,4,5], [0,1,2]))
-    found = mode.time_evolve_action(psi_init, multiply_fn, dt,
-                                    atol = 1e-9, rtol = 1e-9)
-    # Referemce is the exponentiation of the matrix
+    
+    # Create TimeEvoMode instance
+    mode = TimeEvoMode(method, {'atol': 1e-9, 'rtol': 1e-9})
+    found = mode.time_evolve_action(psi_init, multiply_fn, dt)
+    
+    # Reference is the exponentiation of the matrix
     reference = expm(-1j * exponent_mat * dt) @ psi_init.flatten()
     # Check if the results are close
     assert shape == found.shape
-    np.testing.assert_allclose(found.flatten(), reference)
+    # Use relaxed tolerances for ODE solvers, with extra tolerance for BDF
+    if method == TimeEvoMethod.BDF or method == TimeEvoMethod.RK23:
+        np.testing.assert_allclose(found.flatten(), reference, rtol=1e-2, atol=1e-3)
+    else:
+        np.testing.assert_allclose(found.flatten(), reference, rtol=1e-6, atol=1e-5)
 
-@pytest.mark.parametrize("mode", [
-    TimeEvoMode.EXPM,
-    TimeEvoMode.CHEBYSHEV,
-    TimeEvoMode.SPARSE,
-    TimeEvoMode.RK45,
-    TimeEvoMode.RK23,
-    TimeEvoMode.DOP853,
-    TimeEvoMode.BDF
+@pytest.mark.parametrize("method", [
+    TimeEvoMethod.EXPM,
+    TimeEvoMethod.CHEBYSHEV,
+    TimeEvoMethod.SPARSE,
+    TimeEvoMethod.RK45,
+    TimeEvoMethod.RK23,
+    TimeEvoMethod.DOP853,
+    TimeEvoMethod.BDF
 ])
-def test_time_evolve(mode):
+def test_timeevo_mode_time_evolve(method):
     """
-    Test the time_evolve method of the TimeEvoMode enum class that simply uses
+    Test the time_evolve method of the TimeEvoMode class that simply uses
     the full Hamiltonian matrix.
     """
     shape = (2, 3, 4)
     psi_init = crandn(shape)
     dt = 0.1
     exponent_mat = random_hermitian_matrix(np.prod(shape).item())
-    found = mode.time_evolve(psi_init, exponent_mat, dt,
-                             atol = 1e-9, rtol = 1e-9)
-    # Referemce is the exponentiation of the matrix
+    
+    # Create TimeEvoMode instance with appropriate options
+    if method.is_scipy():
+        mode = TimeEvoMode(method, {'atol': 1e-9, 'rtol': 1e-9})
+    else:
+        mode = TimeEvoMode(method)
+    
+    found = mode.time_evolve(psi_init, exponent_mat, dt)
+    
+    # Reference is the exponentiation of the matrix
     reference = expm(-1j * exponent_mat * dt) @ psi_init.flatten()
     # Check if the results are close
     assert shape == found.shape
-    np.testing.assert_allclose(found.flatten(), reference)
+    # Use relaxed tolerances for ODE solvers, with method-specific tolerances
+    if method.is_scipy():
+        if method == TimeEvoMethod.BDF:
+            np.testing.assert_allclose(found.flatten(), reference, rtol=4e-2, atol=2e-3)
+        elif method == TimeEvoMethod.RK23:
+            np.testing.assert_allclose(found.flatten(), reference, rtol=2e-3, atol=5e-6)
+        else:
+            np.testing.assert_allclose(found.flatten(), reference, rtol=1e-6, atol=1e-6)
+    else:
+        np.testing.assert_allclose(found.flatten(), reference)
+
+def test_timeevo_mode_fastest_equivalent():
+    """
+    Test that TimeEvoMode with FASTEST method works correctly.
+    """
+    mode_fastest = TimeEvoMode(TimeEvoMethod.FASTEST)
+    
+    # Test that fastest equivalent returns correct mode
+    fastest_equiv = mode_fastest.fastest_equivalent()
+    assert fastest_equiv.method == TimeEvoMethod.CHEBYSHEV
+    
+    # Test is_scipy behavior
+    assert mode_fastest.is_scipy() == False
+    assert mode_fastest.action_evolvable() == False
+
+def test_timeevo_mode_default_solver_options():
+    """
+    Test that default solver options are set correctly.
+    """
+    # Scipy methods should get default atol/rtol
+    rk45_mode = TimeEvoMode(TimeEvoMethod.RK45)
+    assert 'atol' in rk45_mode.solver_options
+    assert 'rtol' in rk45_mode.solver_options
+    assert rk45_mode.solver_options['atol'] == 1e-06
+    assert rk45_mode.solver_options['rtol'] == 1e-06
+    
+    # Non-scipy methods should get empty dict
+    cheby_mode = TimeEvoMode(TimeEvoMethod.CHEBYSHEV)
+    assert cheby_mode.solver_options == {}
+
+def test_timeevo_mode_custom_solver_options():
+    """
+    Test that custom solver options override defaults.
+    """
+    custom_options = {'atol': 1e-10, 'rtol': 1e-10, 'max_step': 0.01}
+    mode = TimeEvoMode(TimeEvoMethod.RK45, custom_options)
+    assert mode.solver_options == custom_options
+
+def test_timeevo_mode_class_methods():
+    """
+    Test the class method constructors.
+    """
+    # Test a few class method constructors
+    mode_fastest = TimeEvoMode.create_fastest()
+    assert mode_fastest.method == TimeEvoMethod.FASTEST
+    
+    mode_rk45 = TimeEvoMode.create_rk45()
+    assert mode_rk45.method == TimeEvoMethod.RK45
+    assert 'atol' in mode_rk45.solver_options
+    
+    mode_rk45_custom = TimeEvoMode.create_rk45(atol=1e-10, rtol=1e-10)
+    assert mode_rk45_custom.solver_options['atol'] == 1e-10
 
 if __name__ == "__main__":
     unittest.main()

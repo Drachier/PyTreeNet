@@ -2,8 +2,9 @@ import unittest
 import numpy as np
 import copy
 
-import pytreenet as ptn
+from pytreenet.core.ttn import TreeTensorNetwork
 from pytreenet.operators import NumericOperator
+from pytreenet.core.node import Node
 from pytreenet.random import crandn
 
 class TestNumericOperator(unittest.TestCase):
@@ -54,11 +55,11 @@ class TestNumericOperator(unittest.TestCase):
 
     def test_to_tensor_ttn_given(self):
         # Building the reference TTN
-        ttn = ptn.TreeTensorNetwork()
-        ttn.add_root(ptn.Node(identifier="I"), crandn((2,2,3)))
-        ttn.add_child_to_parent(ptn.Node(identifier=self.identifiers[0]),
+        ttn = TreeTensorNetwork()
+        ttn.add_root(Node(identifier="I"), crandn((2,2,3)))
+        ttn.add_child_to_parent(Node(identifier=self.identifiers[0]),
             crandn((2,3)), 0, "I", 0)
-        ttn.add_child_to_parent(ptn.Node(identifier=self.identifiers[1]),
+        ttn.add_child_to_parent(Node(identifier=self.identifiers[1]),
             crandn((2,3)), 0, "I", 1)
 
         operator = NumericOperator(self.matrix, self.identifiers)

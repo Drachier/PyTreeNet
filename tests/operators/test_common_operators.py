@@ -6,13 +6,13 @@ import unittest
 
 import numpy as np
 
-import pytreenet as ptn
+from pytreenet.operators.common_operators import pauli_matrices, spin_jumps, bosonic_operators, swap_gate
 from pytreenet.random import random_hermitian_matrix
 
 class TestCommonOperators(unittest.TestCase):
 
     def test_pauli_matrices_arrays(self):
-        X, Y, Z = ptn.pauli_matrices()
+        X, Y, Z = pauli_matrices()
         self.assertTrue(isinstance(X,np.ndarray))
         self.assertTrue(np.allclose(
                          np.asarray([[0,1],[1,0]], dtype=complex),
@@ -25,7 +25,7 @@ class TestCommonOperators(unittest.TestCase):
                          Z))
 
     def test_spin_jumps_arrays(self):
-        s_plus, s_minus = ptn.spin_jumps()
+        s_plus, s_minus = spin_jumps()
         self.assertTrue(isinstance(s_plus,np.ndarray))
         s_plus_correct = np.asarray([[0,1],[0,0]], dtype=complex)
         s_minus_correct = np.asarray([[0,0],[1,0]], dtype=complex)
@@ -34,14 +34,14 @@ class TestCommonOperators(unittest.TestCase):
 
     def test_bosonic_operators_errors(self):
         # Error for negative dimension
-        self.assertRaises(ValueError, ptn.bosonic_operators, -3)
+        self.assertRaises(ValueError, bosonic_operators, -3)
 
         # Error for zero dimension
-        self.assertRaises(ValueError, ptn.bosonic_operators, 0)
+        self.assertRaises(ValueError, bosonic_operators, 0)
 
     def test_bosonic_operators(self):
         # dim = 1
-        creation_op, annihilation_op, number_op = ptn.bosonic_operators(1)
+        creation_op, annihilation_op, number_op = bosonic_operators(1)
         self.assertTrue(np.allclose(np.asarray([0]),
                                     creation_op))
         self.assertTrue(np.allclose(np.asarray([0]),
@@ -50,7 +50,7 @@ class TestCommonOperators(unittest.TestCase):
                                     number_op))
         
         # dim = 2
-        creation_op, annihilation_op, number_op = ptn.bosonic_operators(2)
+        creation_op, annihilation_op, number_op = bosonic_operators(2)
         self.assertTrue(np.allclose(np.asarray([[0,0],
                                                 [1,0]]),
                                     creation_op))
@@ -62,7 +62,7 @@ class TestCommonOperators(unittest.TestCase):
                                     number_op))
         
         # dim = 3
-        creation_op, annihilation_op, number_op = ptn.bosonic_operators(3)
+        creation_op, annihilation_op, number_op = bosonic_operators(3)
         self.assertTrue(np.allclose(np.asarray([[0,0,0],
                                                 [1,0,0],
                                                 [0,np.sqrt(2),0]]),
@@ -78,19 +78,19 @@ class TestCommonOperators(unittest.TestCase):
 
     def test_swaps(self):
         # negative and zero dimension
-        self.assertRaises(ValueError, ptn.swap_gate, -56)
-        self.assertRaises(ValueError, ptn.swap_gate, 0)
+        self.assertRaises(ValueError, swap_gate, -56)
+        self.assertRaises(ValueError, swap_gate, 0)
 
         # dim = 1
         ref_swap = np.asarray([1], dtype=complex)
-        self.assertTrue(np.allclose(ref_swap, ptn.swap_gate(dimension=1)))
+        self.assertTrue(np.allclose(ref_swap, swap_gate(dimension=1)))
 
         # dim = 2
         ref_swap = np.asarray([[1, 0, 0, 0],
                                [0, 0, 1, 0],
                                [0, 1, 0, 0],
                                [0, 0, 0, 1]], dtype=complex)
-        self.assertTrue(np.allclose(ref_swap, ptn.swap_gate()))
+        self.assertTrue(np.allclose(ref_swap, swap_gate()))
 
     def test_hermitian_matrix(self):
         # negative and zero dimension

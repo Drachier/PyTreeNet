@@ -7,10 +7,10 @@ Reference:
         Tensor Networks", DOI: 10.21468/SciPostPhys.8.2.024
 """
 from __future__ import annotations
-from typing import Union, List, Any
-from dataclasses import dataclass
+from typing import Union, List
+from dataclasses import dataclass, field
 
-from ..time_evolution import TimeEvoMode, EvoDirection
+from ..time_evolution import TimeEvoMode, EvoDirection, TimeEvoMethod
 from ..ttn_time_evolution import TTNOBasedTimeEvolution, TTNTimeEvolutionConfig
 from ...util.tensor_splitting import SplitMode
 from ...ttns import TreeTensorNetworkState
@@ -18,7 +18,7 @@ from ...ttno.ttno_class import TTNO
 from ...operators.tensorproduct import TensorProduct
 from ...contractions.sandwich_caching import SandwichCache
 from ..time_evo_util.effective_time_evolution import single_site_time_evolution
-from ..time_evo_util.update_path import TDVPUpdatePathFinder
+from ..time_evo_util.update_path import SweepingUpdatePathFinder
 from ...time_evolution.time_evo_util import PathFinderMode
 
 @dataclass
@@ -27,11 +27,24 @@ class TDVPConfig(TTNTimeEvolutionConfig):
     Configuration class for TDVP algorithms.
 
     Attributes:
-        update_path (List[str]): The order in which the nodes are updated.
-        orthogonalisation_path (List[List[str]]): The path along which the
-            TTNS has to be orthogonalised between each node update.
+        time_evo_mode (TimeEvoMode): Specifies the local time evolution algorithm and its 
+            configuration. Defaults to FASTEST method which uses Chebyshev
+            polynomial expansion for time evolution.
+            - options can be accessed as:
+                - Method name: `TDVPAlgorithm.config.time_evo_mode.method.value` (returns method name as str)
+                - Solver options: `TDVPAlgorithm.config.time_evo_mode.solver_options` (returns dict)
+            See TimeEvoMode documentation for complete method descriptions and options.
+
+        main_path_mode (PathFinderMode): Specifies the path finding mode for the main update path.
+            Options include:
+            - `PathFinderMode.LeafToRoot`: Construct path from furthest leaf from the root to the root 
+                   and then back to the another furthest leaf.
+            - `PathFinderMode.LeafToLeaf_Forward`: Construct path from two furthest leafs.
+            - `PathFinderMode.LeafToLeaf_Backward`: Construct path from two furthest leafs, 
+                    but in reverse order.
+            Defaults to `PathFinderMode.LeafToRoot`.
     """
-    time_evo_mode: TimeEvoMode = TimeEvoMode.FASTEST
+    time_evo_mode: TimeEvoMode = field(default_factory=lambda: TimeEvoMode(TimeEvoMethod.FASTEST))
     main_path_mode: PathFinderMode = PathFinderMode.LeafToRoot
 
 
@@ -60,8 +73,7 @@ class TDVPAlgorithm(TTNOBasedTimeEvolution):
                  hamiltonian: TTNO,
                  time_step_size: float, final_time: float,
                  operators: Union[TensorProduct, List[TensorProduct]],
-                 config: Union[TDVPConfig,None] = None,
-                 solver_options: Union[dict[str, Any], None] = None
+                 config: Union[TDVPConfig,None] = None
                  ) -> None:
         """
         Initilises an instance of a TDVP algorithm.
@@ -78,18 +90,6 @@ class TDVPAlgorithm(TTNOBasedTimeEvolution):
                 to be measured during the time-evolution.
             config (Union[TDVPConfig,None]): The configuration of
                 time evolution. Defaults to None.
-            solver_options (Union[Dict[str, Any], None], optional): Most time
-                evolutions algorithms use some kind of solver to resolve a
-                partial differential equation. This dictionary can be used to
-                pass additional options to the solver. Refer to the
-                documentation of `ptn.time_evolution.TimeEvoMode` for further
-                information. Defaults to None.
-                solver_options (Union[Dict[str, Any], None], optional): Most time
-                evolutions algorithms use some kind of solver to resolve a
-                partial differential equation. This dictionary can be used to
-                pass additional options to the solver. Refer to the
-                documentation of `ptn.time_evolution.TimeEvoMode` for further
-                information. Defaults to None.
         """
         assert len(initial_state.nodes) == len(hamiltonian.nodes)
         self.hamiltonian = hamiltonian
@@ -97,8 +97,7 @@ class TDVPAlgorithm(TTNOBasedTimeEvolution):
                          hamiltonian,
                          time_step_size, final_time,
                          operators,
-                         config=config,
-                         solver_options=solver_options)
+                         config=config)
         self.config: TDVPConfig
         self.update_path = self._finds_update_path()
         self.orthogonalization_path = self._find_tdvp_orthogonalization_path(self.update_path)
@@ -121,10 +120,12 @@ class TDVPAlgorithm(TTNOBasedTimeEvolution):
         """
         if self.state.orthogonality_center_id is None or force_new:
             self.state.canonical_form(self.update_path[0],
-                                      mode=SplitMode.KEEP)
+                                      mode=SplitMode.KEEP,
+                                      preserve_legs_order=False)
         else:
             self.state.move_orthogonalization_center(self.update_path[0],
-                                                     mode=SplitMode.KEEP)
+                                                     mode=SplitMode.KEEP,
+                                                     preserve_legs_order=False)
 
     def _find_tdvp_orthogonalization_path(self,
                                           update_path: List[str]) -> List[List[str]]:
@@ -154,7 +155,7 @@ class TDVPAlgorithm(TTNOBasedTimeEvolution):
             List[str]: The order in which the nodes in the TTN should be time
                 evolved.
         """
-        return TDVPUpdatePathFinder(self.initial_state , self.config.main_path_mode).find_path()
+        return SweepingUpdatePathFinder(self.initial_state , self.config.main_path_mode).find_path()
 
     def _init_partial_tree_cache(self) -> SandwichCache:
         """
@@ -200,8 +201,7 @@ class TDVPAlgorithm(TTNOBasedTimeEvolution):
                                                     self.time_step_size * time_step_factor,
                                                     self.partial_tree_cache,
                                                     forward=EvoDirection.FORWARD,
-                                                    mode=self.config.time_evo_mode,
-                                                    solver_options=self.solver_options)
+                                                    mode=self.config.time_evo_mode)
         self.state.tensors[node_id] = updated_tensor
 
     def _move_orth_and_update_cache_for_path(self, path: List[str]):

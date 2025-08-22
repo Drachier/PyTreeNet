@@ -8,7 +8,7 @@ from pytreenet.operators.hamiltonian import Hamiltonian
 from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.operators.common_operators import ket_i
 from pytreenet.special_ttn.binary import generate_binary_ttns
-from pytreenet.ttns.ttndo import from_ttns
+from pytreenet.ttns.ttndo import symmetric_ttndo_from_binary_ttns
 from pytreenet.operators.exact_operators import exact_lindbladian
 from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator
 from pytreenet.operators.lindbladian import (_find_real_operators,
@@ -307,7 +307,7 @@ class TestLindbladianGeneration(TestCase):
             self.assertIn(key, lindbladian.conversion_dictionary)
         # coeffs mapping
         boundled_map = copy(coeff_map)
-        boundled_map.update({key + "*j": value*1j
+        boundled_map.update({key + "*j": (value**2)*1j
                              for key, value in jump_coeff_mapping.items()})
         self.assertEqual(lindbladian.coeffs_mapping, boundled_map)
 
@@ -325,10 +325,9 @@ class TestAgainstExact(TestCase):
         local_tensor[0,:] = local_state
         ttns = generate_binary_ttns(self.num_qubits,
                                     bond_dim,
-                                    local_tensor,
-                                    phys_prefix="qubit"
+                                    local_tensor
                                     )
-        self.ttndo = from_ttns(ttns)
+        self.ttndo = symmetric_ttndo_from_binary_ttns(ttns)
 
     def _full_tensor(self,
                      lindbladian: Hamiltonian):
@@ -393,7 +392,7 @@ class TestAgainstExact(TestCase):
         # The qubits in the contracted tree have order q1, q2, q0
         term1 = kron(jump_dict["B"],eye(2))
         term1 = kron(term1,jump_dict["A"])
-        coeff = jump_op[0] * jump_coeff_map["gjump"]
+        coeff = jump_op[0] * jump_coeff_map["gjump"]**2
         exact = exact_lindbladian(zeros_like(term1),
                                   [(sqrt(coeff),term1)])
         # Testing

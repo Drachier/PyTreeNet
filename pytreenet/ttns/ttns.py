@@ -273,4 +273,26 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         for node_id, single_site_operator in operator.items():
             self.absorb_into_open_legs(node_id, single_site_operator)
 
+    def to_complex(self, precision: int = 128) -> 'TreeTensorNetworkState':
+        """
+        Converts all tensors in the TTNS to complex128 dtype.
+        This is useful to double-check the user-defined state to be real, 
+
+        Args:
+            precision (int): The precision for complex numbers. Must be either 64 or 128.
+                Defaults to 128.
+        
+        Returns:
+            TreeTensorNetworkState: Self, with all tensors converted to the specified complex dtype.
+        """
+        for node_id in self.tensors.keys():
+            tensor = self.tensors[node_id]
+            if precision == 128:
+                    self.tensors[node_id] = tensor.astype(np.complex128)
+            elif precision == 64:
+                    self.tensors[node_id] = tensor.astype(np.complex128)
+            else:
+                raise ValueError("Precision must be either 64 or 128!")
+        return self
+
 TTNS = TreeTensorNetworkState

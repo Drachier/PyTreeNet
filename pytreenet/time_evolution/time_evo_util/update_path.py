@@ -2,15 +2,26 @@
 Module to find the update path of a TDVP algorithm.
 """
 from __future__ import annotations
-from typing import List
+from typing import List, Tuple
 from ...core.tree_structure import TreeStructure
 from enum import Enum
 
 class PathFinderMode(Enum):
-      LeafToLeaf = "LeafToLeaf"
-      LeafToRoot = "LeafToRoot"
+    """
+    Enumeration for different pathfinding modes in a tree structure.
 
-class TDVPUpdatePathFinder():
+    Attributes:
+        LeafToLeaf_Forward (str): Pathfinding mode from two furthest leaf nodes 
+                  in the forward direction.
+        LeafToLeaf_Backward (str): Pathfinding mode from two furthest leaf nodes 
+                  in the backward direction.
+        LeafToRoot (str): Pathfinding mode from the furthest leaf node to the root.
+    """
+    LeafToLeaf_Forward = "LeafToLeaf_Forward"
+    LeafToLeaf_Backward = "LeafToLeaf_Backward"
+    LeafToRoot = "LeafToRoot"
+
+class SweepingUpdatePathFinder():
     """
     Base class to construct the update path for a TDVP algorithm.
 
@@ -19,17 +30,19 @@ class TDVPUpdatePathFinder():
         mode (PathFinderMode): The update path strategy mode.
                                Can be either `LeafToLeaf` or `LeafToRoot`.
     """
-    def __init__(self, state: TreeStructure,
-                 mode: PathFinderMode = PathFinderMode.LeafToLeaf) -> None:
+    def __init__(self, state: TreeStructure, mode: PathFinderMode = PathFinderMode.LeafToRoot) -> None:
         self.state = state
         self.mode = mode
 
         if self.mode == PathFinderMode.LeafToRoot:
-            self._finder = TDVPUpdatePathFinder_LeafToRoot(self.state)
-        elif self.mode == PathFinderMode.LeafToLeaf:
-            self._finder = TDVPUpdatePathFinder_LeafToLeaf(self.state)
+            self._finder = SweepingUpdatePathFinder_LeafToRoot(self.state)
+        elif self.mode == PathFinderMode.LeafToLeaf_Forward:
+            self._finder = SweepingUpdatePathFinder_LeafToLeaf(self.state, forward = True)
+        elif self.mode == PathFinderMode.LeafToLeaf_Backward:
+            self._finder = SweepingUpdatePathFinder_LeafToLeaf(self.state, forward = False)
         else:
             raise ValueError(f"Unsupported mode: {self.mode}")
+
 
     def find_path(self) -> List[str]:
         """
@@ -40,7 +53,7 @@ class TDVPUpdatePathFinder():
         """
         return self._finder.find_path()
 
-class TDVPUpdatePathFinder_LeafToRoot():
+class SweepingUpdatePathFinder_LeafToRoot():
     """
     Constructs the update path of a TDVP algorithm.
 
@@ -233,7 +246,7 @@ class TDVPUpdatePathFinder_LeafToRoot():
                 path.extend(self.path_down_from_root(path))
         return path
 
-class TDVPUpdatePathFinder_LeafToLeaf():
+class SweepingUpdatePathFinder_LeafToLeaf():
     """
     Constructs a leaf-to-leaf update path for a TDVP algorithm:
 
@@ -248,11 +261,14 @@ class TDVPUpdatePathFinder_LeafToLeaf():
         end (str):   The other diameter leaf (L_B).
         main_path (List[str]): The direct path from L_A to L_B.
     """
-
-    def __init__(self, state) -> None:
+    
+    def __init__(self, state, forward: bool = True) -> None:
         self.state = state
         self.start, self.end = self._find_two_diameter_leaves()
-        self.main_path = self.state.path_from_to(self.start, self.end)
+        if forward:
+            self.main_path = self.state.path_from_to(self.start, self.end)
+        else:
+            self.main_path = self.state.path_from_to(self.end, self.start)
 
     def _find_two_diameter_leaves(self) -> Tuple[str, str]:
         """

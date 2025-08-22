@@ -4,17 +4,26 @@ Provides a class that represents dennsity operators as a tree tensor network.
 This leads to the concept of a tree tensor network density operator (TTNDO).
 
 """
+from __future__ import annotations
 from re import match
 from copy import deepcopy
 
-from numpy import eye, ndarray, pad
+from numpy import ndarray, pad, eye, tensordot, zeros, conj, real
 
 from ..core.node import Node
 from .ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TreeTensorNetworkOperator
 from ..util.ttn_exceptions import positivity_check
 from ..operators.tensorproduct import TensorProduct
-from ..contractions.ttndo_contractions import trace_ttndo, ttndo_ttno_expectation_value
+from ..contractions.ttndo_contractions import (trace_symmetric_ttndo,
+                                              symmetric_ttndo_ttno_expectation_value,
+                                              contract_physical_nodes,
+                                              trace_contracted_binary_ttndo,
+                                              binary_ttndo_ttno_expectation_value)
+from ..special_ttn.binary import generate_binary_ttns, PHYS_PREFIX, VIRTUAL_PREFIX
+
+BRA_SUFFIX = "_bra"       # Suffix for bra nodes identifiers
+KET_SUFFIX = "_ket"       # Suffix for ket nodes identifiers
 
 class SymmetricTTNDO(TreeTensorNetworkState):
     """
@@ -23,8 +32,15 @@ class SymmetricTTNDO(TreeTensorNetworkState):
     The TTNDO is a assumed to be symmetric around a root.
     """
 
-    def __init__(self, bra_suffix = "_bra", ket_suffix = "_ket"):
+    def __init__(self,
+                 phys_prefix: str = PHYS_PREFIX,
+                 virtual_prefix: str = VIRTUAL_PREFIX,
+                 bra_suffix = BRA_SUFFIX,
+                 ket_suffix = KET_SUFFIX):
+
         super().__init__()
+        self.phys_prefix = phys_prefix
+        self.virtual_prefix = virtual_prefix
         self.bra_suffix = bra_suffix
         self.ket_suffix = ket_suffix
 
@@ -187,13 +203,46 @@ class SymmetricTTNDO(TreeTensorNetworkState):
         Returns:
             complex: The trace of the TTNDO.
         """
-        return trace_ttndo(self)
+        return trace_symmetric_ttndo(self)
 
     def norm(self) -> complex:
         """
         Returns the norm of the TTDNO, which is just the trace
         """
-        return self.trace()
+        return real(self.trace())
+
+    def normalize(self,
+                  orthogonality_center_id: str = None) -> None:
+        """
+        Normalizes the SymmetricTTNDO by scaling the tensor at the orthogonality center.
+        
+        This ensures the trace of the density operator equals 1.0.
+        
+        Args:
+            orthogonality_center_id: The ID of the node to use as orthogonality center.
+                                     If None, uses self.orthogonality_center_id.
+                                       Raises:
+            ValueError: If no orthogonality center is specified.
+        """
+        if self.orthogonality_center_id is not None:
+            orthogonality_center_id = self.orthogonality_center_id
+        elif orthogonality_center_id is None:
+            raise ValueError("No orthogonality center found for normalization.")
+
+        norm = self.norm()
+
+        # Get the current tensor and make a copy to avoid in-place issues
+        current_tensor = self.tensors[orthogonality_center_id].copy()
+
+        # Create normalized tensor by dividing by norm (preserve original dtype)
+        # Ensure norm is treated as complex to avoid casting warnings
+        if not isinstance(norm, complex):
+            norm = complex(norm)
+        normalized_tensor = current_tensor / norm
+
+        # Update the tensor
+        self.tensors[orthogonality_center_id] = normalized_tensor
+        self.nodes[orthogonality_center_id].link_tensor(normalized_tensor)
 
     def ttno_expectation_value(self,
                                operator: TreeTensorNetworkOperator) -> complex:
@@ -208,7 +257,7 @@ class SymmetricTTNDO(TreeTensorNetworkState):
             complex: The expectation value of the TTNDO with respect to the TTNO.
 
         """
-        return ttndo_ttno_expectation_value(self, operator)
+        return symmetric_ttndo_ttno_expectation_value(self, operator)
 
     def tensor_product_expectation_value(self,
                                          operator: TensorProduct
@@ -225,15 +274,16 @@ class SymmetricTTNDO(TreeTensorNetworkState):
         """
         if len(operator) == 0:
             return self.scalar_product()
+        ttn = deepcopy(self)
         for node_id, single_site_operator in operator.items():
             ket_id = self.ket_id(node_id)
-            # Can be improved once shallow copying is possible
-            ttn = deepcopy(self)
             ttn.absorb_into_open_legs(ket_id, single_site_operator)
         return ttn.trace()
 
-    def single_site_operator_expectation_value(self, node_id: str,
-                                               operator: ndarray) -> complex:
+    def single_site_operator_expectation_value(self,
+                                               node_id: str,
+                                               operator: ndarray,
+                                               move_orth_center: bool = False) -> complex:
         """
         The expectation value with regards to a single-site operator.
 
@@ -242,20 +292,24 @@ class SymmetricTTNDO(TreeTensorNetworkState):
         Args:
             node_id (str): The identifier of the node, the operator is applied
                 to.
-            operator (np.ndarray): The operator of which we determine the
+            operator (ndarray): The operator of which we determine the
                 expectation value. Note that the state will be contracted with
                 axis/leg 1 of this operator.
-
+            move_orth_center (bool, optional): Whether to move the
+                orthogonalization center to the node before computing the
+                expectation value. This is usually faster, but may destroy the
+                expected orthogonalization center. Defaults to False.
         Returns:
             complex: The resulting expectation value < TTNS| Operator| TTN >.
         """
+        if move_orth_center:
+            self.canonical_form(node_id)
         tensor_product = TensorProduct({node_id: operator})
         return self.operator_expectation_value(tensor_product)
 
-def from_ttns(ttns: TreeTensorNetworkState,
-                root_id: str = "ttndo_root",
-                root_bond_dim: int = 2
-                ) -> SymmetricTTNDO:
+def symmetric_ttndo_from_binary_ttns(ttns: TreeTensorNetworkState,
+                                    root_id: str = "ttndo_root",
+                                    root_bond_dim: int = 2) -> SymmetricTTNDO:
     """
     Creates a TTNDO from a TTN.
 
@@ -293,6 +347,49 @@ def from_ttns(ttns: TreeTensorNetworkState,
     _rec_add_children(ttns, ttndo, root_node)
     return ttndo
 
+def symmetric_ttndo_for_product_state(
+        num_phys: int,
+        bond_dim: int,
+        phys_tensor: ndarray,
+        depth: int | None = 0,
+        root_id: str = "ttndo_root",
+        root_bond_dim= 2) -> tuple[TreeTensorNetworkState,
+                                   SymmetricTTNDO]:
+    """
+    Args:
+        num_phys (int): Number of physical sites.
+        bond_dim (int): Bond dimension for the TTNDO.
+        phys_tensor (ndarray): Physical tensor for leaf nodes.
+        depth (int, optional): Depth of the tree. Defaults to 5.
+        root_bond_dim (int, optional): Bond dimension of the root node. Defaults to 2.
+    Returns:
+        tuple: A tuple containing the generated TTNS and the SymmetricTTNDO.
+    """
+    ttns = generate_binary_ttns(num_phys, bond_dim, phys_tensor, depth)
+    ttndo = SymmetricTTNDO()
+    ttndo.add_trivial_root(root_id,
+                           dimension=root_bond_dim)
+    # Now we attach the root
+    root_node, root_tensor = ttns.root
+    ttns_root_id = root_node.identifier
+    # We need to add a leg to be attached to the ttndo root.
+    new_shape = tuple([1] + list(root_node.shape))
+    root_tensor = deepcopy(root_tensor).reshape(new_shape)
+    padding = [(0,0) for _ in range(len(root_tensor.shape))]
+    padding[0] = (0,root_bond_dim-1)
+    root_tensor = pad(root_tensor, padding)
+    ttndo.add_symmetric_children_to_parent(ttns_root_id,
+                                           root_tensor,
+                                           root_tensor.conj(),
+                                           0,
+                                           root_id,
+                                           0,
+                                           parent_bra_leg=1
+                                           )
+    # Now we need to attach the children
+    _rec_add_children(ttns, ttndo, root_node)
+    return ttns, ttndo
+
 def _rec_add_children(ttns: TreeTensorNetworkState,
                       ttndo: SymmetricTTNDO,
                       node: Node):
@@ -310,3 +407,425 @@ def _rec_add_children(ttns: TreeTensorNetworkState,
                                                node.identifier,
                                                parent_leg)
         _rec_add_children(ttns, ttndo, child_node)
+
+class BINARYTTNDO(TreeTensorNetworkState):
+    """
+    A class representing an binary tree tensor network density operator (TTNDO) in vectorized form.
+    The binary TTNDO structure connects bra and ket physical directly on the leaves.
+    """
+
+    def __init__(self,
+                 phys_prefix: str = PHYS_PREFIX,
+                 virtual_prefix: str = VIRTUAL_PREFIX,
+                 bra_suffix=BRA_SUFFIX,
+                 ket_suffix=KET_SUFFIX):
+        """
+        Initialize an BINARYTTNDO.
+        
+        Args:
+            phys_prefix (str): Prefix to use for physical nodes. Defaults to "qubit".
+            virtual_prefix (str): Prefix to use for virtual nodes. Defaults to "node".
+            bra_suffix (str): Suffix to use for bra nodes. Defaults to "_bra".
+            ket_suffix (str): Suffix to use for ket nodes. Defaults to "_ket".
+        """
+        super().__init__()
+        self.phys_prefix = phys_prefix
+        self.virtual_prefix = virtual_prefix
+        self.bra_suffix = bra_suffix
+        self.ket_suffix = ket_suffix
+
+
+    def absorb_into_binary_ttndo_open_leg(self, node_id: str, matrix: ndarray) -> 'BINARYTTNDO':
+
+        """
+        Absorb a matrix into the input open leg of a physical node in the TTNDO.
+        
+        For BINARYTTNDO, each physical node has exactly two open legs. The input leg
+        is assumed to be the one before the other leg (first open leg). The matrix
+        is applied to this input leg.
+        
+        Args:
+            node_id (str): The identifier of the node to which the matrix is applied.
+            matrix (ndarray): The matrix to absorb. Must be a square matrix.
+
+        Raises:
+            AssertionError: If the matrix is not square or
+            if the node doesn't have exactly 2 open legs.
+        """
+        node, node_tensor = self[node_id]
+        open_legs = node.open_legs
+        assert len(open_legs) == 2, f"Node {node_id} must have exactly 2 open legs, but has {len(open_legs)}."
+        input_leg = open_legs[0]
+        new_tensor = tensordot(node_tensor, matrix, axes=(input_leg, 1))
+        self.tensors[node_id] = new_tensor
+        return self
+
+    def contract_physical_nodes(self, to_copy: bool = True) -> 'BINARYTTNDO':
+        """
+        Contract physical nodes of BINARYTTNDO.
+        
+        Returns:
+            BINARYTTNDO: A new contracted TTNDO structure.
+        """
+        if to_copy:
+            contracted = contract_physical_nodes(self, self.bra_suffix, self.ket_suffix)
+            return contracted
+        else:
+            contract_physical_nodes(self, self.bra_suffix, self.ket_suffix, to_copy=False)
+
+    def trace(self) -> complex:
+        """
+        Returns the trace of the BINARYTTNDO.
+
+        Returns:
+            complex: The trace of the TTNDO.
+        """
+        contracted_binary_ttndo = self.contract_physical_nodes()
+        return trace_contracted_binary_ttndo(contracted_binary_ttndo)
+
+    def norm(self) -> complex:
+        """
+        Returns the norm of the BINARYTTNDO, which is just the trace.
+
+        Returns:
+            complex: The norm of the TTNDO.
+        """
+        return real(self.trace())
+
+    def normalize(self,
+                  orthogonality_center_id: str = None) -> None:
+        """
+        Normalizes the BINARYTTNDO by scaling the tensor at the orthogonality center.
+        
+        This ensures the trace of the density operator equals 1.0.
+
+        Args:
+            orthogonality_center_id: The ID of the node to use as orthogonality center.
+                                     If None, uses self.orthogonality_center_id.
+                                       Raises:
+            ValueError: If no orthogonality center is specified.
+        """
+        if self.orthogonality_center_id is not None:
+            orthogonality_center_id = self.orthogonality_center_id
+        elif orthogonality_center_id is None:
+            raise ValueError("No orthogonality center specified for normalization.")
+
+        norm = self.norm()
+
+        # Get the current tensor and make a copy to avoid in-place issues
+        current_tensor = self.tensors[orthogonality_center_id].copy()
+
+        # Create normalized tensor by dividing by norm (preserve original dtype)
+        # Ensure norm is treated as complex to avoid casting warnings
+        if not isinstance(norm, complex):
+            norm = complex(norm)
+        normalized_tensor = current_tensor / norm
+
+        # Update the tensor
+        self.tensors[orthogonality_center_id] = normalized_tensor
+        self.nodes[orthogonality_center_id].link_tensor(normalized_tensor)
+
+    def ttno_expectation_value(self, operator: TreeTensorNetworkOperator) -> complex:
+        """
+        Computes the expectation value of the BINARYTTNDO with respect to a TTNO.
+        
+        This is the trace of TTNO @ TTNDO: Tr(TTNO @ TTNDO)
+        
+        Args:
+            operator (TreeTensorNetworkOperator): The TTNO to compute the expectation
+                value with.
+
+        Returns:
+            complex: The expectation value of the TTNDO with respect to the TTNO.
+        """
+        contracted_ttndo = self.contract_physical_nodes()
+        return binary_ttndo_ttno_expectation_value(operator, contracted_ttndo)
+
+    def tensor_product_expectation_value(self, operator: TensorProduct) -> complex:
+        """
+        Computes the expectation value of a tensor product of operators.
+        
+        The calculation first applies the operators to the TTNDO, then computes the trace.
+        Args:
+            operator (TensorProduct): The tensor product of operators.
+
+        Returns:
+            complex: The resulting expectation value < TTNDO | tensor_product | TTNDO >
+        """
+        if len(operator) == 0:
+            return self.trace()
+
+        # First contract to ensure we have the proper structure
+        ttndo_copy = self.contract_physical_nodes()
+
+        # Apply operators
+        for node_id, single_site_operator in operator.items():
+            # Directly absorb the operator into the node tensor
+            ttndo_copy = ttndo_copy.absorb_into_binary_ttndo_open_leg(node_id, single_site_operator)
+        # Calculate the trace of the modified TTNDO
+        return trace_contracted_binary_ttndo(ttndo_copy)
+
+    def single_site_operator_expectation_value(self,
+                                               node_id: str,
+                                               operator: ndarray,
+                                               move_orth_center: bool = False) -> complex:
+        """
+        The expectation value with regards to a single-site operator.
+
+        The single-site operator acts on the specified node.
+        
+        Args:
+            node_id (str): The identifier of the node the operator is applied to.
+            operator (ndarray): The operator to determine the expectation value of.
+            move_orth_center (bool, optional): Whether to move the
+                orthogonalization center to the node before computing the
+                expectation value. This is usually faster, but may destroy the
+                expected orthogonalization center. Defaults to False.
+        Returns:
+            complex: The resulting expectation value < TTNDO | Operator | TTNDO >.
+        """
+        if move_orth_center:
+            self.canonical_form(node_id)
+        tensor_product = TensorProduct({node_id: operator})
+        return self.tensor_product_expectation_value(tensor_product)
+
+
+def binary_ttndo_for_product_state(num_phys: int,
+                                   bond_dim: int,
+                                   phys_tensor: ndarray,
+                                   depth: int | None = None) -> tuple[TreeTensorNetworkState, BINARYTTNDO]:
+    """
+    Creates a binary TTNDO, where only physical nodes have dual representation.
+    Virtual nodes are intialized with Identiry and have only one open leg and the structure 
+        
+    Args:
+        num_phys: Number of physical sites.
+        bond_dim: Bond dimension for the TTNDO
+        phys_tensor: Physical tensor for leaf nodes
+        depth: Depth of the tree. Must be greater than 0.
+
+    Returns:
+        tuple: A tuple containing the generated TreeTensorNetworkState and the BINARYTTNDO.
+    """
+    if depth == 0:
+        raise ValueError("Depth must be greater than 0 for binary TTNDO.")
+
+    ttns = generate_binary_ttns(num_phys, bond_dim, phys_tensor, depth)
+
+    # Create new BINARYTTNDO to hold the structure
+    ttndo = BINARYTTNDO()
+    created_nodes = {}
+
+    # Get original root information
+    original_root_id = ttns.root_id
+    original_root_node = ttns.nodes[original_root_id]
+
+    # For the root, we use a single node with legs for all children
+    root_shape = [bond_dim] * len(original_root_node.children)  # One leg for each child
+    root_shape.append(1)  # Last leg is open/physical
+
+    # Create root tensor with sparse initialization
+    root_tensor = zeros(tuple(root_shape), dtype=complex)
+
+    # Use sparse initialization: only set the [0,0,...,0] element to 1.0
+    root_tensor[(0,) * (len(root_shape) - 1) + (0,)] = 1.0
+
+    # Create and add the root node
+    root_node = Node(identifier=original_root_id)
+    ttndo.add_root(root_node, root_tensor)
+    created_nodes[original_root_id] = True
+
+    # Process children
+    for i, child_id in enumerate(original_root_node.children):
+        process_physical_branch(ttns, ttndo, child_id, original_root_id, i,
+                             created_nodes, bond_dim, phys_tensor)
+
+    return ttns, ttndo
+
+def process_physical_branch(ttns: TreeTensorNetworkState,
+                         ttndo: TreeTensorNetworkState,
+                         orig_node_id: str,
+                         parent_id: str,
+                         parent_leg: int,
+                         created_nodes: dict,
+                         bond_dim: int,
+                         phys_tensor: ndarray):
+    """
+    Process a branch in binary TTNDO - creates single virtual nodes
+    and dual physical nodes.
+    """
+    orig_node = ttns.nodes[orig_node_id]
+
+    # Skip if already created
+    if orig_node_id in created_nodes:
+        return
+
+    # Check if physical node
+    is_physical = len(orig_node.children) == 0
+
+    if is_physical:
+        # Process physical node (create bra-ket pair)
+        create_physical_node_dual(ttndo, orig_node_id, parent_id, parent_leg,
+                              created_nodes, bond_dim, ttns)
+    else:
+        # Virtual node - create single tensor
+        create_single_virtual_node(ttndo, ttns, orig_node_id, parent_id, parent_leg,
+                               created_nodes, bond_dim, phys_tensor)
+
+def create_single_virtual_node(ttndo: TreeTensorNetworkState,
+                            ttns: TreeTensorNetworkState,
+                            orig_node_id: str,
+                            parent_id: str,
+                            parent_leg: int,
+                            created_nodes: dict,
+                            bond_dim: int,
+                            phys_tensor: ndarray):
+    """
+    Create a single virtual node (no bra/ket distinction).
+    """
+    orig_node = ttns.nodes[orig_node_id]
+    num_children = len(orig_node.children)
+
+    # Shape: parent, children, open
+    node_shape = [bond_dim]  # parent leg
+    node_shape.extend([bond_dim] * num_children)  # child legs
+    node_shape.append(1)  # open/physical leg
+
+    # Create tensor with sparse initialization
+    node_tensor = zeros(tuple(node_shape), dtype=complex)
+
+    # Only set the [0,0,...,0] element to 1.0
+    node_tensor[(0,) * (len(node_shape) - 1) + (0,)] = 1.0
+
+    # Create node and connect to parent
+    node = Node(identifier=orig_node_id)
+    ttndo.add_child_to_parent(node, node_tensor, 0, parent_id, parent_leg, compatible= False)
+    created_nodes[orig_node_id] = True
+
+    # Process children
+    for i, child_id in enumerate(orig_node.children):
+        # First leg is parent, so child legs start at index 1
+        child_leg_idx = i + 1
+        process_physical_branch(ttns, ttndo, child_id, orig_node_id, child_leg_idx,
+                             created_nodes, bond_dim, phys_tensor)
+
+def create_physical_node_dual(ttndo: TreeTensorNetworkState,
+                           orig_node_id: str,
+                           parent_id: str,
+                           parent_leg: int,
+                           created_nodes: dict,
+                           bond_dim: int,
+                           original_ttns: TreeTensorNetworkState):
+    """
+    Create a physical node with dual representation (ket and bra tensors).
+
+    Physical ket node: 3 legs (parent, lateral, physical)
+    Physical bra node: 2 legs (parent, physical)
+    Bra node connects to the ket node through the lateral connection.
+    This ensures compatibility with contract_physical_nodes.
+    """
+    # Get original tensor from TTNS
+    original_tensor = deepcopy(original_ttns.tensors[orig_node_id])
+    phys_dim = original_tensor.shape[-1]
+    parent_dim = original_tensor.shape[0]
+
+    # Create ket node ID
+    ket_id = orig_node_id + KET_SUFFIX
+
+    # KET PHYSICAL NODE - 3 legs: parent, lateral, physical
+    ket_tensor = zeros((parent_dim, bond_dim, phys_dim), dtype=complex)
+
+    # Copy values from original tensor with lateral bond in between
+    for i in range(parent_dim):
+        for j in range(phys_dim):
+            ket_tensor[i, 0, j] = original_tensor[i, j]
+
+    # Create and connect ket node to parent
+    ket_node = Node(identifier=ket_id)
+    ttndo.add_child_to_parent(ket_node, ket_tensor, 0, parent_id, parent_leg, compatible= False)
+    created_nodes[ket_id] = True
+
+    # Create bra node ID
+    bra_id = orig_node_id + BRA_SUFFIX
+
+    # BRA PHYSICAL NODE - 2 legs: parent, physical
+    bra_tensor = zeros((bond_dim, phys_dim), dtype=complex)
+
+    # Copy and conjugate values from original tensor
+    for j in range(phys_dim):
+        bra_tensor[0, j] = conj(original_tensor[0, j])
+
+    # Create and connect bra node to ket node through lateral connection
+    bra_node = Node(identifier=bra_id)
+    ttndo.add_child_to_parent(bra_node, bra_tensor, 0, ket_id, 1, compatible= False)
+    created_nodes[bra_id] = True
+
+
+def mps_ttndo_for_product_state(num_phys: int,
+                                bond_dim: int,
+                                phys_tensor: ndarray) -> tuple[TreeTensorNetworkState, BINARYTTNDO]:
+    """
+    Creates a MPS TTNDO for a product state. 
+
+    Args:
+        num_phys (int): Number of physical sites.
+        bond_dim (int): The bond dimension of the new TTNDO (padded with zeros).
+        phys_tensor (ndarray): The local physical tensor value.
+
+    Returns:
+        tuple[TreeTensorNetworkState, BINARYTTNDO]: A tuple containing the 
+        the TTNS and the corresponding BINARYTTNDO.
+    """
+    ttns = generate_binary_ttns(num_phys, bond_dim, phys_tensor, depth=0)
+
+    positivity_check(bond_dim, "bond dimension")
+    # Determine physical dimension
+    if phys_tensor.ndim == 1:
+        phys_dim = phys_tensor.size
+    else:
+        phys_dim = phys_tensor.shape[-1]
+
+    # Extract ordered physical sites assuming a single-child chain
+    node_sequence: list[str] = []
+    root_node, _ = ttns.root
+    curr = root_node.identifier
+    node_sequence.append(curr)
+    while ttns.nodes[curr].children:
+        curr = ttns.nodes[curr].children[0]
+        node_sequence.append(curr)
+
+    # Build alternating ket/bra chain identifiers
+    chain_ids: list[str] = []
+    for site in node_sequence:
+        chain_ids.append(site + KET_SUFFIX)
+        chain_ids.append(site + BRA_SUFFIX)
+    total = len(chain_ids)
+
+    ttndo = BINARYTTNDO()
+
+    # Populate nodes in chain order
+    for idx, nid in enumerate(chain_ids):
+        # Boundary: single virtual leg; intermediate: two virtual legs
+        if idx == 0 or idx == total - 1:
+            shape = (bond_dim, phys_dim)
+        else:
+            shape = (bond_dim, bond_dim, phys_dim)
+        tensor = zeros(shape, dtype=phys_tensor.dtype)
+        # Embed the physical tensor at all-zero virtual indices
+        fill_idx = (0,) * (len(shape) - 1) + (slice(None),)
+        if phys_tensor.ndim == 1:
+            tensor[fill_idx] = phys_tensor
+        else:
+            tensor[fill_idx] = phys_tensor[0]
+        # If it's a bra node, take the complex conjugate
+        if nid.endswith(BRA_SUFFIX):
+            tensor = tensor.conj()
+        node = Node(identifier=nid)
+        if idx == 0:
+            ttndo.add_root(node, tensor)
+        else:
+            parent = chain_ids[idx - 1]
+            leg = ttndo.nodes[parent].open_legs[0]
+            ttndo.add_child_to_parent(node, tensor, 0, parent, leg, compatible= False)
+
+    return ttns, ttndo

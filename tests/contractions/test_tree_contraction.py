@@ -3,7 +3,7 @@ from copy import deepcopy
 
 import numpy as np
 
-import pytreenet as ptn
+from pytreenet.contractions.tree_contraction import completely_contract_tree
 from pytreenet.random import (random_small_ttns,
                               random_big_ttns_two_root_children,
                               RandomTTNSMode)
@@ -27,16 +27,16 @@ class TestTreeContractionSimple(unittest.TestCase):
         correct_order = ["root","c1","c2"]
 
         # Actual Computation
-        found_tensor, found_order = ptn.completely_contract_tree(self.ttn)
+        found_tensor, found_order = completely_contract_tree(self.ttn)
         self.assertEqual(correct_order,found_order)
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
     def test_completely_contract_to_copy(self):
         ref = deepcopy(self.ttn)
-        found_tensor, found_order = ptn.completely_contract_tree(self.ttn,
+        found_tensor, found_order = completely_contract_tree(self.ttn,
                                                                  to_copy=True)
         self.assertEqual(ref,self.ttn)
-        second_tensor, second_order = ptn.completely_contract_tree(self.ttn)
+        second_tensor, second_order = completely_contract_tree(self.ttn)
         self.assertEqual(second_order,found_order)
         self.assertTrue(np.allclose(second_tensor,found_tensor))
 
@@ -74,16 +74,16 @@ class TestTreeContractionComplicated(unittest.TestCase):
                                "site4","site5","site6","site7"]
 
         # Actual Computation
-        found_tensor, found_order = ptn.completely_contract_tree(self.ttn)
+        found_tensor, found_order = completely_contract_tree(self.ttn)
         self.assertEqual(correct_order,found_order)
         self.assertTrue(np.allclose(ref_tensor,found_tensor))
 
     def test_completely_contract_to_copy(self):
         ref = deepcopy(self.ttn)
-        found_tensor, found_order = ptn.completely_contract_tree(self.ttn,
+        found_tensor, found_order = completely_contract_tree(self.ttn,
                                                                  to_copy=True)
         self.assertEqual(ref,self.ttn)
-        second_tensor, second_order = ptn.completely_contract_tree(self.ttn)
+        second_tensor, second_order = completely_contract_tree(self.ttn)
         self.assertEqual(second_order,found_order)
         self.assertTrue(np.allclose(second_tensor,found_tensor))
 

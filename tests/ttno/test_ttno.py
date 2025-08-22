@@ -3,7 +3,10 @@ from copy import deepcopy
 
 import numpy as np
 
-import pytreenet as ptn
+from pytreenet.ttno.ttno_class import TTNO
+from pytreenet.operators.tensorproduct import TensorProduct
+from pytreenet.ttns.ttns import TreeTensorNetwork, TreeTensorNetworkState
+from pytreenet.operators.hamiltonian import Hamiltonian
 from pytreenet.random import (random_tensor_node,
                               crandn)
 
@@ -32,7 +35,7 @@ class TestTTNOBasics(unittest.TestCase):
                 perm.extend([input_index, output_index])
 
     def test_from_tensorA(self):
-        reference_tree = ptn.TreeTensorNetwork()
+        reference_tree = TreeTensorNetwork()
         d = 2
 
         node1, tensor1 = random_tensor_node((d, d, d), identifier="id1")
@@ -49,7 +52,7 @@ class TestTTNOBasics(unittest.TestCase):
         start_tensor = crandn(shape)
         leg_dict = {"id1": 0, "id2": 1, "id3": 2, "id4": 3}
 
-        ttno = ptn.TTNO.from_tensor(reference_tree, start_tensor, leg_dict)
+        ttno = TTNO.from_tensor(reference_tree, start_tensor, leg_dict)
 
         correct_open_leg_dimensions = {"id1": (2, 6), "id2": (3, 7),
                                        "id3": (4, 8), "id4": (5, 9)}
@@ -66,7 +69,7 @@ class TestTTNOBasics(unittest.TestCase):
         self.assertTrue(np.allclose(correct_tensor, contracted_tensor))
 
     def test_from_tensorB(self):
-        reference_tree = ptn.TreeTensorNetwork()
+        reference_tree = TreeTensorNetwork()
         node1, tensor1 = random_tensor_node((2, 3, 4, 5), identifier="id1")
         node2, tensor2 = random_tensor_node((2, 3, 4, 5), identifier="id2")
         node3, tensor3 = random_tensor_node((2, 3, 4, 5), identifier="id3")
@@ -85,7 +88,7 @@ class TestTTNOBasics(unittest.TestCase):
         shape.extend(shape)
         start_tensor = crandn(shape)
         leg_dict = {"id" + str(i + 1): i for i in range(num_nodes)}
-        ttno = ptn.TTNO.from_tensor(reference_tree, start_tensor, leg_dict)
+        ttno = TTNO.from_tensor(reference_tree, start_tensor, leg_dict)
 
         contracted_tensor = ttno.completely_contract_tree(to_copy=True)[0]
         # The shape is not retained throughout the entire procedure
@@ -96,7 +99,7 @@ class TestTTNOBasics(unittest.TestCase):
         self.assertTrue(np.allclose(correct_tensor, contracted_tensor))
 
     def test_from_tensorC(self):
-        reference_tree = ptn.TreeTensorNetwork()
+        reference_tree = TreeTensorNetwork()
         node1, tensor1 = random_tensor_node((2, 3, 4, 5), identifier="id1")
         node2, tensor2 = random_tensor_node((2, 3, 4, 5), identifier="id2")
         node3, tensor3 = random_tensor_node((2, 3, 4, 5), identifier="id3")
@@ -125,7 +128,7 @@ class TestTTNOBasics(unittest.TestCase):
         shape = [d for i in range(2 * num_nodes)]
         start_tensor = crandn(shape)
         leg_dict = {"id" + str(i + 1): i for i in range(num_nodes)}
-        ttno = ptn.TTNO.from_tensor(reference_tree, start_tensor, leg_dict)
+        ttno = TTNO.from_tensor(reference_tree, start_tensor, leg_dict)
 
         contracted_tensor = ttno.completely_contract_tree(to_copy=True)[0]
 
@@ -136,7 +139,7 @@ class TestTTNOBasics(unittest.TestCase):
         self.assertTrue(np.allclose(correct_tensor, contracted_tensor))
 
     def test_from_tensor_root_is_leaf(self):
-        reference_tree = ptn.TreeTensorNetworkState()
+        reference_tree = TreeTensorNetworkState()
         shapes = [(1,1,1,2),(1,1,1,2),(1,2),(1,2),(1,2),(1,1,2),(1,2)]
         nodes = [random_tensor_node(shape, "node" +str(i))
                  for i, shape in enumerate(shapes)]
@@ -152,7 +155,7 @@ class TestTTNOBasics(unittest.TestCase):
         shape = 2*len(nodes)*[2]
         start_tensor = crandn(shape)
         leg_dict = {"node"+str(i): i for i in range(len(nodes))}
-        ttno = ptn.TTNO.from_tensor(reference_tree, deepcopy(start_tensor), leg_dict)
+        ttno = TTNO.from_tensor(reference_tree, deepcopy(start_tensor), leg_dict)
 
         contracted_tensor = ttno.completely_contract_tree(to_copy=True)[0]
         # The shape is not retained throughout the entire procedure
@@ -163,7 +166,7 @@ class TestTTNOBasics(unittest.TestCase):
 
 class TestTTNOfromHamiltonian(unittest.TestCase):
     def setUp(self):
-        self.ref_tree = ptn.TreeTensorNetwork()
+        self.ref_tree = TreeTensorNetwork()
 
         node1, tensor1 = random_tensor_node((2, 2, 2), identifier="site1")
         node2, tensor2 = random_tensor_node((2, 2, 2, 2), identifier="site2")
@@ -181,7 +184,7 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
         self.ref_tree.add_child_to_parent(node6, tensor6, 0, "site5", 1)
         self.ref_tree.add_child_to_parent(node7, tensor7, 0, "site5", 2)
 
-        self.term = ptn.TensorProduct({"site1": "1",
+        self.term = TensorProduct({"site1": "1",
                                         "site2": "2",
                                         "site3": "3",
                                         "site4": "4",
@@ -200,10 +203,10 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
                                  "6": crandn((2, 2)),
                                  "7": crandn((2, 2)),
                                  }
-        hamiltonian = ptn.Hamiltonian(terms=[self.term],
+        hamiltonian = Hamiltonian(terms=[self.term],
                                       conversion_dictionary=conversion_dictionary)
 
-        ttno = ptn.TTNO.from_hamiltonian(hamiltonian, self.ref_tree)
+        ttno = TTNO.from_hamiltonian(hamiltonian, self.ref_tree)
         for node_id in ttno.nodes:
             node, tensor = ttno[node_id]
 
@@ -224,7 +227,7 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
         self.assertTrue(np.allclose(hamiltonian_tensor, found_tensor))
 
     def test_from_hamiltonian_one_term_different_phys_dim(self):
-        ref_tree = ptn.TreeTensorNetwork()
+        ref_tree = TreeTensorNetwork()
 
         node1, tensor1 = random_tensor_node((2, 2, 2), identifier="site1")
         node2, tensor2 = random_tensor_node((2, 2, 2, 5), identifier="site2")
@@ -250,10 +253,10 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
                                  "6": crandn((2, 2)),
                                  "7": crandn((2, 2)),
                                  }
-        hamiltonian = ptn.Hamiltonian(terms=[self.term],
+        hamiltonian = Hamiltonian(terms=[self.term],
                                       conversion_dictionary=conversion_dictionary)
 
-        ttno = ptn.TTNO.from_hamiltonian(hamiltonian, ref_tree)
+        ttno = TTNO.from_hamiltonian(hamiltonian, ref_tree)
 
         for node_id in ttno.nodes:
             node, tensor = ttno[node_id]
@@ -287,7 +290,7 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
                                  "7": crandn((2, 2)),
                                  "22": crandn((2, 2))
                                  }
-        term2 = ptn.TensorProduct({"site1": "1",
+        term2 = TensorProduct({"site1": "1",
                                     "site2": "22",
                                     "site3": "3",
                                     "site4": "4",
@@ -295,10 +298,10 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
                                     "site6": "6",
                                     "site7": "7"})
 
-        hamiltonian = ptn.Hamiltonian(terms=[self.term, term2],
+        hamiltonian = Hamiltonian(terms=[self.term, term2],
                                       conversion_dictionary=conversion_dictionary)
 
-        ttno = ptn.TTNO.from_hamiltonian(hamiltonian, self.ref_tree)
+        ttno = TTNO.from_hamiltonian(hamiltonian, self.ref_tree)
 
         for node_id in ttno.nodes:
             node, tensor = ttno[node_id]
@@ -340,7 +343,7 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
                                  "62": crandn((2, 2)),
                                  "72": crandn((2, 2)),
                                  }
-        term2 = ptn.TensorProduct({"site1": "12",
+        term2 = TensorProduct({"site1": "12",
                                     "site2": "22",
                                     "site3": "32",
                                     "site4": "42",
@@ -348,10 +351,10 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
                                     "site6": "62",
                                     "site7": "72"})
 
-        hamiltonian = ptn.Hamiltonian(terms=[self.term, term2],
+        hamiltonian = Hamiltonian(terms=[self.term, term2],
                                       conversion_dictionary=conversion_dictionary)
 
-        ttno = ptn.TTNO.from_hamiltonian(hamiltonian, self.ref_tree)
+        ttno = TTNO.from_hamiltonian(hamiltonian, self.ref_tree)
 
         for node_id in ttno.nodes:
             node, tensor = ttno[node_id]
@@ -388,7 +391,7 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
                                  "62": crandn((2, 2)),
                                  "72": crandn((2, 2)),
                                  }
-        term2 = ptn.TensorProduct({"site1": "1",
+        term2 = TensorProduct({"site1": "1",
                                     "site2": "22",
                                     "site3": "32",
                                     "site4": "42",
@@ -396,10 +399,10 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
                                     "site6": "62",
                                     "site7": "72"})
 
-        hamiltonian = ptn.Hamiltonian(terms=[self.term, term2],
+        hamiltonian = Hamiltonian(terms=[self.term, term2],
                                       conversion_dictionary=conversion_dictionary)
 
-        ttno = ptn.TTNO.from_hamiltonian(hamiltonian, self.ref_tree)
+        ttno = TTNO.from_hamiltonian(hamiltonian, self.ref_tree)
 
         for node_id in ttno.nodes:
             node, tensor = ttno[node_id]

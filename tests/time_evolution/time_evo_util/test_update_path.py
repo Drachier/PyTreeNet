@@ -4,13 +4,13 @@ from pytreenet.random import (random_big_ttns,
                               random_small_ttns,
                               random_big_ttns_two_root_children)
 from pytreenet.time_evolution.time_evo_util import (
-                              TDVPUpdatePathFinder_LeafToRoot,
-                              TDVPUpdatePathFinder_LeafToLeaf)
+                              SweepingUpdatePathFinder_LeafToRoot,
+                              SweepingUpdatePathFinder_LeafToLeaf)
 
 class TestUpdatePathSimple(unittest.TestCase):
     def setUp(self):
         tree = random_small_ttns()
-        self.pathfinder = TDVPUpdatePathFinder_LeafToRoot(tree)
+        self.pathfinder = SweepingUpdatePathFinder_LeafToRoot(tree)
 
     def test_find_start_node_id(self):
         self.assertEqual("c1", self.pathfinder.find_start_node_id())
@@ -49,7 +49,7 @@ class TestUpdatePathSimple(unittest.TestCase):
 class TestUpdatePathComplicated(unittest.TestCase):
     def setUp(self):
         tree = random_big_ttns_two_root_children()
-        self.pathfinder = TDVPUpdatePathFinder_LeafToRoot(tree)
+        self.pathfinder = SweepingUpdatePathFinder_LeafToRoot(tree)
 
     def test_find_start_node_id(self):
         self.assertEqual("site4", self.pathfinder.find_start_node_id())
@@ -116,7 +116,7 @@ class TestUpdatePathComplicated(unittest.TestCase):
 
 class TestLeafToLeafBig_1(unittest.TestCase):
     """
-    Tests TDVPUpdatePathFinder_LeafToLeaf on random_big_ttns().
+    Tests SweepingUpdatePathFinder_LeafToLeaf on random_big_ttns().
         - All leaves: ['site3', 'site5', 'site7', 'site8']
         - _find_two_diameter_leaves() -> ('site3', 'site5')
         - start = site3, end = site5
@@ -126,7 +126,7 @@ class TestLeafToLeafBig_1(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tree = random_big_ttns()
-        cls.pathfinder = TDVPUpdatePathFinder_LeafToLeaf(cls.tree)
+        cls.pathfinder = SweepingUpdatePathFinder_LeafToLeaf(cls.tree)
 
     def test_find_two_diameter_leaves(self):
         expected = ('site3', 'site5')
@@ -226,7 +226,7 @@ class TestLeafToLeafBig_1(unittest.TestCase):
 
 class TestLeafToLeafBig_2(unittest.TestCase):
     """
-    Tests TDVPUpdatePathFinder_LeafToLeaf on random_big_ttns_two_root_children().
+    Tests SweepingUpdatePathFinder_LeafToLeaf on random_big_ttns_two_root_children().
 
         All leaves: ['site2', 'site4', 'site5', 'site7']
         _find_two_diameter_leaves() -> ('site4', 'site7')
@@ -238,7 +238,7 @@ class TestLeafToLeafBig_2(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tree = random_big_ttns_two_root_children()
-        cls.pathfinder = TDVPUpdatePathFinder_LeafToLeaf(cls.tree)
+        cls.pathfinder = SweepingUpdatePathFinder_LeafToLeaf(cls.tree)
 
     def test_find_two_diameter_leaves(self):
         expected = ('site4','site7')
