@@ -23,6 +23,8 @@ class AxisConfig:
     xlabel: str | None = None
     ylabel: str | None = None
     make_legend: bool = False
+    logy: bool = False
+    logx: bool = False
 
     def apply_to_axis(self,
                       ax: Axes | None = None):
@@ -43,6 +45,10 @@ class AxisConfig:
             ax.set_ylabel(self.ylabel)
         if self.make_legend:
             ax.legend()
+        if self.logx:
+            ax.set_xscale("log")
+        if self.logy:
+            ax.set_yscale("log")
 
     def apply_with_plt(self):
         """

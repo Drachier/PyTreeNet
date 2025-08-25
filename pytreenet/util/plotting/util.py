@@ -28,7 +28,7 @@ def compute_alphas(n: int,
     alphas = np.linspace(min_alpha, max_alpha, n)
     return alphas.tolist()
 
-def save_figure(fig: Figure,
+def save_figure(fig: Figure | None,
                 filename: str | None = None,
                 clear_figure: bool = True):
     """
@@ -42,6 +42,8 @@ def save_figure(fig: Figure,
         clear_figure (bool, optional): Whether to clear the figure after
             saving. Defaults to True.
     """
+    if fig is None:
+        return
     if filename is not None:
         fig.savefig(filename, format="pdf")
     else:

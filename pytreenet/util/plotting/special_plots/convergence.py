@@ -4,6 +4,9 @@ over a given parameter range.
 """
 from __future__ import annotations
 from typing import Any, Self
+from copy import deepcopy
+from warnings import warn
+from enum import Enum
 
 import numpy as np
 import numpy.typing as npt
@@ -12,9 +15,8 @@ from matplotlib.axes import Axes
 
 from ..line_config import LineConfig
 from ..axis_config import AxisConfig
-from ..configuration import (config_matplotlib_to_latex,
-                             DocumentStyle,
-                             set_size)
+from ..configuration import (DocumentStyle,
+                             figure_from_style)
 from ..util import (save_figure,
                     compute_alphas)
 
@@ -140,7 +142,59 @@ class ConvergingResults:
             conv_param=conv_param,
             x_values=x_values
         )
-    
+
+    def with_new_values(self,
+                        new_values: list[npt.NDArray[np.float64]],
+                        deep: bool = False
+                        ) -> Self:
+        """
+        Create a new ConvergingResults instance with the same configuration
+        but different values.
+
+        Args:
+            new_values (list[npt.NDArray[np.float64]]): New list of arrays
+                containing convergence results.
+            deep (bool, optional): Whether to deep copy the other
+                attributes. Defaults to False.
+
+        Returns:
+            ConvergingResults: A new instance of ConvergingResults with the
+                same configuration but different values.
+
+        """
+        if deep:
+            insrt = deepcopy
+        else:
+            insrt = lambda x: x
+        return ConvergingResults(
+            values=new_values,
+            line_config=insrt(self.line_config),
+            conv_param_values=insrt(self.conv_param_values),
+            conv_param=insrt(self.conv_param),
+            x_values=insrt(self.x_values)
+        )
+
+    def get_errors(self,
+                   reference: "ReferenceResults",
+                   deep: bool = False
+                   ) -> Self:
+        """
+        Compute the absolute errors of the convergence results with respect
+        to a set of reference results.
+
+        Args:
+            reference (ReferenceResults): The reference results to compare
+                against.
+            deep (bool, optional): Whether to deep copy the other attributes of
+                the new instance. Defaults to False.
+
+        Returns:
+            ConvergingResults: A new instance of ConvergingResults containing the
+            absolute errors.
+        """
+        errors = [np.abs(result - reference.y) for result in self.values]
+        return self.with_new_values(errors, deep=deep)
+
     def limx(self) -> tuple[float, float]:
         """
         Get the x-axis limits for the plot.
@@ -249,12 +303,37 @@ class ReferenceResults:
             ax = plt.gca()
         ax.plot(self.x, self.y, **self.line_config.to_kwargs())
 
+def set_x_limits(ax: Axes,
+                 results: list[ConvergingResults],
+                 exact_results: ReferenceResults | None = None
+                 ):
+    """
+    Set the x-axis limits of the given axes based on the provided results
+    and reference results.
+
+    Args:
+        ax (Axes): The matplotlib Axes object to set the x-axis limits on.
+        results (list[ConvergingResults]): A list of ConvergingResults objects
+            to consider for setting the x-axis limits.
+        exact_results (ReferenceResults | None, optional): Reference results
+            to consider for setting the x-axis limits. Defaults to None.
+    """
+    xlims = [result.limx() for result in results]
+    if exact_results is not None:
+        try:
+            xlims.append(exact_results.limx())
+        except ValueError:
+            pass
+    ax.set_xlim(np.min([xlim[0] for xlim in xlims]),
+                np.max([xlim[1] for xlim in xlims]))
+
 def plot_convergence(results: list[ConvergingResults],
                      axis_config: AxisConfig,
                      exact_results: ReferenceResults | None = None,
                      style: DocumentStyle = DocumentStyle.THESIS,
+                     ax: Axes | None = None,
                      save_path: str | None = None
-                     ) -> None:
+                     ) -> Axes:
     """
     Plots the convergence of results over a given parameter range.
 
@@ -265,23 +344,175 @@ def plot_convergence(results: list[ConvergingResults],
         exact_results (ReferenceResults | None, optional): Reference results to plot.
         style (DocumentStyle, optional): The style to use for the plot.
             Defaults to DocumentStyle.THESIS.
+        ax (Axes | None, optional): The matplotlib Axes object to plot on.
+            If None, a new figure and axes will be created. Defaults to None.
         save_path (str | None, optional): Path to save the plot. If None,
             the plot will not be saved but shown instead. Defaults to None.
+
+    Returns:
+        Axes: The matplotlib Axes object containing the plot.
     """
-    config_matplotlib_to_latex(style=style)
-    size = set_size(style)
-    fig, ax = plt.subplots(figsize=size)
+    if ax is None:
+        fig, ax = figure_from_style(style=style)
+    else:
+        # This avoids saving the figure
+        fig = None
     if exact_results is not None:
         exact_results.plot_on_axis(ax=ax)
     for result in results:
         result.plot_on_axis(ax=ax)
     axis_config.apply_to_axis(ax=ax)
-    xlims = [result.limx() for result in results]
-    try:
-        xlims.append(exact_results.limx())
-    except ValueError:
-        pass
-    ax.set_xlim(np.min([xlim[0] for xlim in xlims]),
-                np.max([xlim[1] for xlim in xlims]))
+    set_x_limits(ax=ax,
+                 results=results,
+                 exact_results=exact_results)
     save_figure(fig,
                 filename=save_path)
+    return ax
+
+def plot_error_convergence(results: list[ConvergingResults],
+                           axis_config: AxisConfig,
+                           exact_results: ReferenceResults,
+                           style: DocumentStyle = DocumentStyle.THESIS,
+                           ax: Axes | None = None,
+                           save_path: str | None = None
+                           ) -> Axes:
+    """
+    Plots the convergence of absolute errors of results over a given
+    parameter range with respect to exact results.
+
+    Args:
+        results (list[ConvergingResults]): A list of ConvergingResults objects
+            containing the data to plot.
+        axis_config (AxisConfig): Configuration for the axes of the plot.
+        exact_results (ReferenceResults): Reference results to compute errors against.
+        style (DocumentStyle, optional): The style to use for the plot.
+            Defaults to DocumentStyle.THESIS.
+        ax (Axes | None, optional): The matplotlib Axes object to plot on.
+            If None, a new figure and axes will be created. Defaults to None.
+        save_path (str | None, optional): Path to save the plot. If None,
+            the plot will not be saved but shown instead. Defaults to None.
+
+    Returns:
+        Axes: The matplotlib Axes object containing the plot.
+    """
+    if ax is None:
+        fig, ax = figure_from_style(style=style)
+    else:
+        fig = None
+    for result in results:
+        errors = result.get_errors(reference=exact_results)
+        errors.plot_on_axis(ax=ax)
+    if axis_config.logy is False:
+        axis_config.logy = True
+        warn("Setting logy to True for error convergence plot.")
+    axis_config.apply_to_axis(ax=ax)
+    set_x_limits(ax=ax,
+                 results=results,
+                 exact_results=exact_results)
+    save_figure(fig,
+                filename=save_path)
+    return ax
+
+def plot_convergence_and_error(results: list[ConvergingResults],
+                                axis_config: AxisConfig,
+                                exact_results: ReferenceResults | None = None,
+                                style: DocumentStyle = DocumentStyle.THESIS,
+                                ax: Axes | None = None,
+                                save_path: str | None = None
+                                ) -> Axes:
+    """
+    Makes two plots horizontally next to each other.
+    The left plot shows the convergence results, the right plot shows
+    the absolute error convergence with respect to the exact results.
+    """
+    axis_config = deepcopy(axis_config)
+    if ax is None:
+        fig, ax = figure_from_style(style=style, subplots=(1, 2))
+    else:
+        fig = None
+        if not isinstance(ax, np.ndarray) or ax.shape != (2,):
+            errstr = "The provided axes must be a 1x2 array!"
+            raise ValueError(errstr)
+    plot_convergence(results,
+                     axis_config,
+                     exact_results=exact_results,
+                     style=style,
+                     ax=ax[0])
+    axis_config.ylabel = f"Error of {axis_config.ylabel.lower()}"
+    axis_config.make_legend = False
+    axis_config.logy = True
+    plot_error_convergence(results,
+                           axis_config,
+                           exact_results,
+                           style=style,
+                           ax=ax[1])
+    save_figure(fig,
+                filename=save_path)
+    return ax
+
+class WhichConvergence(Enum):
+    """
+    Enum to specify which convergence plots to create.
+    """
+    RESULTS = "results"
+    ERRORS = "errors"
+    BOTH = "both"
+
+def plot_convergence_auto(results: list[ConvergingResults],
+                          axis_config: AxisConfig,
+                          exact_results: ReferenceResults | None = None,
+                          style: DocumentStyle = DocumentStyle.THESIS,
+                          which: WhichConvergence = WhichConvergence.BOTH,
+                          ax: Axes | None = None,
+                          save_path: str | None = None
+                          ) -> Axes:
+    """
+    Automatically decides whether to plot convergence results, error
+    convergence, or both based on the provided arguments.
+
+    Args:
+        results (list[ConvergingResults]): A list of ConvergingResults objects
+            containing the data to plot.
+        axis_config (AxisConfig): Configuration for the axes of the plot.
+        exact_results (ReferenceResults | None, optional): Reference results to plot.
+            If None, only convergence results will be plotted. Defaults to None.
+        style (DocumentStyle, optional): The style to use for the plot.
+            Defaults to DocumentStyle.THESIS.
+        which (which_convergence, optional): Which plots to create.
+            Defaults to which_convergence.BOTH.
+        ax (Axes | None, optional): The matplotlib Axes object to plot on.
+            If None, a new figure and axes will be created. Defaults to None.
+        save_path (str | None, optional): Path to save the plot. If None,
+            the plot will not be saved but shown instead. Defaults to None.
+
+    Returns:
+        Axes: The matplotlib Axes object containing the plot.
+    """
+    if which is WhichConvergence.RESULTS:
+        return plot_convergence(
+            results,
+            axis_config,
+            exact_results=exact_results,
+            style=style,
+            ax=ax,
+            save_path=save_path
+        )
+    if which is WhichConvergence.ERRORS:
+        return plot_error_convergence(
+            results,
+            axis_config,
+            exact_results,
+            style=style,
+            ax=ax,
+            save_path=save_path
+        )
+    if which is WhichConvergence.BOTH:
+        return plot_convergence_and_error(
+            results,
+            axis_config,
+            exact_results=exact_results,
+            style=style,
+            ax=ax,
+            save_path=save_path
+        )
+    raise ValueError(f"Unknown value for which: {which}!")

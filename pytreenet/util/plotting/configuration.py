@@ -94,3 +94,31 @@ def config_matplotlib_to_latex(style: DocumentStyle | str = DocumentStyle.THESIS
         errstr = f"Unknown style {style}!"
         raise ValueError(errstr)
     plt.rcParams.update(tex_fonts)
+
+def figure_from_style(style: DocumentStyle | str = DocumentStyle.THESIS,
+                      fraction: float = 1,
+                      subplots: tuple[int, int] = (1, 1)
+                      ) -> tuple[plt.Figure, plt.Axes]:
+    """
+    Create a figure and axes with the specified style and size.
+
+    Args:
+        style (DocumentStyle | str, optional): The style to use for the figure.
+            Defaults to DocumentStyle.THESIS.
+        fraction (float, optional): The fraction of the width to use for the
+            figure. Defaults to 1.
+        subplots (tuple[int, int], optional): The number of rows and columns
+            of subplots. Defaults to (1, 1).
+
+    Returns:
+        tuple[plt.Figure, plt.Axes]: The created figure and axes.
+    """
+    if isinstance(style, str):
+        style = DocumentStyle(style)
+    config_matplotlib_to_latex(style=style)
+    fig_dim = set_size(width=style,
+                       fraction=fraction,
+                       subplots=subplots)
+    fig, ax = plt.subplots(subplots[0], subplots[1],
+                           figsize=fig_dim)
+    return fig, ax
