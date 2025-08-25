@@ -11,6 +11,7 @@ from numpy.typing import NDArray
 from ..ttns.ttns import TreeTensorNetworkState
 from ..operators.common_operators import ket_i
 from ..operators.models.abc_model import generate_t_topology_indices
+from ..operators.models.topology import Topology
 from ..operators.exact_operators import exact_constant_product_state
 from .binary import generate_binary_ttns
 from .mps import MatrixProductState
@@ -61,7 +62,7 @@ class TTNStructure(Enum):
             TTNStructure.TSTAR: "1",
             TTNStructure.EXACT: "."
         }[self]
-    
+
     def label(self) -> str:
         """
         Returns a label associated with the tensor network structure.
@@ -73,9 +74,49 @@ class TTNStructure(Enum):
             TTNStructure.EXACT: "Exact"
         }[self]
 
+    def is_native_topology(self,
+                           topology: Topology
+                           ) -> bool:
+        """
+        Checks if the tensor network structure is a native representation of
+        the given topology.
+
+        Args:
+            topology (Topology): The topology to check against.
+        
+        Returns:
+            bool: True if the tensor network structure is a native
+                representation of the topology, False otherwise.
+        """
+        if topology == Topology.CHAIN:
+            return self in {TTNStructure.MPS, TTNStructure.BINARY}
+        if topology == Topology.TTOPOLOGY:
+            return self == TTNStructure.TSTAR
+        return False
+
+    def system_size(self,
+                    system_size: int,
+                    topology: Topology = Topology.CHAIN
+                    ) -> int:
+        """
+        Returns the system size for the given tensor network structure.
+
+        Args:
+            system_size (int): The number of physical sites.
+            topology (Topology | None): The topology of the system. Default is
+                a chain.
+        
+        Returns:
+            int: The system size for the tensor network structure.
+        """
+        if self.is_native_topology(topology):
+            return system_size
+        if self in {TTNStructure.MPS, TTNStructure.BINARY, TTNStructure.EXACT}:
+            return topology.num_sites(system_size)
+        errstr = f"Invalid topology {topology} for TTN structure {self}."
+        raise ValueError(errstr)
 
 STANDARD_NODE_PREFIX = "qubit"
-
 
 def generate_constant_product_state(value: int,
                                     system_size: int,
@@ -83,7 +124,8 @@ def generate_constant_product_state(value: int,
                                     phys_dim: int = 2,
                                     node_prefix: str = STANDARD_NODE_PREFIX,
                                     bond_dim: int = 1,
-                                    orth_root: bool = True
+                                    orth_root: bool = True,
+                                    topology: Topology = Topology.CHAIN
                                     ) -> TreeTensorNetworkState | NDArray[np.complex64]:
     """
     Generates a constant product state as a TTNS.
@@ -100,11 +142,14 @@ def generate_constant_product_state(value: int,
         bond_dim (int): The bond dimension for the state. Default is 1.
         orth_root (bool): If True, the root site will be orthogonalized.
             Default is True.
+        topology (Topology): The topology of the system. Default is a chain.
 
     Returns:
         TreeTensorNetworkState | NDArray[np.complex64]: The generated constant
             product state as a TTNS or a numpy array.
     """
+    system_size = structure.system_size(system_size,
+                                        topology=topology)
     if structure == TTNStructure.MPS:
         # It is generally more efficient to have the middle site as the root
         middle_site = system_size // 2
@@ -162,7 +207,8 @@ def generate_zero_state(system_size: int,
                         structure: TTNStructure,
                         phys_dim: int = 2,
                         node_prefix: str = STANDARD_NODE_PREFIX,
-                        bond_dim: int = 1
+                        bond_dim: int = 1,
+                        topology: Topology = Topology.CHAIN
                         ) -> TreeTensorNetworkState | NDArray[np.complex64]:
     """
     Generates a zero state as a TTNS.
@@ -174,10 +220,14 @@ def generate_zero_state(system_size: int,
         node_prefix (str): The prefix for the nodes in the tensor network.
             They will be enumerated through.
         bond_dim (int): The bond dimension for the state. Default is 1.
+        topology (Topology): The topology of the system. Default is a chain.
 
     Returns:
         TreeTensorNetworkState | NDArray[np.complex64]: The generated zero
             state as a TTNS or a numpy array.
     """
     return generate_constant_product_state(0, system_size, structure,
-                                           phys_dim, node_prefix, bond_dim)
+                                           phys_dim=phys_dim,
+                                           node_prefix=node_prefix,
+                                           bond_dim=bond_dim,
+                                           topology=topology)
