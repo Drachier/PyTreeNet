@@ -3,6 +3,7 @@ This module provides a configuration class to set up axis properties for
 plotting.
 """
 from dataclasses import dataclass
+from warnings import warn
 
 from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
@@ -55,6 +56,31 @@ class AxisConfig:
         Apply the axis configuration using the current pyplot state.
         """
         self.apply_to_axis(ax=plt.gca())
+
+    def set_attr_true_w_warning(self,
+                                attr_name: str):
+        """
+        Sets some attribute to True if it is not already True.
+
+        Issues a warning if the attribute is changed.
+
+        Args:
+            attr_name (str): The name of the attribute to modify.
+
+        Raises:
+            KeyError: If the attribute does not exist.
+            TypeError: If the attribute is not a boolean.
+        """
+        if not hasattr(self, attr_name):
+            errstr = f"Attribute '{attr_name}' does not exist."
+            raise KeyError(errstr)
+        attr = getattr(self, attr_name)
+        if not isinstance(attr, bool):
+            errstr = f"Attribute '{attr_name}' is not a boolean."
+            raise TypeError(errstr)
+        if not attr:
+            setattr(self, attr_name, True)
+            warn(f"Attribute '{attr_name}' was set to True.")
 
     def set_x_to_time(self):
         """
