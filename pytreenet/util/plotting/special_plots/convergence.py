@@ -28,37 +28,37 @@ class ConvergingResults:
     corresponds to a different value of a convergence parameter.
 
     Attributes:
-        values (list[npt.NDArray[np.float64]]): List of arrays containing
+        values (list[npt.NDArray[np.floating]]): List of arrays containing
             convergence results. Each array corresponds to a different
             value of the convergence parameter.
         line_config (LineConfig): Configuration for the line style in the plot.
         conv_param_values (list[Any]): Values of the convergence parameter.
         conv_param (str | None): The parameter over which convergence is
             plotted. Defaults to "parameter".
-        x_values (npt.NDArray[np.float64] | None): X values for the plot.
+        x_values (npt.NDArray[np.floating] | None): X values for the plot.
             If None, it will be the convergence parameter values.
             Defaults to None.
     """
 
     def __init__(self,
-                 values: list[npt.NDArray[np.float64]],
+                 values: list[npt.NDArray[np.floating]],
                  line_config: LineConfig,
                  conv_param_values: list[Any],
                  conv_param: str | None = None,
-                 x_values: npt.NDArray[np.float64] | None = None
+                 x_values: npt.NDArray[np.floating] | None = None
                  ):
         """
         Initialize a ConvergingResults instance.
 
         Args:
-            values (list[npt.NDArray[np.float64]]): List of arrays containing
+            values (list[npt.NDArray[np.floating]]): List of arrays containing
                 convergence results should be ordered to match the
                 corresponding values in `conv_param_values`.
             line_config (LineConfig): Configuration for the line style in the plot.
             conv_param_values (list[Any]): Values of the convergence parameter.
             conv_param (str | None, optional): The parameter over which convergence
                 is plotted. Defaults to None.
-            x_values (npt.NDArray[np.float64] | None, optional): X values for the
+            x_values (npt.NDArray[np.floating] | None, optional): X values for the
                 plot. If None, it will be the convergence parameter values.
                 Defaults to None.
         """
@@ -80,23 +80,23 @@ class ConvergingResults:
 
     @classmethod
     def from_array_list(cls,
-                        values: list[npt.NDArray[np.float64]],
+                        values: list[npt.NDArray[np.floating]],
                         line_config: LineConfig,
                         conv_param_values: list[Any],
                         conv_param: str | None = None,
-                        x_values: npt.NDArray[np.float64] | None = None
+                        x_values: npt.NDArray[np.floating] | None = None
                         ) -> Self:
         """
         Create a ConvergingResults instance from a list of arrays.
 
         Args:
-            values (list[npt.NDArray[np.float64]]): List of arrays containing
+            values (list[npt.NDArray[np.floating]]): List of arrays containing
                 convergence results.
             line_config (LineConfig): Configuration for the line style in the plot.
             conv_param_values (list[Any]): Values of the convergence parameter.
             conv_param (str | None, optional): The parameter over which convergence
                 is plotted. Defaults to None.
-            x_values (npt.NDArray[np.float64] | None, optional): X values for the
+            x_values (npt.NDArray[np.floating] | None, optional): X values for the
                 plot. If None, it will be the convergence parameter values.
                 Defaults to None.
         
@@ -111,22 +111,22 @@ class ConvergingResults:
 
     @classmethod
     def from_dict(cls,
-                  data: dict[Any, npt.NDArray[np.float64]],
+                  data: dict[Any, npt.NDArray[np.floating]],
                   line_config: LineConfig,
                   conv_param: str | None = None,
-                  x_values: npt.NDArray[np.float64] | None = None
+                  x_values: npt.NDArray[np.floating] | None = None
                   ) -> Self:
         """
         Create a ConvergingResults instance from a dictionary.
 
         Args:
-            data (dict[Any, npt.NDArray[np.float64]]): Dictionary where keys
+            data (dict[Any, npt.NDArray[np.floating]]): Dictionary where keys
                 are convergence parameter values and values are arrays of
                 convergence results.
             line_config (LineConfig): Configuration for the line style in the plot.
             conv_param (str | None, optional): The parameter over which convergence
                 is plotted. Defaults to None.
-            x_values (npt.NDArray[np.float64] | None, optional): X values for the
+            x_values (npt.NDArray[np.floating] | None, optional): X values for the
                 plot. If None, it will be the convergence parameter values.
         
         Returns:
@@ -143,7 +143,7 @@ class ConvergingResults:
         )
 
     def with_new_values(self,
-                        new_values: list[npt.NDArray[np.float64]],
+                        new_values: list[npt.NDArray[np.floating]],
                         deep: bool = False
                         ) -> Self:
         """
@@ -151,7 +151,7 @@ class ConvergingResults:
         but different values.
 
         Args:
-            new_values (list[npt.NDArray[np.float64]]): New list of arrays
+            new_values (list[npt.NDArray[np.floating]]): New list of arrays
                 containing convergence results.
             deep (bool, optional): Whether to deep copy the other
                 attributes. Defaults to False.
@@ -165,7 +165,7 @@ class ConvergingResults:
             insrt = deepcopy
         else:
             insrt = lambda x: x
-        return ConvergingResults(
+        return self.__class__(
             values=new_values,
             line_config=insrt(self.line_config),
             conv_param_values=insrt(self.conv_param_values),
@@ -225,6 +225,17 @@ class ConvergingResults:
                 raise ZeroDivisionError(errstr)
             convergences.append(np.abs(next_values - values) / param_diff)
         return self.with_new_values(convergences, deep=deep)
+
+    def accumulated_results(self) -> npt.NDArray[np.floating]:
+        """
+        Accumulates each result into one value by averaging.
+
+        Returns:
+            npt.NDArray[np.floating]: The accumulated results. They are in the
+                same order as the result chains, i.e. the first element
+                corresponds to the first parameter value.
+        """
+        return np.array([np.mean(result) for result in self.values])
 
     def limx(self) -> tuple[float, float]:
         """
@@ -289,21 +300,21 @@ class ReferenceResults:
     This is used to plot exact results in a convergence plot.
 
     Attributes:
-        x (npt.NDArray[np.float64]): X values for the reference results.
-        y (npt.NDArray[np.float64]): Y values for the reference results.
+        x (npt.NDArray[np.floating]): X values for the reference results.
+        y (npt.NDArray[np.floating]): Y values for the reference results.
         line_config (LineConfig): Configuration for the line style in the plot.
     """
 
     def __init__(self,
-                 x: npt.NDArray[np.float64],
-                 y: npt.NDArray[np.float64],
+                 x: npt.NDArray[np.floating],
+                 y: npt.NDArray[np.floating],
                  line_config: LineConfig):
         """
         Initialize a ReferenceResults instance.
 
         Args:
-            x (npt.NDArray[np.float64]): X values for the reference results.
-            y (npt.NDArray[np.float64]): Y values for the reference results.
+            x (npt.NDArray[np.floating]): X values for the reference results.
+            y (npt.NDArray[np.floating]): Y values for the reference results.
             line_config (LineConfig): Configuration for the line style in the plot.
         """
         self.x = x
@@ -462,7 +473,10 @@ def plot_convergence_and_error(results: list[ConvergingResults],
                      exact_results=exact_results,
                      style=style,
                      ax=ax[0])
-    axis_config.ylabel = f"Error of {axis_config.ylabel.lower()}"
+    if axis_config.ylabel is not None:
+        axis_config.ylabel = f"Error of {axis_config.ylabel.lower()}"
+    else:
+        axis_config.ylabel = "Error"
     axis_config.make_legend = False
     axis_config.logy = True
     assert exact_results is not None, "Exact results must be provided to plot error convergence!"
