@@ -4,7 +4,7 @@ over a given parameter range.
 """
 from __future__ import annotations
 from typing import Any, Self
-from copy import deepcopy
+from copy import deepcopy, copy
 from enum import Enum
 
 import numpy as np
@@ -223,8 +223,14 @@ class ConvergingResults:
             if param_diff == 0:
                 errstr = "Series of parameters contains two equal consecutive values!"
                 raise ZeroDivisionError(errstr)
-            convergences.append(np.abs(next_values - values) / param_diff)
-        return self.with_new_values(convergences, deep=deep)
+            conv_val = np.abs(next_values - values) / param_diff
+            # The first one will always be zero, so we skip it
+            convergences.append(conv_val[1:])
+        # We need to get rid of the last parameter value
+        new = copy(self)
+        new.conv_param_values = new.conv_param_values[:-1]
+        new.x_values = new.x_values[1:]
+        return new.with_new_values(convergences, deep=deep)
 
     def accumulated_results(self) -> npt.NDArray[np.floating]:
         """
@@ -409,6 +415,7 @@ def plot_convergence(results: list[ConvergingResults],
                  exact_results=exact_results)
     save_figure(fig,
                 filename=save_path)
+    plt.tight_layout()
     return ax
 
 def plot_error_convergence(results: list[ConvergingResults],
@@ -451,6 +458,7 @@ def plot_error_convergence(results: list[ConvergingResults],
                  exact_results=exact_results)
     save_figure(fig,
                 filename=save_path)
+    plt.tight_layout()
     return ax
 
 def plot_convergence_and_error(results: list[ConvergingResults],
@@ -520,6 +528,7 @@ def plot_convergence_measure(results: list[ConvergingResults],
         conv_measure = result.get_convergence()
         conv_measure.plot_on_axis(ax=ax)
     axis_config.set_attr_true_w_warning("logy")
+    axis_config.apply_to_axis(ax=ax)
     set_x_limits(ax=ax,
                  results=results)
     save_figure(fig,
