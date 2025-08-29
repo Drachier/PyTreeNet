@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable
 import os
 import json
 from collections import UserDict
+from copy import deepcopy
 
 from h5py import File
 
@@ -13,6 +14,7 @@ from ...time_evolution.results import Results
 from .sim_params import SimulationParameters
 
 METADATAFILE_STANDARD_NAME = "metadata.json"
+STANDARD_REFERENCE_FLAG = "exact"
 
 def standard_result_file_name(hash_val: str) -> str:
     """
@@ -40,6 +42,10 @@ class MetadataFilter(UserDict):
                 to filter metadata. Defaults to an empty dictionary.
         """
         super().__init__(data if data is not None else {})
+
+        ## These are purely internal variables to avoid reloading the
+        ## metadata file if it has not changed. Irrelevant when not dealing
+        ## with files.
         self._md_file_path = ""
         self._md_dict = {}
 
@@ -57,6 +63,41 @@ class MetadataFilter(UserDict):
             MetadataFilter: An instance of MetadataFilter.
         """
         return cls(data)
+
+    def filters_parameter(self,
+                         parameter: str
+                         ) -> bool:
+        """
+        Checks if the filter contains a given parameter.
+
+        Args:
+            parameter (str): The parameter to check for.
+
+        Returns:
+            bool: True if the parameter is in the filter, False otherwise.
+        """
+        return parameter in self.data
+
+    def get_criterium(self,
+                      key: str
+                      ) -> list[Any]:
+        """
+        Gets the value(s) associated with a key in the filter.
+
+        Args:
+            key (str): The key to get the value(s) for.
+
+        Returns:
+            list[Any]: A list of values associated with the key. If the key
+                does not exist, an empty list is returned. If the value is not
+                a list, it is returned as a single-element list.
+        """
+        if not self.filters_parameter(key):
+            return []
+        value = self.data[key]
+        if not isinstance(value, list):
+            value = [value]
+        return value
 
     def change_criterium(self,
                          key: str,
@@ -132,6 +173,30 @@ class MetadataFilter(UserDict):
             else:
                 if self.data[key] == value:
                     self.remove_criterium(key)
+
+    def remove_value(self,
+                     value: Any):
+        """
+        Removes a value from all keys in the filter.
+
+        Args:
+            value (Any): The value to remove from all keys.
+        """
+        for key in list(self.data.keys()):
+            self.remove_from_criterium(key, value)
+
+    def remove_all_but_value(self,
+                             value: Any):
+        """
+        From entries with lists, removes all values except the given one.
+
+        Args:
+            value (Any): The value to keep in all keys.
+        """
+        for key in list(self.data.keys()):
+            if isinstance(self.data[key], list):
+                if value in self.data[key]:
+                    self.data[key] = [value]
 
     def dict_valid(self,
                    dictionary: dict[str, Any]
@@ -213,6 +278,7 @@ class MetadataFilter(UserDict):
                            ) -> list:
         """
         Loads results from the metadata file in the given directory that match
+        the filter criteria.
 
         Args:
             directory (str): The directory where the metadata file and the
@@ -236,7 +302,7 @@ class MetadataFilter(UserDict):
                 result = results_class.load_from_h5(file)
                 results.append(result)
         return results
-    
+
     def load_unique_results(self,
                            directory: str,
                            results_class = Results,
@@ -270,11 +336,11 @@ class MetadataFilter(UserDict):
 
     def load_valid_results_and_parameters(self,
                                           directory: str,
-                                            parameter_class: type[SimulationParameters],
-                                            results_class = Results,
-                                            file_name_creation: Callable = standard_result_file_name,
-                                            metadatafile_name: str = METADATAFILE_STANDARD_NAME
-                                            ) -> list[tuple[SimulationParameters, Results]]:
+                                          parameter_class: type[SimulationParameters],
+                                          results_class = Results,
+                                          file_name_creation: Callable = standard_result_file_name,
+                                          metadatafile_name: str = METADATAFILE_STANDARD_NAME
+                                          ) -> list[tuple[SimulationParameters, Results]]:
         """
         Loads results and their corresponding parameters from the metadata file
         in the given directory that match the filter criteria.
@@ -306,6 +372,86 @@ class MetadataFilter(UserDict):
                 parameters = parameter_class.from_dict(file.attrs)
                 results.append((parameters, result))
         return results
+
+    def load_reference_data(self,
+                            directory: str,
+                            parameter_class: type[SimulationParameters],
+                            results_class = Results,
+                            file_name_creation: Callable = standard_result_file_name,
+                            metadatafile_name: str = METADATAFILE_STANDARD_NAME,
+                            reference_flag: str = STANDARD_REFERENCE_FLAG
+                            ) -> list[tuple[SimulationParameters, Results]]:
+        """
+        Loads only the the reference data.
+
+        Args:
+            directory (str): The directory where the metadata file and the
+                simulation results files are located.
+            parameter_class (type[SimulationParameters]): The class of the
+                parameters to load.
+            results_class: The class of the results to load.
+                Defaults to `Results`.
+            file_name_creation (Callable): A function to create the file name
+                from the hash value. Defaults to `standard_result_file_name`.
+            metadatafile_name (str): The filename of the metadata file.
+                Defaults to `"metadata.json"`.
+            reference_flag (str): The value of the key that indicates reference
+                data. Defaults to `"exact"`.
+
+        Returns:
+            list[tuple[SimulationParameters, Results]]: A list of tuples,
+                where each tuple contains a SimulationParameters object and a
+                Results object that are marked as reference data.
+        """
+        ref_filter = deepcopy(self)
+        ref_filter.remove_all_but_value(reference_flag)
+        return ref_filter.load_valid_results_and_parameters(
+            directory,
+            parameter_class,
+            results_class,
+            file_name_creation,
+            metadatafile_name
+        )
+
+    def load_simulation_data(self,
+                            directory: str,
+                            parameter_class: type[SimulationParameters],
+                            results_class = Results,
+                            file_name_creation: Callable = standard_result_file_name,
+                            metadatafile_name: str = METADATAFILE_STANDARD_NAME,
+                            reference_flag: str = STANDARD_REFERENCE_FLAG
+                            ) -> list[tuple[SimulationParameters, Results]]:
+        """
+        Loads only the simulation data (i.e., non-reference data).
+
+        Args:
+            directory (str): The directory where the metadata file and the
+                simulation results files are located.
+            parameter_class (type[SimulationParameters]): The class of the
+                parameters to load.
+            results_class: The class of the results to load.
+                Defaults to `Results`.
+            file_name_creation (Callable): A function to create the file name
+                from the hash value. Defaults to `standard_result_file_name`.
+            metadatafile_name (str): The filename of the metadata file.
+                Defaults to `"metadata.json"`.
+            reference_flag (str): The value of the key that indicates reference
+                data. Defaults to `"exact"`.
+
+        Returns:
+            list[tuple[SimulationParameters, Results]]: A list of tuples,
+                where each tuple contains a SimulationParameters object and a
+                Results object that are not marked as reference data.
+        """
+        sim_filter = deepcopy(self)
+        sim_filter.remove_value(reference_flag)
+        return sim_filter.load_valid_results_and_parameters(
+            directory,
+            parameter_class,
+            results_class,
+            file_name_creation,
+            metadatafile_name
+        )
 
 def add_new_key_to_metadata_file(save_directory: str,
                                   key: str,
