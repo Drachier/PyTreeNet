@@ -14,20 +14,11 @@ import sys
 
 from .sim_params import SimulationParameters
 from .metadata_file import METADATAFILE_STANDARD_NAME
+from .status_enum import Status
 
 LOGFILE_STANDARD_NAME = "log.txt"
 CURRENTPARAMFILE_STANDARD_NAME = "current_parameters.json"
 SIMSCRIPT_STANDARD_NAME = "sim_script.py"
-
-class Status(Enum):
-    """
-    Enumeration for the status of a simulation.
-    """
-    SUCCESS = "success"
-    FAILED = "failed"
-    RUNNING = "running"
-    TIMEOUT = "timeout"
-    UNKNOWN = "unknown"
 
 class Skipper(Enum):
     """

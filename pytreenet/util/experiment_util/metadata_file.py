@@ -2,16 +2,19 @@
 This module provides utilities for handling metadata files in experiments.
 """
 from __future__ import annotations
+from warnings import warn
 from typing import TYPE_CHECKING, Any, Callable
 import os
 import json
 from collections import UserDict
 from copy import deepcopy
+import shutil
 
 from h5py import File
 
 from ...time_evolution.results import Results
 from .sim_params import SimulationParameters
+from .status_enum import Status
 
 METADATAFILE_STANDARD_NAME = "metadata.json"
 STANDARD_REFERENCE_FLAG = "exact"
@@ -526,3 +529,91 @@ def generate_metadata_file(
         raise FileNotFoundError(f"No .h5 files found in {save_directory}!")
     with open(metadata_file_path, 'w') as f:
         json.dump(out, f, indent=4)
+
+def combine_metadata_files(
+        source_directories: list[str],
+        save_directory: str,
+        metadatafile_name: str = METADATAFILE_STANDARD_NAME
+        ) -> None:
+    """
+    Combines metadata files from multiple source directories into a single
+    metadata file in the save directory.
+
+    Args:
+        source_directories (list[str]): A list of directories where the
+            source metadata files are located.
+        save_directory (str): The directory where the combined metadata file
+            should be saved.
+        metadatafile_name (str): The filename of the metadata files.
+            Defaults to `"metadata.json"`.
+    
+    """
+    if not os.path.exists(save_directory):
+        os.makedirs(save_directory)
+    elif save_directory in source_directories:
+        del source_directories[source_directories.index(save_directory)]
+    if metadatafile_name in os.listdir(save_directory):
+        filepath = os.path.join(save_directory, metadatafile_name)
+        with open(filepath, 'r') as f:
+            combined_metadata = json.load(f)
+    else:
+        combined_metadata = {}
+    for directory in source_directories:
+        metadata_file_path = os.path.join(directory, metadatafile_name)
+        if not os.path.exists(metadata_file_path):
+            warn(f"Metadata file {metadata_file_path} does not exist! Skipping...")
+            continue
+        with open(metadata_file_path, 'r') as f:
+            metadata_index = json.load(f)
+        for hash_val, parameters in metadata_index.items():
+            if hash_val in combined_metadata:
+                existing = combined_metadata[hash_val]
+                existing_status = Status(existing.get("status", "unknown"))
+                new_status = Status(parameters.get("status", "unknown"))
+                if new_status > existing_status:
+                    combined_metadata[hash_val] = parameters
+            else:
+                combined_metadata[hash_val] = parameters
+    combined_metadata_file_path = os.path.join(save_directory, metadatafile_name)
+    with open(combined_metadata_file_path, 'w') as f:
+        json.dump(combined_metadata, f, indent=4)
+
+def combine_data_directories(
+        source_directories: list[str],
+        save_directory: str,
+        metadatafile_name: str = METADATAFILE_STANDARD_NAME
+        ) -> None:
+    """
+    Combines data directories from multiple source directories into a single
+    save directory, merging their metadata files.
+
+    Args:
+        source_directories (list[str]): A list of directories where the
+            source data directories are located.
+        save_directory (str): The directory where the combined data should be
+            saved.
+        metadatafile_name (str): The filename of the metadata files.
+            Defaults to `"metadata.json"`.
+    
+    """
+    if not os.path.exists(save_directory):
+        os.makedirs(save_directory)
+    elif save_directory in source_directories:
+        del source_directories[source_directories.index(save_directory)]
+    combine_metadata_files(source_directories,
+                           save_directory,
+                           metadatafile_name=metadatafile_name)
+    copied_hashes = set()
+    for directory in source_directories:
+        for file_name in os.listdir(directory):
+            if file_name.endswith('.h5'):
+                source_path = os.path.join(directory, file_name)
+                dest_path = os.path.join(save_directory, file_name)
+                if os.path.exists(dest_path):
+                    warn(f"File {dest_path} already exists! Skipping...")
+                    continue
+                shutil.copy2(source_path, dest_path)
+                copied_hashes.add(file_name)
+    print(f"Copied {len(copied_hashes)} files to {save_directory}:")
+    for hash_val in copied_hashes:
+        print(f" - {hash_val}")
