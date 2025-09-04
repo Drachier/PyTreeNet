@@ -215,7 +215,8 @@ class ConvergingPlottable(Plottable):
             line_config=insrt(self.line_config),
             conv_param_values=insrt(self.conv_param_values),
             conv_param=insrt(self.conv_param),
-            x_values=insrt(self.x_values)
+            x_values=insrt(self.x_values),
+            assoc_params=insrt(self.assoc_params)
         )
 
     def get_errors(self,

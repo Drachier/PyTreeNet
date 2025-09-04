@@ -12,7 +12,7 @@ import numpy.typing as npt
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 
-from ..line_config import (LineConfig)
+from ..line_config import (LineConfig, StyleMapping)
 from ...experiment_util.sim_params import SimulationParameters
 from ....time_evolution.results import Results
 
@@ -94,6 +94,23 @@ class Plottable(ABC):
         is_superset = other.assoc_subset(self, ignored_keys)
         return is_subset and is_superset
 
+    def apply_style_mapping(self,
+                           style_mapping: StyleMapping
+                           ) -> None:
+        """
+        Apply the given style mapping to this plottable's line configuration.
+
+        Args:
+            style_mapping (StyleMapping): The style mapping to apply.
+        """
+        for parameter in style_mapping.get_parameters():
+            if parameter in self.assoc_params:
+                value = self.assoc_params[parameter]
+                if style_mapping.value_valid(parameter, value):
+                    style_mapping.apply_to_config(self.line_config,
+                                                   parameter,
+                                                   value)
+
     @abstractmethod
     def plot_on_axis(self,
                       ax):
@@ -164,7 +181,7 @@ class StandardPlottable(Plottable):
             tuple[float, float]: The minimum and maximum x values.
         """
         if len(self.x) == 0:
-            raise ValueError("No x values provided!")
+            return (float("inf"), float("-inf"))
         return (np.min(self.x), np.max(self.x))
 
     def y_limits(self) -> tuple[float, float]:
@@ -175,7 +192,7 @@ class StandardPlottable(Plottable):
             tuple[float, float]: The minimum and maximum y values.
         """
         if len(self.y) == 0:
-            raise ValueError("No y values provided!")
+            return (float("inf"), float("-inf"))
         return (np.min(self.y), np.max(self.y))
 
     def plot_on_axis(self,
@@ -221,7 +238,7 @@ class StandardPlottable(Plottable):
             raise ValueError("Extraction function must take 1 or 2 arguments!")
         try:
             times, data = res
-        except Exception as e:
+        except (ValueError, TypeError) as e:
             raise ValueError("Extraction function must return a tuple of "
                              "(times, data)!") from e
         return cls(x=times,
@@ -244,16 +261,42 @@ def combine_equivalent_standard_plottables(x_vals: StandardPlottable,
             the y values.
 
     Returns:
-        StandardPlottable: A new StandardPlottable object with the x values
-            from x_vals and the y values from y_vals.
+        StandardPlottable: A new StandardPlottable object with the y values
+            from x_vals as new x values and the y values from y_vals as the
+            new y values.
     """
     if not x_vals.assoc_subset(y_vals):
         raise ValueError("The associated parameters of the x values plottable"
                          " are not a subset of the y values plottable!")
-    if len(x_vals.x) != len(y_vals.y):
+    if len(x_vals.y) != len(y_vals.y):
         raise ValueError("The x and y values must have the same length!")
-    return StandardPlottable(x=x_vals.x,
+    return StandardPlottable(x=x_vals.y,
                              y=y_vals.y,
                              line_config=deepcopy(y_vals.line_config),
                              assoc_params=copy(y_vals.assoc_params)
                              )
+
+def sort_by_style_mapping(plottables: list[Plottable],
+                          style_mapping: StyleMapping
+                          ) -> dict[tuple[tuple[str, Any], ...], list[Plottable]]:
+    """
+    Sorts the given plottables by the specified style mapping.
+
+    Args:
+        plottables (list[Plottable]): The list of plottables to sort.
+        style_mapping (StyleMapping): The style mapping to use for sorting.
+
+    Returns:
+        dict[tuple[tuple[str, Any], ...], list[Plottable]]: A dictionary mapping
+            style keys to lists of plottables that match the style.
+    """
+    sorted_plottables = {}
+    for plottable in plottables:
+        style_key = [(parameter,plottable.assoc_params[parameter])
+                     for parameter in style_mapping.get_parameters()
+                     if style_mapping.value_valid(parameter,plottable.assoc_params[parameter])]
+        style_key = tuple(sorted(style_key))
+        if style_key not in sorted_plottables:
+            sorted_plottables[style_key] = []
+        sorted_plottables[style_key].append(plottable)
+    return sorted_plottables

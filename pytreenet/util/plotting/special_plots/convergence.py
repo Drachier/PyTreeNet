@@ -6,6 +6,8 @@ from __future__ import annotations
 from copy import deepcopy
 from enum import Enum
 
+import numpy as np
+
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 
@@ -16,6 +18,7 @@ from ..configuration import (DocumentStyle,
 from ..util import save_figure
 from ..plotables.multiplot import ConvergingPlottable
 from ..plotables.standard_plottable import StandardPlottable
+from ..line_config import StyleMapping
 
 def set_x_limits(ax: Axes,
                  results: list[ConvergingPlottable],
@@ -43,7 +46,8 @@ def plot_convergence(results: list[ConvergingPlottable],
                      exact_results: StandardPlottable | None = None,
                      style: DocumentStyle = DocumentStyle.THESIS,
                      ax: Axes | None = None,
-                     save_path: str | None = None
+                     save_path: str | None = None,
+                     style_mapping: StyleMapping | None = None
                      ) -> Axes:
     """
     Plots the convergence of results over a given parameter range.
@@ -72,6 +76,8 @@ def plot_convergence(results: list[ConvergingPlottable],
         exact_results.plot_on_axis(ax=ax)
     for result in results:
         result.plot_on_axis(ax=ax)
+    if style_mapping is not None:
+        style_mapping.apply_legend()
     axis_config.apply_to_axis(ax=ax)
     set_x_limits(ax=ax,
                  results=results,
@@ -259,7 +265,8 @@ def plot_convergence_auto(results: list[ConvergingPlottable],
                           style: DocumentStyle = DocumentStyle.THESIS,
                           which: WhichConvergence = WhichConvergence.BOTH,
                           ax: Axes | None = None,
-                          save_path: str | None = None
+                          save_path: str | None = None,
+                          style_mapping: StyleMapping | None = None
                           ) -> Axes:
     """
     Automatically decides whether to plot convergence results, error
@@ -289,37 +296,39 @@ def plot_convergence_auto(results: list[ConvergingPlottable],
         "save_path": save_path
     }
     if which is WhichConvergence.RESULTS:
-        return plot_convergence(
+        res =  plot_convergence(
             results,
             axis_config,
             exact_results=exact_results,
+            style_mapping=style_mapping,
             **kwargs
         )
-    if which is WhichConvergence.ERRORS:
-        return plot_error_convergence(
+    elif which is WhichConvergence.ERRORS:
+        res =  plot_error_convergence(
             results,
             axis_config,
             exact_results,
             **kwargs
         )
-    if which is WhichConvergence.RESANDERR:
-        return plot_convergence_and_error(
+    elif which is WhichConvergence.RESANDERR:
+        res =  plot_convergence_and_error(
             results,
             axis_config,
             exact_results=exact_results,
             **kwargs
         )
-    if which is WhichConvergence.CONVMEAS:
-        return plot_convergence_measure(
+    elif which is WhichConvergence.CONVMEAS:
+        res =  plot_convergence_measure(
             results,
             axis_config,
             **kwargs
         )
-    if which is WhichConvergence.RESANDCONVM:
-        return plot_convergence_and_convmeasure(
+    elif which is WhichConvergence.RESANDCONVM:
+        res =  plot_convergence_and_convmeasure(
             results,
             axis_config,
             **kwargs
         )
-
-    raise ValueError(f"Unknown value for which: {which}!")
+    else:
+        raise ValueError(f"Unknown value for which: {which}!")
+    return res

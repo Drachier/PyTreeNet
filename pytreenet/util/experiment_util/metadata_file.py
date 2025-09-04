@@ -138,22 +138,27 @@ class MetadataFilter(UserDict):
 
     def add_to_criterium(self,
                          key: str,
-                         value: Any
+                         value: Any | list[Any]
                          ) -> None:
         """
         Adds a value to the list of values for a given key in the filter.
 
         Args:
             key (str): The key to add the value to.
-            value (Any): The value to add to the key.
+            value (Any | list[Any]): The value or values to add to the key.
         """
         if key not in self.data:
             self.data[key] = value
-        elif isinstance(self.data[key], list):
-            if value not in self.data[key]:
-                self.data[key].append(value)
+            return
+        if not isinstance(value, list):
+            value = [value]
+        if isinstance(self.data[key], list):
+            for v in value:
+                if v not in self.data[key]:
+                    self.data[key].append(v)
         else:
-            self.data[key] = [self.data[key], value]
+            self.data[key] = [self.data[key]]
+            self.data[key].extend(value)
 
     def remove_from_criterium(self,
                                 key: str,
