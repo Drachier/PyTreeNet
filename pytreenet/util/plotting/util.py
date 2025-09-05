@@ -1,6 +1,7 @@
 """
 Plotting utilities for PyTreeNet that do not fit elsewhere.
 """
+import re
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -45,7 +46,10 @@ def save_figure(fig: Figure | None,
     if fig is None:
         return
     if filename is not None:
-        fig.savefig(filename, format="pdf")
+        fileend = re.search(r"\.(\w+)$", filename)
+        if fileend is None:
+            raise ValueError("Filename must have an extension.")
+        fig.savefig(filename, format=fileend.group(1))
     else:
         plt.show()
     if clear_figure:
