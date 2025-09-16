@@ -13,6 +13,7 @@ from warnings import warn
 from dataclasses import dataclass
 
 import numpy as np
+import scipy
 
 from .tensor_util import tensor_matricization
 from .ttn_exceptions import positivity_check
@@ -509,3 +510,64 @@ def idiots_splitting(tensor: np.ndarray,
     if a_tensor.shape[-1] != b_tensor.shape[0]:
         raise ValueError("A and B tensor not compatible!")
     return (a_tensor, b_tensor)
+
+def tensor_qr_decomposition_pivot(tensor: np.ndarray,
+                            q_legs: Tuple[int,...],
+                            r_legs: Tuple[int,...],
+                            svd_params: Union[SVDParameters,None] = None) -> Tuple[np.ndarray,np.ndarray]:
+    """
+    Computes the QR decomposition of a tensor with respect to the given legs.
+
+    Args:
+        tensor (np.ndarray): Tensor on which the QR-decomp is to applied.
+        q_legs (Tuple[int]): Legs of tensor that should be associated to the
+            Q tensor after QR-decomposition.
+        r_legs (Tuple[int]): Legs of tensor that should be associated to the
+            R tensor after QR-decomposition.
+
+    Returns:
+        Tuple[np.ndarray,np.ndarray]: (Q, R)::
+
+                  |2                             |1
+                __|_      r_legs = (1, )       __|_        ____
+               |    |     q_legs = (0,2)      |    |      | R  |
+            ___|    |___  -------------->  ___| Q  |______|____|____
+            0  |____|  1                   0  |____| 2   0        1
+
+    """
+    correctly_order = q_legs + r_legs == list(range(len(q_legs) + len(r_legs)))
+    matrix = tensor_matricization(tensor, q_legs, r_legs,
+                                  correctly_ordered=correctly_order)
+    q,r = rrqr(matrix, svd_params)
+    r = r*np.linalg.norm(matrix,2)/np.linalg.norm(r,2)
+    
+    shape = tensor.shape
+    q_shape = _determine_tensor_shape(shape, q, q_legs, output=True)
+    r_shape = _determine_tensor_shape(shape, r, r_legs, output=False)
+    q = q.reshape(q_shape)
+    r = r.reshape(r_shape)
+    return q, r
+
+def rrqr(tensor: np.ndarray, svd_params: Union[SVDParameters,None] = None) -> Tuple[np.ndarray,np.ndarray]:
+    """
+    Rank-revealing QR decomposition.
+
+    Args:
+        tensor (np.ndarray): Tensor to decompose.
+        svd_params (SVDParameters): Parameters for the truncation of the
+            singular values.
+
+    Returns:
+        Tuple[np.ndarray,np.ndarray]: (Q, R)
+    """
+    q, r, p = scipy.linalg.qr(tensor, mode='economic', pivoting=True)
+    if svd_params is None:
+        k = min(r.shape[0], r.shape[1])
+    else:
+        k = np.sum(np.abs(np.diag(r)) > svd_params.total_tol)
+    pT = (np.eye(tensor.shape[1])[:,p]).T
+    qk = q[:, :k]
+    rk = r[:k, :]@pT
+    if svd_params is not None and k>svd_params.max_bond_dim:
+        return qk[:, :svd_params.max_bond_dim], rk[:svd_params.max_bond_dim, :]
+    return qk, rk

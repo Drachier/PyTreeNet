@@ -23,7 +23,8 @@ from pytreenet.util.tensor_splitting import (_determine_tensor_shape,
                                             idiots_splitting,
                                             SplitMode,
                                             ContractionMode,
-                                            SVDParameters)
+                                            SVDParameters,
+                                            tensor_qr_decomposition_pivot)
 from pytreenet.random import crandn
 
 class TestTensorUtilSimple(unittest.TestCase):
@@ -51,6 +52,23 @@ class TestTensorUtilSimple(unittest.TestCase):
 
     def test_tensor_qr_decomposition(self):
         q, r = tensor_qr_decomposition(
+            self.tensor1, self.output_legs, self.input_legs)
+        self.assertEqual(q.shape[-1], r.shape[0])
+        tensor_shape = self.tensor1.shape
+        self.assertEqual(q.shape[0:-1], (tensor_shape[1], tensor_shape[3]))
+        self.assertEqual(r.shape[1:], (tensor_shape[0], tensor_shape[2]))
+        recontracted_tensor = einsum("ijk,klm->limj", q, r)
+        self.assertTrue(allclose(recontracted_tensor, self.tensor1))
+        # q should be orthonormal
+        connection_dimension = q.shape[-1]
+        identity = eye(connection_dimension)
+        transfer_tensor = compute_transfer_tensor(q, (0, 1))
+        transfer_matrix = reshape(
+            transfer_tensor, (connection_dimension, connection_dimension))
+        self.assertTrue(allclose(identity, transfer_matrix))
+        
+    def test_tensor_qr_decomposition_pivot(self):
+        q, r = tensor_qr_decomposition_pivot(
             self.tensor1, self.output_legs, self.input_legs)
         self.assertEqual(q.shape[-1], r.shape[0])
         tensor_shape = self.tensor1.shape

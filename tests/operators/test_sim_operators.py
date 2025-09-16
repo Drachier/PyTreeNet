@@ -459,7 +459,8 @@ class TestMultiSiteHamiltonian(unittest.TestCase):
         Hamiltonian.
         """
         coeff_map = {"gamma": -1,
-                     "L": 2+1j}
+                     "L": 2+1j,
+                     "1": 1} # Standard always there
         ops = ["X","Y","Z"]
         ham = create_multi_site_hamiltonian(self.node_ids,
                                             ops,

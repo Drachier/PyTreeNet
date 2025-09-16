@@ -2,7 +2,7 @@ import unittest
 from copy import deepcopy
 from fractions import Fraction
 
-from numpy import eye
+from numpy import eye, prod
 
 from pytreenet.core.ttn import TreeTensorNetwork
 from pytreenet.operators.tensorproduct import TensorProduct
@@ -148,6 +148,15 @@ class TestHamiltonianSimpleTree(unittest.TestCase):
         # The old terms, shouldn't be changed
         for term in self.ham_symb.terms:
             self.assertEqual(2, len(term[2]))
+
+    def test_identity_like(self):
+        identity_ham = Hamiltonian.identity_like(self.ref_ttn)
+        self.assertTrue(identity_ham.is_compatible_with(self.ref_ttn))
+        self.assertEqual(len(self.ref_ttn.nodes), len(identity_ham.terms[0][2]))
+        open_dims = [self.ref_ttn.nodes[node_id].open_dimension()
+                     for node_id in self.ref_ttn.nodes]
+        total_dim = prod(open_dims)
+        self.assertTrue((eye(total_dim) == identity_ham.to_matrix(self.ref_ttn).operator).all())
 
 class TestConvDictMethods(unittest.TestCase):
 
