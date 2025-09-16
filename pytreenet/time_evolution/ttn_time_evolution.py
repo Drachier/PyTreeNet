@@ -108,7 +108,7 @@ class TTNTimeEvolution(TimeEvolution):
         if self.config.record_total_size:
             diction[TOTAL_SIZE_ID] = int
         if self.config.record_norm:
-            diction["norm"] = float
+            diction["norm"] = complex
         if self.config.record_loschmidt_amplitude:
             diction["loschmidt_amplitude"] = complex
         return diction

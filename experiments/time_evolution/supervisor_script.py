@@ -26,7 +26,7 @@ def generate_parameter_set() -> list[TotalParameters]:
     topology = Topology.CHAIN
     ttn_structure = [TTNStructure.MPS, TTNStructure.BINARY]
     num_sites = [5,10,15,20]
-    interaction_length = [2,3,4]
+    interaction_length = [2]
 
     time_evo_modes = [TimeEvoMode.CHEBYSHEV,
                       TimeEvoMode.EXPM,
@@ -34,7 +34,7 @@ def generate_parameter_set() -> list[TotalParameters]:
                       TimeEvoMode.RK23,
                       TimeEvoMode.BDF,
                       TimeEvoMode.DOP853]
-    evo_alg = TimeEvoAlg.SITE2ORDER2TDVP
+    evo_alg = TimeEvoAlg.BUG
     maximum_bond_dim = [1,2,5,10,20,25,50,75,100]
     rel_svalue = 1e-15
     abs_svalue = 1e-15
@@ -77,6 +77,7 @@ def main():
                                    SIMSCRIPT_STANDARD_NAME)
     supervisor = Supervisor.from_commandline(param_set,
                                              sim_script_path)
+    supervisor.timeout = 10 * 60 * 60  # 10 hours
     supervisor.run_simulations()
 
 if __name__ == "__main__":

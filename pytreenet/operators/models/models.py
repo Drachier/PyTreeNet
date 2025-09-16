@@ -1,18 +1,11 @@
 """
 A module to provide various commonly used models for simulations.
 """
-from typing import List, Tuple, Union, Dict
+from typing import List, Tuple, Union
 from warnings import warn
 
-from numpy import ndarray, zeros, mean
-
 from ..hamiltonian import Hamiltonian
-from ..tensorproduct import TensorProduct
-from ..sim_operators import (create_single_site_observables)
-from ..common_operators import pauli_matrices
 from ...core.ttn import TreeTensorNetwork
-
-from .topology import Topology
 from .two_site_model import (HeisenbergModel,
                                 IsingModel,
                                 FlippedIsingModel,
@@ -56,8 +49,8 @@ def heisenberg_model(structure: TreeTensorNetwork | list[tuple[str,str]],
                                   y_factor=y_factor,
                                   z_factor=z_factor,
                                   ext_z=ext_magn)
-    heisenberg_model = HeisenbergModel.from_dataclass(params)
-    return heisenberg_model.generate_hamiltonian(structure)
+    model = HeisenbergModel.from_dataclass(params)
+    return model.generate_hamiltonian(structure)
 
 def ising_model(ref_tree: Union[TreeTensorNetwork, List[Tuple[str, str]]],
                 ext_magn: float,
@@ -179,67 +172,6 @@ def flipped_ising_model_2D(grid: Union[tuple[str,int,int],list[list[str]]],
     return model.generate_2d_model(len(grid),
                                    num_cols=len(grid[0]),
                                    site_ids=grid)
-
-def local_magnetisation_from_topology(topology: Topology,
-                                      system_size: int,
-                                      site_prefix: str = "site"
-                                        ) -> Dict[str, TensorProduct]:
-    """
-    Generates the local magnetisation operator for a given topology.
-
-    Args:
-        topology (Topology): The topology of the system.
-        system_size (int): The characteristic size of the system.
-        site_prefix (str): The prefix for the site identifiers.
-        Defaults to "site".
-    """
-    num_sites = topology.num_sites(system_size)
-    structure = [site_prefix + str(i)
-                 for i in range(num_sites)]
-    return local_magnetisation(structure)
-
-def local_magnetisation(structure: Union[TreeTensorNetwork,List[str]]
-                        ) -> Dict[str,TensorProduct]:
-    """
-    Generates the local magnetisation operator for a given tree structure.
-
-    Args:
-        structure (Union[TreeTensorNetwork,List[str]]): The tree structure for
-            which the local magnetisation operator should be generated. Can
-            also be a list of node identifiers.
-    
-    Returns:
-        Dict[str,TensorProduct]: The local magnetisation operators.
-
-    """
-    sigma_z = pauli_matrices()[2]
-    return create_single_site_observables(sigma_z, structure)
-
-def total_magnetisation(local_magnetisations: List[ndarray]
-                        ) -> ndarray:
-    """
-    Computes the total magnetisation from the local magnetisations.
-    
-    Args:
-        local_magnetisations (List[ndarray]): The local magnetisations as a
-            list of arrays, where each array contains the local magnetisations
-            for one site for different times.
-
-    Returns:
-        ndarray: The total magnetisation
-
-        .. math::
-            M = 1/L \sum_i^L m_i
-
-    """
-    if len(local_magnetisations) == 0:
-        raise ValueError("No local magnetisations given!")
-    num_sites = len(local_magnetisations)
-    magn = zeros((num_sites, local_magnetisations[0].shape[0]),
-                 dtype=local_magnetisations[0].dtype)
-    for i in range(num_sites):
-        magn[i] = local_magnetisations[i]
-    return mean(magn, axis=0)
 
 def bose_hubbard_model(
         structure: Union[TreeTensorNetwork, List[Tuple[str, str]]],

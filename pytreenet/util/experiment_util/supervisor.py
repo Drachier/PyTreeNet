@@ -13,9 +13,9 @@ import logging
 import sys
 
 from .sim_params import SimulationParameters
+from .metadata_file import METADATAFILE_STANDARD_NAME
 
 LOGFILE_STANDARD_NAME = "log.txt"
-METADATAFILE_STANDARD_NAME = "metadata.json"
 CURRENTPARAMFILE_STANDARD_NAME = "current_parameters.json"
 SIMSCRIPT_STANDARD_NAME = "sim_script.py"
 
@@ -28,6 +28,26 @@ class Status(Enum):
     RUNNING = "running"
     TIMEOUT = "timeout"
     UNKNOWN = "unknown"
+
+class Skipper(Enum):
+    """
+    Enumeration for the skipping status of a simulation.
+
+    This is used to determine if a simulation should be skipped based on
+    the existing metadata.
+
+    Attributes:
+        NONE: No skipping, all simulations will be run.
+        EXISTING: Skips simulations that have already been run and exists in
+            the metadata. It does not matter if it failed or not.
+        SUCCESS: Skips simulations that have been successfully run.
+        TIMEOUT: Skips simulations that have timed out and those that were
+            successfully run.
+    """
+    NONE = "none"
+    EXISTING = "existing"
+    SUCCESS = "success"
+    TIMEOUT = "timeout"
 
 class Supervisor:
     """
@@ -49,7 +69,7 @@ class Supervisor:
                  sim_parameters: list[SimulationParameters] | SimulationParameters,
                  save_directory: str,
                  simulation_script_path: str,
-                 skip_existing: bool = False,
+                 skip_existing: Skipper = Skipper.NONE,
                  timeout: int = 3600,
                  python_executable: str = "python",
                  logfile_name: str = LOGFILE_STANDARD_NAME,
@@ -66,9 +86,8 @@ class Supervisor:
                 saved.
             simulation_script_path (str): The path to the script that will
                 be executed for each simulation.
-            skip_existing (bool): If True, existing results will be skipped.
-                The existing results are pulled from the metadata file.
-                Defaults to `False`.
+            skip_existing (Skipper): The skipping strategy to use for existing
+                results. Defaults to `Skipper.EXISTING`.
             timeout (int): The timeout for each simulation in seconds.
                 Defaults to `3600` seconds (1 hour).
             python_executable (str): The Python executable to use for running
@@ -116,13 +135,30 @@ class Supervisor:
                             help="Directory to save results.")
         parser.add_argument("--skip-existing",
                             action="store_true",
+                            default=False,
                             help="Skip existing results.")
+        parser.add_argument("--skip-success",
+                            action="store_true",
+                            default=False,
+                            help="Skip successful results.")
+        parser.add_argument("--skip-timeout",
+                            action="store_true",
+                            default=False,
+                            help="Skip timed out results.")
         python_executable = sys.executable
         args = parser.parse_args()
+        if args.skip_timeout:
+            skip_existing = Skipper.TIMEOUT
+        elif args.skip_success:
+            skip_existing = Skipper.SUCCESS
+        elif args.skip_existing:
+            skip_existing = Skipper.EXISTING
+        else:
+            skip_existing = Skipper.NONE
         return cls(parameter_set,
                    args.save_directory,
                    simulation_script_path,
-                   skip_existing=args.skip_existing,
+                   skip_existing=skip_existing,
                    python_executable=python_executable)
 
     def create_metadata_file_path(self) -> str:
@@ -217,7 +253,7 @@ class SingleParameterRunner:
                  save_directory: str,
                  simulation_script_path: str,
                  timeout: int = 3600,
-                 skip_existing: bool = False,
+                 skip_existing: Skipper = Skipper.NONE,
                  python_executable: str = "python",
                  currentparam_file_name: str = CURRENTPARAMFILE_STANDARD_NAME
                  ) -> None:
@@ -233,8 +269,8 @@ class SingleParameterRunner:
                 be executed for the simulation.
             timeout (int): The timeout for the simulation in seconds.
                 Defaults to `3600` seconds (1 hour).
-            skip_existing (bool): If True, existing results will be skipped.
-                Defaults to `False`.
+            skip_existing (Skipper): The skipping strategy to use for existing
+                results. Defaults to `Skipper.EXISTING`.
             python_executable (str): The Python executable to use for running
                 the simulation script. Defaults to `"python"`.
             currentparam_file_name (str): The filename of the current
@@ -262,7 +298,14 @@ class SingleParameterRunner:
         This would happen if the simulation has already been run and
         `skip_existing` is set to `True`.
         """
-        return self.skip_existing and self.hash in metadata_index
+        if self.skip_existing == Skipper.EXISTING:
+            return self.hash in metadata_index
+        elif self.skip_existing == Skipper.SUCCESS:
+            return self.hash in metadata_index and metadata_index[self.hash]["status"] == Status.SUCCESS.value
+        elif self.skip_existing == Skipper.TIMEOUT:
+            return self.hash in metadata_index and (metadata_index[self.hash]["status"] == Status.SUCCESS.value or
+                                                    metadata_index[self.hash]["status"] == Status.TIMEOUT.value)
+        return False
 
     def current_parameters_file_path(self) -> str:
         """
@@ -389,37 +432,3 @@ def check_script_path(simulation_script_path: str
     if not os.path.exists(simulation_script_path):
         errstr = f"{simulation_script_path} does not exist!"
         raise FileNotFoundError(errstr)
-
-def add_new_key_to_medata_file(save_directory: str,
-                               key: str,
-                               value: str,
-                               parameter_class: type[SimulationParameters],
-                               metadatafile_name: str = METADATAFILE_STANDARD_NAME
-                               ) -> None:
-    """
-    Adds a new key-value pair to the metadata file in the save directory.
-
-    This will also adapt the hashes of the existing parameter sets to include
-    the new key. The intended use case is to add a new key to the metadata
-    file that is was not yet present in the parameter sets.
-
-    Args:
-        save_directory (str): The directory where the metadata file is located.
-        key (str): The key to add to the metadata file.
-        value (str): The value to associate with the key.
-        parameter_class (type[SimulationParameters]): The class of the
-        metadatafile_name (str): The filename of the metadata file.
-            Defaults to `"metadata.json"`.
-    """
-    metadata_file_path = os.path.join(save_directory, metadatafile_name)
-    if not os.path.exists(metadata_file_path):
-        raise FileNotFoundError(f"Metadata file {metadata_file_path} does not exist!")
-    out = {}
-    with open(metadata_file_path, 'r') as f:
-        metadata_index = json.load(f)
-    for parameters in metadata_index.values():
-        parameters[key] = value
-        parameters_obj = parameter_class.from_dict(parameters)
-        out[parameters_obj.get_hash()] = parameters_obj.to_json_dict()
-    with open(metadata_file_path, 'w') as f:
-        json.dump(out, f, indent=4)
