@@ -245,6 +245,7 @@ def add(ttns1: TreeTensorNetworkState,
         assert rest_ttns.tensors[node_id].shape == tensor.shape, "The shape of the node is not the same as the tensor."
     _, legs_2 = get_equivalent_legs(ttns1.nodes[ttns1.root_id], ttns2.nodes[ttns2.root_id])
     legs_2.append(-1)
+    assert ttns1.root_id == computation_order[-1], "The root id is not the last in the computation order!"
     t1 = ttns1.tensors[ttns1.root_id]
     t2 = (ttns2.tensors[ttns2.root_id]).transpose(legs_2)
 
