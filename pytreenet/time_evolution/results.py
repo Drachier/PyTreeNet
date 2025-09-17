@@ -196,6 +196,18 @@ class Results:
         """
         return self.results[operator][index]
 
+    def set_operator_result(self,
+                            operator: Hashable,
+                            values: NDArray) -> None:
+        """
+        Sets the result of a specific operator.
+
+        Args:
+            operator (Hashable): The name of the operator.
+            values (NDArray): An array containing the results of the operator.
+        """
+        self.results[operator] = values
+
     def set_time(self,
                   index: int,
                   time: float) -> None:
