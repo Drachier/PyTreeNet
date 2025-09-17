@@ -341,29 +341,37 @@ class StyleMapping:
                                                     for key, val in value_to_style.items()}
 
     def apply_legend(self,
-                     ax: Axes | None = None):
+                     ax: Axes | None = None,
+                     ignore: set[tuple(str, Any)] | None = None
+                     ) -> None:
         """
         Apply the legend for all style mappings to the given axes.
 
         Args:
             ax (Axes | None): The matplotlib Axes object to plot the legend on.
                 If None, the current axes will be used.
+            ignore (set[tuple(str, Any)] | None): A set of parameter key-value
+                pairs to ignore when applying the legend. If None, no pairs
+                will be ignored. Defaults to None.
         """
+        if ignore is None:
+            ignore = set()
         if ax is None:
             ax = plt.gca()
         for param_key, value_map in self.param_value_to_style.items():
             style_options = self.get_style_options(param_key)
             for param_value, style_values in value_map.items():
-                line_config = LineConfig()
-                for style_option, style_value in zip(style_options,
-                                                    style_values):
-                    setattr(line_config, style_option.value, style_value)
-                if param_key == "ttns_structure":
-                    label = TTNStructure(param_value).label()
-                else:
-                    label = f"{param_key}={param_value}"
-                line_config.label = label
-                line_config.plot_legend(ax=ax)
+                if not (param_key, param_value) in ignore:
+                    line_config = LineConfig()
+                    for style_option, style_value in zip(style_options,
+                                                        style_values):
+                        setattr(line_config, style_option.value, style_value)
+                    if param_key == "ttns_structure":
+                        label = TTNStructure(param_value).label()
+                    else:
+                        label = f"{param_key}={param_value}"
+                    line_config.label = label
+                    line_config.plot_legend(ax=ax)
 
     @classmethod
     def from_filter_and_choice(cls,
