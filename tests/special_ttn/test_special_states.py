@@ -9,6 +9,7 @@ from pytreenet.ttns.ttns import TreeTensorNetworkState
 from pytreenet.special_ttn.special_states import (generate_constant_product_state,
                                                   generate_zero_state,
                                                   TTNStructure)
+from pytreenet.operators.models.topology import Topology
 
 @pytest.mark.parametrize("structure", [TTNStructure.MPS, TTNStructure.BINARY])
 def test_generate_zero_state_1d(structure):
@@ -38,7 +39,8 @@ def test_generate_zero_state_ttstar():
     bond_dim = 2
     state = generate_zero_state(system_size,
                                  TTNStructure.TSTAR,
-                                 bond_dim=bond_dim)
+                                 bond_dim=bond_dim,
+                                 topology=Topology.TTOPOLOGY)
     total_dim = phys_dim ** (3 * system_size)
     assert state.avg_bond_dim() == bond_dim
     found, _ = state.completely_contract_tree()
@@ -94,7 +96,8 @@ def test_generate_constant_product_state_ttstar():
                                             system_size,
                                             TTNStructure.TSTAR,
                                             phys_dim=phys_dim,
-                                            bond_dim=bond_dim)
+                                            bond_dim=bond_dim,
+                                            topology=Topology.TTOPOLOGY)
     total_dim = phys_dim ** (3 * system_size)
     assert state.avg_bond_dim() == bond_dim
     found, _ = state.completely_contract_tree()

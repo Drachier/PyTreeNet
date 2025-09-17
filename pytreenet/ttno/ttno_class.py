@@ -56,7 +56,8 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
     @classmethod
     def from_hamiltonian(cls,hamiltonian: Hamiltonian,
                              reference_tree: TreeStructure,
-                             method: TTNOFinder = TTNOFinder.SGE ) -> TreeTensorNetworkOperator:
+                             method: TTNOFinder = TTNOFinder.SGE,
+                             dtype: np.dtype = complex) -> TreeTensorNetworkOperator:
         """
         Generates a TTNO from a Hamiltonian.
 
@@ -74,13 +75,15 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
                                                       reference_tree, method)
         return cls.from_state_diagram(state_diagram,
                                       hamiltonian.conversion_dictionary,
-                                      hamiltonian.coeffs_mapping)
+                                      hamiltonian.coeffs_mapping,
+                                      dtype)
 
     @classmethod
     def from_state_diagram(cls,
                            state_diagram: StateDiagram,
                            conversion_dict: Dict[str, np.ndarray],
-                           coeffs_mapping: Dict[str, complex]
+                           coeffs_mapping: Dict[str, complex],
+                           dtype: np.dtype = complex
                            ) -> TreeTensorNetworkOperator:
         """
         Generates a TTNO from a state diagram.
@@ -101,26 +104,26 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
         root_id = reference_tree.root_id
         root_shape = state_diagram.obtain_tensor_shape(root_id,
                                                        conversion_dict)
-        root_tensor = np.zeros(root_shape, dtype=complex)
+        root_tensor = np.zeros(root_shape, dtype=dtype)
         root_node = Node(identifier=root_id)
         ttno.add_root(root_node, root_tensor)
         for child_id in reference_tree.nodes[root_id].children:
             ttno._rec_zero_ttno(child_id, state_diagram,
-                                conversion_dict)
+                                conversion_dict, dtype)
         # Now we have a TTNO filled with zero tensors of the correct shape.
         state_diagram.set_all_vertex_indices() # Fixing index_values
         state_diagram.set_all_vertex_indices() # Fixing index_values
 
         for he in state_diagram.get_all_hyperedges():
             position = he.find_tensor_position(reference_tree)
-            operator = conversion_dict[he.label].astype(complex)
-            operator *= complex(he.lambda_coeff) * coeffs_mapping[he.gamma_coeff]
+            operator = conversion_dict[he.label].astype(dtype)
+            operator *= np.array(he.lambda_coeff * coeffs_mapping[he.gamma_coeff],dtype = dtype)
             ttno.tensors[he.corr_node_id][position] += operator
-
         return ttno
 
     def _rec_zero_ttno(self, node_id: str, state_diagram: StateDiagram,
-                       conversion_dict: Dict[str, np.ndarray]):
+                       conversion_dict: Dict[str, np.ndarray],
+                       dtype: np.dtype = complex):
         """
         Recursively creates an empty TTNO, i.e., one with all zeros as entries.
 
@@ -133,13 +136,13 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
         """
         tensor_shape = state_diagram.obtain_tensor_shape(node_id,
                                                          conversion_dict)
-        node_tensor = np.zeros(tensor_shape, dtype=complex)
+        node_tensor = np.zeros(tensor_shape, dtype=dtype)
         node = Node(identifier=node_id)
         parent_id = state_diagram.reference_tree.nodes[node_id].parent
         parent_leg = self.nodes[parent_id].nneighbours()
         self.add_child_to_parent(node, node_tensor, 0, parent_id, parent_leg)
         for child_id in state_diagram.reference_tree.nodes[node_id].children:
-            self._rec_zero_ttno(child_id, state_diagram, conversion_dict)
+            self._rec_zero_ttno(child_id, state_diagram, conversion_dict, dtype)
 
     @classmethod
     def from_tensor(

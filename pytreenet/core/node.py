@@ -3,7 +3,7 @@ from typing import List, Dict, Union, Tuple, Callable
 from functools import reduce
 from enum import Enum
 
-from numpy import ndarray
+from numpy import ndarray, prod as nprod
 
 from .graph_node import (GraphNode,
                          find_child_permutation_neighbour_index)
@@ -472,6 +472,14 @@ class Node(GraphNode):
         if index < self.nvirt_legs():
             return LegKind.CHILD
         return LegKind.OPEN
+
+    def virtual_dimension(self) -> int:
+        """
+        The total dimension of the virtual legs.
+        """
+        if self.nvirt_legs() == 0:
+            return 1
+        return nprod(self.shape[:self.nvirt_legs()])
 
 # ---------------------------- Usefull functions using nodes ----------------------------
 def relative_leg_permutation(old_node: Node,

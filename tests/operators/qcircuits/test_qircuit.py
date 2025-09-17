@@ -392,7 +392,7 @@ def run_circuit(qc: QCircuit) -> np.ndarray:
             config=config,
             solver_options=solver_options)
     bug.run(evaluation_time="inf")
-    return bug.state.completely_contract_tree()[0]
+    return bug.state.completely_contract_tree()[0].flatten()
 
 class TestCompiledQCircuitRunning(unittest.TestCase):
     """
@@ -473,5 +473,19 @@ class TestCompiledQCircuitRunning(unittest.TestCase):
         correct = ket_i(3,4)
         np.testing.assert_allclose(found, correct,
                                    atol=1e-10)
-    
-    
+
+    def test_hadamard_and_cnot(self):
+        """
+        Test the two-qubit circuit where we first apply a Hadamard on the first
+        qubit and then a CNOT.
+        This should yield the bell state (|00>+|11>) / sqrt(2).
+        """
+        qc = QCircuit()
+        qc.add_hadamard(q_name(0))
+        qc.add_cnot(q_name(0), q_name(1), level_index=1)
+        found = run_circuit(qc)
+        correct = ket_i(0,4)
+        correct[3] = 1
+        correct = correct / np.sqrt(2)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-10)
