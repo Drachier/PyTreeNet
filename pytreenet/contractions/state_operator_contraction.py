@@ -456,14 +456,16 @@ def contract_any(node_id: str, next_node_id: str,
                                                  operator_node, operator_tensor,
                                                  dictionary,
                                                  bra_node=bra_node,
-                                                 bra_tensor=bra_tensor)
+                                                 bra_tensor=bra_tensor,
+                                                 id_trafo_op=id_trafo_op,
+                                                 id_trafo_bra=id_trafo_bra)
 
 def contract_any_node_environment_but_one(ignored_node_id: str,
                                             ket_node: Node, ket_tensor: np.ndarray,
                                             op_node: Node, op_tensor: np.ndarray,
                                             dictionary: PartialTreeCachDict,
                                             bra_node: Union[Node,None] = None,
-                                            bra_tensor: Union[Node,None] = None,
+                                            bra_tensor: Union[np.ndarray,None] = None,
                                             id_trafo_op: Union[Callable,None] = None,
                                             id_trafo_bra: Union[Callable,None] = None
                                             ) -> np.ndarray:
@@ -654,9 +656,11 @@ def contract_subtrees_using_dictionary(ignored_node_id: str,
         raise ValueError(errstr)
     contraction_order = compare_contr_orders(ket_node, op_node)
     if ket_node.nneighbours() > 1 and contraction_order is FirstContraction.OPERATOR:
+        if id_trafo_op is None:
+            id_trafo_op = lambda x: x
         tensor = contract_all_but_one_neighbour_block_to_hamiltonian(op_tensor,
                                                                      op_node,
-                                                                     ignored_node_id,
+                                                                     id_trafo_op(ignored_node_id),
                                                                      dictionary)
         tensor = contract_ket_tensor_ignoring_one_leg(tensor,
                                                       op_node,
@@ -664,12 +668,6 @@ def contract_subtrees_using_dictionary(ignored_node_id: str,
                                                       ket_node,
                                                       ignored_node_id,
                                                       id_trafo=id_trafo_op)
-        environment_block = contract_bra_tensor_ignore_one_leg(bra_tensor,
-                                                                bra_node,
-                                                                tensor,
-                                                                op_node,
-                                                                ignored_node_id,
-                                                                id_trafo=id_trafo_bra)
     else:
         tensor = contract_all_but_one_neighbour_block_to_ket(ket_tensor,
                                                          ket_node,
@@ -681,12 +679,12 @@ def contract_subtrees_using_dictionary(ignored_node_id: str,
                                                        op_node,
                                                        ignored_node_id,
                                                        id_trafo=id_trafo_op)
-        environment_block = contract_bra_tensor_ignore_one_leg(bra_tensor,
-                                                                bra_node,
-                                                                tensor,
-                                                                ket_node,
-                                                                ignored_node_id,
-                                                                id_trafo=id_trafo_bra)
+    environment_block = contract_bra_tensor_ignore_one_leg(bra_tensor,
+                                                            bra_node,
+                                                            tensor,
+                                                            ket_node,
+                                                            ignored_node_id,
+                                                            id_trafo=id_trafo_bra)
     return environment_block
 
 
@@ -874,7 +872,7 @@ def contract_bra_tensor_ignore_one_leg(bra_tensor: np.ndarray,
     legs_bra_tensor.extend(_node_state_phys_leg(bra_node))
     return np.tensordot(ketopblock_tensor, bra_tensor,
                         axes=(legs_tensor, legs_bra_tensor))
-    
+
 def contract_ket_tensor_ignoring_one_leg(current_tensor: np.ndarray,
                                               op_node: Node,
                                               ket_tensor: np.ndarray,
@@ -924,23 +922,27 @@ def contract_ket_tensor_ignoring_one_leg(current_tensor: np.ndarray,
     
     
     """
-    _, ket_legs = get_equivalent_legs(op_node, ket_node,
+    if id_trafo is None:
+        id_trafo = lambda x: x
+    ket_legs, op_legs = get_equivalent_legs(ket_node, op_node,
                                      [ignoring_node_id],
                                      id_trafo=id_trafo)
-    # Due to the legs to the bra tensor, the legs of the current tensor are a
-    # bit more complicated
-    tensor_legs = list(range(3,2*ket_node.nneighbours(),2))
+    # The  legs of the block tensor are more complicated
+    offset = op_node.nopen_legs() + 1 # One leg ignored
+    ign_neighbour_index = op_node.neighbour_index(id_trafo(ignoring_node_id))
+    tensor_legs = [(i - int(i > ign_neighbour_index)) * 2 + offset
+                   for i in op_legs]
     # Adding the physical legs
-    tensor_legs.append(2)
-    ket_legs.append(-1)
-   
-    result= np.tensordot(current_tensor, ket_tensor,
-                        axes=(tensor_legs, ket_legs))
-    permutation = [ket_node.nneighbours()+1] + list(range(2,ket_node.nneighbours()+1))+[0,1]
-    
+    ket_open = ket_node.nopen_legs()
+    tensor_legs.extend(range(ket_open+1, 2*ket_open+1))
+    ket_legs.extend(ket_node.open_legs)
+    result= np.tensordot(ket_tensor, current_tensor,
+                        axes=(ket_legs, tensor_legs))
+    permutation = [0]
+    permutation += list(range(2+ket_open, result.ndim)) # The block legs go to the front
+    permutation += list(range(1, ket_open + 2)) # The physical leg and the ignored leg go to the back
     result = np.transpose(result, permutation)
     return result
-
 
 def single_node_expectation_value(node: Node,
                                   ket_tensor: np.ndarray,

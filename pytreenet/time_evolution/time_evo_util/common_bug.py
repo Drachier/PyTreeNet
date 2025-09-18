@@ -217,11 +217,17 @@ def update_non_leaf_node(node_id: str,
                                  node_id,
                                  LegSpecification(new_state_node.parent,[],[]),
                                  LegSpecification(None, new_state_node.children, new_state_node.open_legs))
+    def id_trafo_op(ident: str):
+        if ident == basis_change_tensor_id(node_id):
+            # This is the correct parent node for the ttno
+            return parent_state.orthogonality_center_id
+        return ident
     block_tensor = contract_any(node_id,
                                 basis_change_tensor_id(node_id), # This is currently the parent node
                                 new_state,
                                 hamiltonian,
-                                current_cache)
+                                current_cache,
+                                id_trafo_op=id_trafo_op)
     return new_state, block_tensor, basis_change_tensor
 
 def update_node(node_id: str,

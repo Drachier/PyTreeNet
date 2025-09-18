@@ -23,7 +23,10 @@ def reverse_basis_change_tensor_id(node_id: str) -> str:
     Returns the original node identifier from a basis change tensor identifier.
 
     """
-    return node_id[:-len("_basis_change_tensor")]
+    if node_id.endswith("_basis_change_tensor"):
+        return node_id[:-len("_basis_change_tensor")]
+    else:
+        return node_id
 
 def concat_along_parent_leg(node: Node,
                             old_tensor: ndarray,
