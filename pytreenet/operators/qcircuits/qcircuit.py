@@ -34,6 +34,13 @@ class QCLevel:
         self.gates: list[QuantumGate] = []
         self.qubit_ids: set[str] = set()
 
+    def __str__(self) -> str:
+        """
+        Return a string representation of the quantum circuit level.
+        """
+        gates = {tuple(gate.qubit_ids): gate.symbol for gate in self.gates}
+        return str(gates)
+
     def num_gates(self) -> int:
         """
         Return the number of gates.
@@ -169,6 +176,13 @@ class AbstractQCircuit(ABC):
         """
         self.levels = []
 
+    def __str__(self) -> str:
+        """
+        Return a string representation of the quantum circuit.
+        """
+        return "\n".join([f"Level {i}: {str(level)}"
+                          for i, level in enumerate(self.levels)])
+
     def depth(self) -> int:
         """
         Get the depth of the quantum circuit.
@@ -260,7 +274,7 @@ class QCircuit(AbstractQCircuit):
                       level_index: int | None = None
                       ) -> bool:
         """
-        Check if the Toffoli gate contains a specific quantum gate.
+        Check if the quantum circuit contains a specific quantum gate.
 
         Args:
             gate (QuantumGate): The quantum gate to check for.
@@ -268,7 +282,7 @@ class QCircuit(AbstractQCircuit):
                 Defaults to None, which checks all levels.
 
         Returns:
-            bool: True if the Toffoli gate contains the specified quantum
+            bool: True if the quantum circuit contains the specified quantum
                 gate, False otherwise.
         """
         if level_index is None:
