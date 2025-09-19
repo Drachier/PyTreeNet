@@ -4,7 +4,8 @@ from copy import deepcopy
 from numpy import allclose
 import numpy as np
 
-from pytreenet.special_ttn.star import StarTreeTensorNetwork
+from pytreenet.operators.common_operators import ket_i
+from pytreenet.special_ttn.star import StarTreeTensorNetwork, StarTreeTensorState
 from pytreenet.random.random_matrices import crandn
 
 class TestStarTreeTensorNetwork(TestCase):
@@ -234,6 +235,35 @@ class TestStarTreeTensorNetworkFromTensorLists(TestCase):
                         centre_tensor,
                         tensors=[chain_tensors],
                         identifiers=[identifiers])
+        
+class TestStartTreeTensorNetworkSpecialStates(TestCase):
+    """
+    Tests the creation of some special states that came up in simulations and
+    thus may just as well be used for tests.
+    """
+
+    def test_tstar_qubit(self):
+        """
+        Creates a T of qubits, where the first tensor on the first chain is
+        a |+> state and all other tensors are |0> states.
+        """
+        main_state = np.array([1,1], dtype=complex) / np.sqrt(2)
+        ttns = StarTreeTensorState()
+        centre_tensor = np.ones((1,1,1,1), dtype=complex)
+        ttns.add_center_node(centre_tensor)
+        main_tensor = main_state.reshape((1,1,2))
+        ttns.add_chain_node(main_tensor, 0, identifier="qmain")
+        mid_tensor = np.reshape(ket_i(0,2).astype(complex), (1,1,2))
+        end_tensor = np.reshape(ket_i(0,2).astype(complex), (1,2))
+        ttns.add_chain_node(deepcopy(mid_tensor), 1, identifier="q2")
+        ttns.add_chain_node(deepcopy(mid_tensor), 2, identifier="q5")
+        for i in range(3):
+            ttns.add_chain_node(deepcopy(mid_tensor), i, identifier=f"q{3*i}")
+            ttns.add_chain_node(deepcopy(end_tensor), i, identifier=f"q{3*i+1}")
+        ttns.pad_bond_dimensions(2)
+        ref = np.kron(main_state, ket_i(0,2**8))
+        found, _ = ttns.completely_contract_tree(to_copy=True)
+        np.testing.assert_array_equal(np.reshape(found, ref.shape), ref)
 
 if __name__ == "__main__":
     main()
