@@ -2,7 +2,7 @@ import unittest
 
 from copy import deepcopy
 
-from pytreenet.core.node import Node
+from pytreenet.core.node import Node, LegKind
 from pytreenet.util.ttn_exceptions import NotCompatibleException
 from pytreenet.random import crandn, random_tensor_node
 
@@ -721,6 +721,127 @@ class Test_replace_tensor(unittest.TestCase):
         self.assertRaises(NotCompatibleException, node.replace_tensor,
                           new_tensor, perm)
 
+class TestLegKind(unittest.TestCase):
+    """
+    This module tests the LegKind enum and the Node methods using it.
+    """
+
+    def test_is_virtual(self):
+        """
+        Test the enum check for virtuality.
+        """
+        self.assertTrue(LegKind.PARENT.is_virtual())
+        self.assertTrue(LegKind.CHILD.is_virtual())
+        self.assertFalse(LegKind.OPEN.is_virtual())
+
+    def test_leg_kind_parent_str(self):
+        """
+        Test the `leg_kind` method when given the parent identifier.
+        """
+        node, _ = random_tensor_node((2,3,4),
+                                     identifier="node")
+        pid = "parent"
+        node.open_leg_to_parent(pid, 0)
+        found = node.leg_kind(pid)
+        self.assertEqual(LegKind.PARENT, found)
+
+    def test_leg_kind_child_str(self):
+        """
+        Test the `leg_kind` method when given children identifiers.
+        """
+        node, _ = random_tensor_node((2,3,4,5),
+                                     identifier="node")
+        cids = ["c1","c2"]
+        node.open_leg_to_parent("parent", 0)
+        node.open_leg_to_child(cids[0],2)
+        node.open_leg_to_child(cids[1],2)
+        self.assertEqual(LegKind.CHILD,node.leg_kind(cids[0]))
+        self.assertEqual(LegKind.CHILD,node.leg_kind(cids[1]))
+
+    def test_leg_kind_child_str_root(self):
+        """
+        Test the `leg_kind` method when given children identifiers.
+        The node is a root.
+        """
+        node, _ = random_tensor_node((2,3,4,5),
+                                     identifier="node")
+        cids = ["c1","c2"]
+        node.open_leg_to_child(cids[0],2)
+        node.open_leg_to_child(cids[1],2)
+        self.assertEqual(LegKind.CHILD,node.leg_kind(cids[0]))
+        self.assertEqual(LegKind.CHILD,node.leg_kind(cids[1]))
+
+    def test_leg_kind_invalid_str(self):
+        """
+        Test the `leg_kind` method with an identifier given that is not a
+        neighbour.
+        """
+        node, _ = random_tensor_node((2,3,4,5),
+                                     identifier="node")
+        cids = ["c1","c2"]
+        node.open_leg_to_parent("parent", 0)
+        node.open_leg_to_child(cids[0],2)
+        node.open_leg_to_child(cids[1],2)
+        self.assertRaises(KeyError,node.leg_kind,"five")
+
+    def test_leg_kind_parent(self):
+        """
+        Test the `leg_kind` method when the parent index is given.
+        """
+        node, _ = random_tensor_node((2,3,4,5),
+                                     identifier="node")
+        node.open_leg_to_parent("parent", 0)
+        self.assertEqual(node.leg_kind(0),LegKind.PARENT)
+
+    def test_leg_kind_children(self):
+        """
+        Test the `leg_kind` method when given children indices.
+        """
+        node, _ = random_tensor_node((2,3,4,5),
+                                     identifier="node")
+        cids = ["c1","c2"]
+        node.open_leg_to_parent("parent", 0)
+        node.open_leg_to_child(cids[0],2)
+        node.open_leg_to_child(cids[1],2)
+        self.assertEqual(LegKind.CHILD,node.leg_kind(1))
+        self.assertEqual(LegKind.CHILD,node.leg_kind(2))
+
+    def test_leg_kind_child_root(self):
+        """
+        Test the `leg_kind` method when given children identifiers.
+        The node is a root.
+        """
+        node, _ = random_tensor_node((2,3,4,5),
+                                     identifier="node")
+        cids = ["c1","c2"]
+        node.open_leg_to_child(cids[0],2)
+        node.open_leg_to_child(cids[1],2)
+        self.assertEqual(LegKind.CHILD,node.leg_kind(1))
+        self.assertEqual(LegKind.CHILD,node.leg_kind(0))
+
+    def test_leg_kind_op_leg(self):
+        """
+        Tests the `leg_kind` method when an open leg index is given.
+        """
+        node, _ = random_tensor_node((2,3,4,5),
+                                     identifier="node")
+        cids = ["c1","c2"]
+        node.open_leg_to_child(cids[0],2)
+        node.open_leg_to_child(cids[1],2)
+        self.assertEqual(LegKind.OPEN,node.leg_kind(2))
+        self.assertEqual(LegKind.OPEN,node.leg_kind(3))
+
+    def test_leg_kind_invalid_index(self):
+        """
+        Test the `leg_kind` method for invalid indices.
+        """
+        node, _ = random_tensor_node((2,3,4,5),
+                                     identifier="node")
+        cids = ["c1","c2"]
+        node.open_leg_to_child(cids[0],2)
+        node.open_leg_to_child(cids[1],2)
+        self.assertRaises(IndexError, node.leg_kind, -1)
+        self.assertRaises(IndexError, node.leg_kind, 8)
 
 if __name__ == "__main__":
     unittest.main()

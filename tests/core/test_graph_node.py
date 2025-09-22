@@ -312,6 +312,37 @@ class TestGraphNode(unittest.TestCase):
         other_node.add_children([self.child1_id, self.child2_id])
         self.assertTrue(other_node == self.node)
 
+    def test_neighbour_id_non_root(self):
+        """
+        Test obtaining the correct neighbour id given an index.
+        The node is not a root.
+        """
+        self.node.add_parent(self.parent_id)
+        self.node.add_child(self.child1_id)
+        self.node.add_child(self.child2_id)
+        self.assertEqual(self.parent_id,self.node.neighbour_id(0))
+        self.assertEqual(self.child1_id,self.node.neighbour_id(1))
+        self.assertEqual(self.child2_id,self.node.neighbour_id(2))
+
+    def test_neighbour_id_root(self):
+        """
+        Test obtaining the correct neighbour id given an index.
+        The node is a root.
+        """
+        self.node.add_child(self.child1_id)
+        self.node.add_child(self.child2_id)
+        self.assertEqual(self.child1_id,self.node.neighbour_id(0))
+        self.assertEqual(self.child2_id,self.node.neighbour_id(1))
+
+    def test_neighbour_id_invalid_index(self):
+        """
+        Test obtaining the correct neighbour id given an invalid index.
+        """
+        self.node.add_child(self.child1_id)
+        self.node.add_child(self.child2_id)
+        self.assertRaises(IndexError,self.node.neighbour_id,-1)
+        self.assertRaises(IndexError,self.node.neighbour_id,9)
+
 class TestNodeFunctions(unittest.TestCase):
 
     def test_find_children_permutation_trivial(self):

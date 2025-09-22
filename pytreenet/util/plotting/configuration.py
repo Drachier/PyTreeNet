@@ -5,6 +5,10 @@ This module provides functions to configure the plotting.
 from enum import Enum
 
 import matplotlib.pyplot as plt
+import numpy as np
+
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 class DocumentStyle(Enum):
     """
@@ -98,7 +102,7 @@ def config_matplotlib_to_latex(style: DocumentStyle | str = DocumentStyle.THESIS
 def figure_from_style(style: DocumentStyle | str = DocumentStyle.THESIS,
                       fraction: float = 1,
                       subplots: tuple[int, int] = (1, 1)
-                      ) -> tuple[plt.Figure, plt.Axes]:
+                      ) -> tuple[Figure, Axes]:
     """
     Create a figure and axes with the specified style and size.
 
@@ -111,7 +115,7 @@ def figure_from_style(style: DocumentStyle | str = DocumentStyle.THESIS,
             of subplots. Defaults to (1, 1).
 
     Returns:
-        tuple[plt.Figure, plt.Axes]: The created figure and axes.
+        tuple[Figure, Axes]: The created figure and axes.
     """
     if isinstance(style, str):
         style = DocumentStyle(style)
@@ -122,3 +126,33 @@ def figure_from_style(style: DocumentStyle | str = DocumentStyle.THESIS,
     fig, ax = plt.subplots(subplots[0], subplots[1],
                            figsize=fig_dim)
     return fig, ax
+
+def figure_double_plot(style: DocumentStyle | str = DocumentStyle.THESIS,
+                      fraction: float = 1,
+                      axis: Axes | None = None
+                      ) -> tuple[Figure | None, Axes]:
+    """
+    Creates a figure and axes for two plots next to each other of the same
+    size.
+
+    Args:
+        style (DocumentStyle | str, optional): The style to use for the figure.
+            Defaults to DocumentStyle.THESIS.
+        fraction (float, optional): The fraction of the width to use for the
+            figure. Defaults to 1.
+        axis (Axes | None, optional): The axes to use for the plot. If None,
+            new axes will be created. Defaults to None.
+
+    Returns:
+        tuple[Figure | None, Axes]: The created figure and axes.
+    """
+    if axis is None:
+        fig, axis = figure_from_style(style=style,
+                                       fraction=fraction,
+                                       subplots=(1, 2))
+    else:
+        fig = None
+        if not isinstance(axis, np.ndarray) or axis.shape != (2,):
+            errstr = "The provided axes must be a 1x2 array!"
+            raise ValueError(errstr)
+    return fig, axis

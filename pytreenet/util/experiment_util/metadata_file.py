@@ -2,17 +2,22 @@
 This module provides utilities for handling metadata files in experiments.
 """
 from __future__ import annotations
+from warnings import warn
 from typing import TYPE_CHECKING, Any, Callable
 import os
 import json
 from collections import UserDict
+from copy import deepcopy
+import shutil
 
 from h5py import File
 
 from ...time_evolution.results import Results
 from .sim_params import SimulationParameters
+from .status_enum import Status
 
 METADATAFILE_STANDARD_NAME = "metadata.json"
+STANDARD_REFERENCE_FLAG = "exact"
 
 def standard_result_file_name(hash_val: str) -> str:
     """
@@ -40,6 +45,10 @@ class MetadataFilter(UserDict):
                 to filter metadata. Defaults to an empty dictionary.
         """
         super().__init__(data if data is not None else {})
+
+        ## These are purely internal variables to avoid reloading the
+        ## metadata file if it has not changed. Irrelevant when not dealing
+        ## with files.
         self._md_file_path = ""
         self._md_dict = {}
 
@@ -57,6 +66,41 @@ class MetadataFilter(UserDict):
             MetadataFilter: An instance of MetadataFilter.
         """
         return cls(data)
+
+    def filters_parameter(self,
+                         parameter: str
+                         ) -> bool:
+        """
+        Checks if the filter contains a given parameter.
+
+        Args:
+            parameter (str): The parameter to check for.
+
+        Returns:
+            bool: True if the parameter is in the filter, False otherwise.
+        """
+        return parameter in self.data
+
+    def get_criterium(self,
+                      key: str
+                      ) -> list[Any]:
+        """
+        Gets the value(s) associated with a key in the filter.
+
+        Args:
+            key (str): The key to get the value(s) for.
+
+        Returns:
+            list[Any]: A list of values associated with the key. If the key
+                does not exist, an empty list is returned. If the value is not
+                a list, it is returned as a single-element list.
+        """
+        if not self.filters_parameter(key):
+            return []
+        value = self.data[key]
+        if not isinstance(value, list):
+            value = [value]
+        return value
 
     def change_criterium(self,
                          key: str,
@@ -97,22 +141,27 @@ class MetadataFilter(UserDict):
 
     def add_to_criterium(self,
                          key: str,
-                         value: Any
+                         value: Any | list[Any]
                          ) -> None:
         """
         Adds a value to the list of values for a given key in the filter.
 
         Args:
             key (str): The key to add the value to.
-            value (Any): The value to add to the key.
+            value (Any | list[Any]): The value or values to add to the key.
         """
         if key not in self.data:
             self.data[key] = value
-        elif isinstance(self.data[key], list):
-            if value not in self.data[key]:
-                self.data[key].append(value)
+            return
+        if not isinstance(value, list):
+            value = [value]
+        if isinstance(self.data[key], list):
+            for v in value:
+                if v not in self.data[key]:
+                    self.data[key].append(v)
         else:
-            self.data[key] = [self.data[key], value]
+            self.data[key] = [self.data[key]]
+            self.data[key].extend(value)
 
     def remove_from_criterium(self,
                                 key: str,
@@ -132,6 +181,30 @@ class MetadataFilter(UserDict):
             else:
                 if self.data[key] == value:
                     self.remove_criterium(key)
+
+    def remove_value(self,
+                     value: Any):
+        """
+        Removes a value from all keys in the filter.
+
+        Args:
+            value (Any): The value to remove from all keys.
+        """
+        for key in list(self.data.keys()):
+            self.remove_from_criterium(key, value)
+
+    def remove_all_but_value(self,
+                             value: Any):
+        """
+        From entries with lists, removes all values except the given one.
+
+        Args:
+            value (Any): The value to keep in all keys.
+        """
+        for key in list(self.data.keys()):
+            if isinstance(self.data[key], list):
+                if value in self.data[key]:
+                    self.data[key] = [value]
 
     def dict_valid(self,
                    dictionary: dict[str, Any]
@@ -213,6 +286,7 @@ class MetadataFilter(UserDict):
                            ) -> list:
         """
         Loads results from the metadata file in the given directory that match
+        the filter criteria.
 
         Args:
             directory (str): The directory where the metadata file and the
@@ -236,7 +310,7 @@ class MetadataFilter(UserDict):
                 result = results_class.load_from_h5(file)
                 results.append(result)
         return results
-    
+
     def load_unique_results(self,
                            directory: str,
                            results_class = Results,
@@ -270,11 +344,11 @@ class MetadataFilter(UserDict):
 
     def load_valid_results_and_parameters(self,
                                           directory: str,
-                                            parameter_class: type[SimulationParameters],
-                                            results_class = Results,
-                                            file_name_creation: Callable = standard_result_file_name,
-                                            metadatafile_name: str = METADATAFILE_STANDARD_NAME
-                                            ) -> list[tuple[SimulationParameters, Results]]:
+                                          parameter_class: type[SimulationParameters],
+                                          results_class = Results,
+                                          file_name_creation: Callable = standard_result_file_name,
+                                          metadatafile_name: str = METADATAFILE_STANDARD_NAME
+                                          ) -> list[tuple[SimulationParameters, Results]]:
         """
         Loads results and their corresponding parameters from the metadata file
         in the given directory that match the filter criteria.
@@ -306,6 +380,86 @@ class MetadataFilter(UserDict):
                 parameters = parameter_class.from_dict(file.attrs)
                 results.append((parameters, result))
         return results
+
+    def load_reference_data(self,
+                            directory: str,
+                            parameter_class: type[SimulationParameters],
+                            results_class = Results,
+                            file_name_creation: Callable = standard_result_file_name,
+                            metadatafile_name: str = METADATAFILE_STANDARD_NAME,
+                            reference_flag: str = STANDARD_REFERENCE_FLAG
+                            ) -> list[tuple[SimulationParameters, Results]]:
+        """
+        Loads only the the reference data.
+
+        Args:
+            directory (str): The directory where the metadata file and the
+                simulation results files are located.
+            parameter_class (type[SimulationParameters]): The class of the
+                parameters to load.
+            results_class: The class of the results to load.
+                Defaults to `Results`.
+            file_name_creation (Callable): A function to create the file name
+                from the hash value. Defaults to `standard_result_file_name`.
+            metadatafile_name (str): The filename of the metadata file.
+                Defaults to `"metadata.json"`.
+            reference_flag (str): The value of the key that indicates reference
+                data. Defaults to `"exact"`.
+
+        Returns:
+            list[tuple[SimulationParameters, Results]]: A list of tuples,
+                where each tuple contains a SimulationParameters object and a
+                Results object that are marked as reference data.
+        """
+        ref_filter = deepcopy(self)
+        ref_filter.remove_all_but_value(reference_flag)
+        return ref_filter.load_valid_results_and_parameters(
+            directory,
+            parameter_class,
+            results_class,
+            file_name_creation,
+            metadatafile_name
+        )
+
+    def load_simulation_data(self,
+                            directory: str,
+                            parameter_class: type[SimulationParameters],
+                            results_class = Results,
+                            file_name_creation: Callable = standard_result_file_name,
+                            metadatafile_name: str = METADATAFILE_STANDARD_NAME,
+                            reference_flag: str = STANDARD_REFERENCE_FLAG
+                            ) -> list[tuple[SimulationParameters, Results]]:
+        """
+        Loads only the simulation data (i.e., non-reference data).
+
+        Args:
+            directory (str): The directory where the metadata file and the
+                simulation results files are located.
+            parameter_class (type[SimulationParameters]): The class of the
+                parameters to load.
+            results_class: The class of the results to load.
+                Defaults to `Results`.
+            file_name_creation (Callable): A function to create the file name
+                from the hash value. Defaults to `standard_result_file_name`.
+            metadatafile_name (str): The filename of the metadata file.
+                Defaults to `"metadata.json"`.
+            reference_flag (str): The value of the key that indicates reference
+                data. Defaults to `"exact"`.
+
+        Returns:
+            list[tuple[SimulationParameters, Results]]: A list of tuples,
+                where each tuple contains a SimulationParameters object and a
+                Results object that are not marked as reference data.
+        """
+        sim_filter = deepcopy(self)
+        sim_filter.remove_value(reference_flag)
+        return sim_filter.load_valid_results_and_parameters(
+            directory,
+            parameter_class,
+            results_class,
+            file_name_creation,
+            metadatafile_name
+        )
 
 def add_new_key_to_metadata_file(save_directory: str,
                                   key: str,
@@ -375,3 +529,91 @@ def generate_metadata_file(
         raise FileNotFoundError(f"No .h5 files found in {save_directory}!")
     with open(metadata_file_path, 'w') as f:
         json.dump(out, f, indent=4)
+
+def combine_metadata_files(
+        source_directories: list[str],
+        save_directory: str,
+        metadatafile_name: str = METADATAFILE_STANDARD_NAME
+        ) -> None:
+    """
+    Combines metadata files from multiple source directories into a single
+    metadata file in the save directory.
+
+    Args:
+        source_directories (list[str]): A list of directories where the
+            source metadata files are located.
+        save_directory (str): The directory where the combined metadata file
+            should be saved.
+        metadatafile_name (str): The filename of the metadata files.
+            Defaults to `"metadata.json"`.
+    
+    """
+    if not os.path.exists(save_directory):
+        os.makedirs(save_directory)
+    elif save_directory in source_directories:
+        del source_directories[source_directories.index(save_directory)]
+    if metadatafile_name in os.listdir(save_directory):
+        filepath = os.path.join(save_directory, metadatafile_name)
+        with open(filepath, 'r') as f:
+            combined_metadata = json.load(f)
+    else:
+        combined_metadata = {}
+    for directory in source_directories:
+        metadata_file_path = os.path.join(directory, metadatafile_name)
+        if not os.path.exists(metadata_file_path):
+            warn(f"Metadata file {metadata_file_path} does not exist! Skipping...")
+            continue
+        with open(metadata_file_path, 'r') as f:
+            metadata_index = json.load(f)
+        for hash_val, parameters in metadata_index.items():
+            if hash_val in combined_metadata:
+                existing = combined_metadata[hash_val]
+                existing_status = Status(existing.get("status", "unknown"))
+                new_status = Status(parameters.get("status", "unknown"))
+                if new_status > existing_status:
+                    combined_metadata[hash_val] = parameters
+            else:
+                combined_metadata[hash_val] = parameters
+    combined_metadata_file_path = os.path.join(save_directory, metadatafile_name)
+    with open(combined_metadata_file_path, 'w') as f:
+        json.dump(combined_metadata, f, indent=4)
+
+def combine_data_directories(
+        source_directories: list[str],
+        save_directory: str,
+        metadatafile_name: str = METADATAFILE_STANDARD_NAME
+        ) -> None:
+    """
+    Combines data directories from multiple source directories into a single
+    save directory, merging their metadata files.
+
+    Args:
+        source_directories (list[str]): A list of directories where the
+            source data directories are located.
+        save_directory (str): The directory where the combined data should be
+            saved.
+        metadatafile_name (str): The filename of the metadata files.
+            Defaults to `"metadata.json"`.
+    
+    """
+    if not os.path.exists(save_directory):
+        os.makedirs(save_directory)
+    elif save_directory in source_directories:
+        del source_directories[source_directories.index(save_directory)]
+    combine_metadata_files(source_directories,
+                           save_directory,
+                           metadatafile_name=metadatafile_name)
+    copied_hashes = set()
+    for directory in source_directories:
+        for file_name in os.listdir(directory):
+            if file_name.endswith('.h5'):
+                source_path = os.path.join(directory, file_name)
+                dest_path = os.path.join(save_directory, file_name)
+                if os.path.exists(dest_path):
+                    warn(f"File {dest_path} already exists! Skipping...")
+                    continue
+                shutil.copy2(source_path, dest_path)
+                copied_hashes.add(file_name)
+    print(f"Copied {len(copied_hashes)} files to {save_directory}:")
+    for hash_val in copied_hashes:
+        print(f" - {hash_val}")

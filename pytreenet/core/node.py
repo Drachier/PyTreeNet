@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import List, Dict, Union, Tuple, Callable
 from functools import reduce
+from enum import Enum
 
 from numpy import ndarray, prod as nprod
 
@@ -9,6 +10,19 @@ from .graph_node import (GraphNode,
 from ..util.std_utils import permute_iterator, postivise_range
 from ..util.ttn_exceptions import NotCompatibleException
 
+class LegKind(Enum):
+    """
+    An enumerator for the different kinds of leg in a node.
+    """
+    PARENT = "parent"
+    CHILD = "child"
+    OPEN = "open"
+
+    def is_virtual(self) -> bool:
+        """
+        Returns True, if the leg is connected to a different node.
+        """
+        return self in (LegKind.PARENT,LegKind.CHILD)
 
 class Node(GraphNode):
     """ 
@@ -432,6 +446,32 @@ class Node(GraphNode):
         """
         neighbour_index = self.neighbour_index(neighbour_id)
         return self.shape[neighbour_index]
+
+    def leg_kind(self, index: int | str) -> LegKind:
+        """
+        Returns what kind of leg the given index corresponds to.
+
+        Args:
+            index (int | str): The leg's index or neighbouring node.
+
+        Returns:
+            LegKind: The kind of leg the index corresponds to.
+        """
+        if isinstance(index, str):
+            if self.parent == index:
+                return LegKind.PARENT
+            if index in self.children:
+                return LegKind.CHILD
+            errstr = f"{index} is not a neighbour of node {self.identifier}!"
+            raise KeyError(errstr)
+        if index > self.nlegs() - 1 or index < 0:
+            errstr = f"Index {index} is invalid for node {self.identifier} with only {self.nchild_legs()} legs!"
+            raise IndexError(errstr)
+        if index == 0 and not self.is_root():
+            return LegKind.PARENT
+        if index < self.nvirt_legs():
+            return LegKind.CHILD
+        return LegKind.OPEN
 
     def virtual_dimension(self) -> int:
         """

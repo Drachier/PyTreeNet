@@ -354,6 +354,29 @@ class GraphNode:
         neighbour_ids.extend(self.children)
         return neighbour_ids
 
+    def neighbour_id(self,
+                     index: int
+                     ) -> str:
+        """
+        Returns the identifier of the neighbour at the given index.
+
+        Args:
+            index (int): The index of the neighbour.
+
+        Returns:
+            str: The identifier of the neighbour at the given index.
+
+        Raises:
+            IndexError: If the index is out of bounds.
+        """
+        if index < 0 or index >= self.nneighbours():
+            raise IndexError("Index out of bounds!")
+        if not self.is_root():
+            if index == 0:
+                return self.parent
+            return self.children[index - 1]
+        return self.children[index]
+
 ## Functions to using two or more GraphNodes together
 def determine_parentage(node1: GraphNode,
                         node2: GraphNode
