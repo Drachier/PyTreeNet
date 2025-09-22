@@ -18,7 +18,7 @@ from ...ttno.ttno_class import TTNO
 from ...operators.tensorproduct import TensorProduct
 from ...contractions.sandwich_caching import SandwichCache
 from ..time_evo_util.effective_time_evolution import single_site_time_evolution
-from ..time_evo_util.update_path import TDVPUpdatePathFinder
+from ..time_evo_util.update_path import TDVPUpdatePathFinder, find_orthogonalisation_path
 from ...time_evolution.time_evo_util import PathFinderMode
 
 @dataclass
@@ -138,11 +138,8 @@ class TDVPAlgorithm(TTNOBasedTimeEvolution):
             List[List[str]]: a list of paths, along which the TTNS should be
             orthogonalised between every node update.
         """
-        orthogonalization_path = []
-        for i in range(len(update_path)-1):
-            sub_path = self.state.path_from_to(update_path[i], update_path[i+1])
-            orthogonalization_path.append(sub_path[1::])
-        return orthogonalization_path
+        return find_orthogonalisation_path(update_path,
+                                           self.state)
 
     def _finds_update_path(self) -> List[str]:
         """
