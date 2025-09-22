@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import scipy
+from sklearn.utils.extmath import randomized_svd
 
 from .tensor_util import tensor_matricization
 from .ttn_exceptions import positivity_check
@@ -146,6 +147,46 @@ def tensor_svd(tensor: np.ndarray,
     vh = vh.reshape(vh_shape)
     return u, s, vh
 
+def rand_tensor_svd(tensor: np.ndarray,
+                    u_legs: Tuple[int,...],
+                    v_legs: Tuple[int,...],
+                    n_sval: int
+                    ) -> Tuple[np.ndarray,np.ndarray,np.ndarray]:
+    """
+    Perform a singular value decomposition on a tensor.
+
+    Args:
+        tensor (np.ndarray): Tensor on which the svd is to be performed.
+        u_legs (Tuple[int]): Legs of tensor that are to be associated to U
+            after the SVD.
+        v_legs (Tuple[int]): Legs of tensor that are to be associated to V
+            after the SVD.
+        n_sval (int): Number of singular values to compute.
+
+    Returns:
+        Tuple[np.ndarray,np.ndarray,np.ndarray]: (U, S, V), where S is the
+            vector of singular values and U and V are tensors equivalent to an
+            isometry::
+
+                      |2                             |1
+                    __|_      v_legs = (1, )       __|_        ____        ____
+                   |    |     q_legs = (0,2)      |    |      |  S |      |    |
+                ___|    |___  -------------->  ___|  U |______|____|______| Vh |____1 
+                0  |____|  1                   0  |____| 2   0       1  0 |____|
+
+    
+    """
+    correctly_ordered = u_legs + v_legs == list(range(len(u_legs) + len(v_legs)))
+    matrix = tensor_matricization(tensor, u_legs, v_legs,
+                                  correctly_ordered=correctly_ordered)
+    u, s, vh = randomized_svd(matrix, n_sval)
+    shape = tensor.shape
+    u_shape = _determine_tensor_shape(shape, u, u_legs, output=True)
+    vh_shape = _determine_tensor_shape(shape, vh, v_legs, output=False)
+    u = u.reshape(u_shape)
+    vh = vh.reshape(vh_shape)
+    return u, s, vh
+
 def _determine_tensor_shape(old_shape: Tuple[int,...],
                             matrix: np.ndarray,
                             legs: Tuple[int,...],
@@ -178,7 +219,6 @@ def _determine_tensor_shape(old_shape: Tuple[int,...],
         matrix_dimension = [matrix.shape[0]]
         matrix_dimension.extend(leg_shape)
         new_shape = matrix_dimension
-
     return tuple(new_shape)
 
 @dataclass
@@ -205,7 +245,12 @@ class SVDParameters:
                 \sum_{i=K}^{r} (s_i / ||s|| )^2 < \text{total_tol}^2
             
             where r is the number of singular values. Defaults to False.
-        
+        sum_renorm (bool, optional): If True, the truncated singular value vector
+            is scaled to have the same norm as the original vector. Defaults to
+            True.
+        random (bool, optional): If True, a randomized SVD is used instead of
+            a full SVD. This is usually faster for large matrices. Defaults to
+            False.
     """
     max_bond_dim: int = 100
     rel_tol: float = 1e-15
@@ -213,6 +258,7 @@ class SVDParameters:
     renorm: bool = False
     sum_trunc: bool = False
     sum_renorm: bool = True
+    random: bool = False
 
     def __post_init__(self):
         """
@@ -418,8 +464,12 @@ def truncated_tensor_svd(tensor: np.ndarray,
             0  |____|  1                   0  |____| 2   0       1  0 |____|
 
     """
-    u, s, vh = tensor_svd(tensor, u_legs, v_legs)
-    s, _ = truncate_singular_values(s, svd_params)
+    if svd_params.random:
+        u, s, vh = rand_tensor_svd(tensor, u_legs, v_legs,
+                                   svd_params.max_bond_dim)
+    else:
+        u, s, vh = tensor_svd(tensor, u_legs, v_legs)
+        s, _ = truncate_singular_values(s, svd_params)
     new_bond_dim = len(s)
     u = u[..., :new_bond_dim]
     vh = vh[:new_bond_dim, ...]
@@ -540,7 +590,7 @@ def tensor_qr_decomposition_pivot(tensor: np.ndarray,
                                   correctly_ordered=correctly_order)
     q,r = rrqr(matrix, svd_params)
     r = r*np.linalg.norm(matrix,2)/np.linalg.norm(r,2)
-    
+
     shape = tensor.shape
     q_shape = _determine_tensor_shape(shape, q, q_legs, output=True)
     r_shape = _determine_tensor_shape(shape, r, r_legs, output=False)
@@ -548,7 +598,9 @@ def tensor_qr_decomposition_pivot(tensor: np.ndarray,
     r = r.reshape(r_shape)
     return q, r
 
-def rrqr(tensor: np.ndarray, svd_params: Union[SVDParameters,None] = None) -> Tuple[np.ndarray,np.ndarray]:
+def rrqr(tensor: np.ndarray,
+         svd_params: Union[SVDParameters,None] = None
+         ) -> Tuple[np.ndarray,np.ndarray]:
     """
     Rank-revealing QR decomposition.
 
