@@ -23,6 +23,8 @@ def svd_truncation(tree: TreeTensorNetwork, params: SVDParameters) -> TreeTensor
     """
     # Find the update path for the truncation.
     update_path = tree.linearise()
+    tree.canonical_form(update_path[0])
+    # Move the orthogonality center along the path and truncate the tensors.
     for node_id in update_path[:-1]:
         tree.move_orthogonalization_center(node_id)
         contract_and_split_with_parent(node_id, tree, params)
