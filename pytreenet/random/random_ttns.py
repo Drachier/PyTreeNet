@@ -30,7 +30,8 @@ class RandomTTNSMode(Enum):
     TRIVIALVIRTUAL = "trivial_virtual"
 
 def random_small_ttns(mode: RandomTTNSMode = RandomTTNSMode.DIFFVIRT,
-                      ids: Union[List[str]|None] = None) -> TreeTensorNetworkState:
+                      ids: Union[List[str]|None] = None,
+                      seed=None) -> TreeTensorNetworkState:
     """
     Generates a small TreeTensorNetworkState of three nodes:
     The root (`"root"`) and its two children (`"c1"` and `"c2"`). The associated 
@@ -53,6 +54,7 @@ def random_small_ttns(mode: RandomTTNSMode = RandomTTNSMode.DIFFVIRT,
         ids (List[str]|None): A list of identifiers for the nodes. If None, the
             the identifiers will be set to `"root"`, `"c1"` and `"c2"`. If a
             list is provided, the identifiers will be set in that order.
+        seed: An optional seed for the random number generator.
 
     Returns:
         TreeTensorNetwork: A tree tensor network with the above topology and
@@ -65,29 +67,31 @@ def random_small_ttns(mode: RandomTTNSMode = RandomTTNSMode.DIFFVIRT,
     c2_id = ids[2]
     random_ttns = TreeTensorNetworkState()
     if mode == RandomTTNSMode.DIFFVIRT:
-        root_node, root_tensor = random_tensor_node((5,6,2),root_id)
+        root_node, root_tensor = random_tensor_node((5,6,2),root_id, seed=seed)
         random_ttns.add_root(root_node, root_tensor)
-        c1_node, c1_tensor = random_tensor_node((5,3),c1_id)
+        c1_node, c1_tensor = random_tensor_node((5,3),c1_id, seed=seed)
         random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, root_id, 0)
-        c2_node, c2_tensor = random_tensor_node((6,4),c2_id)
+        c2_node, c2_tensor = random_tensor_node((6,4),c2_id, seed=seed)
         random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, root_id, 1)
     elif mode == RandomTTNSMode.SAMEPHYS:
-        root_node, root_tensor = random_tensor_node((5,6,2),root_id)
+        root_node, root_tensor = random_tensor_node((5,6,2),root_id, seed=seed)
         random_ttns.add_root(root_node, root_tensor)
-        c1_node, c1_tensor = random_tensor_node((5,2),c1_id)
+        c1_node, c1_tensor = random_tensor_node((5,2),c1_id, seed=seed)
         random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, root_id, 0)
-        c2_node, c2_tensor = random_tensor_node((6,2),c2_id)
+        c2_node, c2_tensor = random_tensor_node((6,2),c2_id, seed=seed)
         random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, root_id, 1)
     else:
-        root_node, root_tensor = random_tensor_node((2,2,2),root_id)
+        root_node, root_tensor = random_tensor_node((2,2,2),root_id, seed=seed)
         random_ttns.add_root(root_node, root_tensor)
-        c1_node, c1_tensor = random_tensor_node((2,3),c1_id)
+        c1_node, c1_tensor = random_tensor_node((2,3),c1_id, seed=seed)
         random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, root_id, 0)
-        c2_node, c2_tensor = random_tensor_node((2,4),c2_id)
+        c2_node, c2_tensor = random_tensor_node((2,4),c2_id, seed=seed)
         random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, root_id, 1)
     return random_ttns
 
-def random_big_ttns(mode: RandomTTNSMode = RandomTTNSMode.SAME) -> TreeTensorNetworkState:
+def random_big_ttns(mode: RandomTTNSMode = RandomTTNSMode.SAME,
+                   seed=None
+                   ) -> TreeTensorNetworkState:
     """
     Generates a big TTNS
     
@@ -114,14 +118,14 @@ def random_big_ttns(mode: RandomTTNSMode = RandomTTNSMode.SAME) -> TreeTensorNet
     if mode == RandomTTNSMode.SAME:
         # All dimensions virtual and physical are initially the same
         # We need a ttn to work on.
-        node1, tensor1 = random_tensor_node((2,2,2,2), identifier="site1")
-        node2, tensor2 = random_tensor_node((2,2,2), identifier="site2")
-        node3, tensor3 = random_tensor_node((2,2), identifier="site3")
-        node4, tensor4 = random_tensor_node((2,2,2), identifier="site4")
-        node5, tensor5 = random_tensor_node((2,2), identifier="site5")
-        node6, tensor6 = random_tensor_node((2,2,2,2), identifier="site6")
-        node7, tensor7 = random_tensor_node((2,2), identifier="site7")
-        node8, tensor8 = random_tensor_node((2,2), identifier="site8")
+        node1, tensor1 = random_tensor_node((2,2,2,2), identifier="site1", seed=seed)
+        node2, tensor2 = random_tensor_node((2,2,2), identifier="site2", seed=seed)
+        node3, tensor3 = random_tensor_node((2,2), identifier="site3", seed=seed)
+        node4, tensor4 = random_tensor_node((2,2,2), identifier="site4", seed=seed)
+        node5, tensor5 = random_tensor_node((2,2), identifier="site5", seed=seed)
+        node6, tensor6 = random_tensor_node((2,2,2,2), identifier="site6", seed=seed)
+        node7, tensor7 = random_tensor_node((2,2), identifier="site7", seed=seed)
+        node8, tensor8 = random_tensor_node((2,2), identifier="site8", seed=seed)
 
         random_ttns = TreeTensorNetworkState()
         random_ttns.add_root(node1, tensor1)
@@ -136,7 +140,8 @@ def random_big_ttns(mode: RandomTTNSMode = RandomTTNSMode.SAME) -> TreeTensorNet
     errstr = "The only supported mode is RandomTTNSMode.SAME"
     raise NotImplementedError(errstr)
 
-def random_big_ttns_two_root_children(mode: Union[RandomTTNSMode,List[Tuple[int]]] = RandomTTNSMode.SAME
+def random_big_ttns_two_root_children(mode: Union[RandomTTNSMode,List[Tuple[int]]] = RandomTTNSMode.SAME,
+                                      seed=None
                                       ) -> TreeTensorNetworkState:
     """
     Returns a random big TTNS where the root has only two children.
@@ -181,7 +186,7 @@ def random_big_ttns_two_root_children(mode: Union[RandomTTNSMode,List[Tuple[int]
         errstr = "Only RandomTTNSMode.SAME, RandomTTNSMode.DIFFVIRT or a list of shapes is supported!"
         raise NotImplementedError(errstr)
 
-    nodes = [random_tensor_node(shape, identifier="site"+str(i))
+    nodes = [random_tensor_node(shape, identifier="site"+str(i), seed=seed)
              for i, shape in enumerate(shapes)]
     random_ttns = TreeTensorNetworkState()
     random_ttns.add_root(nodes[0][0], nodes[0][1])
