@@ -124,7 +124,9 @@ class Results:
 
     def initialize(self,
                    operators: dict[Hashable, DTypeLike],
-                   num_time_steps: int) -> None:
+                   num_time_steps: int,
+                   with_time: bool = True
+                   ) -> None:
         """
         Initializes the results object with the given operators and number of
          time steps.
@@ -134,14 +136,17 @@ class Results:
                 operator names and values are their corresponding data types.
                 If the data type is not specified, it defaults to complex128.
             num_time_steps (int): The number of time steps in the simulation.
+            with_time (bool): If True, includes a time array in the results.
+                Defaults to True.
 
         Raises:
             ValueError: If any operator name is an integer.
         """
         if self.is_initialized():
             raise ValueError("Results object is already initialized!")
-        self.results[TIMES_ID] = np.zeros((num_time_steps + 1,),
-                                                  dtype=np.float64)
+        if with_time:
+            self.results[TIMES_ID] = np.zeros((num_time_steps + 1,),
+                                                      dtype=np.float64)
         for operator, dtype in operators.items():
             if isinstance(operator, int):
                 raise ValueError("Operator names mustn't be integers!")
