@@ -376,3 +376,25 @@ class TDVPUpdatePathFinder_LeafToLeaf():
         path.append(node_id)
 
         return path
+
+def find_orthogonalisation_path(update_path: List[str],
+                                state: TreeStructure,
+                                include_start: bool = False
+                                ) -> List[List[str]]:
+    """
+    Finds the orthogonalization path for a given update path in the state.
+
+    Args:
+        update_path (List[str]): The update path to find the orthogonalization for.
+        state (TreeStructure): The current state of the tree.
+        include_start (bool): Whether to include the starting node in the
+            orthogonalization path. Default is False.
+
+    Returns:
+        List[List[str]]: A list of sub-paths representing the orthogonalization path.
+    """
+    orthogonalization_path = []
+    for i in range(len(update_path)-1):
+        sub_path = state.path_from_to(update_path[i], update_path[i+1])
+        orthogonalization_path.append(sub_path[1:] if not include_start else sub_path)
+    return orthogonalization_path

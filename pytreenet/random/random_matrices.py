@@ -2,12 +2,22 @@
 This module contains functions to generate random matrices.
 """
 from typing import Tuple, Union
+from dataclasses import dataclass
 
 import numpy as np
 import numpy.random as npr
 from scipy.linalg import expm
 
 from ..util.ttn_exceptions import positivity_check
+
+@dataclass
+class RandomParams:
+    """
+    Parameters for random number generation.
+    """
+    seed: Union[int,None] = None
+    loc: float = 0.0
+    scale: float = 1.0
 
 def crandn(size: Union[Tuple[int,...],int],
            *args,

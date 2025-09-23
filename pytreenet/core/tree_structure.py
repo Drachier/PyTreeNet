@@ -190,7 +190,7 @@ class TreeStructure():
         nn_list = [tuple(pair) for pair in nn]
         return nn_list
 
-    def get_leaves(self , include_root: bool = True) -> List[str]:
+    def get_leaves(self, include_root: bool = True) -> List[str]:
         """
         Returns a list with the identifiers of all leaves.
         """
@@ -200,6 +200,13 @@ class TreeStructure():
             if self.nodes[self.root_id].nneighbours() == 1:
                 leaves.append(self.root_id)
         return leaves
+
+    def get_leafs(self, include_root: bool = True) -> List[str]:
+        """
+        Returns a list with the identifiers of all leaves.
+        """
+        # Merely a wrapper for get_leaves
+        return self.get_leaves(include_root=include_root)
 
     def distance_to_node(self, center_node_id: str) -> Dict[str, int]:
         """

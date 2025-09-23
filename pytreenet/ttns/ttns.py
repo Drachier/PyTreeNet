@@ -79,7 +79,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             float: The norm of the state.
         """
         scal_prod = self.scalar_product()
-        assert scal_prod.imag == 0
+        assert np.allclose(scal_prod.imag, 0), f"Norm should be real, got {scal_prod}!"
         return sqrt(scal_prod.real)
 
     def normalise(self, norm: float | None = None) -> float:

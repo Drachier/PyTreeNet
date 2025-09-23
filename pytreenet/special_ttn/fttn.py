@@ -16,7 +16,7 @@ Also contains the subclasses that combine the FTTN structure with the
 properties of a TTNS or TTNO.
 """
 from __future__ import annotations
-from typing import Union
+from typing import Union, Self
 
 import numpy as np
 
@@ -176,6 +176,42 @@ class ForkTreeTensorNetwork(TreeTensorNetwork):
                 parent_leg = parent_node.nvirt_legs()
         self.add_child_to_parent(node, tensor, 0, parent_id, parent_leg)
         self.sub_chains[subchain_index].append(node)
+
+    @classmethod
+    def from_tensors(cls,
+                     main_tensors: list[np.ndarray],
+                     subchain_tensors: list[list[np.ndarray]],
+                     main_identifier_prefix: str = "main",
+                     subchain_identifier_prefix: str = "sub"
+                     ) -> Self:
+        """
+        Creates a ForkTreeTensorNetwork from a list of tensors.
+
+        Args:
+            main_tensors (list[np.ndarray]): A list of tensors for the main
+                chain. The tensors should have the leg order
+                `(v_to_prev, v_to_next, v_to_subchain, phys)`.
+            subchain_tensors (list[list[np.ndarray]]): A list of lists of
+                tensors for the subchains. The outer list has to have the
+                same length as the main_tensors list. The tensors should
+                have the leg order `(v_to_main, v_to_subchain, phys)`.
+            main_identifier_prefix (str, optional): Prefix of the main chain
+                nodes. The identifiers will have the form `prefix + position in
+                chain`. Defaults to "main".
+            subchain_identifier_prefix (str, optional): Prefix of the sub chain
+                nodes. The identifiers will have the form `prefix + main chain
+                node position + _ + subchain node position`. Defaults to "sub".
+        
+        Returns:
+            ForkTreeTensorNetwork: The created ForkTreeTensorNetwork.
+        """
+        fttn = cls(main_identifier_prefix, subchain_identifier_prefix)
+        for i, mtensor in enumerate(main_tensors):
+            fttn.add_main_chain_node(mtensor)
+        for i, subchain in enumerate(subchain_tensors):
+            for stensor in subchain:
+                fttn.add_sub_chain_node(stensor, i)
+        return fttn
 
 class ForkTreeProductState(ForkTreeTensorNetwork, TreeTensorNetworkState):
     """

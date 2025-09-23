@@ -169,6 +169,7 @@ def contract_any(node_id: str, next_node_id: str,
                  state1: TreeTensorNetworkState,
                  state2: TreeTensorNetworkState,
                  dictionary: PartialTreeCachDict,
+                 state2_conj: bool = False,
                  id_trafo: Union[Callable,None] = None
                  ) -> np.ndarray:
     """
@@ -187,6 +188,8 @@ def contract_any(node_id: str, next_node_id: str,
         state2 (TreeTensorNetworkState): The second TTN state.
         dictionary (PartialTreeCacheDict): The dictionary containing the
             already contracted subtrees.
+        state2_conj (bool): Whether to use the complex conjugate of the tensors
+            in state2. Defaults to False.
         id_trafo (Union[Callable,None], optional): A function to transform the
             node identifiers of state1 into the node identifiers of stat2. If
             None, it is assumed that the identifiers are the same. Defaults to
@@ -212,6 +215,8 @@ def contract_any(node_id: str, next_node_id: str,
         node2, tensor2 = state2[node_id]
     else:
         node2, tensor2 = state2[id_trafo(node_id)]
+    if state2_conj:
+        tensor2 = np.conjugate(tensor2)
     return contract_any_nodes(next_node_id, node1, node2,
                               tensor1, tensor2, dictionary,
                               id_trafo=id_trafo)
