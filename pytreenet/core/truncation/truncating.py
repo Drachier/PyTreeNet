@@ -11,3 +11,13 @@ class TruncationMethod(Enum):
     RECURSIVE = "recursive"
     SVD = "svd"
     VARIATIONAL = "variational"
+
+    def randomisable(self) -> bool:
+        """
+        Checks if the truncation method has a randomised version.
+
+        Returns:
+            bool: True if the truncation method has a randomised version,
+                False otherwise.
+        """
+        return self in {TruncationMethod.RECURSIVE, TruncationMethod.SVD}
