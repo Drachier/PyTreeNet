@@ -26,6 +26,7 @@ class TTNStructure(Enum):
     MPS = "mps"
     BINARY = "binary"
     TSTAR = "tstar"
+    FTPS = "ftps"
     EXACT = "exact"
 
     # The following methods are useful to keep plots consistent.
@@ -38,6 +39,7 @@ class TTNStructure(Enum):
             TTNStructure.MPS: "tab:blue",
             TTNStructure.BINARY: "tab:orange",
             TTNStructure.TSTAR: "tab:green",
+            TTNStructure.FTPS: "tab:red",
             TTNStructure.EXACT: "black"
         }[self]
 
@@ -49,6 +51,7 @@ class TTNStructure(Enum):
             TTNStructure.MPS: "dashed",
             TTNStructure.BINARY: "dotted",
             TTNStructure.TSTAR: "dashdot",
+            TTNStructure.FTPS: (0, (1, 1)),
             TTNStructure.EXACT: "solid"
         }[self]
 
@@ -60,6 +63,7 @@ class TTNStructure(Enum):
             TTNStructure.MPS: "o",
             TTNStructure.BINARY: "*",
             TTNStructure.TSTAR: "1",
+            TTNStructure.FTPS: "2",
             TTNStructure.EXACT: "."
         }[self]
 
@@ -71,6 +75,7 @@ class TTNStructure(Enum):
             TTNStructure.MPS: "MPS",
             TTNStructure.BINARY: "Binary TTN",
             TTNStructure.TSTAR: "T-STAR",
+            TTNStructure.FTPS: "FTPS",
             TTNStructure.EXACT: "Exact"
         }[self]
 
