@@ -1,5 +1,6 @@
 """
-This module provides tests for the local contraction class.
+This module provides tests for the local contraction class if the contracted
+tensor have no neighbours (singular contraction).
 """
 from __future__ import annotations
 import unittest
@@ -10,8 +11,7 @@ import numpy.testing as npt
 from pytreenet.random.random_node import random_tensor_node
 from pytreenet.contractions.tree_cach_dict import PartialTreeCachDict
 from pytreenet.contractions.local_contr import (LocalContraction,
-                                                TensorKind,
-                                                FinalTransposition)
+                                                TensorKind)
 
 SEED = 686984451
 
