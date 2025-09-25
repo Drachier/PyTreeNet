@@ -3,7 +3,7 @@ This module implements the LocalContraction class, which abstracts the
 contraction of tensors on one node with their subtree tensors.
 """
 from __future__ import annotations
-from typing import TYPE_CHECKING, Callable, Iterator
+from typing import TYPE_CHECKING, Callable
 from enum import Enum
 from itertools import product
 
@@ -23,6 +23,74 @@ class TensorKind(Enum):
     BRA = 1
     OPERATOR = 2
 
+    def state_tensor(self) -> bool:
+        """
+        Returns whether the tensor is a state tensor (ket or bra).
+        """
+        return self in (TensorKind.KET, TensorKind.BRA)
+
+class OpenLegKind(Enum):
+    """
+    An enumeration of the different kinds of open legs.
+    """
+    IN = 0
+    OUT = 1
+
+    def opposite(self) -> OpenLegKind:
+        """
+        Returns the opposite kind of open leg.
+        """
+        if self is OpenLegKind.IN:
+            return OpenLegKind.OUT
+        elif self is OpenLegKind.OUT:
+            return OpenLegKind.IN
+        else:
+            errstr = f"Invalid `OpenLegKind` {self}!"
+            raise ValueError(errstr)
+        
+def valid_contraction_order(order: list[int]) -> bool:
+    """
+    Checks whether the given contraction order is valid.
+
+    A contraction order is valid if for every tensor in the order,
+    it is either the highest or lowest in the stack of already contracted
+    tensors.
+
+    Args:
+        order (list[int]): The contraction order to check.
+
+    Returns:
+        bool: True if the contraction order is valid, False otherwise.
+    """
+    if len(order) == 0:
+        return False
+    current_min = order[0]
+    current_max = order[0]
+    for index in order[1:]:
+        if index < current_min:
+            if index != current_min - 1:
+                return False
+            current_min = index
+        elif index > current_max:
+            if index != current_max + 1:
+                return False
+            current_max = index
+        else:
+            return False
+    return True
+
+class FinalTransposition(Enum):
+    """
+    An enumeration of the different ways to transpose the final tensor.
+    
+    STANDARD: The final tensor is brought into the conventional order of legs.
+        That is, all legs pointing to the neighbours in the order specified by
+        `neighbour_order`, followed by all out legs and then all in legs.
+    NONE: The final tensor is not transposed.
+    """
+    STANDARD = 0
+    NONE = 1
+
 class LocalContraction:
 
     def __init__(self,
@@ -32,7 +100,9 @@ class LocalContraction:
                  neighbour_order: list[str] | None = None,
                  ignored_leg: str = "",
                  id_trafos: None | list[Callable] = None,
-                 connection_index: int = 0
+                 connection_index: int = 0,
+                 contraction_order: list[int] | None = None,
+                 highest_tensor: TensorKind = TensorKind.OPERATOR
                  ):
         """
         Initialize a LocalContraction object.
@@ -59,6 +129,14 @@ class LocalContraction:
             the node in this position. If None, defaults to the identity.
         connection_index(int): The index of the subtree tensors to which the
             first node in the node list should be connected.
+        contraction_order (list[int] | None): The order in which the tensors
+            should be contracted. If None, the order of the list is used.
+        highest_tensor (TensorKind): The kind of the highest tensor in the
+            stack. This is needed to determine the number of open legs in a
+            few special cases, if there is only a single tensor in the stack
+            and no subtree tensors. In this case, if the last tensor is a bra
+            tensor, this must be set to `TensorKind.BRA`, otherwise to
+            `TensorKind.OPERATOR`.
 
         """
         if len(nodes_tensors) == 0:
@@ -80,7 +158,82 @@ class LocalContraction:
         self.id_trafos = id_trafos
         self.connection_index = connection_index
         self.current_tensor = CurrentTensor()
-        self.contraction_order = list(range(len(self.node_tensors)))
+        if contraction_order is None:
+            contraction_order = list(range(len(self.node_tensors)))
+        elif not valid_contraction_order(contraction_order):
+            errstr = f"Invalid contraction order {contraction_order}!"
+            raise ValueError(errstr)
+        self.contraction_order = contraction_order
+        self.nphys = self._determine_nphys(highest_tensor)
+
+    def _determine_nphys(self,
+                         highest_tensor: TensorKind) -> int:
+        """
+        Determines the number of physical legs of the current contraction.
+
+        Args:
+            highest_tensor (TensorKind): The kind of the highest tensor in the
+                stack. This is needed to determine the number of open legs in a
+                few special cases, if there is only a single tensor in the stack
+                and no subtree tensors. In this case, if the last tensor is a bra
+                tensor, this must be set to `TensorKind.BRA`, otherwise to
+                `TensorKind.OPERATOR`.
+        """
+        node, _ = self.node_tensors[0]
+        if self.connection_index == 0:
+            # In this case the first node is a ket node.
+            return node.nopen_legs()
+        elif len(self.node_tensors) > 1:
+            last_node, _ = self.node_tensors[-1]
+            last_node_open = last_node.nopen_legs()
+            second_last_node, _ = self.node_tensors[-2]
+            second_last_node_open = second_last_node.nopen_legs()
+            if last_node_open < second_last_node_open:
+                # In this case the last node is a bra tensor and all others
+                # are operator tensors.
+                return last_node_open
+            if last_node_open == second_last_node_open:
+                # In this case the last node is an operator tensor and all
+                # others are operator tensors.
+                assert last_node_open % 2 == 0, "Operator tensors must have even number of open legs!"
+                return last_node_open // 2
+            errstr = "Invalid open leg configuration!"
+            raise ValueError(errstr)
+        else:
+            # This is a very tricky case, where we cannot know if the tensor is
+            # a bra or operator tensor. In most cases it will be an operator
+            # tensor
+            if highest_tensor is TensorKind.BRA:
+                return node.nopen_legs()
+            elif highest_tensor is TensorKind.OPERATOR:
+                assert node.nopen_legs() % 2 == 0, "Operator tensors must have even number of open legs!"
+                return node.nopen_legs() // 2
+            else:
+                errstr = "Invalid highest tensor type!"
+                raise ValueError(errstr)
+
+    def determine_tensor_kind(self,
+                            index: int
+                            ) -> TensorKind:
+        """
+        Determines the kind of tensor at the given index.
+
+        Args:
+            index (int): The index of the tensor in the `node_tensors` list.
+
+        Returns:
+            TensorKind: The kind of tensor at the given index.
+        """
+        node, _ = self.node_tensors[index]
+        if index == 0:
+            if self.connection_index == 0:
+                return TensorKind.KET
+            if node.nopen_legs() == self.nphys:
+                return TensorKind.BRA
+        if index == len(self.node_tensors) - 1:
+            if node.nopen_legs() == self.nphys:
+                return TensorKind.BRA
+        return TensorKind.OPERATOR
 
     def no_ignored_legs(self) -> bool:
         """
@@ -119,6 +272,38 @@ class LocalContraction:
             raise ValueError(errstr)
         return next(iter(self.subtree_dict.values())).ndim
 
+    def get_phy_legs(self,
+                     index: int,
+                     open_leg_kind: OpenLegKind
+                     ) -> list[int]:
+        """
+        Returns the physical legs of the tensor at the given index.
+
+        Args:
+            index (int): The index of the tensor in the `node_tensors` list.
+            open_leg_kind (OpenLegKind): The kind of physical legs to return.
+                IN or OUT.
+        """
+        node, _ = self.node_tensors[index]
+        tensor_kind = self.determine_tensor_kind(index)
+        open_legs = node.open_legs
+        nopen = node.nopen_legs()
+        if tensor_kind is TensorKind.OPERATOR:
+            if open_leg_kind is OpenLegKind.IN:
+                # In are the last half of the open legs
+                return open_legs[-(nopen // 2):]
+            elif open_leg_kind is OpenLegKind.OUT:
+                # Out are the first half of the open legs
+                return open_legs[:(nopen // 2)]
+            else:
+                errstr = f"Invalid `OpenLegKind` {open_leg_kind}!"
+                raise ValueError(errstr)
+        elif tensor_kind.state_tensor():
+            return open_legs
+        else:
+            errstr = f"Invalid `TensorKind` {tensor_kind}!"
+            raise ValueError(errstr)
+
     def create_reverse_trafo(self,
                              index: int
                              ) -> Callable:
@@ -136,6 +321,19 @@ class LocalContraction:
                                                          self.neighbour_order)
                    if node_neigh == id_trafo(init_neigh)}
         return lambda x: mapping[x]
+
+    def no_subtree_tensors(self) -> bool:
+        """
+        Returns whether there are no subtree tensors to contract with.
+        """
+        try:
+            node, _ = self.node_tensors[0]
+            if node.nneighbours() == self.num_ignored():
+                return True
+            return False
+        except IndexError as exc:
+            errstr = "No tensors in the node_tensors list!"
+            raise IndexError(errstr) from exc
 
     def contract_first_tensor(self):
         """
@@ -159,34 +357,33 @@ class LocalContraction:
                 ignored_passed += 1
         self.current_tensor.value = tensor
         nopen = node.nopen_legs()
-        max_dim = self.subtree_degree() # The number of open legs on a cached subtree tensor.
-        if subtree_leg == 0:
-            tensor_kind = TensorKind.KET
-        elif subtree_leg == max_dim - 1:
-            tensor_kind = TensorKind.BRA
-        else:
-            tensor_kind = TensorKind.OPERATOR
+        tensor_kind = self.determine_tensor_kind(contr_index)
         self.current_tensor.set_first_tensor_open_legs(ignored_passed,
                                                        nopen,
                                                        tensor_kind)
-        self.current_tensor.ignored_legs = list(range(ignored_passed))
-        # Now we need to set the neighbour legs.
-        rev_traf = self.create_reverse_trafo(contr_index)
-        ignored_passed = 0
-        # After the above contractions, the legs corresponding to the
-        # neighbouring nodes are at the end of the tensor
-        legs_before_neighs = nopen + self.num_ignored()
-        for index, neigh_id in enumerate(node.neighbouring_nodes()):
-            if not self.is_ignored(neigh_id,
-                               contr_index):
-                leg_index = index - ignored_passed
-                range_start = legs_before_neighs + leg_index * max_dim
-                range_end = legs_before_neighs + (leg_index + 1) * max_dim
-                neigh_legs: list[int | None] = list(range(range_start, range_end))
-                neigh_legs[contr_index + self.connection_index] = None
-                self.current_tensor.neighbour_legs[rev_traf(neigh_id)] = neigh_legs
-            else:
-                ignored_passed += 1
+        # Initialise ignored leg list
+        self.current_tensor.ignored_legs = [None] * len(self.node_tensors)
+        if self.num_ignored() > 0:
+            self.current_tensor.ignored_legs[contr_index] = ignored_passed - 1
+        if not self.no_subtree_tensors():
+            # Now we need to set the neighbour legs.
+            rev_traf = self.create_reverse_trafo(contr_index)
+            ignored_passed = 0
+            # After the above contractions, the legs corresponding to the
+            # neighbouring nodes are at the end of the tensor
+            max_dim = self.subtree_degree() # The number of open legs on a cached subtree tensor.
+            legs_before_neighs = nopen + self.num_ignored()
+            for index, neigh_id in enumerate(node.neighbouring_nodes()):
+                if not self.is_ignored(neigh_id,
+                                contr_index):
+                    leg_index = index - ignored_passed
+                    range_start = legs_before_neighs + leg_index * max_dim
+                    range_end = legs_before_neighs + (leg_index + 1) * max_dim
+                    neigh_legs: list[int | None] = list(range(range_start, range_end))
+                    neigh_legs[contr_index + self.connection_index] = None
+                    self.current_tensor.neighbour_legs[rev_traf(neigh_id)] = neigh_legs
+                else:
+                    ignored_passed += 1
 
     def contract_tensor(self,
                         contr_index: int):
@@ -208,22 +405,11 @@ class LocalContraction:
         if contr_index < prev_contr_index:
             # This means we are now contracting a lower tensor in the stack.
             # Thus we return the in legs.
-            curr_ten_open = self.current_tensor.in_legs
+            open_leg_kind = OpenLegKind.IN
         else:
-            curr_ten_open = self.current_tensor.out_legs
-        ten_open = node.open_legs
-        if len(curr_ten_open) == len(curr_ten_open):
-            # This means a state tensor is contracted
-            contr_ten_open = ten_open
-        elif len(curr_ten_open) // 2 == len(curr_ten_open):
-            # This menas an operator tensor is contracted
-            if contr_index < prev_contr_index:
-                contr_ten_open = ten_open[-(len(curr_ten_open) // 2):]
-            else:
-                contr_ten_open = ten_open[:(len(curr_ten_open) // 2)]
-        else:
-            errstr = "Open leg degree does not fit!"
-            raise ValueError(errstr)
+            open_leg_kind = OpenLegKind.OUT
+        curr_ten_open = self.current_tensor.open_leg_by_kind(open_leg_kind)
+        contr_ten_open = self.get_phy_legs(contr_index, open_leg_kind.opposite())
         contr_ten_legs.extend(contr_ten_open)
         curr_ten_legs.extend(curr_ten_open)
         # Get the virtual legs of the node that are to be contracted
@@ -250,12 +436,56 @@ class LocalContraction:
         # The ignored leg will be the first, as it was a virtual leg
         ignored_legs = list(range(num_rem_legs,
                                   num_rem_legs + self.num_ignored()))
-        self.current_tensor.ignored_legs.extend(ignored_legs)
+        assert len(ignored_legs) == self.num_ignored()
+        if self.num_ignored() > 0:
+            self.current_tensor.ignored_legs[contr_index] = ignored_legs[0]
+        elif self.num_ignored() > 1:
+            errstr = "More than one ignored leg not supported!"
+            raise NotImplementedError(errstr)
         # Finally, we add the new open legs. They will be the very last ones
         new_open_legs = list(range(num_rem_legs + self.num_ignored(),
                                    curr_tensor.ndim))
-        self.current_tensor.set_open_legs_after_contr(new_open_legs)
+        self.current_tensor.set_open_legs_by_kind(new_open_legs, open_leg_kind)
         self.current_tensor.value = curr_tensor
+
+    def contract_all(self,
+                     transpose_option: FinalTransposition = FinalTransposition.STANDARD
+                     ) -> npt.NDArray:
+        """
+        Contracts all tensors in the contraction order.
+
+        Args:
+            transpose_option (FinalTransposition): The way to transpose the
+                final tensor. Check the `FinalTransposition` enum for
+                more details.
+        
+        Returns:
+            npt.NDArray: The final contracted tensor.
+        """
+        self.contract_first_tensor()
+        for i in range(1, len(self.contraction_order)):
+            self.contract_tensor(i)
+        if transpose_option is FinalTransposition.STANDARD:
+            # We want the final tensor to be in the order of
+            # [neighbour legs..., out legs..., in legs...]
+            perm = []
+            # First the neighbour legs in the order specified by neighbour_order
+            for neigh_id in self.neighbour_order:
+                if neigh_id in self.current_tensor.neighbour_legs:
+                    perm.extend(self.current_tensor.cleared_neigh_legs(neigh_id))
+                elif self.is_ignored(neigh_id, 0):
+                    # This means the ignored leg is in the final tensor
+                    perm.extend(self.current_tensor.cleared_ignored_legs())
+            # Then the out legs
+            perm.extend(self.current_tensor.cleared_open_legs(OpenLegKind.OUT))
+            # Finally the in legs
+            perm.extend(self.current_tensor.cleared_open_legs(OpenLegKind.IN))
+            final_tensor = np.transpose(self.current_tensor.value, axes=perm)
+            return final_tensor
+        if transpose_option is FinalTransposition.NONE:
+            return self.current_tensor.value
+        errstr = f"Invalid `FinalTransposition` {transpose_option}!"
+        raise ValueError(errstr)
 
 class CurrentTensor:
     """
@@ -271,7 +501,25 @@ class CurrentTensor:
         self.out_legs: list[int | None] = []
         # The order of these legs is exactly as the order of node,tensor pairs
         self.neighbour_legs: dict[str,list[int | None]] = {}
-        self.ignored_legs: list[int] = []
+        # Same here, but for ignored legs
+        self.ignored_legs: list[int | None] = []
+
+    def open_leg_by_kind(self,
+                         kind: OpenLegKind
+                            ) -> list[int | None]:
+        """
+        Returns the open legs of the given kind.
+
+        Args:
+            kind (OpenLegKind): The kind of open legs to return.
+        """
+        if kind is OpenLegKind.IN:
+            return self.in_legs
+        elif kind is OpenLegKind.OUT:
+            return self.out_legs
+        else:
+            errstr = f"Invalid `OpenLegKind` {kind}!"
+            raise ValueError(errstr)
 
     def get_neighbour_leg(self,
                           neigh_id: str,
@@ -300,6 +548,56 @@ class CurrentTensor:
             errstr += "was already contracted!"
             raise IndexError(errstr)
         return out
+
+    def cleared_neigh_legs(self, neigh_id: str) -> list[int]:
+        """
+        Returns a list of all neighbour legs of the specified neighbour
+        that are not None.
+
+        Args:
+            neigh_id (str): The identifier of the neighbour.
+        
+        Returns:
+            list[int]: A list of all leg indices that are not None.
+        """
+        return [leg for leg in self.neighbour_legs[neigh_id]
+                if leg is not None]
+
+    def cleared_ignored_legs(self) -> list[int]:
+        """
+        Returns a list of all ignored legs that are not None.
+
+        Returns:
+            list[int]: A list of all leg indices that are not None.
+        """
+        return [leg for leg in self.ignored_legs
+                if leg is not None]
+
+    def cleared_open_legs(self,
+                          kind: OpenLegKind
+                          ) -> list[int]:
+        """
+        Returns a list of all specified open legs that are not None.
+
+        Args:
+            kind (OpenLegKind): The kind of open legs to return.
+        
+        Returns:
+            list[int]: A list of all leg indices that are not None.
+        """
+        if kind is OpenLegKind.IN:
+            legs = self.in_legs
+        elif kind is OpenLegKind.OUT:
+            legs = self.out_legs
+        else:
+            errstr = f"Invalid `OpenLegKind` {kind}!"
+            raise ValueError(errstr)
+        # Either all legs are None or none are None
+        if len(legs) == 0:
+            return []
+        if legs[0] is None:
+            return []
+        return legs
 
     def set_neighbour_leg_none(self,
                                neigh_id: str,
@@ -340,7 +638,7 @@ class CurrentTensor:
         for ignored_leg in self.ignored_legs:
             new_val = _new_leg_val(ignored_leg,
                                    contracted_legs)
-            if new_val is None:
+            if new_val is None and ignored_leg is not None:
                 errstr = "Ignored leg shouldn't be contracted!"
                 raise ValueError(errstr)
             new_ign_legs.append(new_val)
@@ -384,28 +682,22 @@ class CurrentTensor:
         else:
             raise ValueError("Invalid TensorKind!")
 
-    def set_open_legs_after_contr(self,
-                                  open_legs: list[int]):
+    def set_open_legs_by_kind(self,
+                              open_legs: list[int],
+                              kind: OpenLegKind):
         """
-        Sets the open legs after a contraction.
+        Sets the open legs of the given kind.
 
         Args:
-            open_legs (list[int]): The index values of the new open legs.
+            open_legs (list[int]): The leg indices to set.
+            kind (OpenLegKind): The kind of open legs to set.
         """
-        if len(self.in_legs) == 0 and len(self.out_legs) == 0:
-            if len(open_legs) != 0:
-                errstr = "Invalid number of open legs!"
-                raise IndexError(errstr)
-        elif len(self.in_legs) != 0 and self.in_legs[0] is None:
+        if kind is OpenLegKind.IN:
             self.in_legs = open_legs
-        elif len(self.out_legs) != 0 and self.out_legs[0] is None:
-            self.out_legs = open_legs
-        elif len(self.in_legs) == 0:
-            self.in_legs = open_legs
-        elif len(self.out_legs) == 0:
+        elif kind is OpenLegKind.OUT:
             self.out_legs = open_legs
         else:
-            errstr = "Invalid contraction of open legs!"
+            errstr = f"Invalid `OpenLegKind` {kind}!"
             raise ValueError(errstr)
 
 def _new_leg_val(leg_value: int | None,
@@ -419,9 +711,15 @@ def _new_leg_val(leg_value: int | None,
         sorted_rem_legs (list[int]): A sorted list of the
             legs that were contracted.
     """
+    if len(sorted_rem_legs) == 0:
+        return leg_value
     if leg_value is None:
         # The leg is already gone and stays gone.
         return None
+    if leg_value < sorted_rem_legs[0]:
+        # Smaller than all contracted legs
+        # No need to adjust
+        return leg_value
     for i, rem_val in enumerate(sorted_rem_legs[:-1]):
         if leg_value == rem_val:
             # This leg was contracted
