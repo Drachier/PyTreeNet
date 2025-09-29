@@ -432,8 +432,11 @@ class Results:
                     for attr in self.attributes[key]:
                         attr_key, attr_value = attr
                         dset.attrs[attr_key] = attr_value
-            file.attrs[TIMES_ID] = self.results[TIMES_ID]
-            file.attrs["num_time_steps"] = len(self.results[TIMES_ID]) - 1
+            if TIMES_ID in self.results:
+                file.attrs[TIMES_ID] = self.results[TIMES_ID]
+                file.attrs["num_time_steps"] = len(self.results[TIMES_ID]) - 1
+            else:
+                file.attrs["num_measurements"] = len(next(iter(self.results.values())))
 
     @classmethod
     def load_from_h5(cls,

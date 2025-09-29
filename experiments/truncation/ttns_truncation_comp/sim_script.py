@@ -8,22 +8,20 @@ from time import time
 import os
 from copy import deepcopy
 
-import h5py
-
 from pytreenet.util.experiment_util.sim_params import SimulationParameters
 from pytreenet.util.experiment_util.script_util import script_main
 from pytreenet.core.truncation import (TruncationMethod,
                                        recursive_truncation,
                                        svd_truncation,
                                        single_site_fitting)
+from pytreenet.random.random_matrices import RandomDistribution
 from pytreenet.special_ttn.special_states import TTNStructure
 from pytreenet.random.random_special_ttns import random_ttns
-from pytreenet.random.random_matrices import RandomParams
 from pytreenet.time_evolution.results import Results
 from pytreenet.util.tensor_splitting import SVDParameters
 
 @dataclass
-class TruncationParams(SimulationParameters, RandomParams):
+class TruncationParams(SimulationParameters):
     """
     Parameters for the truncation comparison simulation.
     """
@@ -34,6 +32,11 @@ class TruncationParams(SimulationParameters, RandomParams):
     trunc_method: TruncationMethod = TruncationMethod.RECURSIVE
     random_trunc: bool = False
     max_target_bond_dim: int = 10
+    min_target_bond_dim: int = 1
+    step_target_bond_dim: int = 1
+    seed: int = 12334
+    distr_low: float = -1.0
+    distr_high: float = 1.0
 
 RES_IDS = ("bond_dim", "trunc_error", "run_time")
 
@@ -75,6 +78,20 @@ def set_result_values(results: Results,
     for res_id, res_value in zip(RES_IDS, res_values):
         results.set_element(res_id, index, res_value)
 
+def bond_dim_range(params: TruncationParams) -> range:
+    """
+    Generates a range of bond dimensions to be used in the simulation.
+
+    Args:
+        params (TruncationParams): The parameters for the simulation.
+
+    Returns:
+        range: A range of bond dimensions from min to max with the specified step.
+    """
+    return range(params.min_target_bond_dim,
+                 params.max_target_bond_dim + 1,
+                 params.step_target_bond_dim)
+
 def run_fitting(params: TruncationParams) -> Results:
     """
     Runs the single-site fitting truncation method.
@@ -95,17 +112,21 @@ def run_fitting(params: TruncationParams) -> Results:
                        params.phys_dim,
                        params.bond_dim,
                        seed=params.seed,
-                       loc=params.loc,
-                       scale=params.scale)
+                       distribution=RandomDistribution.UNIFORM,
+                       low=params.distr_low,
+                       high=params.distr_high
+                       )
     results = init_results(params)
-    for index, bond_dim in enumerate(range(1, params.max_target_bond_dim + 1)):
+    for index, bond_dim in enumerate(bond_dim_range(params)):
         init_ttns = random_ttns(params.structure,
                                  params.sys_size,
                                  params.phys_dim,
                                  bond_dim,
                                  seed=params.seed,
-                                 loc=params.loc,
-                                 scale=params.scale)
+                                 distribution=RandomDistribution.UNIFORM,
+                                 low=params.distr_low,
+                                 high=params.distr_high
+                                 )
         start_time = time()
         single_site_fitting(ttns, init_ttns,
                             10)
@@ -132,10 +153,11 @@ def run_svd_based_truncation(params: TruncationParams) -> Results:
                        params.phys_dim,
                        params.bond_dim,
                        seed=params.seed,
-                       loc=params.loc,
-                       scale=params.scale)
+                       distribution=RandomDistribution.UNIFORM,
+                       low=params.distr_low,
+                       high=params.distr_high)
     results = init_results(params)
-    for index, bond_dim in enumerate(range(1, params.max_target_bond_dim + 1)):
+    for index, bond_dim in enumerate(bond_dim_range(params)):
         comp_ttns = deepcopy(ttns)
         if params.trunc_method == TruncationMethod.RECURSIVE:
             trunc_func = recursive_truncation
