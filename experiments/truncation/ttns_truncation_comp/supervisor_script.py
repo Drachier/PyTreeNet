@@ -29,7 +29,7 @@ def generate_parameter_set() -> list[TruncationParams]:
     seeds = (1234, 4321, 43954, 3923, 49384)
     bond_dims = (40, 50, 60, 70, 80)
     param_set = []
-    for structure, method, bond_dim in product(structures, methods, bond_dims):
+    for structure, method, bond_dim, seed in product(structures, methods, bond_dims, seeds):
         if structure is TTNStructure.MPS:
             sys_size = 50
         elif structure is TTNStructure.BINARY:
@@ -50,7 +50,7 @@ def generate_parameter_set() -> list[TruncationParams]:
             max_target_bond_dim=bond_dim,
             min_target_bond_dim=5,
             step_target_bond_dim=5,
-            seed=1234,
+            seed=seed,
             distr_low=low,
             distr_high=high
         )

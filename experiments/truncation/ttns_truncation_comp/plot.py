@@ -8,7 +8,9 @@ from numpy.typing import NDArray
 import numpy as np
 import matplotlib.pyplot as plt
 
-from pytreenet.util.plotting.plotables.standard_plottable import StandardPlottable
+from pytreenet.util.plotting.plotables.standard_plottable import (StandardPlottable,
+                                                                  combine_equivalent_standard_plottables)
+from pytreenet.util.plotting.plotables.multiplot import ConvergingPlottable
 from pytreenet.util.experiment_util.metadata_file import MetadataFilter
 from pytreenet.core.truncation import TruncationMethod
 from pytreenet.time_evolution.results import Results
@@ -97,19 +99,32 @@ def load_data(md_filter: MetadataFilter,
     """
     params_results = md_filter.load_valid_results_and_parameters(directory_path,
                                                                  parameter_class=TruncationParams)
-    out = {}
+    out: dict[str,
+              tuple[list[StandardPlottable],
+                    list[StandardPlottable],
+                    list[StandardPlottable]]] = {}
     for params, results in params_results:
         bd_vs_err = StandardPlottable.from_simulation_result(results, params,
                                                              extract_bd_vs_err)
         bd_vs_runtime = StandardPlottable.from_simulation_result(results, params,
                                                                  extract_bd_vs_runtime)
-        runtime_vs_err = StandardPlottable.from_simulation_result(results, params,
-                                                                  extract_runtime_vs_err)
         m_name = method_name(params)
-        out[m_name] = (bd_vs_err, bd_vs_runtime, runtime_vs_err)
-        for pltb in out[m_name]:
-            pltb.line_config.label = m_name
-    return out
+        if m_name not in out:
+            out[m_name] = ([], [], [])
+        out[m_name][0].append(bd_vs_err)
+        out[m_name][1].append(bd_vs_runtime)
+    actual_out: dict[str, tuple[StandardPlottable, StandardPlottable, StandardPlottable]] = {}
+    for method, value in out.items():
+        conv_plots = (ConvergingPlottable.from_multiple_standards(value[0]),
+                       ConvergingPlottable.from_multiple_standards(value[1]))
+        stand_plts = (conv_plots[0].average_results(),
+                      conv_plots[1].average_results())
+        comb_plot = combine_equivalent_standard_plottables(stand_plts[1],stand_plts[0])
+        actual_out[method] = (stand_plts[0], stand_plts[1], comb_plot)
+    for label, pltbs in actual_out.items():
+        for pl in pltbs:
+            pl.line_config.label = label
+    return actual_out
 
 def plot_all(md_filter: MetadataFilter,
              directory_path: str,
@@ -158,7 +173,6 @@ if __name__ == "__main__":
     md_filter = MetadataFilter()
     md_filter.add_to_criterium("structure", "mps")
     md_filter.add_to_criterium("sys_size", 20)
-    md_filter.add_to_criterium("random_trunc", [True, False])
     save_path = os.path.join(data_dir, "plots")
     save_path = os.path.join(save_path, "truncation_comparison.pdf")
     plot_all(md_filter, data_dir, save_path=save_path)
