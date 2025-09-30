@@ -235,7 +235,7 @@ class TestStarTreeTensorNetworkFromTensorLists(TestCase):
                         centre_tensor,
                         tensors=[chain_tensors],
                         identifiers=[identifiers])
-        
+
 class TestStartTreeTensorNetworkSpecialStates(TestCase):
     """
     Tests the creation of some special states that came up in simulations and

@@ -597,6 +597,8 @@ class CompiledQuantumCircuit(AbstractQCircuit):
                 compiled quantum circuit.
         """
         hams = [ham.pad_with_identities(ref_tree) for ham in self.levels]
+        for ham in hams:
+            ham.include_identities()
         return [StateDiagram.from_hamiltonian(ham, ref_tree, method=method)
                 for ham in hams]
 
@@ -618,6 +620,8 @@ class CompiledQuantumCircuit(AbstractQCircuit):
             list[TreeTensorNetworkOperator]: A list of TTNOs representing
                 the compiled quantum circuit.
         """
+        for ham in self.levels:
+            ham.include_identities()
         return [TreeTensorNetworkOperator.from_hamiltonian(ham, ref_tree, method=method)
                 for ham in self.levels]
 

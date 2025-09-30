@@ -6,6 +6,7 @@ from typing import Tuple, Union
 import numpy as np
 import numpy.random as npr
 from scipy.linalg import expm
+from scipy.stats import unitary_group
 
 from ..util.ttn_exceptions import positivity_check
 
@@ -80,7 +81,9 @@ def random_hermitian_matrix(size: int = 2) -> np.ndarray:
     rmatrix = random_matrix(size)
     return 0.5 * (rmatrix + rmatrix.T.conj())
 
-def random_unitary_matrix(size: int = 2) -> np.ndarray:
+def random_unitary_matrix(size: int = 2,
+                          seed: int = 42
+                          ) -> np.ndarray:
     """
     Creates a random unitary matrix U^\\dagger U = I
 
@@ -90,6 +93,23 @@ def random_unitary_matrix(size: int = 2) -> np.ndarray:
     Returns:
         np.ndarray: The unitary matrix.
     """
-    positivity_check(size, "size")
-    rherm = random_hermitian_matrix(size)
-    return expm(1j * rherm)
+    return unitary_group.rvs(size, random_state=seed)
+
+def haar_random_state(size: int = 2,
+                     seed: int = 42
+                     ) -> np.ndarray:
+    """
+    Generates a random normalized state vector using the Haar measure.
+
+    Args:
+        size (int, optional): Size of the state vector. Defaults to 2.
+        seed (int, optional): Seed for the random number generator.
+            Defaults to 42.
+
+    Returns:
+        np.ndarray: The random normalized state vector.
+    """
+    unit = random_unitary_matrix(size, seed=seed)
+    state = unit[:,0]
+    state /= np.linalg.norm(state)
+    return state

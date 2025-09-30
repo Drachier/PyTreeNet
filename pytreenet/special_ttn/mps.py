@@ -7,7 +7,7 @@ and MPO. These are also supplied combining the matrix product topology with the
 properties of a TTNS or TTNO.
 """
 from __future__ import annotations
-from typing import List, Union, Any
+from typing import List, Union, Any, Callable
 from copy import deepcopy
 
 import numpy as np
@@ -52,7 +52,7 @@ class MatrixProductTree(TreeTensorNetwork):
 
     @classmethod
     def from_tensor_list(cls, tensor_list: List[np.ndarray],
-                         node_prefix: str = "site",
+                         node_prefix: str | list[str] = "site",
                          root_site: int = 0) -> Any:
         """
         Generates a MatrixProductTree from a list of tensors.
@@ -64,8 +64,11 @@ class MatrixProductTree(TreeTensorNetwork):
             tensor_list (List[np.ndarray]): A list with site tensors. Their
                 legs should be of the form
                     `[left_leg,right_leg,open_legs]`
-            node_prefix (str, optional): A prefix that should be part of the
-                node identifiers before the site index. Defaults to "site".
+            node_prefix (str | list[str], optional): Either a prefix that
+                should be part of the node identifiers before the site index,
+                or a list of identifiers to be used for the nodes. If a list
+                is provided, its length must be the same as the number of
+                tensors. Defaults to "site".
             root_site (int, optional): Which tensor should be associated to
                 the root node. Defaults to 0.
 
@@ -74,32 +77,44 @@ class MatrixProductTree(TreeTensorNetwork):
                 structure A_1 * A_2  ... A_N, where the A are the tensors in
                 the provided list.
         """
+        if isinstance(node_prefix, list):
+            if len(node_prefix) != len(tensor_list):
+                errstr = "If a list of node identifiers is provided, its "
+                errstr += "length must be the same as the number of tensors!"
+                errstr += f" Got {len(node_prefix)} and {len(tensor_list)}."
+                raise ValueError(errstr)
+            def id_func(i: int) -> str:
+                return node_prefix[i]
+        else:
+            def id_func(i: int) -> str:
+                return node_prefix + str(i)
         non_negativity_check(root_site, "root site")
         if root_site >= len(tensor_list):
             errstr = "Root site must be an available site!"
             raise ValueError(errstr)
         mpt = cls()
-        mpt.add_root(Node(identifier=node_prefix+str(root_site)),
+        mpt.add_root(Node(identifier=id_func(root_site)),
                      tensor_list[root_site])
         if root_site==0:
             return cls.from_tensor_list_leftmost_node_is_root(tensor_list,
-                                                              node_prefix=node_prefix)
+                                                              id_func)
         left_tensors = reversed(tensor_list[0:root_site])
         for i, tensor in enumerate(left_tensors):
             site = root_site - 1 - i
-            mpt.attach_node_left_end(Node(identifier=node_prefix+str(site)),
+            mpt.attach_node_left_end(Node(identifier=id_func(site)),
                                      tensor,
                                      final=site==0)
         right_tensors = tensor_list[root_site+1:]
         for i, tensor in enumerate(right_tensors):
             site = root_site + 1 + i
-            mpt.attach_node_right_end(Node(identifier=node_prefix+str(site)),
+            mpt.attach_node_right_end(Node(identifier=id_func(site)),
                                       tensor)
         return mpt
 
     @classmethod
-    def from_tensor_list_leftmost_node_is_root(cls, tensor_list: List[np.ndarray],
-                                               node_prefix: str = "site") -> Any:
+    def from_tensor_list_leftmost_node_is_root(cls,
+                                               tensor_list: List[np.ndarray],
+                                               node_id_map: Callable) -> Any:
         """
         Generates a MatrixProductTree from a list of tensors, where the
         leftmost tensor, i.e. index 0, corresponds to the root node.
@@ -111,8 +126,8 @@ class MatrixProductTree(TreeTensorNetwork):
             tensor_list (List[np.ndarray]): A list with site tensors. Their
                 legs should be of the form
                     `[left_leg,right_leg,open_legs]`
-            node_prefix (str, optional): A prefix that should be part of the
-                node identifiers before the site index. Defaults to "site".
+            node_id_map (Callable): A function that takes an integer index
+                and returns a string identifier for the node at that index.
 
         Returns:
             MatrixProductTree: A matrix product tree representing an MP
@@ -120,19 +135,19 @@ class MatrixProductTree(TreeTensorNetwork):
                 the provided list.
         """
         mpt = cls()
-        mpt.add_root(Node(identifier=node_prefix+str(0)),
+        mpt.add_root(Node(identifier=node_id_map(0)),
                      tensor_list[0])
         if len(tensor_list)>1:
-            node1 = Node(identifier=node_prefix+str(1))
+            node1 = Node(identifier=node_id_map(1))
             mpt.add_child_to_parent(node1,
-                                    tensor_list[1],0,node_prefix+str(0),
+                                    tensor_list[1],0,node_id_map(0),
                                     0)
             mpt.right_nodes.append(node1)
         if len(tensor_list)>2:
             remaining_tensors = tensor_list[2:]
             for i, tensor in enumerate(remaining_tensors):
                 site = i + 2
-                mpt.attach_node_right_end(Node(identifier=node_prefix+str(site)),
+                mpt.attach_node_right_end(Node(identifier=node_id_map(site)),
                                             tensor)
         return mpt
 
