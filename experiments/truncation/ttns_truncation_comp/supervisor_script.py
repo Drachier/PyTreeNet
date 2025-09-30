@@ -3,6 +3,7 @@ This script is used to supervise the truncation comparison experiments.
 """
 import os
 from copy import copy
+from itertools import product
 
 from pytreenet.util.experiment_util.supervisor import (Supervisor,
                                                        SIMSCRIPT_STANDARD_NAME)
@@ -21,33 +22,43 @@ def generate_parameter_set() -> list[TruncationParams]:
     """
     low = -0.5
     high = 1.0
+    structures = (TTNStructure.MPS, TTNStructure.BINARY,
+                  TTNStructure.FTPS, TTNStructure.TSTAR)
+    methods = (TruncationMethod.RECURSIVE, TruncationMethod.SVD,
+               TruncationMethod.VARIATIONAL)
+    seeds = (1234, 4321, 43954, 3923, 49384)
+    bond_dims = (40, 50, 60, 70, 80)
     param_set = []
-    for structure in (TTNStructure.MPS, ):
+    for structure, method, bond_dim in product(structures, methods, bond_dims):
         if structure is TTNStructure.MPS:
-            sys_size = 20
+            sys_size = 50
         elif structure is TTNStructure.BINARY:
-            sys_size = 3
+            sys_size = 7
+        elif structure is TTNStructure.FTPS:
+            sys_size = 8
+        elif structure is TTNStructure.TSTAR:
+            sys_size = 20
         else:
-            sys_size = 2
-        for method in (TruncationMethod.RECURSIVE, TruncationMethod.SVD, TruncationMethod.VARIATIONAL):
-            params = TruncationParams(
-                structure=structure,
-                sys_size=sys_size,
-                phys_dim=2,
-                bond_dim=4 if structure != TTNStructure.MPS else 41,
-                trunc_method=method,
-                random_trunc=False,
-                max_target_bond_dim=41,
-                step_target_bond_dim=5,
-                seed=1234,
-                distr_low=low,
-                distr_high=high
-            )
-            param_set.append(params)
-            if method in {TruncationMethod.SVD, TruncationMethod.RECURSIVE}:
-                copy_params = copy(params)
-                copy_params.random_trunc = True
-                param_set.append(copy_params)
+            raise ValueError(f"Unknown structure: {structure}")
+        params = TruncationParams(
+            structure=structure,
+            sys_size=sys_size,
+            phys_dim=5,
+            bond_dim=bond_dim,
+            trunc_method=method,
+            random_trunc=False,
+            max_target_bond_dim=bond_dim,
+            min_target_bond_dim=5,
+            step_target_bond_dim=5,
+            seed=1234,
+            distr_low=low,
+            distr_high=high
+        )
+        param_set.append(params)
+        if method in {TruncationMethod.SVD, TruncationMethod.RECURSIVE}:
+            copy_params = copy(params)
+            copy_params.random_trunc = True
+            param_set.append(copy_params)
     return param_set
 
 def main():
