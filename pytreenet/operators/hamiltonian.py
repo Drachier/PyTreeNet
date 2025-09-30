@@ -386,7 +386,7 @@ class Hamiltonian():
         return len(dup) > 0
 
     def include_identities(self,
-                           dims: Union[int,list[int]],
+                           dims: Union[int,list[int]|None] = None,
                            ident_creation: Callable = lambda d: eye(d,dtype=complex)):
         """
         Adds the given dimensional identities to the conversion dictionary.
@@ -398,6 +398,13 @@ class Hamiltonian():
             ident_creation (Callable): The function used to generate an
                 identity. Defaults to numpy's eye function.
         """
+        if dims is None:
+            dims = set()
+            for operator in self.conversion_dictionary.values():
+                shape = operator.shape
+                dims.add(shape[0])
+            dims.add(1)
+            dims = list(dims)
         if isinstance(dims,int):
             self.conversion_dictionary[f"I{dims}"] = ident_creation(dims)
         elif isinstance(dims,list):
