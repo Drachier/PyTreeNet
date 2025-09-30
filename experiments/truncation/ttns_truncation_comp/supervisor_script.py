@@ -22,8 +22,10 @@ def generate_parameter_set() -> list[TruncationParams]:
     low = -0.5
     high = 1.0
     param_set = []
-    for structure in (TTNStructure.MPS, TTNStructure.TSTAR, TTNStructure.BINARY, TTNStructure.FTPS):
-        if structure in {TTNStructure.MPS, TTNStructure.BINARY}:
+    for structure in (TTNStructure.MPS, ):
+        if structure is TTNStructure.MPS:
+            sys_size = 20
+        elif structure is TTNStructure.BINARY:
             sys_size = 3
         else:
             sys_size = 2
@@ -32,10 +34,11 @@ def generate_parameter_set() -> list[TruncationParams]:
                 structure=structure,
                 sys_size=sys_size,
                 phys_dim=2,
-                bond_dim=4 if structure != TTNStructure.MPS else 2,
+                bond_dim=4 if structure != TTNStructure.MPS else 41,
                 trunc_method=method,
                 random_trunc=False,
-                max_target_bond_dim=4,
+                max_target_bond_dim=41,
+                step_target_bond_dim=5,
                 seed=1234,
                 distr_low=low,
                 distr_high=high

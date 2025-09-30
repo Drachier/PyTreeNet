@@ -15,6 +15,7 @@ def random_ttns(structure: TTNStructure,
                 sys_size: int,
                 phys_dim: int,
                 bond_dim: int,
+                normalise: bool = False,
                 **kwargs
                 ) -> TTNS:
     """
@@ -37,16 +38,19 @@ def random_ttns(structure: TTNStructure,
     """
     args = (sys_size, phys_dim, bond_dim)
     if structure == TTNStructure.MPS:
-        return random_mps(*args, **kwargs)
+        ttns = random_mps(*args, **kwargs)
     elif structure == TTNStructure.TSTAR:
-        return random_tstar_state(*args, **kwargs)
+        ttns = random_tstar_state(*args, **kwargs)
     elif structure == TTNStructure.BINARY:
-        return random_binary_state(*args, **kwargs)
+        ttns = random_binary_state(*args, **kwargs)
     elif structure == TTNStructure.FTPS:
-        return random_ftps(*args, **kwargs)
+        ttns = random_ftps(*args, **kwargs)
     else:
         raise ValueError(f"Unknown TTN structure: {structure}!")
-
+    if normalise:
+        vec = ttns.completely_contract_tree(to_copy=True)[0].flatten()
+        ttns.normalise()
+    return ttns
 
 def random_mps(num_sites: int,
                phys_dim: int,

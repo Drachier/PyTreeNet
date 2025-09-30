@@ -8,6 +8,8 @@ from time import time
 import os
 from copy import deepcopy
 
+from h5py import File
+
 from pytreenet.util.experiment_util.sim_params import SimulationParameters
 from pytreenet.util.experiment_util.script_util import script_main
 from pytreenet.core.truncation import (TruncationMethod,
@@ -50,7 +52,7 @@ def init_results(params: TruncationParams) -> Results:
     Returns:
         Results: The initialized and empty results object.
     """
-    num_res = params.max_target_bond_dim
+    num_res = len(list(bond_dim_range(params))) - 1
     results = Results()
     res_dtypes = (int, float, float)
     results.initialize(dict(zip(RES_IDS, res_dtypes)),
@@ -122,7 +124,7 @@ def run_fitting(params: TruncationParams) -> Results:
                                  params.sys_size,
                                  params.phys_dim,
                                  bond_dim,
-                                 seed=params.seed,
+                                 seed=params.seed+1,
                                  distribution=RandomDistribution.UNIFORM,
                                  low=params.distr_low,
                                  high=params.distr_high
@@ -131,7 +133,7 @@ def run_fitting(params: TruncationParams) -> Results:
         single_site_fitting(ttns, init_ttns,
                             10)
         end_time = time()
-        trunc_error = 1 - abs(ttns.scalar_product(init_ttns))
+        trunc_error = ttns.distance(init_ttns, normalise=True)
         set_result_values(results, index,
                           bond_dim, trunc_error, end_time - start_time)
     return results
@@ -168,7 +170,7 @@ def run_svd_based_truncation(params: TruncationParams) -> Results:
         start_time = time()
         trunc_func(comp_ttns, svd_params)
         end_time = time()
-        trunc_error = 1 - abs(comp_ttns.scalar_product(ttns))
+        trunc_error = comp_ttns.distance(ttns, normalise=True)
         set_result_values(results, index,
                           bond_dim, trunc_error, end_time - start_time)
     return results
@@ -185,7 +187,9 @@ def run_simulation(params: TruncationParams,
         results = run_svd_based_truncation(params)
     filename = params.get_hash() + ".h5"
     filepath = os.path.join(save_directory, filename)
-    results.save_to_h5(filepath)
+    with File(filepath, "w") as f:
+        results.save_to_h5(f)
+        params.save_to_h5(f)
 
 if __name__ == "__main__":
     script_main(run_simulation,
