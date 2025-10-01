@@ -62,7 +62,7 @@ class StarTreeTensorNetwork(TreeTensorNetwork):
         Creates the identifier of the node at the specified coordinates.
         """
         return f"{self.non_center_prefix}{chain_index}_{index_on_chain}"
-    
+
     def node_id(self,
                 chain_index: int | None,
                 index_on_chain: int | None
@@ -111,7 +111,7 @@ class StarTreeTensorNetwork(TreeTensorNetwork):
 
     def _add_chain(self, tensor: ndarray,
                    parent_leg: Union[int,None] = None,
-                   identifier: str = None):
+                   identifier: str | None = None):
         """
         Adds a new chain to the star and directly adds the first node.
         
@@ -143,7 +143,7 @@ class StarTreeTensorNetwork(TreeTensorNetwork):
     def add_chain_node(self, tensor: ndarray,
                        chain_index: int,
                        parent_leg: Union[int,None] = None,
-                       identifier: str = None):
+                       identifier: str | None = None):
         """
         Adds a node to one of the chains.
 
@@ -183,7 +183,7 @@ class StarTreeTensorNetwork(TreeTensorNetwork):
                           center_tensor: ndarray,
                           tensors: list[list[ndarray]],
                           central_node_identifier: str = "center",
-                          identifiers: list[list[str]] = None,
+                          identifiers: list[list[str]] | None = None,
                           non_center_prefix: str = "node"
                           ) -> Self:
         """

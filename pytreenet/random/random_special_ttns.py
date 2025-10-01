@@ -2,7 +2,6 @@
 This module implements the creation of random TTNS of special types.
 """
 from __future__ import annotations
-from typing import TYPE_CHECKING
 
 from ..special_ttn.special_states import TTNStructure
 from ..special_ttn.mps import MatrixProductState
@@ -16,6 +15,7 @@ def random_ttns(structure: TTNStructure,
                 sys_size: int,
                 phys_dim: int,
                 bond_dim: int,
+                normalise: bool = False,
                 **kwargs
                 ) -> TTNS:
     """
@@ -38,16 +38,19 @@ def random_ttns(structure: TTNStructure,
     """
     args = (sys_size, phys_dim, bond_dim)
     if structure == TTNStructure.MPS:
-        return random_mps(*args, **kwargs)
+        ttns = random_mps(*args, **kwargs)
     elif structure == TTNStructure.TSTAR:
-        return random_tstar_state(*args, **kwargs)
+        ttns = random_tstar_state(*args, **kwargs)
     elif structure == TTNStructure.BINARY:
-        return random_binary_state(*args, **kwargs)
+        ttns = random_binary_state(*args, **kwargs)
     elif structure == TTNStructure.FTPS:
-        return random_ftps(*args, **kwargs)
+        ttns = random_ftps(*args, **kwargs)
     else:
         raise ValueError(f"Unknown TTN structure: {structure}!")
-
+    if normalise:
+        vec = ttns.completely_contract_tree(to_copy=True)[0].flatten()
+        ttns.normalise()
+    return ttns
 
 def random_mps(num_sites: int,
                phys_dim: int,
@@ -99,13 +102,14 @@ def random_tstar_state(arm_length: int,
     """
     if arm_length < 1:
         raise ValueError("Arm length must be at least 1!")
-    arm_shapes = [(bond_dim, phys_dim)]
+    arm_shapes = []
     if arm_length > 1:
         arm_shapes += [(bond_dim, bond_dim, phys_dim)
                        for _ in range(arm_length - 1)]
+    arm_shapes.append((bond_dim, phys_dim))
     arms = [[crandn(shape, **kwargs) for shape in arm_shapes]
             for _ in range(3)]
-    centre_tensor = crandn((bond_dim, bond_dim, bond_dim), **kwargs)
+    centre_tensor = crandn((bond_dim, bond_dim, bond_dim, 1), **kwargs)
     tstar = StarTreeTensorState.from_tensor_lists(centre_tensor,
                                                   arms)
     return tstar
@@ -134,7 +138,7 @@ def random_binary_state(depth: int,
     if depth == 1:
         shape = (bond_dim, phys_dim)
     else:
-        shape = (bond_dim, bond_dim)
+        shape = (bond_dim, bond_dim, 1)
     root_tensor = crandn(shape, **kwargs)
     ttns.add_root(Node(identifier="N0"),
                        tensor=root_tensor)
@@ -143,16 +147,20 @@ def random_binary_state(depth: int,
         index = 0
         for leaf in leafs:
             for cindex in range(2):
+                if d == 1:
+                    parent_index = cindex
+                else:
+                    parent_index = cindex + 1
                 if d == depth - 1:
                     shape = (bond_dim, phys_dim)
                 else:
-                    shape = (bond_dim, bond_dim, bond_dim)
+                    shape = (bond_dim, bond_dim, bond_dim, 1)
                 tensor = crandn(shape, **kwargs)
                 ttns.add_child_to_parent(Node(identifier=f"N{d}_{index}"),
                                          tensor,
                                          0,
                                          leaf,
-                                         cindex+1)
+                                         parent_index)
                 index += 1
     return ttns
 
@@ -167,7 +175,7 @@ def random_ftps(side_length: int,
     The main chain of the FTPS will not have any physical legs.
 
     Args:
-        side_length (int): Length of each side in the FTPS.
+        side_length (int): Length of the main chain and each subchain.
         phys_dim (int): Physical dimension of each site.
         bond_dim (int): Bond dimension between sites.
         **kwargs: Additional keyword arguments for the random number
@@ -178,18 +186,18 @@ def random_ftps(side_length: int,
     """
     if side_length <= 1:
         raise ValueError("Side length must be at least 2!")
-    main_shapes = [(bond_dim, bond_dim)]
-    main_shapes += [(bond_dim, bond_dim, bond_dim)
+    main_shapes = [(bond_dim, bond_dim, 1)]
+    main_shapes += [(bond_dim, bond_dim, bond_dim, 1)
                     for _ in range(side_length - 2)]
-    main_shapes += [(bond_dim, bond_dim)]
+    main_shapes += [(bond_dim, bond_dim, 1)]
     main_tensors = [crandn(shape, **kwargs)
                     for shape in main_shapes]
     subchain_shapes = [(bond_dim, bond_dim, phys_dim)
-                       for _ in range(side_length - 1)]
+                       for _ in range(side_length)]
     subchain_shapes += [(bond_dim, phys_dim)]
     subchain_tensors = [[crandn(shape, **kwargs)
                          for shape in subchain_shapes]
-                        for _ in range(side_length - 1)]
+                        for _ in range(side_length)]
     ftps = ForkTreeProductState.from_tensors(main_tensors,
                                              subchain_tensors)
     return ftps

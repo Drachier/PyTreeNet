@@ -114,7 +114,7 @@ class ConvergingPlottable(Plottable):
             ignored_keys = copy(ignored_keys)
             ignored_keys.add(self.conv_param)
         return super().assoc_subset(other, ignored_keys)
-    
+
     def sort(self):
         """
         Sort the convergence results by the convergence parameter values.
@@ -288,6 +288,20 @@ class ConvergingPlottable(Plottable):
                 corresponds to the first parameter value.
         """
         y_vals = np.array([np.mean(result) for result in self.values])
+        return StandardPlottable(x=self.x_values,
+                                 y=y_vals,
+                                 line_config=deepcopy(self.line_config),
+                                 assoc_params=copy(self.assoc_params)
+                                 )
+    
+    def average_results(self) -> StandardPlottable:
+        """
+        Averages the result over the convergence parameter values.
+
+        Returns:
+            StandardPlottable: The averaged results.
+        """
+        y_vals = np.mean(np.array(self.values), axis=0)
         return StandardPlottable(x=self.x_values,
                                  y=y_vals,
                                  line_config=deepcopy(self.line_config),

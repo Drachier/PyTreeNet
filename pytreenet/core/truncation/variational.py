@@ -42,8 +42,8 @@ def single_site_fitting(init_ttns: TTNS,
     sweep_path, orth_paths, back_sweep_path, back_orth_paths = find_update_paths(init_ttns)
     init_ttns.canonical_form(sweep_path[0])
     if record_sweep_errors:
-        overlap = init_ttns.scalar_product(target_ttns)
-        error = [abs(1 - overlap)]
+        infid = init_ttns.infidelity(target_ttns)
+        error = [infid]
     else:
         error = []
     subtree_tensors = PartialTreeCachDict()
@@ -64,8 +64,8 @@ def single_site_fitting(init_ttns: TTNS,
         # Backward sweep
         sweep(init_ttns, target_ttns, back_sweep_path, back_orth_paths, subtree_tensors)
         if record_sweep_errors:
-            overlap = init_ttns.scalar_product(target_ttns)
-            error.append(abs(1 - overlap))
+            infid = init_ttns.infidelity(target_ttns)
+            error.append(infid)
     return error
 
 def sweep(init_ttns: TTNS,

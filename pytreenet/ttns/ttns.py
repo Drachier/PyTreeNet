@@ -36,9 +36,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
                 and the order in which the nodes were contracted.
         """
         full_tensor, order = self.completely_contract_tree(to_copy=to_copy)
-        full_dim = np.prod(full_tensor.shape)
-        # Reshape the tensor to a vector
-        vector = full_tensor.reshape(full_dim)
+        vector = full_tensor.reshape(-1)
         return vector, order
 
     def scalar_product(self,
@@ -79,7 +77,6 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             float: The norm of the state.
         """
         scal_prod = self.scalar_product()
-        assert np.allclose(scal_prod.imag, 0), f"Norm should be real, got {scal_prod}!"
         return sqrt(scal_prod.real)
 
     def normalise(self, norm: float | None = None) -> float:
@@ -116,6 +113,49 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             float: The norm of the state before normalisation.
         """
         return self.normalise(norm)
+
+    def distance(self,
+                 other: TreeTensorNetworkState,
+                 normalise: bool = False
+                 ) -> float:
+        """
+        Find the distance between two TTNS
+
+        ..math::
+            || A - B || = (<A|A> - 2Re <A|B> + <B|B>)^{\frac{1}{2}}
+
+        Args:
+            other (TreeTensorNetworkState): The other TTNS to compute
+                the distance to.
+            normalise (bool, optional): Whether to normalise the distance, i.e.
+                return distance * 2 / (||A|| + ||B||). Defaults to False.
+        """
+        self_scal = self.scalar_product().real
+        other_scal = other.scalar_product().real
+        common_scal_prod = self.scalar_product(other)
+        dist = self_scal - 2*np.real(common_scal_prod) + other_scal
+        if dist < 0:
+            minimum = min(self_scal, other_scal)
+            assert dist > -1e-8 * minimum, f"Distance is negative! {dist}"
+            dist = np.abs(dist)
+        if normalise:
+            dist *= 2 / (self_scal + other_scal)
+        return sqrt(dist)
+
+    def infidelity(self,
+                    other: TreeTensorNetworkState
+                    ) -> float:
+        """
+        Find the infidelity between two TTNS
+
+        ..math::
+            1 - D(A,B)
+
+        Args:
+            other (TreeTensorNetworkState): The other TTNS to compute
+                the infidelity to.
+        """
+        return 1 - self.distance(other, normalise=True)
 
     def single_site_operator_expectation_value(self, node_id: str,
                                                operator: np.ndarray,

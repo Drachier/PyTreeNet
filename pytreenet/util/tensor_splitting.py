@@ -14,10 +14,10 @@ from dataclasses import dataclass
 
 import numpy as np
 import scipy
-from sklearn.utils.extmath import randomized_svd
 
 from .tensor_util import tensor_matricization
 from .ttn_exceptions import positivity_check
+from .matrix_decomp.randomized_svd import randomized_svd
 
 class SplitMode(Enum):
     """
