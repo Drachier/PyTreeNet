@@ -345,8 +345,10 @@ class LocalContraction:
         ignored_passed = 0
         for neigh_id in node.neighbouring_nodes():
             if not self.is_ignored(neigh_id, contr_index):
-                subtree_tensor = self.subtree_dict.get_entry(neigh_id,
-                                                             node.identifier)
+                cache_node_id = self.cache_id_trafo(node.identifier)
+                cache_neigh_id = self.cache_id_trafo(neigh_id)
+                subtree_tensor = self.subtree_dict.get_entry(cache_neigh_id,
+                                                             cache_node_id)
                 # Since we contract in the order of this node's neighbours,
                 # the leg to be contracted is always at position 0 in the tensor
                 # unless we have passed ignored leg, then it is at position 1.
@@ -380,10 +382,14 @@ class LocalContraction:
                     range_start = legs_before_neighs + leg_index * max_dim
                     range_end = legs_before_neighs + (leg_index + 1) * max_dim
                     neigh_legs: list[int | None] = list(range(range_start, range_end))
-                    neigh_legs[contr_index + self.connection_index] = None
-                    self.current_tensor.neighbour_legs[rev_traf(neigh_id)] = neigh_legs
+                    contr_leg = contr_index + self.connection_index
+                    adjusted_legs = [ind - 1
+                                     for ind in neigh_legs[contr_leg+1:]]
+                    adjusted_legs = neigh_legs[:contr_leg] + [None] + adjusted_legs
+                    self.current_tensor.neighbour_legs[rev_traf(neigh_id)] = adjusted_legs
                 else:
                     ignored_passed += 1
+        print(self.current_tensor)
 
     def contract_tensor(self,
                         contr_index: int):
@@ -422,8 +428,6 @@ class LocalContraction:
                 curr_leg = self.current_tensor.get_neighbour_leg(base_neigh_id,
                                                                  subtree_tensor_index)
                 curr_ten_legs.append(curr_leg)
-                self.current_tensor.set_neighbour_leg_none(base_neigh_id,
-                                                           contr_index)
         curr_tensor = np.tensordot(self.current_tensor.value,
                                    tensor,
                                    axes=(curr_ten_legs,contr_ten_legs))
@@ -480,6 +484,8 @@ class LocalContraction:
             perm.extend(self.current_tensor.cleared_open_legs(OpenLegKind.OUT))
             # Finally the in legs
             perm.extend(self.current_tensor.cleared_open_legs(OpenLegKind.IN))
+            print(perm)
+            print(self.current_tensor)
             final_tensor = np.transpose(self.current_tensor.value, axes=perm)
             return final_tensor
         if transpose_option is FinalTransposition.NONE:
@@ -503,6 +509,18 @@ class CurrentTensor:
         self.neighbour_legs: dict[str,list[int | None]] = {}
         # Same here, but for ignored legs
         self.ignored_legs: list[int | None] = []
+
+    def __str__(self) -> str:
+        """
+        Returns a string representation of the CurrentTensor.
+        """
+        out = "CurrentTensor:\n"
+        out += f"Value shape: {self.value.shape}\n"
+        out += f"In legs: {self.in_legs}\n"
+        out += f"Out legs: {self.out_legs}\n"
+        out += f"Neighbour legs: {self.neighbour_legs}\n"
+        out += f"Ignored legs: {self.ignored_legs}\n"
+        return out
 
     def open_leg_by_kind(self,
                          kind: OpenLegKind
@@ -598,23 +616,6 @@ class CurrentTensor:
         if legs[0] is None:
             return []
         return legs
-
-    def set_neighbour_leg_none(self,
-                               neigh_id: str,
-                               contr_index: int):
-        """
-        Sets the specified subtree leg to None.
-
-        The subtree tensor is specified by the original neighbour identifier
-        and the desired leg of that subtree tensor as an index.
-
-        Args:
-            neigh_id (str): The identifier of this neighbour. This is the base
-                identifier, i.e. the identifier specified in the neighbour
-                order.
-            contr_index (int): The index of the leg on the subtree tensor.
-        """
-        self.neighbour_legs[neigh_id][contr_index] = None
 
     def adjust_legs(self,
                     contracted_legs: list[int]):
@@ -727,7 +728,7 @@ def _new_leg_val(leg_value: int | None,
         if leg_value > rem_val and leg_value < sorted_rem_legs[i+1]:
             # This means i many legs that come before this one were
             # contracted.
-            return leg_value - i
+            return leg_value - (i+1)
     # Treat the final one special
     if leg_value == sorted_rem_legs[-1]:
         # This leg was contracted
