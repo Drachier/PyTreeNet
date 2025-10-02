@@ -47,7 +47,7 @@ class OpenLegKind(Enum):
         else:
             errstr = f"Invalid `OpenLegKind` {self}!"
             raise ValueError(errstr)
-        
+
 def valid_contraction_order(order: list[int]) -> bool:
     """
     Checks whether the given contraction order is valid.
@@ -96,7 +96,7 @@ class LocalContraction:
     def __init__(self,
                  nodes_tensors: list[tuple[Node,npt.NDArray]],
                  subtree_dict: PartialTreeCachDict,
-                 cache_id_trafo: Callable = lambda x: x,
+                 node_identifier: str | None = None,
                  neighbour_order: list[str] | None = None,
                  ignored_leg: str = "",
                  id_trafos: None | list[Callable] = None,
@@ -116,17 +116,21 @@ class LocalContraction:
             to be used. Subtree identifiers should correspond to the lowest
             node in the list, possibly after transformin the node's
             identifiers.
-        cache_id_trafo (Callable): Maps the identifiers of the lowest node's
-            neighbours to the identifiers used in the subtree cache.
+        node_identifier (str | None): The identifier of this node as used
+            in the subtree cache. If None, will be the identifier of the
+            first node in `node_tensors`. Defaults to None.
         neighbour_order (list[str] | None): The order in which the neighbour
-            legs should be in the end. If not supplied, the order of the first
-            tensor is used.
+            legs should be in the end. These are the identifiers used in the
+            subtree cache. If not supplied, the order of the first tensor is
+            used.
         ignored_leg (str): A leg that is not to be contracted. Should
             correspond to the first node in the node list. If `""` no leg is
             ignored.
         id_trafos (None | list[Callable]): A list mapping the neighbour
             identifiers in `neighbour_order` to the neighbours identifiers of
-            the node in this position. If None, defaults to the identity.
+            the node in this position. Also maps the identifier used for the
+            subtrees to the identifier of the node in this position. If None,
+            defaults to the identity.
         connection_index(int): The index of the subtree tensors to which the
             first node in the node list should be connected.
         contraction_order (list[int] | None): The order in which the tensors
@@ -144,7 +148,9 @@ class LocalContraction:
             raise ValueError(errstr)
         self.node_tensors = nodes_tensors
         self.subtree_dict = subtree_dict
-        self.cache_id_trafo = cache_id_trafo
+        if node_identifier is None:
+            node_identifier = self.node_tensors[0][0].identifier
+        self.node_identifier = node_identifier
         if neighbour_order is None:
             neighbour_order = self.node_tensors[0][0].neighbouring_nodes()
         self.neighbour_order = neighbour_order
@@ -308,8 +314,8 @@ class LocalContraction:
                              index: int
                              ) -> Callable:
         """
-        Creates the mapping from neighbour identifiers of a node to the first
-        node's neighbour identifiers.
+        Creates the mapping from neighbour identifiers of a node to the desired
+        neighbour order.
 
         Args:
             index (int): The index of the node and tensor in the list.
@@ -320,6 +326,7 @@ class LocalContraction:
                    for node_neigh, init_neigh in product(node.neighbouring_nodes(),
                                                          self.neighbour_order)
                    if node_neigh == id_trafo(init_neigh)}
+        mapping[node.identifier] = self.node_identifier
         return lambda x: mapping[x]
 
     def no_subtree_tensors(self) -> bool:
@@ -343,10 +350,11 @@ class LocalContraction:
         node, tensor = self.node_tensors[contr_index]
         subtree_leg = self.connection_index + contr_index
         ignored_passed = 0
+        rev_trafo = self.create_reverse_trafo(contr_index)
         for neigh_id in node.neighbouring_nodes():
             if not self.is_ignored(neigh_id, contr_index):
-                cache_node_id = self.cache_id_trafo(node.identifier)
-                cache_neigh_id = self.cache_id_trafo(neigh_id)
+                cache_node_id = rev_trafo(node.identifier)
+                cache_neigh_id = rev_trafo(neigh_id)
                 subtree_tensor = self.subtree_dict.get_entry(cache_neigh_id,
                                                              cache_node_id)
                 # Since we contract in the order of this node's neighbours,
@@ -389,7 +397,6 @@ class LocalContraction:
                     self.current_tensor.neighbour_legs[rev_traf(neigh_id)] = adjusted_legs
                 else:
                     ignored_passed += 1
-        print(self.current_tensor)
 
     def contract_tensor(self,
                         contr_index: int):
@@ -421,12 +428,12 @@ class LocalContraction:
         # Get the virtual legs of the node that are to be contracted
         id_trafo = self.id_trafos[contr_index]
         subtree_tensor_index = self.connection_index + contr_index
-        for neigh_id in node.neighbouring_nodes():
-            if not self.is_ignored(neigh_id, contr_index):
-                contr_ten_legs.append(node.neighbour_index(neigh_id))
-                base_neigh_id = id_trafo(neigh_id)
-                curr_leg = self.current_tensor.get_neighbour_leg(base_neigh_id,
-                                                                 subtree_tensor_index)
+        for neigh_id in self.neighbour_order:
+            if not self.is_ignored(neigh_id, 0):
+                node_neigh_id = id_trafo(neigh_id)
+                contr_ten_legs.append(node.neighbour_index(node_neigh_id))
+                curr_leg = self.current_tensor.get_neighbour_leg(neigh_id,
+                                                                    subtree_tensor_index)
                 curr_ten_legs.append(curr_leg)
         curr_tensor = np.tensordot(self.current_tensor.value,
                                    tensor,
@@ -484,8 +491,6 @@ class LocalContraction:
             perm.extend(self.current_tensor.cleared_open_legs(OpenLegKind.OUT))
             # Finally the in legs
             perm.extend(self.current_tensor.cleared_open_legs(OpenLegKind.IN))
-            print(perm)
-            print(self.current_tensor)
             final_tensor = np.transpose(self.current_tensor.value, axes=perm)
             return final_tensor
         if transpose_option is FinalTransposition.NONE:
