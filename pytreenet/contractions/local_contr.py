@@ -379,6 +379,7 @@ class LocalContraction:
             # Now we need to set the neighbour legs.
             rev_traf = self.create_reverse_trafo(contr_index)
             ignored_passed = 0
+            contracted_passed = 0
             # After the above contractions, the legs corresponding to the
             # neighbouring nodes are at the end of the tensor
             max_dim = self.subtree_degree() # The number of open legs on a cached subtree tensor.
@@ -387,14 +388,16 @@ class LocalContraction:
                 if not self.is_ignored(neigh_id,
                                 contr_index):
                     leg_index = index - ignored_passed
-                    range_start = legs_before_neighs + leg_index * max_dim
-                    range_end = legs_before_neighs + (leg_index + 1) * max_dim
+                    offset = legs_before_neighs - contracted_passed
+                    range_start = offset + leg_index * max_dim
+                    range_end = offset + (leg_index + 1) * max_dim
                     neigh_legs: list[int | None] = list(range(range_start, range_end))
                     contr_leg = contr_index + self.connection_index
                     adjusted_legs = [ind - 1
                                      for ind in neigh_legs[contr_leg+1:]]
                     adjusted_legs = neigh_legs[:contr_leg] + [None] + adjusted_legs
                     self.current_tensor.neighbour_legs[rev_traf(neigh_id)] = adjusted_legs
+                    contracted_passed += 1
                 else:
                     ignored_passed += 1
 
