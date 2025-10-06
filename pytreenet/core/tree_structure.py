@@ -11,9 +11,23 @@ change the connectivity of the tree.
 from __future__ import annotations
 from typing import List, Tuple, Dict, Union
 from itertools import product, combinations
+from enum import Enum
 
 from .graph_node import GraphNode, determine_parentage
 from ..util.ttn_exceptions import non_negativity_check
+
+class LinearisationMode(Enum):
+    """
+    The different modes in which a tree can be linearised.
+
+    Attributes:
+        CHILDREN_FIRST: The children of a node will always appear before the
+            node itself.
+        PARENTS_FIRST: The parent of a node will always appear before the
+            node itself.
+    """
+    CHILDREN_FIRST = 1
+    PARENTS_FIRST = 2
 
 class TreeStructure():
     """
@@ -592,21 +606,31 @@ class TreeStructure():
         sub_path = sub_path_start_center_no_duplicates + sub_path_end_center_no_duplicates
         return sub_path
 
-    def linearise(self) -> List[str]:
+    def linearise(self,
+                  mode: LinearisationMode = LinearisationMode.CHILDREN_FIRST
+                  ) -> List[str]:
         """
         Linearises the tree.
 
+        Args:
+            mode (LinearisationMode): The mode in which to linearise the tree.
+                - CHILDREN_FIRST: The children of a node will always appear before the
+                    node itself.
+                - PARENTS_FIRST: The parent of a node will always appear before the
+                    node itself.
+
         Returns:
             List[str]: The identifiers of the nodes in the order they are
-                visited. The children of a node will always appear before the
-                node itself.
+                visited. The exact order depends on the node, but children of a
+                node will always appear in the order they are attached to the
+                node.
         """
         linearised = []
         if not self._root_id is None:
-            self._linearised_rec(self._root_id, linearised)
+            self._linearised_rec(self._root_id, linearised, mode)
         return linearised
 
-    def _linearised_rec(self, node_id: str, linearised: List[str]):
+    def _linearised_rec(self, node_id: str, linearised: List[str], mode: LinearisationMode):
         """
         The recursive part of the linearise function.
 
@@ -614,6 +638,9 @@ class TreeStructure():
             node_id (str): The identifier of the node to be linearised.
             linearised (List[str]): The list to which the identifiers are added.
         """
+        if mode == LinearisationMode.PARENTS_FIRST:
+            linearised.append(node_id)
         for child_id in self._nodes[node_id].children:
-            self._linearised_rec(child_id, linearised)
-        linearised.append(node_id)
+            self._linearised_rec(child_id, linearised, mode)
+        if mode == LinearisationMode.CHILDREN_FIRST:
+            linearised.append(node_id)

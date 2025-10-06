@@ -427,6 +427,13 @@ class Node(GraphNode):
         if open_dim == []:
             return 1
         return reduce(lambda x, y: x * y, open_dim)
+    
+    def open_dimensions(self) -> List[int]:
+        """
+        Returns a list of the dimensions of the open legs.
+        """
+        return [self.shape[leg]
+                for leg in self.open_legs]
 
     def parent_leg_dim(self) -> int:
         """
@@ -482,10 +489,19 @@ class Node(GraphNode):
         return nprod(self.shape[:self.nvirt_legs()])
 
 # ---------------------------- Usefull functions using nodes ----------------------------
+class NodeEnum(Enum):
+    """
+    An enum to enumerate different kinds of nodes and set options.
+    """
+    NEW = "new"
+    OLD = "old"
+
 def relative_leg_permutation(old_node: Node,
                              new_node: Node,
                              modify_function: Union[Callable,None] = None,
-                             modified_parent: bool = False) -> List[int]:
+                             modified_parent: bool = False,
+                             use_open_legs: NodeEnum = NodeEnum.NEW
+                             ) -> List[int]:
     """
     Calculates the relative permutation between two nodes.
 
@@ -501,6 +517,9 @@ def relative_leg_permutation(old_node: Node,
             identifiers of the new node. If None, the neighbour identifiers
             are assumed to be the same.
         modified_parent (bool): If True, the parent leg can also be different.
+        use_open_legs (NodeEnum): Which open legs to use to create the
+            permutation. Irrelevant if both nodes have the same number of open
+            legs. Degaults to `NodeEnum.NEW`.
     
     Returns:
         List[int]: The relative permutation.
@@ -516,5 +535,10 @@ def relative_leg_permutation(old_node: Node,
         else:
             perm = [new_node.parent_leg]
         perm += child_perm
-        perm += new_node.open_legs
+        if use_open_legs is NodeEnum.NEW:
+            perm += new_node.open_legs
+        elif use_open_legs is NodeEnum.OLD:
+            perm += old_node.open_legs
+        else:
+            raise ValueError(f"Invalid Node Kind: {use_open_legs}")
         return perm
