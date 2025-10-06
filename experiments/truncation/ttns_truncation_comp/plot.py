@@ -15,6 +15,7 @@ from pytreenet.util.experiment_util.metadata_file import MetadataFilter
 from pytreenet.core.truncation import TruncationMethod
 from pytreenet.time_evolution.results import Results
 from pytreenet.util.plotting.line_config import LineConfig
+from pytreenet.special_ttn.special_states import TTNStructure
 
 from sim_script import (TruncationParams,
                         RES_IDS)
@@ -214,10 +215,14 @@ if __name__ == "__main__":
         print("Usage: python plot.py <data_directory>")
         sys.exit(1)
     data_dir = sys.argv[1]
-    md_filter = MetadataFilter()
-    md_filter.add_to_criterium("structure", "tstar")
-    md_filter.add_to_criterium("sys_size", 20)
-    md_filter.add_to_criterium("bond_dim", 80)
-    save_path = os.path.join(data_dir, "plots")
-    save_path = os.path.join(save_path, "truncation_comparison.pdf")
-    plot_all(md_filter, data_dir, save_path=save_path)
+    structures = (TTNStructure.MPS, TTNStructure.BINARY,
+                  TTNStructure.FTPS, TTNStructure.TSTAR)
+    sys_sizes = (50,7,8,20)
+    for structure, sys_size in zip(structures, sys_sizes):
+        md_filter = MetadataFilter()
+        md_filter.add_to_criterium("structure", structure.value)
+        md_filter.add_to_criterium("sys_size", sys_size)
+        md_filter.add_to_criterium("bond_dim", 80)
+        save_path = os.path.join(data_dir, "plots")
+        save_path = os.path.join(save_path, f"truncation_comparison_{structure.value}.pdf")
+        plot_all(md_filter, data_dir, save_path=save_path)
