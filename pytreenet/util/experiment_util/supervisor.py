@@ -206,9 +206,11 @@ class Supervisor:
         """
         self.configure_logging()
         metadata_index = self.load_metadata_index()
+        num_sims = len(self.sim_parameters)
         logging.info("Starting simulations with %d parameter sets",
-                     len(self.sim_parameters))
-        for sim_param in self.sim_parameters:
+                     num_sims)
+        for i, sim_param in enumerate(self.sim_parameters):
+            logging.info("### Running simulation %d/%d", i + 1, num_sims)
             runner = SingleParameterRunner(sim_param,
                                            self.save_directory,
                                            self.simulation_script_path,
