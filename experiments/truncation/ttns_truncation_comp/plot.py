@@ -14,6 +14,7 @@ from pytreenet.util.plotting.plotables.multiplot import ConvergingPlottable
 from pytreenet.util.experiment_util.metadata_file import MetadataFilter
 from pytreenet.core.truncation import TruncationMethod
 from pytreenet.time_evolution.results import Results
+from pytreenet.util.plotting.line_config import LineConfig
 
 from sim_script import (TruncationParams,
                         RES_IDS)
@@ -32,6 +33,45 @@ def method_name(params: TruncationParams) -> str:
     if params.random_trunc:
         name = "Random " + name
     return name
+
+def method_colour(params: TruncationParams) -> str:
+    """
+    Assigns a color to the truncation method for plotting purposes.
+
+    Args:
+        params (TruncationParams): The parameters of the simulation.
+
+    Returns:
+        str: A color code for the truncation method.
+    """
+    if params.trunc_method is TruncationMethod.VARIATIONAL:
+        return "tab:green"
+    if params.random_trunc:
+        if params.trunc_method is TruncationMethod.SVD:
+            return "tab:orange"
+        if params.trunc_method is TruncationMethod.RECURSIVE:
+            return "tab:red"
+    if params.trunc_method is TruncationMethod.SVD:
+        return "tab:blue"
+    if params.trunc_method is TruncationMethod.RECURSIVE:
+        return "tab:purple"
+    raise ValueError(f"Unknown truncation method: {params.trunc_method}")
+
+def build_lineconfig(params: TruncationParams) -> LineConfig:
+    """
+    Builds a LineConfig object for plotting based on the simulation parameters.
+
+    Args:
+        params (TruncationParams): The parameters of the simulation.
+    
+    Returns:
+        LineConfig: The configuration for plotting lines.
+    """
+    lc = LineConfig()
+    lc.color = method_colour(params)
+    lc.label = method_name(params)
+    lc.marker = "."
+    return lc
 
 def extract_bd_vs_err(result: Results
                       ) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
@@ -99,18 +139,22 @@ def load_data(md_filter: MetadataFilter,
     """
     params_results = md_filter.load_valid_results_and_parameters(directory_path,
                                                                  parameter_class=TruncationParams)
+    print(len(params_results), "results found after filtering.")
     out: dict[str,
               tuple[list[StandardPlottable],
                     list[StandardPlottable],
                     list[StandardPlottable]]] = {}
     for params, results in params_results:
+        lc = build_lineconfig(params)
         bd_vs_err = StandardPlottable.from_simulation_result(results, params,
                                                              extract_bd_vs_err)
         bd_vs_runtime = StandardPlottable.from_simulation_result(results, params,
                                                                  extract_bd_vs_runtime)
+        bd_vs_err.line_config = lc
+        bd_vs_runtime.line_config = lc
         m_name = method_name(params)
         if m_name not in out:
-            out[m_name] = ([], [], [])
+            out[m_name] = ([], [])
         out[m_name][0].append(bd_vs_err)
         out[m_name][1].append(bd_vs_runtime)
     actual_out: dict[str, tuple[StandardPlottable, StandardPlottable, StandardPlottable]] = {}
@@ -171,8 +215,9 @@ if __name__ == "__main__":
         sys.exit(1)
     data_dir = sys.argv[1]
     md_filter = MetadataFilter()
-    md_filter.add_to_criterium("structure", "mps")
+    md_filter.add_to_criterium("structure", "tstar")
     md_filter.add_to_criterium("sys_size", 20)
+    md_filter.add_to_criterium("bond_dim", 80)
     save_path = os.path.join(data_dir, "plots")
     save_path = os.path.join(save_path, "truncation_comparison.pdf")
     plot_all(md_filter, data_dir, save_path=save_path)

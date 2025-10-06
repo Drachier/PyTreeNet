@@ -131,7 +131,7 @@ def run_fitting(params: TruncationParams) -> Results:
                                  )
         start_time = time()
         single_site_fitting(ttns, init_ttns,
-                            10)
+                            2)
         end_time = time()
         trunc_error = ttns.distance(init_ttns, normalise=True)
         set_result_values(results, index,
