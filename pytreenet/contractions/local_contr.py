@@ -502,6 +502,24 @@ class LocalContraction:
             return self.current_tensor.value
         errstr = f"Invalid `FinalTransposition` {transpose_option}!"
         raise ValueError(errstr)
+    
+    def __call__(self,
+                 transpose_option: FinalTransposition | Callable = FinalTransposition.STANDARD
+                 ) -> npt.NDArray:
+        """
+        Contracts all tensors in this contraction.
+
+        Args:
+            transpose_option (FinalTransposition | Callable): The way in which
+                to tranpose the final tensor. Can be a callable that takes a
+                `CurrentTensor` and outputs the transposed tensor. See
+                `FinalTransposition` class for details on the existing
+                options.
+        
+        Returns:
+            npt.NDArray: The final contracted tensor.
+        """
+        return self.contract_all(transpose_option=transpose_option)
 
 class CurrentTensor:
     """
