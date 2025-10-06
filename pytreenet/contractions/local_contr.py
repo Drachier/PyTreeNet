@@ -463,15 +463,17 @@ class LocalContraction:
         self.current_tensor.value = curr_tensor
 
     def contract_all(self,
-                     transpose_option: FinalTransposition = FinalTransposition.STANDARD
+                     transpose_option: FinalTransposition | Callable = FinalTransposition.STANDARD
                      ) -> npt.NDArray:
         """
         Contracts all tensors in the contraction order.
 
         Args:
-            transpose_option (FinalTransposition): The way to transpose the
-                final tensor. Check the `FinalTransposition` enum for
-                more details.
+            transpose_option (FinalTransposition | Callable): The way in which
+                to tranpose the final tensor. Can be a callable that takes a
+                `CurrentTensor` and outputs the transposed tensor. See
+                `FinalTransposition` class for details on the existing
+                options.
         
         Returns:
             npt.NDArray: The final contracted tensor.
