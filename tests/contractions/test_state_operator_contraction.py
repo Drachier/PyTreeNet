@@ -7,8 +7,11 @@ from pytreenet.core.node import Node
 from pytreenet.random.random_node import random_tensor_node
 from pytreenet.random.random_ttns import (random_small_ttns)
 from pytreenet.contractions.tree_cach_dict import PartialTreeCachDict
+from pytreenet.ttns.ttns import TTNS
+from pytreenet.ttno.ttno_class import TTNO
 
-from pytreenet.contractions.state_operator_contraction import (single_node_expectation_value,
+from pytreenet.contractions.state_operator_contraction import (get_matrix_element,
+                                                               single_node_expectation_value,
                                                                contract_operator_tensor_ignoring_one_leg,
                                                                contract_bra_tensor_ignore_one_leg,
                                                                contract_single_site_operator_env,
@@ -51,6 +54,114 @@ class TestSingleNodeExpectationValue(TestCase):
                                                      operator_tensor,
                                                      bra_tensor)
         self.assertTrue(allclose(ref_result, found_result))
+
+class TestLargeMatrixElement(TestCase):
+    """
+    Tests the computation to obtain the matrix element <bra|O|ket>.
+    Here bra and ket are TTNS and O is a TTNO.
+    """
+
+    def test_full_case(self):
+        """
+        Test the function, where the nodes in ket, bra, and op have different
+        identifiers and are in a different order.
+        """
+        # Build ket
+        ket = TTNS()
+        root_id = "root"
+        root_node, root_tensor = random_tensor_node((7,8),
+                                                    identifier=root_id)
+        ket.add_root(root_node, root_tensor)
+        n10_id = "n10"
+        n10_node, n10_tensor = random_tensor_node((7,1,4), 
+                                                  identifier=n10_id)
+        ket.add_child_to_parent(n10_node, n10_tensor, 0, root_id, 0)
+        n11_id = "n11"
+        n11_node, n11_tensor = random_tensor_node((8,6,2),
+                                                    identifier=n11_id)
+        ket.add_child_to_parent(n11_node, n11_tensor, 0, root_id, 1)
+        n20_id = "n20"
+        n20_node, n20_tensor = random_tensor_node((6,4,1),
+                                                  identifier=n20_id)
+        ket.add_child_to_parent(n20_node, n20_tensor, 0, n11_id, 1)
+        nl1_id = "nl1"
+        nl1_node, nl1_tensor = random_tensor_node((1,2),
+                                                    identifier=nl1_id)
+        ket.add_child_to_parent(nl1_node, nl1_tensor, 0, n10_id, 1)
+        nl2_id = "nl2"
+        nl2_node, nl2_tensor = random_tensor_node((4,2,2),
+                                                   identifier=nl2_id)
+        ket.add_child_to_parent(nl2_node, nl2_tensor, 0, n10_id, 2)
+        nl3_id = "nl3"
+        nl3_node, nl3_tensor = random_tensor_node((4,2,2),
+                                                   identifier=nl3_id)
+        ket.add_child_to_parent(nl3_node, nl3_tensor, 0, n20_id, 1)
+        nl4_id = "nl4"
+        nl4_node, nl4_tensor = random_tensor_node((1,2),
+                                                    identifier=nl4_id)
+        ket.add_child_to_parent(nl4_node, nl4_tensor, 0, n20_id, 2)
+        # Build bra
+        def bra_id_trafo(node_id):
+            return node_id + "_bra"
+        bra = TTNS()
+        bra_root_node, bra_root_tensor = random_tensor_node((7,8),
+                                                            identifier=bra_id_trafo(root_id))
+        bra.add_root(bra_root_node, bra_root_tensor)
+        bra_n11_node, bra_n11_tensor = random_tensor_node((8,6,2),
+                                                            identifier=bra_id_trafo(n11_id))
+        bra.add_child_to_parent(bra_n11_node, bra_n11_tensor, 0, bra_root_node.identifier, 1)
+        bra_n10_node, bra_n10_tensor = random_tensor_node((7,1,4),
+                                                            identifier=bra_id_trafo(n10_id))
+        bra.add_child_to_parent(bra_n10_node, bra_n10_tensor, 0, bra_root_node.identifier, 1)
+        bra_n20_node, bra_n20_tensor = random_tensor_node((6,4,1),
+                                                            identifier=bra_id_trafo(n20_id))
+        bra.add_child_to_parent(bra_n20_node, bra_n20_tensor, 0, bra_n11_node.identifier, 1)
+        bra_nl2_node, bra_nl2_tensor = random_tensor_node((4,2,2),
+                                                            identifier=bra_id_trafo(nl2_id))
+        bra.add_child_to_parent(bra_nl2_node, bra_nl2_tensor, 0, bra_n10_node.identifier, 2)
+        bra_nl1_node, bra_nl1_tensor = random_tensor_node((1,2),
+                                                            identifier=bra_id_trafo(nl1_id))
+        bra.add_child_to_parent(bra_nl1_node, bra_nl1_tensor, 0, bra_n10_node.identifier, 2)
+        bra_nl4_node, bra_nl4_tensor = random_tensor_node((1,2),
+                                                            identifier=bra_id_trafo(nl4_id))
+        bra.add_child_to_parent(bra_nl4_node, bra_nl4_tensor, 0, bra_n20_node.identifier, 2)
+        bra_nl3_node, bra_nl3_tensor = random_tensor_node((4,2,2),
+                                                            identifier=bra_id_trafo(nl3_id))
+        bra.add_child_to_parent(bra_nl3_node, bra_nl3_tensor, 0, bra_n20_node.identifier, 2)
+        # Build operator
+        def op_id_trafo(node_id):
+            return node_id + "_op"
+        op = TTNO()
+        op_root_node, op_root_tensor = random_tensor_node((8,6),
+                                                        identifier=op_id_trafo(root_id))
+        op.add_root(op_root_node, op_root_tensor)
+        op_n11_node, op_n11_tensor = random_tensor_node((6,8),
+                                                        identifier=op_id_trafo(n11_id))
+        op.add_child_to_parent(op_n11_node, op_n11_tensor, 1, op_root_node.identifier, 0)
+        op_n10_node, op_n10_tensor = random_tensor_node((6,3,5),
+                                                        identifier=op_id_trafo(n10_id))
+        op.add_child_to_parent(op_n10_node, op_n10_tensor, 0, op_root_node.identifier, 1)
+        op_n20_node, op_n20_tensor = random_tensor_node((6,5,3),
+                                                        identifier=op_id_trafo(n20_id))
+        op.add_child_to_parent(op_n20_node, op_n20_tensor, 0, op_n11_node.identifier, 1)
+        op_nl2_node, op_nl2_tensor = random_tensor_node((5,2,2),
+                                                        identifier=op_id_trafo(nl2_id))
+        op.add_child_to_parent(op_nl2_node, op_nl2_tensor, 0, op_n10_node.identifier, 2)
+        op_nl1_node, op_nl1_tensor = random_tensor_node((3,2,2),
+                                                        identifier=op_id_trafo(nl1_id))
+        op.add_child_to_parent(op_nl1_node, op_nl1_tensor, 0, op_n10_node.identifier, 2)
+        op_nl4_node, op_nl4_tensor = random_tensor_node((3,2,2),
+                                                        identifier=op_id_trafo(nl4_id))
+        op.add_child_to_parent(op_nl4_node, op_nl4_tensor, 0, op_n20_node.identifier, 2)
+        op_nl3_node, op_nl3_tensor = random_tensor_node((5,2,2),
+                                                        identifier=op_id_trafo(nl3_id))
+        op.add_child_to_parent(op_nl3_node, op_nl3_tensor, 0, op_n20_node.identifier, 2)
+        # Found
+        found_result = get_matrix_element(bra, op, ket)
+        # Reference
+        ket_vec, _ = ket.completely_contract_tree(to_copy=True)
+        bra_vec, _ = bra.completely_contract_tree(to_copy=True)
+        op_mat, _ = op.as_matrix()
 
 class TestContractLeaf(TestCase):
     """
