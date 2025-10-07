@@ -502,7 +502,20 @@ class LocalContraction:
             return self.current_tensor.value
         errstr = f"Invalid `FinalTransposition` {transpose_option}!"
         raise ValueError(errstr)
-    
+
+    def contract_to_scalar(self) -> complex:
+        """
+        Contracts all tensors in this contraction to a scalar.
+
+        Returns:
+            complex: The final contracted scalar.
+        """
+        final_tensor = self.contract_all(transpose_option=FinalTransposition.NONE)
+        if final_tensor.ndim != 0:
+            errstr = "Final tensor is not a scalar!"
+            raise ValueError(errstr)
+        return final_tensor.item()
+
     def __call__(self,
                  transpose_option: FinalTransposition | Callable = FinalTransposition.STANDARD
                  ) -> npt.NDArray:
