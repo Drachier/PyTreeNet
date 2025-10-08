@@ -103,8 +103,7 @@ def contract_all_but_one_neighbour_block_to_ket(ket_tensor: np.ndarray,
 def contract_all_neighbour_blocks_to_ket(ket_tensor: np.ndarray,
                                          ket_node: Node,
                                          partial_tree_cache: PartialTreeCachDict,
-                                         order: Union[None,List[str]] = None,
-                                         output: bool = False
+                                         order: Union[None,List[str]] = None
                                          ) -> np.ndarray:
     """
     Contract all neighbour blocks to the ket tensor.
@@ -117,9 +116,6 @@ def contract_all_neighbour_blocks_to_ket(ket_tensor: np.ndarray,
         order (Union[None,List[str]]): The order in which the neighbour blocks
             should be contracted. If None, the order is simply pulled from the
             node's neighbouring nodes.
-        output (bool): Whether to transpose the resulting tensor as an output
-            tensor to be put back into a TTN, i.e. the phyiscal legs are will
-            be moved to the end of the tensor. Default is False.
 
     Returns:
         np.ndarray: The resulting tensor::
