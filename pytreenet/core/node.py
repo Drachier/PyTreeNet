@@ -125,6 +125,12 @@ class Node(GraphNode):
         """
         return list(range(self.nvirt_legs(), self.nlegs()))
 
+    def lowest_open_leg(self) -> int:
+        """
+        Returns the lowest valued open leg.
+        """
+        return self.nvirt_legs()
+
     def __str__(self) -> str:
         """
         Returns a string representation of the node.
@@ -358,6 +364,19 @@ class Node(GraphNode):
         new_position = open_1.start + len(open_2) + difference
         self._leg_permutation[new_position:new_position] = values1
 
+    def operator_transpose(self):
+        """
+        Transpose the first half of the open legs with the second half.
+        """
+        nopen = self.nopen_legs()
+        if nopen % 2 != 0:
+            errstr = f"Cannot transpose open legs of node {self.identifier} with odd number of open legs!"
+            raise NotCompatibleException(errstr)
+        half = nopen // 2
+        open_1 = range(self.nvirt_legs(), self.nvirt_legs() + half)
+        open_2 = range(self.nvirt_legs() + half, self.nlegs())
+        self.exchange_open_leg_ranges(open_1, open_2)
+
     def swap_two_child_legs(self, child_id1: str, child_id2: str):
         """
         Swaps the index position of two children.
@@ -427,7 +446,7 @@ class Node(GraphNode):
         if open_dim == []:
             return 1
         return reduce(lambda x, y: x * y, open_dim)
-    
+
     def open_dimensions(self) -> List[int]:
         """
         Returns a list of the dimensions of the open legs.

@@ -13,7 +13,7 @@ from warnings import warn
 from dataclasses import dataclass
 
 import numpy as np
-import scipy
+import scipy.linalg as splinalg
 
 from .tensor_util import tensor_matricization
 from .ttn_exceptions import positivity_check
@@ -105,10 +105,25 @@ def tensor_qr_decomposition(tensor: np.ndarray,
         r = np.pad(r,padding_r)
     return q, r
 
+class DecompositionType(Enum):
+    """
+    Enum over the different types of decomposition.
+    """
+    SVD = "svd"
+    EIGEN = "eigen"
+
+    def randomisable(self) -> bool:
+        """
+        Returns whether this kind of decomposition has a randomised version.
+        """
+        return self is DecompositionType.SVD
+
 def tensor_svd(tensor: np.ndarray,
                u_legs: Tuple[int,...],
                v_legs: Tuple[int,...],
-               mode: SplitMode = SplitMode.REDUCED) -> Tuple[np.ndarray,np.ndarray,np.ndarray]:
+               mode: SplitMode = SplitMode.REDUCED,
+               decomp: DecompositionType = DecompositionType.SVD
+               ) -> Tuple[np.ndarray,np.ndarray,np.ndarray]:
     """
     Perform a singular value decomposition on a tensor.
 
@@ -121,6 +136,7 @@ def tensor_svd(tensor: np.ndarray,
         mode (SplitMode, optional): Determines if the full or reduced matrices
             u and vh obtained by the SVD are returned. The default is
             SplitMode.REDUCED.
+        decomp (DecompositionType, optional): The type of decomposition to use.
     
     Returns:
         Tuple[np.ndarray,np.ndarray,np.ndarray]: (U, S, V), where S is the
@@ -139,7 +155,13 @@ def tensor_svd(tensor: np.ndarray,
     full_matrices = mode.numpy_svd_mode()
     matrix = tensor_matricization(tensor, u_legs, v_legs,
                                   correctly_ordered=correctly_ordered)
-    u, s, vh = np.linalg.svd(matrix, full_matrices=full_matrices)
+    if decomp is DecompositionType.SVD:
+        u, s, vh = np.linalg.svd(matrix, full_matrices=full_matrices)
+    elif decomp is DecompositionType.EIGEN:
+        s, u, vh = splinalg.eig(matrix, left=True, right=True)
+    else:
+        errstr = "Invalid decomposition type!"
+        raise ValueError(errstr)
     shape = tensor.shape
     u_shape = _determine_tensor_shape(shape, u, u_legs, output=True)
     vh_shape = _determine_tensor_shape(shape, vh, v_legs, output=False)
@@ -251,6 +273,8 @@ class SVDParameters:
         random (bool, optional): If True, a randomized SVD is used instead of
             a full SVD. This is usually faster for large matrices. Defaults to
             False.
+        decomp (DecompositionType, optional): The type of decomposition to use
+            for truncation.
     """
     max_bond_dim: int = 100
     rel_tol: float = 1e-15
@@ -259,6 +283,7 @@ class SVDParameters:
     sum_trunc: bool = False
     sum_renorm: bool = True
     random: bool = False
+    decomp: DecompositionType = DecompositionType.SVD
 
     def __post_init__(self):
         """
@@ -284,6 +309,10 @@ class SVDParameters:
         total_tol = self.total_tol
         if (total_tol < 0) and (total_tol != float("-inf")):
             raise ValueError("'total_tol' has to be positive or -inf.")
+        if self.random:
+            if not self.decomp.randomisable():
+                errstr = f"Decomposition {self.decomp} doesn't have a random version!"
+                raise ValueError(errstr)
 
 def renormalise_singular_values(s: np.ndarray,
                                 new_s: np.ndarray) -> np.ndarray:
@@ -612,7 +641,7 @@ def rrqr(tensor: np.ndarray,
     Returns:
         Tuple[np.ndarray,np.ndarray]: (Q, R)
     """
-    q, r, p = scipy.linalg.qr(tensor, mode='economic', pivoting=True)
+    q, r, p = splinalg.qr(tensor, mode='economic', pivoting=True)
     if svd_params is None:
         k = min(r.shape[0], r.shape[1])
     else:
