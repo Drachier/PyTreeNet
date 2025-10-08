@@ -192,7 +192,7 @@ def contract_node_with_environment_nodes(ket_node: Node,
                      (bra_node, bra_tensor)]
     local_contr = LocalContraction(nodes_tensors,
                                    dictionary,
-                                   id_trafos=_validate_id_trafo(id_trafo))
+                                   id_trafos=[None,id_trafo])
     return local_contr.contract_to_scalar()
 
 def contract_any(node_id: str, next_node_id: str,
@@ -244,7 +244,8 @@ def contract_any(node_id: str, next_node_id: str,
     if id_trafo is None:
         node2, tensor2 = state2[node_id]
     else:
-        node2, tensor2 = state2[id_trafo(node_id)]
+        node2, tensor2 = state2[id_trafo(node_id)
+                                if id_trafo is not None else node_id]
     if state2_conj:
         tensor2 = np.conjugate(tensor2)
     return contract_any_nodes(next_node_id, node1, node2,
@@ -298,23 +299,6 @@ def contract_any_nodes(next_node_id: str,
                      (node2, tensor2)]
     local_contr = LocalContraction(nodes_tensors,
                                    dictionary,
-                                   id_trafos=_validate_id_trafo(id_trafo),
+                                   id_trafos=[None,id_trafo],
                                    ignored_leg=next_node_id)
     return local_contr()
-
-def _validate_id_trafo(id_trafo: Callable | None) -> list[Callable,Callable]:
-    """
-    Validates the id_trafo argument.
-
-    Args:
-        id_trafo (Callable | None): The id_trafo argument to validate.
-
-    Returns:
-        list[Callable,Callable]: A list containing two callables. The first
-            callable is the identity function, the second is the id_trafo
-            argument if it is not None, otherwise the identity function.
-    """
-    if id_trafo is None:
-        return [lambda x: x, lambda x: x]
-    else:
-        return [lambda x: x, id_trafo]
