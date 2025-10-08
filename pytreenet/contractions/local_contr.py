@@ -161,6 +161,8 @@ class LocalContraction:
             if len(id_trafos) != len(nodes_tensors):
                 errstr = f"Need as many `id_trafo` as tensors, ({len(id_trafos)},{len(nodes_tensors)})!"
                 raise IndexError(errstr)
+            id_trafos = [id_trafo if id_trafo is not None else lambda x: x
+                            for id_trafo in id_trafos]
         self.id_trafos = id_trafos
         self.connection_index = connection_index
         self.current_tensor = CurrentTensor()
