@@ -516,6 +516,30 @@ class LocalContraction:
             raise ValueError(errstr)
         return final_tensor.item()
 
+    def contract_into_cache(self,
+                            **kwargs
+                            ) -> None:
+        """
+        Contracts all tensors in this contraction and stores the result in the
+        subtree cache.
+
+        Args:
+            **kwargs: Additional arguments to pass to `contract_all`.
+
+        Raises:
+            ValueError: If there is no ignored leg. In this case the tensor
+                cannot be stored in the subtree cache.
+        """
+        if self.no_ignored_legs():
+            errstr = "No ignored leg, cannot store in subtree cache!"
+            raise ValueError(errstr)
+        final_tensor = self.contract_all(**kwargs)
+        node_id = self.node_identifier
+        next_node_id = self.ignored_leg
+        self.subtree_dict.add_entry(node_id,
+                                    next_node_id,
+                                    final_tensor)
+
     def __call__(self,
                  transpose_option: FinalTransposition | Callable = FinalTransposition.STANDARD
                  ) -> npt.NDArray:
