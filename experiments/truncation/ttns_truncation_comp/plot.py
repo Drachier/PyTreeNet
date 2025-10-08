@@ -140,7 +140,6 @@ def load_data(md_filter: MetadataFilter,
     """
     params_results = md_filter.load_valid_results_and_parameters(directory_path,
                                                                  parameter_class=TruncationParams)
-    print(len(params_results), "results found after filtering.")
     out: dict[str,
               tuple[list[StandardPlottable],
                     list[StandardPlottable],
