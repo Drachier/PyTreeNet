@@ -15,15 +15,13 @@ from typing import Union, Callable, TYPE_CHECKING
 import numpy as np
 
 from .tree_cach_dict import PartialTreeCachDict
-from .contraction_util import (contract_all_but_one_neighbour_block_to_ket,
-                               contract_all_neighbour_blocks_to_ket,
-                               get_equivalent_legs)
+from .local_contr import LocalContraction
 
 if TYPE_CHECKING:
     from ..core.node import Node
     from ..ttns.ttns import TreeTensorNetworkState
 
-__all__ = ['contract_two_ttns']
+__all__ = ['contract_two_ttns', 'scalar_product']
 
 def contract_two_ttns(ttn1: TreeTensorNetworkState,
                       ttn2: TreeTensorNetworkState,
@@ -45,6 +43,7 @@ def contract_two_ttns(ttn1: TreeTensorNetworkState,
     """
     dictionary = PartialTreeCachDict()
     computation_order = ttn1.linearise() # Getting a linear list of all identifiers
+    id_trafo = id_trafo if id_trafo is not None else lambda x: x
     for node_id in computation_order[:-1]: # The last one is the root node
         node = ttn1.nodes[node_id]
         parent_id = node.parent
@@ -59,10 +58,41 @@ def contract_two_ttns(ttn1: TreeTensorNetworkState,
         for child_id in children:
             dictionary.delete_entry(child_id,node_id)
     # Now everything remaining is contracted into the root tensor.
-    return complex(contract_node_with_environment(ttn1.root_id,
-                                                  ttn1, ttn2,
-                                                  dictionary,
-                                                  id_trafo=id_trafo))
+    return contract_node_with_environment(ttn1.root_id,
+                                            ttn1, ttn2,
+                                            dictionary,
+                                            id_trafo=id_trafo)
+
+def scalar_product(ttn: TreeTensorNetworkState) -> complex:
+    """
+    Computes the scalar product of a TreeTensorNetworkState with itself.
+
+    Args:
+        ttn (TreeTensorNetwork): The TreeTensorNetwork.
+
+    Returns:
+        complex: The resulting scalar product <TTN|TTN>
+    """
+    dictionary = PartialTreeCachDict()
+    computation_order = ttn.linearise() # Getting a linear list of all identifiers
+    for node_id in computation_order[:-1]: # The last one is the root node
+        node, tensor = ttn[node_id]
+        parent_id = node.parent
+        # Due to the linearisation the children should already be contracted.
+        block = contract_any_nodes(parent_id,
+                                   node, node,
+                                   tensor, tensor.conj(),
+                                   dictionary)
+        dictionary.add_entry(node_id,parent_id,block)
+        # The children contraction results are not needed anymore.
+        children = node.children
+        for child_id in children:
+            dictionary.delete_entry(child_id,node_id)
+    # Now everything remaining is contracted into the root tensor.
+    root_node, root_tensor = ttn[ttn.root_id]
+    return contract_node_with_environment_nodes(root_node, root_tensor,
+                                                root_node, root_tensor.conj(),
+                                                dictionary)
 
 def contract_node_with_environment(node_id: str,
                                    state1: TreeTensorNetworkState,
@@ -121,7 +151,7 @@ def contract_node_with_environment_nodes(ket_node: Node,
                                          bra_tensor: np.ndarray,
                                          dictionary: PartialTreeCachDict,
                                          id_trafo: Union[None,Callable] = None
-                                         ) -> np.ndarray:
+                                         ) -> complex:
     """
     Contracts a node with its environment.
      
@@ -141,7 +171,7 @@ def contract_node_with_environment_nodes(ket_node: Node,
             Defaults to None.
     
     Returns:
-        np.ndarray: The resulting tensor. A and B are the tensors in state1 and
+        complex: The resulting tensor. A and B are the tensors in state1 and
             state2, respectively, corresponding to the node with the identifier
             node_id. C aer the tensors in the dictionary corresponding to the
             subtrees going away from the node::
@@ -158,12 +188,12 @@ def contract_node_with_environment_nodes(ket_node: Node,
             |______|    |_____|    |______|
     
     """
-    ketblock_tensor = contract_all_neighbour_blocks_to_ket(ket_tensor,
-                                                           ket_node,
-                                                           dictionary)
-    return contract_bra_to_ket_and_blocks(bra_tensor, ketblock_tensor,
-                                          bra_node, ket_node,
-                                          id_trafo=id_trafo)
+    nodes_tensors = [(ket_node, ket_tensor),
+                     (bra_node, bra_tensor)]
+    local_contr = LocalContraction(nodes_tensors,
+                                   dictionary,
+                                   id_trafos=_validate_id_trafo(id_trafo))
+    return local_contr.contract_to_scalar()
 
 def contract_any(node_id: str, next_node_id: str,
                  state1: TreeTensorNetworkState,
@@ -264,223 +294,27 @@ def contract_any_nodes(next_node_id: str,
             0   |  T1 |    |      |
                 |_____|    |______|
     """
-    if node1.is_leaf():
-        return contract_leafs(node1, node2, tensor1, tensor2)
-    return contract_subtrees_using_dictionary(next_node_id,
-                                              node1, node2,
-                                              tensor1, tensor2,
-                                              dictionary,
-                                              id_trafo=id_trafo)
+    nodes_tensors = [(node1, tensor1),
+                     (node2, tensor2)]
+    local_contr = LocalContraction(nodes_tensors,
+                                   dictionary,
+                                   id_trafos=_validate_id_trafo(id_trafo),
+                                   ignored_leg=next_node_id)
+    return local_contr()
 
-def contract_leafs(node1: Node, node2: Node,
-                   tensor1: np.ndarray, tensor2: np.ndarray
-                   ) -> np.ndarray:
+def _validate_id_trafo(id_trafo: Callable | None) -> list[Callable,Callable]:
     """
-    Contracts tensors associated with two leaf nodes.
-
-    If the current subtree starts at a leaf node, only the tensors correspoding
-    to this leaf in the two states must be contracted with each other.
+    Validates the id_trafo argument.
 
     Args:
-        node1 (Node): The first node.
-        node2 (Node): The second node.
-        tensor1 (np.ndarray): The tensor corresponding to node1.
-        tensor2 (np.ndarray): The tensor corresponding to node2.
+        id_trafo (Callable | None): The id_trafo argument to validate.
 
     Returns:
-        np.ndarray: The tensor resulting from the contraction::
-
-                     _____
-                ____|     |
-                    |  T2 |
-                    |_____|
-                       |
-                       |
-                     __|__
-                ____|     |
-                    |  T1 |
-                    |_____|
-    
-
+        list[Callable,Callable]: A list containing two callables. The first
+            callable is the identity function, the second is the id_trafo
+            argument if it is not None, otherwise the identity function.
     """
-    assert node1.is_leaf() and node2.is_leaf()
-    errstr = "The leaf nodes must have exactly one open leg."
-    assert len(node1.open_legs) == 1 and len(node2.open_legs) == 1, errstr
-    axes = (node1.open_legs[0], node2.open_legs[0])
-    tensor = np.tensordot(tensor1, tensor2,
-                            axes=axes)
-    return tensor
-
-def contract_subtrees_using_dictionary(next_node_id: str,
-                                       node1: Node, node2: Node,
-                                       tensor1: np.ndarray,
-                                       tensor2: np.ndarray,
-                                       dictionary: PartialTreeCachDict,
-                                       id_trafo: Union[Callable,None] = None
-                                       ) -> np.ndarray:
-    """
-    Contracts a node with all but one of the subtrees attached to it.
-
-    The tensors corresponding to the nodes are contracted with
-    each other and all but one subtrees starting from this node. The other
-    subtrees are assumed to already be contracted and stored in the provided
-    dictionary.
-
-    Args:
-        next_node_id (str): The identifier of the node to which the remaining
-            virtual legs point.
-        node1 (Node): The first node.
-        node2 (Node): The second node.
-        tensor1 (np.ndarray): The tensor corresponding to node1.
-        tensor2 (np.ndarray): The tensor corresponding to node2.
-        dictionary (PartialTreeCacheDict): The dictionary containing the
-            already contracted subtrees.
-        id_trafo (Union[Callable,None], optional): A function to transform the
-            node identifiers of node1 into the node identifiers of node2. If
-            None, it is assumed that the identifiers are the same. Defaults to
-            None.
-        
-        Returns:
-            np.ndarray: The resulting tensor. For example, if the nodes have
-                two neighbours::
-
-                         _____      ______
-                    ____|     |____|      |
-                        |  T2 |    |      |
-                        |_____|    |      |
-                           |       |      |
-                           |       |  C   |
-                         __|__     |      |
-                    ____|     |____|      |
-                        |  T1 |    |      |
-                        |_____|    |______|
-        
-    """
-    ket_node = node1
-    ket_tensor = tensor1
-    ketblock_tensor = contract_all_but_one_neighbour_block_to_ket(ket_tensor,
-                                                                  ket_node,
-                                                                  next_node_id,
-                                                                  dictionary)
-    bra_node = node2
-    bra_tensor = tensor2
-    return contract_bra_to_ket_and_blocks_ignore_one_leg(bra_tensor,
-                                                         ketblock_tensor,
-                                                         bra_node,
-                                                         ket_node,
-                                                         next_node_id,
-                                                         id_trafo=id_trafo)
-
-def contract_bra_to_ket_and_blocks(bra_tensor: np.ndarray,
-                                   ketblock_tensor: np.ndarray,
-                                   bra_node: Node,
-                                   ket_node: Node,
-                                   id_trafo: Union[Callable,None] = None
-                                   ) -> np.ndarray:
-    """
-    Contracts the bra tensor with the ket and all neighbouring blocks.
-
-    The bra tensor is contracted with the ket tensor and all neighbouring
-    subtrees, which are already contracted into the blocks.
-
-    Args:
-        bra_tensor (np.ndarray): The tensor of the bra node.
-        ketblock_tensor (np.ndarray): The tensor resulting from the contraction
-         of the ket node and its neighbouring blocks. Note that the physical leg
-         of the ket node is now the first leg.
-        bra_node (Node): The bra node.
-        ket_node (Node): The ket node.
-        id_trafo (Union[Callable,None], optional): A function to transform the
-            node identifiers of the ket node into the node identifiers of the
-            the bra node. If None, it is assumed that the identifiers are the
-            same. Defaults to None.
-
-    Returns:
-        np.ndarray: The resulting tensor::
-    
-             ______      _____      ______
-            |      |____|     |____|      |
-            |      |    |  B  |    |      |
-            |      |    |_____|    |      |
-            |      |       |       |      |
-            |  C1  |       |       |  C2  |
-            |      |     __|__     |      |
-            |      |____|     |____|      |
-            |      |    |  A  |    |      |
-            |______|    |_____|    |______|
-
-    """
-    num_neighbours = bra_node.nneighbours()
-    legs_block, legs_bra = get_equivalent_legs(ket_node,
-                                               bra_node,
-                                               id_trafo=id_trafo)
-    # All the neighbour block indices are moved up by one
-    legs_block = [leg + 1 for leg in legs_block]
-    # The kets physical leg is now the first leg
-    legs_block.append(0)
-    # The bra tensor's physical leg is the last leg
-    legs_bra.append(num_neighbours)
-    return np.tensordot(ketblock_tensor, bra_tensor,
-                        axes=(legs_block, legs_bra))
-
-def contract_bra_to_ket_and_blocks_ignore_one_leg(bra_tensor: np.ndarray,
-                                                  ketblock_tensor: np.ndarray,
-                                                  bra_node: Node,
-                                                  ket_node: Node,
-                                                  next_node_id: str,
-                                                  id_trafo: Union[Callable,None] = None
-                                                  ) -> np.ndarray:
-    """
-    Contracts the bra tensor with the ket and all but one neighbouring block.
-
-    Args:
-        bra_tensor (np.ndarray): The tensor of the bra node.
-        ketblock_tensor (np.ndarray): The tensor resulting from the contraction
-         of the ket node and its neighbouring blocks.
-        bra_node (Node): The bra node.
-        ket_node (Node): The ket node.
-        next_node_id (str): The identifier of the node to which the remaining
-            virtual legs point.
-        id_trafo (Union[Callable,None], optional): A function to transform the
-            node identifiers of the ket node into the node identifiers of the
-            the bra node. If None, it is assumed that the identifiers are the
-            same. Defaults to None.
-
-    Returns:
-        np.ndarray: The resulting tensor::
-
-                         _____      ______
-                    ____|     |____|      |
-                        |  B  |    |      |
-                        |_____|    |      |
-                           |       |      |
-                           |       |  C   |
-                         __|__     |      |
-                    ____|     |____|      |
-                        |  A  |    |      |
-                        |_____|    |______|
-        
-    """
-    legs_block = []
-    legs_bra = []
-    next_node_index = ket_node.neighbour_index(next_node_id)
-    for neighbour_id in ket_node.neighbouring_nodes():
-        if neighbour_id != next_node_id:
-            if id_trafo is None:
-                bra_neighbour_id = neighbour_id
-            else:
-                bra_neighbour_id = id_trafo(neighbour_id)
-            ket_index = ket_node.neighbour_index(neighbour_id)
-            # 1 comes from the physical leg and the other one happens exactly
-            # when the current neighbour index is above the ignored index.
-            # This is how the block tensor is constructed.
-            legs_block.append(ket_index + 1 + int(next_node_index > ket_index))
-            bra_index = bra_node.neighbour_index(bra_neighbour_id)
-            legs_bra.append(bra_index)
-    # The physical leg of the ket is now leg 1
-    legs_block.append(1)
-    # Physical leg of the bra is the last leg
-    num_neighbours = bra_node.nneighbours()
-    legs_bra.append(num_neighbours)
-    return np.tensordot(ketblock_tensor, bra_tensor,
-                        axes=(legs_block, legs_bra))
+    if id_trafo is None:
+        return [lambda x: x, lambda x: x]
+    else:
+        return [lambda x: x, id_trafo]
