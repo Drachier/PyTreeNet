@@ -670,7 +670,7 @@ def contract_leaf_node(ket_node: Node, ket_tensor: np.ndarray,
                     (bra_node, bra_tensor)]
     loc_contr = LocalContraction(node_tensors,
                                  PartialTreeCachDict(),
-                                 contraction_order=[0,1,2],
+                                 ignored_leg=ket_node.parent,
                                  id_trafos=[None,id_trafo_op,id_trafo_bra])
     return loc_contr()
 
