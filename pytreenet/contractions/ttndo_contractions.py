@@ -6,12 +6,13 @@ from typing import List, TYPE_CHECKING
 from re import match
 
 from numpy import tensordot, ndarray
+import numpy as np
 
 from ..ttno.ttno_class import TreeTensorNetworkOperator
 from .tree_cach_dict import PartialTreeCachDict
-from .state_state_contraction import (contract_any_nodes as contract_any_nodes_state,
-                                      contract_node_with_environment_nodes)
+from .state_state_contraction import (contract_any_nodes as contract_any_nodes_state)
 from .state_operator_contraction import contract_any_node as contract_any_nodes_operator
+from .local_contr import LocalContraction
 
 if TYPE_CHECKING:
     from ..ttns.ttndo import SymmetricTTNDO
@@ -183,20 +184,25 @@ def _contract_ttno_root(ttndo: SymmetricTTNDO,
         # This corresponds to contracting a leaf node.
         assert len(block_cache) == 0, "The block cache has to be empty!"
         return _single_site_contraction(ket_tensor, root_tensor, bra_tensor)
-    ttndo_root_id = ttndo.root_id
     # We can pretend the root node is a subtree node
-    if root_node.neighbour_index(ket_id) == 1:
-        # We have to have the subtree tensor's zero leg be the ket leg
-        root_tensor = root_tensor.T
-    block_cache.add_entry(root_id, ket_id, root_tensor)
     # Now we simply contract all subtree blocks
-    result = contract_node_with_environment_nodes(ket_node,
-                                                  ket_tensor,
-                                                  bra_node,
-                                                  bra_tensor,
-                                                  block_cache,
-                                                  id_trafo=ttndo.ket_to_bra_id)
-    return result
+    nodes_tensors = [(ket_node, ket_tensor),
+                     (root_node, root_tensor),
+                     (bra_node, bra_tensor)]
+    loc_contr = LocalContraction(nodes_tensors,
+                                 block_cache,
+                                 ignored_leg=root_id,
+                                 id_trafos=[None,
+                                            ttndo.reverse_ket_id,
+                                            ttndo.ket_to_bra_id])
+    result = loc_contr.contract_all()
+    ttndo_root = ttndo[root_id]
+    result = np.tensordot(result,
+                          ttndo_root[1],
+                          axes=([0,1],
+                                [ttndo_root[0].neighbour_index(ket_id),
+                                 ttndo_root[0].neighbour_index(ttndo.bra_id(ket_id))]))
+    return complex(result)
 
 def _single_site_contraction(ket_tensor: ndarray,
                              root_tensor: ndarray,
