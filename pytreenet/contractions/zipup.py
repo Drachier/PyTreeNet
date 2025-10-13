@@ -10,16 +10,11 @@ import numpy as np
 from ..core.node import Node
 from ..core.graph_node import find_children_permutation
 from .tree_cach_dict import PartialTreeCachDict
-from .contraction_util import (contract_all_but_one_neighbour_block_to_ket,
-                               contract_all_neighbour_blocks_to_ket,
-                               get_equivalent_legs,
-                               contract_all_but_one_neighbour_block_to_hamiltonian)
+from .contraction_util import (contract_all_neighbour_blocks_to_ket,
+                               get_equivalent_legs)
 from ..util.tensor_splitting import tensor_qr_decomposition_pivot
-from .state_operator_contraction import (contract_operator_tensor_ignoring_one_leg,
-                                         _node_state_phys_leg,
-                                         _node_operator_input_leg,
-                                         contract_ket_tensor_ignoring_one_leg)
 from ..util.tensor_splitting import SVDParameters
+from .local_contr import LocalContraction
 
 if TYPE_CHECKING:
     from ..ttns.ttns import TreeTensorNetworkState
@@ -29,7 +24,7 @@ __all__ = ['zipup']
 
 def zipup(operator: TreeTensorNetworkOperator,
           state: TreeTensorNetworkState,
-          svd_params: SVDParameters = None
+          svd_params: SVDParameters | None = None
           ) -> TreeTensorNetworkState:
     """
     Apply a TTNO to a TTNS.
@@ -199,7 +194,7 @@ def contract_any(node_id: str, next_node_id: str,
                  state: TreeTensorNetworkState,
                  operator: TreeTensorNetworkOperator,
                  dictionary: PartialTreeCachDict,
-                 svd_params: SVDParameters) -> np.ndarray:
+                 svd_params: SVDParameters) -> tuple[np.ndarray, np.ndarray]:
     """
     Contracts any node. 
     
@@ -232,7 +227,7 @@ def contract_any_node_environment_but_one(ignored_node_id: str,
                                             ket_node: Node, ket_tensor: np.ndarray,
                                             op_node: Node, op_tensor: np.ndarray,
                                             dictionary: PartialTreeCachDict,
-                                            svd_params: SVDParameters) -> np.ndarray:
+                                            svd_params: SVDParameters) -> tuple[np.ndarray, np.ndarray]:
     """
     Contracts a node with all its subtrees except for one.
 
@@ -282,7 +277,7 @@ def contract_leaf(state_node: Node,
                   state_tensor: np.ndarray,
                   operator_node: Node,
                   operator_tensor: np.ndarray,
-                  svd_params: SVDParameters) -> np.ndarray:
+                  svd_params: SVDParameters) -> tuple[np.ndarray, np.ndarray]:
     """
     Contracts for a leaf node the state, and operator.
 
@@ -313,11 +308,14 @@ def contract_leaf(state_node: Node,
                     |_____|
         
     """
+    state_legs = state_node.open_legs
+    num_open = len(state_legs)
+    op_legs = operator_node.open_legs[num_open // 2:]
     ham_ket = np.tensordot(state_tensor, operator_tensor,
-                               axes=(_node_state_phys_leg(state_node),
-                                     _node_operator_input_leg(operator_node)))
-    q_legs = [2] 
-    r_legs = [0,1] 
+                               axes=(state_legs,
+                                     op_legs))
+    q_legs = [2]
+    r_legs = [0,1]
     q, r = tensor_qr_decomposition_pivot(ham_ket, q_legs, r_legs, svd_params)
     q = np.moveaxis(q, -1, 0)
     r = r.transpose([1,2,0])
@@ -327,7 +325,7 @@ def contract_subtrees_using_dictionary(ignored_node_id: str,
                                         ket_node: Node, ket_tensor: np.ndarray,
                                         op_node: Node, op_tensor: np.ndarray,
                                         dictionary: PartialTreeCachDict,
-                                        svd_params: SVDParameters) -> np.ndarray:
+                                        svd_params: SVDParameters) -> tuple[np.ndarray, np.ndarray]:
     """
     Contracts a node with all its subtrees except for one.
 
@@ -361,28 +359,19 @@ def contract_subtrees_using_dictionary(ignored_node_id: str,
                     |_____|    |______|
     
     """
+    nodes_tensors = [(ket_node, ket_tensor),
+                     (op_node, op_tensor)]
     ttno_point = np.prod(op_node.shape[:-2])/np.prod(op_node.shape[-2:])
     ttns_point = np.prod(ket_node.shape[:-1])/np.prod(ket_node.shape[-1:])
     if ket_node.nneighbours() > 2 and ttno_point > ttns_point:
-        tensor = contract_all_but_one_neighbour_block_to_hamiltonian(op_tensor,
-                                                                     op_node,
-                                                                     ignored_node_id,
-                                                                     dictionary)
-        tensor = contract_ket_tensor_ignoring_one_leg(tensor,
-                                                      op_node,
-                                                      ket_tensor,
-                                                      ket_node,
-                                                      ignored_node_id)
+        contraction_order = [1,0]
     else:
-        tensor = contract_all_but_one_neighbour_block_to_ket(ket_tensor,
-                                                            ket_node,
-                                                            ignored_node_id,
-                                                            dictionary)
-        tensor = contract_operator_tensor_ignoring_one_leg(tensor,
-                                                        ket_node,
-                                                        op_tensor,
-                                                        op_node,
-                                                        ignored_node_id)
+        contraction_order = [0,1]
+    loc_contr = LocalContraction(nodes_tensors,
+                                 dictionary,
+                                 ignored_leg=ignored_node_id,
+                                 contraction_order=contraction_order)
+    tensor = loc_contr()
     q_legs = list(range(1,ket_node.nneighbours()))
     q_legs.append(ket_node.nneighbours()+1)
     r_legs= [0,ket_node.nneighbours()]

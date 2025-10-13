@@ -147,7 +147,7 @@ def contract_all_but_one_neighbour_block_to_hamiltonian(hamiltonian_tensor: np.n
                                                         hamiltonian_node: Node,
                                                         next_node_id: str,
                                                         partial_tree_cache: PartialTreeCachDict,
-                                                        operator_id_trafo: Callable | None
+                                                        operator_id_trafo: Callable | None = None
                                                         ) -> np.ndarray:
     """
     Contract all neighbour blocks to the Hamiltonian tensor.
