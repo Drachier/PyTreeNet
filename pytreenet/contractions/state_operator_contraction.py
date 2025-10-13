@@ -554,6 +554,64 @@ def contract_any_node(ignored_node_id: str,
                                  id_trafos=[None,id_trafo_op,id_trafo_bra])
     return loc_contr()
 
+def contract_leaf(ket_node: Node, ket_tensor: np.ndarray,
+                       op_node: Node, op_tensor: np.ndarray,
+                       bra_node: Node | None = None,
+                       bra_tensor: np.ndarray | None = None,
+                       id_trafo_op: Union[Callable,None] = None,
+                       id_trafo_bra: Union[Callable,None] = None
+                       ) -> np.ndarray:
+    """
+    Contracts a leaf node with an operator and a bra node.
+
+    Args:
+        ignored_node_id (str): Identifier of the ket node to which the
+            remaining legs should point.
+        ket_node (Node): The ket node.
+        ket_tensor (np.ndarray): The ket tensor.
+        op_node (Node): The operator node.
+        op_tensor (np.ndarray): The operator tensor.
+        dictionary (PartialTreeCachDict): The dictionary containing the
+            already contracted subtrees.
+        bra_node (Union[Node,None], optional): The bra node. If None, the bra
+            tensor is assumed to be the adjoint of the given ket tensor.
+        bra_tensor (Union[Node,None], optional): The bra tensor. If None, the
+            bra tensor is assumed to be the adjoint of the given ket tensor.
+        id_trafo_op (Union[Callable,None], optional): A function that transforms
+            the node identifier of the ket neighours to the identifiers of the
+            operator node's neighbours. If None, the identity is assumed.
+        id_trafo_bra (Union[Callable,None], optional): A function that transforms
+            the node identifier of the ket neighours to the identifiers of the
+            bra node's neighbours. If None, the identity is assumed.
+
+    Returns:
+        np.ndarray: The contracted tensor::
+
+                     _____ 
+              2 ____|     |
+                    |  A* |
+                    |_____|
+                       |   
+                       |   
+                     __|__ 
+              1 ____|     |
+                    |  H  |
+                    |_____|
+                       |   
+                       |   
+                     __|__ 
+              0 ____|     |
+                    |  A  |
+                    |_____|
+
+    """
+    return contract_leaf_node(ket_node, ket_tensor,
+                              op_node, op_tensor,
+                              bra_node=bra_node,
+                              bra_tensor=bra_tensor,
+                              id_trafo_op=id_trafo_op,
+                              id_trafo_bra=id_trafo_bra)
+
 def contract_leaf_node(ket_node: Node, ket_tensor: np.ndarray,
                        op_node: Node, op_tensor: np.ndarray,
                        bra_node: Node | None = None,

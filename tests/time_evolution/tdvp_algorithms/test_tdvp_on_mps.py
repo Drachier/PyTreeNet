@@ -7,7 +7,7 @@ from scipy.linalg import expm
 
 import pytreenet as ptn
 from pytreenet.contractions.state_operator_contraction import (contract_leaf, 
-                                                               contract_subtrees_using_dictionary)
+                                                               contract_any_node)
 from pytreenet.random import (random_tensor_node,
                               random_hermitian_matrix)
 from pytreenet.contractions.sandwich_caching import SandwichCache
@@ -64,18 +64,18 @@ class TestTDVPonMPS(unittest.TestCase):
         node_id = "site_1"
         state_node, state_tensor = ref_mps[node_id]
         op_node, op_tensor = mpo[node_id]
-        cache1 = contract_subtrees_using_dictionary("site_2",
-                                                        state_node, state_tensor,
-                                                        op_node, op_tensor,
-                                                        ref_cache_dict)
+        cache1 = contract_any_node("site_2",
+                                    state_node, state_tensor,
+                                    op_node, op_tensor,
+                                    ref_cache_dict)
         ref_cache_dict.add_entry("site_1", "site_2", cache1)
         node_id = "site_2"
         state_node, state_tensor = ref_mps[node_id]
         op_node, op_tensor = mpo[node_id]
-        cache2 = contract_subtrees_using_dictionary("site_3",
-                                                        state_node, state_tensor,
-                                                        op_node, op_tensor,
-                                                        ref_cache_dict)
+        cache2 = contract_any_node("site_3",
+                                    state_node, state_tensor,
+                                    op_node, op_tensor,
+                                    ref_cache_dict)
         ref_cache_dict.add_entry("site_2", "site_3", cache2)
         return ref_cache_dict
 
@@ -178,10 +178,10 @@ class TestTDVPonMPS(unittest.TestCase):
         node_id = "site_2"
         state_node, state_tensor = ref_mps[node_id]
         op_node, op_tensor = mpo[node_id]
-        new_cache = contract_subtrees_using_dictionary("site_1",
-                                                        state_node, state_tensor,
-                                                        op_node, op_tensor,
-                                                        ref_cache_dict)
+        new_cache = contract_any_node("site_1",
+                                        state_node, state_tensor,
+                                        op_node, op_tensor,
+                                        ref_cache_dict)
         ref_cache_dict.add_entry("site_2", "site_1", new_cache)
         heff = np.tensordot(ref_cache_dict.get_entry("site_1", "site_2"),
                             ref_cache_dict.get_entry("site_2", "site_1"),
@@ -226,10 +226,10 @@ class TestTDVPonMPS(unittest.TestCase):
         node_id = "site_1"
         state_node, state_tensor = ref_mps[node_id]
         op_node, op_tensor = mpo[node_id]
-        new_cache = contract_subtrees_using_dictionary("site_0",
-                                                        state_node, state_tensor,
-                                                        op_node, op_tensor,
-                                                        ref_cache_dict)
+        new_cache = contract_any_node("site_0",
+                                        state_node, state_tensor,
+                                        op_node, op_tensor,
+                                        ref_cache_dict)
         ref_cache_dict.add_entry("site_1", "site_0", new_cache)
         heff = np.tensordot(ref_cache_dict.get_entry("site_1", "site_0"),
                             ref_cache_dict.get_entry("site_0", "site_1"),
@@ -473,10 +473,10 @@ class TestTDVPonMPS(unittest.TestCase):
         node_id = "site_1"
         state_node, state_tensor = ref_mps[node_id]
         op_node, op_tensor = mpo[node_id]
-        new_cache = contract_subtrees_using_dictionary("site_2",
-                                                        state_node, state_tensor,
-                                                        op_node, op_tensor,
-                                                        cache_dict)
+        new_cache = contract_any_node("site_2",
+                                        state_node, state_tensor,
+                                        op_node, op_tensor,
+                                        cache_dict)
         cache_dict.add_entry("site_1", "site_2", new_cache)
         # Link update
         heff = np.tensordot(cache_dict.get_entry("site_1", "site_2"),
@@ -527,10 +527,10 @@ class TestTDVPonMPS(unittest.TestCase):
         node_id = "site_2"
         state_node, state_tensor = ref_mps[node_id]
         op_node, op_tensor = mpo[node_id]
-        new_cache = contract_subtrees_using_dictionary("site_3",
-                                                        state_node, state_tensor,
-                                                        op_node, op_tensor,
-                                                        cache_dict)
+        new_cache = contract_any_node("site_3",
+                                        state_node, state_tensor,
+                                        op_node, op_tensor,
+                                        cache_dict)
         cache_dict.add_entry("site_2", "site_3", new_cache)
         heff = np.tensordot(cache_dict.get_entry("site_2", "site_3"),
                             cache_dict.get_entry("site_3", "site_2"),

@@ -3,7 +3,7 @@ import unittest
 from numpy import allclose
 
 from pytreenet.contractions.state_operator_contraction import (contract_leaf,
-                                                               contract_subtrees_using_dictionary)
+                                                               contract_any_node)
 
 from pytreenet.contractions.sandwich_caching import (SandwichCache,
                                                      _find_caching_path)
@@ -147,10 +147,10 @@ class TestUpdateTreeCache(unittest.TestCase):
         node_id = "root"
         state_node, state_tensor = ref_ttns[node_id]
         op_node, op_tensor = ref_ttno[node_id]
-        ref_tensor = contract_subtrees_using_dictionary("c1",
-                                                        state_node, state_tensor,
-                                                        op_node, op_tensor,
-                                                        cache)
+        ref_tensor = contract_any_node("c1",
+                                        state_node, state_tensor,
+                                        op_node, op_tensor,
+                                        cache)
 
         cache.update_tree_cache("root", "c1")
         self.assertTrue(allclose(ref_tensor,
@@ -173,20 +173,20 @@ class TestUpdateTreeCache(unittest.TestCase):
         node_id = "site6"
         state_node, state_tensor = ref_ttns[node_id]
         op_node, op_tensor = ref_ttno[node_id]
-        ref_tensor = contract_subtrees_using_dictionary("site0",
-                                                        state_node, state_tensor,
-                                                        op_node, op_tensor,
-                                                        cache)
+        ref_tensor = contract_any_node("site0",
+                                        state_node, state_tensor,
+                                        op_node, op_tensor,
+                                        cache)
         cache.update_tree_cache("site6", "site0")
         self.assertTrue(allclose(ref_tensor,
                                  cache.get_entry("site6", "site0")))
         node_id = "site0"
         state_node, state_tensor = ref_ttns[node_id]
         op_node, op_tensor = ref_ttno[node_id]
-        ref_tensor = contract_subtrees_using_dictionary("site1",
-                                                        state_node, state_tensor,
-                                                        op_node, op_tensor,
-                                                        cache)
+        ref_tensor = contract_any_node("site1",
+                                        state_node, state_tensor,
+                                        op_node, op_tensor,
+                                        cache)
         cache.update_tree_cache("site0", "site1")
         self.assertTrue(allclose(ref_tensor,
                                  cache.get_entry("site0", "site1")))
@@ -201,10 +201,10 @@ class TestUpdateTreeCache(unittest.TestCase):
         node_id = "site1"
         state_node, state_tensor = ref_ttns[node_id]
         op_node, op_tensor = ref_ttno[node_id]
-        ref_tensor = contract_subtrees_using_dictionary("site3",
-                                                        state_node, state_tensor,
-                                                        op_node, op_tensor,
-                                                        cache)
+        ref_tensor = contract_any_node("site3",
+                                        state_node, state_tensor,
+                                        op_node, op_tensor,
+                                        cache)
         cache.update_tree_cache("site1", "site3")
         self.assertTrue(allclose(ref_tensor,
                                  cache.get_entry("site1", "site3")))
@@ -219,10 +219,10 @@ class TestUpdateTreeCache(unittest.TestCase):
         node_id = "site3"
         state_node, state_tensor = ref_ttns[node_id]
         op_node, op_tensor = ref_ttno[node_id]
-        ref_tensor = contract_subtrees_using_dictionary("site5",
-                                                        state_node, state_tensor,
-                                                        op_node, op_tensor,
-                                                        cache)
+        ref_tensor = contract_any_node("site5",
+                                        state_node, state_tensor,
+                                        op_node, op_tensor,
+                                        cache)
         cache.update_tree_cache("site3", "site5")
         self.assertTrue(allclose(ref_tensor,
                                  cache.get_entry("site3", "site5")))
