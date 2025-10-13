@@ -7,15 +7,13 @@ The functions use cached tensors to be more efficient.
 from typing import Tuple
 
 from numpy import ndarray, tensordot, transpose
-import numpy as np
 
 from ..core.node import Node
 from ..ttns.ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TreeTensorNetworkOperator
 from ..contractions.tree_cach_dict import PartialTreeCachDict
 from ..util.tensor_util import tensor_matricisation_half
-from .contraction_util import contract_all_but_one_neighbour_block_to_hamiltonian
-from ..util.ttn_exceptions import NotCompatibleException
+from .local_contr import LocalContraction, FinalTransposition
 
 def find_tensor_leg_permutation(state_node: Node,
                                 hamiltonian_node: Node
@@ -93,18 +91,13 @@ def contract_all_except_node(state_node: Node,
             where n is the number of neighbours of the node.
 
     """
-    target_node_id = state_node.identifier
-    neighbours = hamiltonian_node.neighbouring_nodes()
-    for neighbour_id in neighbours:
-        cached_tensor = tensor_cache.get_entry(neighbour_id,
-                                                target_node_id)
-        hamiltonian_tensor = tensordot(hamiltonian_tensor,
-                                       cached_tensor,
-                                       axes=((0,1)))
-    # Transposing to have correct leg order
-    axes = find_tensor_leg_permutation(state_node, hamiltonian_node)
-    output_tensor = transpose(hamiltonian_tensor, axes=axes)
-    return output_tensor
+    nodes_tensors = [(hamiltonian_node, hamiltonian_tensor)]
+    loc_contr = LocalContraction(nodes_tensors,
+                                 tensor_cache,
+                                 node_identifier=state_node.identifier,
+                                 neighbour_order=state_node.neighbouring_nodes(),
+                                 connection_index=1)
+    return loc_contr(transpose_option=FinalTransposition.HAMILTONIAN)
 
 def get_effective_single_site_hamiltonian_nodes(state_node: Node,
                                                 hamiltonian_node: Node,
@@ -244,9 +237,10 @@ def get_effective_bond_hamiltonian(bond_node_id: str,
     state_node = state.nodes[bond_node_id]
     return get_effective_bond_hamiltonian_nodes(state_node, tensor_cache)
 
-def contract_all_except_two_nodes(state_node: Node,
+def contract_all_except_two_nodes(state_target: Node,
                                   target_node: Node,
                                   target_tensor: ndarray,
+                                  state_next: Node,
                                   next_node: Node,
                                   next_tensor: ndarray,
                                   tensor_cache: PartialTreeCachDict
@@ -261,9 +255,10 @@ def contract_all_except_two_nodes(state_node: Node,
     contracted in the TTNS.
 
     Args:
-        state_node (Node): The node of the state tensor.
+        state_target (Node): The node of the state tensor of the target site.
         target_node (Node): The target node.
         target_tensor (ndarray): The tensor of the target node.
+        state_next (Node): The node of the state tensor of the next site.
         next_node (Node): The next node.
         next_tensor (ndarray): The tensor of the next node.
         tensor_cache (PartialTreeCachDict): The cache of environment tensors.
@@ -291,127 +286,26 @@ def contract_all_except_two_nodes(state_node: Node,
     # Contract all but one neighbouring block of each node
     target_node_id = target_node.identifier
     next_node_id = next_node.identifier
-    target_block = contract_all_but_one_neighbour_block_to_hamiltonian(target_tensor,
-                                                                        target_node,
-                                                                        next_node_id,
-                                                                        tensor_cache)
+    loc_contr_traget = LocalContraction([(target_node, target_tensor)],
+                                        tensor_cache,
+                                        ignored_leg=next_node_id,
+                                        node_identifier=state_target.identifier,
+                                        neighbour_order=state_target.neighbouring_nodes(),
+                                        connection_index=1)
+    loc_contr_next = LocalContraction([(next_node, next_tensor)],
+                                        tensor_cache,
+                                        ignored_leg=target_node_id,
+                                        node_identifier=state_next.identifier,
+                                        neighbour_order=state_next.neighbouring_nodes(),
+                                        connection_index=1)
+    h_eff = loc_contr_traget.contract_to_other(loc_contr_next,
+                                               FinalTransposition.HAMILTONIAN)
+    return h_eff
 
-    next_block = contract_all_but_one_neighbour_block_to_hamiltonian(next_tensor,
-                                                                        next_node,
-                                                                        target_node_id,
-                                                                        tensor_cache)
-    # Contract the two blocks
-    h_eff = np.tensordot(target_block, next_block, axes=(0,0))
-    # Now we need to sort the legs to fit with the underlying TTNS.
-    # Note that we assume, the two tensors have already been contracted.
-    leg_permutation = _determine_two_site_leg_permutation(state_node, target_node,
-                                                                next_node)
-    return h_eff.transpose(leg_permutation)
-
-def create_two_site_id(node_id: str, next_node_id: str) -> str:
-    """
-    Create the identifier of a two site node obtained from contracting
-    the two note with the input identifiers.
-    """
-    return "TwoSite_" + node_id + "_contr_" + next_node_id
-
-def _determine_two_site_leg_permutation(state_node: Node,
-                                        target_node: Node,
-                                        next_node: Node) -> Tuple[int]:
-    """
-    Determine the permutation of the effective Hamiltonian tensor.
-    
-    This is the leg permutation required on the two-site effective
-    Hamiltonian tensor to fit with the underlying TTNS, assuming
-    the two sites have already been contracted in the TTNS.
-
-    Args:
-        state (TreeTensorNetworkState): The state of the system.
-        target_node (Node): The target node.
-        next_node (Node): The next node.
-    
-    Returns:
-        Tuple[int]: The permutation of the legs of the two-site effective
-            Hamiltonian tensor.
-    """
-    neighbours_target = target_node.neighbouring_nodes()
-    neighbours_next = next_node.neighbouring_nodes()
-    neighbours_two_site = state_node.neighbouring_nodes()
-    next_node_id = next_node.identifier
-    
-    # Determine the permutation of the legs
-    input_legs = []
-    for neighbour_id in neighbours_two_site:
-        if neighbour_id in neighbours_target:
-            block_leg = _find_block_leg_target_node(target_node,
-                                                            next_node_id,
-                                                            neighbour_id)
-        elif neighbour_id in neighbours_next:
-            block_leg = _find_block_leg_next_node(target_node,
-                                                        next_node,
-                                                        neighbour_id)
-        else:
-            errstr = "The two-site Hamiltonian has a neighbour that is not a neighbour of the two sites."
-            raise NotCompatibleException(errstr)
-        input_legs.append(block_leg)
-    output_legs = [leg + 1 for leg in input_legs]
-    target_num_neighbours = target_node.nneighbours()
-    output_legs = output_legs + [0,2*target_num_neighbours] # physical legs
-    input_legs = input_legs + [1,2*target_num_neighbours + 1] # physical legs
-    # As in matrices, the output legs are first
-    return tuple(output_legs + input_legs)
-
-def _find_block_leg_target_node(target_node: Node,
-                                next_node_id: str,
-                                neighbour_id: str) -> int:
-    """
-    Determines the leg index of the input leg of the contracted subtree
-    block on the effective hamiltonian tensor corresponding to a given
-    neighbour of the target node.
-
-    Args:
-        target_node (Node): The target node.
-        next_node_id (str): The id of the next node.
-        neighbour_id (str): The id of the neighbour of the target node.
-    
-    Returns:
-        int: The leg index of the input leg of the contracted subtree
-            block on the effective hamiltonian tensor.
-    """
-    index_next_node = target_node.neighbour_index(next_node_id)
-    ham_neighbour_index = target_node.neighbour_index(neighbour_id)
-    constant = int(ham_neighbour_index < index_next_node)
-    return 2 * (ham_neighbour_index + constant)
-
-def _find_block_leg_next_node(target_node: Node,
-                              next_node: Node,
-                              neighbour_id: str) -> int:
-    """
-    Determines the leg index of the input leg of the contracted subtree
-    bnlock on the effective hamiltonian tensor corresponding to a given
-    eighbour of the next node.
-
-    Args:
-        target_node (Node): The target node.
-        next_node (Node): The next node.
-        neighbour_id (str): The id of the neighbour of the next node.
-    
-    Returns:
-        int: The leg index of the input leg of the contracted subtree
-            block on the effective hamiltonian tensor.
-    """
-    # Luckily the situation is pretty much the same so we can reuse most
-    # of the code.
-    target_node_id = target_node.identifier
-    leg_index_temp = _find_block_leg_target_node(next_node,
-                                                        target_node_id,
-                                                        neighbour_id)
-    target_node_numn = target_node.nneighbours()
-    return 2 * target_node_numn + leg_index_temp
-
-def get_effective_two_site_hamiltonian_nodes(state_node: Node,
+def get_effective_two_site_hamiltonian_nodes(state_target: Node,
                                              target_node: Node,
                                              target_tensor: ndarray,
+                                             state_next: Node,
                                              next_node: Node,
                                              next_tensor: ndarray,
                                              tensor_cache: PartialTreeCachDict) -> ndarray:
@@ -419,9 +313,10 @@ def get_effective_two_site_hamiltonian_nodes(state_node: Node,
     Obtains the effective two-site Hamiltonian as a matrix.
 
     Args:
-        state_node (Node): The node of the state tensor.
+        state_target (Node): The node of the state tensor of the target site.
         target_node (Node): The node of the target Hamiltonian tensor.
         target_tensor (ndarray): The tensor of the target node.
+        state_next (Node): The node of the state tensor of the next site.
         next_node (Node): The node of the next Hamiltonian tensor.
         next_tensor (ndarray): The tensor of the next node.
         tensor_cache (PartialTreeCachDict): The cache of environment tensors.
@@ -430,9 +325,10 @@ def get_effective_two_site_hamiltonian_nodes(state_node: Node,
         ndarray: The effective two-site Hamiltonian
 
     """
-    tensor = contract_all_except_two_nodes(state_node,
+    tensor = contract_all_except_two_nodes(state_target,
                                           target_node,
                                           target_tensor,
+                                          state_next,
                                           next_node,
                                           next_tensor,
                                           tensor_cache)
@@ -460,11 +356,12 @@ def get_effective_two_site_hamiltonian(target_node_id: str,
     """
     target_node, target_tensor = hamiltonian[target_node_id]
     next_node, next_tensor = hamiltonian[next_node_id]
-    two_site_id = create_two_site_id(target_node_id, next_node_id)
-    state_node = state.nodes[two_site_id]
-    return get_effective_two_site_hamiltonian_nodes(state_node,
+    state_target = state.nodes[target_node_id]
+    state_next = state.nodes[next_node_id]
+    return get_effective_two_site_hamiltonian_nodes(state_target,
                                                     target_node,
                                                     target_tensor,
+                                                    state_next,
                                                     next_node,
                                                     next_tensor,
                                                     tensor_cache)
