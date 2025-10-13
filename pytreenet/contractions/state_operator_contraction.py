@@ -408,7 +408,7 @@ def contract_single_site_operator_env(ket_node: Node,
     # Contract the operator with the ket tensor
     # The ket's open leg is the last leg and the operators
     # input leg as well.
-    nopen_ket = ket_node.open_legs()
+    nopen_ket = ket_node.nopen_legs()
     noperator_legs = operator.ndim
     if noperator_legs % 2 != 0:
         errstr = "The operator must have an even number of legs!"
@@ -420,8 +420,9 @@ def contract_single_site_operator_env(ket_node: Node,
     # To be consistend with the convential matrix-matrix product the input
     # legs are the second half of legs.
     operator_legs = list(range(half,noperator_legs))
+    ket_legs = ket_node.open_legs
     new_ket_tensor = np.tensordot(ket_tensor, operator,
-                                  axes=(nopen_ket,operator_legs))
+                                  axes=(ket_legs,operator_legs))
     return env_contract_node_state(ket_node, new_ket_tensor,
                                    bra_node, bra_tensor,
                                    dictionary,
