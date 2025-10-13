@@ -209,7 +209,7 @@ def contract_node_with_environment(node_id: str,
     Returns:
         complex: The resulting tensor. A and B are the tensors in state1 and
             state2, respectively, corresponding to the node with the identifier
-            node_id. C aer the tensors in the dictionary corresponding to the
+            node_id. C are the tensors in the dictionary corresponding to the
             subtrees going away from the node::
 
                             ______

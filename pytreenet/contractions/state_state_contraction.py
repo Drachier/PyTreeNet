@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from ..ttns.ttns import TreeTensorNetworkState
 
 __all__ = ['contract_two_ttns', 'scalar_product']
-
+        
 def contract_two_ttns(ttn1: TreeTensorNetworkState,
                       ttn2: TreeTensorNetworkState,
                       id_trafo: Union[None,Callable] = None
