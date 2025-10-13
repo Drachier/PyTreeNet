@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable
 from enum import Enum
 from itertools import product
+from copy import copy
 
 import numpy as np
 
@@ -87,9 +88,77 @@ class FinalTransposition(Enum):
         That is, all legs pointing to the neighbours in the order specified by
         `neighbour_order`, followed by all out legs and then all in legs.
     NONE: The final tensor is not transposed.
+    HAMILTONIAN: The final tensor is brought into the order used for
+        effective Hamiltonians. In this case every negihbour has to have two
+        remaining legs. Then all legs are grouped into two sets, the first leg
+        of every subtree tensor together with the input leg, then all second
+        legs together with the output leg. Then the second group is placed
+        before the first group.
     """
     STANDARD = 0
     NONE = 1
+    HAMILTONIAN = 2
+
+    def permutation(self,
+                    current_tensor: CurrentTensor,
+                    neighbour_order: list[str],
+                    ignored_decider: Callable[[str], bool] | None = None
+                    ) -> list[int]:
+        """
+        Returns the permutation of the legs of the current tensor according to
+        the chosen transposition.
+
+        Args:
+            current_tensor (CurrentTensor): The current tensor to permute.
+            neighbour_order (list[str]): The order of the neighbour legs.
+            ignored_decider (Callable[[str], bool] | None): A function that takes a
+                neighbour identifier and returns whether it is ignored. If None,
+                not all options can be used.
+        
+        Returns:
+            list[int]: The permutation of the legs.
+        """
+        if self is FinalTransposition.STANDARD:
+            if ignored_decider is None:
+                errstr = "Ignored decider must be provided for STANDARD transposition!"
+                raise ValueError(errstr)
+            # We want the final tensor to be in the order of
+            # [neighbour legs..., out legs..., in legs...]
+            perm = []
+            # First the neighbour legs in the order specified by neighbour_order
+            for neigh_id in neighbour_order:
+                if neigh_id in current_tensor.neighbour_legs:
+                    perm.extend(current_tensor.cleared_neigh_legs(neigh_id))
+                elif ignored_decider(neigh_id):
+                    # This means the ignored leg is in the final tensor
+                    perm.extend(current_tensor.cleared_ignored_legs())
+            # Then the out legs
+            perm.extend(current_tensor.cleared_open_legs(OpenLegKind.OUT))
+            # Finally the in legs
+            perm.extend(current_tensor.cleared_open_legs(OpenLegKind.IN))
+            return perm
+        if self is FinalTransposition.NONE:
+            return list(range(current_tensor.ndim()))
+        if self is FinalTransposition.HAMILTONIAN:
+            perm_in = []
+            perm_out = []
+            for neigh_id in neighbour_order:
+                if neigh_id in current_tensor.neighbour_legs:
+                    neigh_legs = current_tensor.cleared_neigh_legs(neigh_id)
+                    if len(neigh_legs) != 2:
+                        errstr = f"Subtree tensor of {neigh_id} does not have two legs!"
+                        raise ValueError(errstr)
+                    perm_out.append(neigh_legs[1])
+                    perm_in.append(neigh_legs[0])
+                else:
+                    errstr = f"All neighbour blocks must be contracted to give an effective Hamiltonian!"
+                    raise ValueError(errstr)
+            perm_out.extend(current_tensor.cleared_open_legs(OpenLegKind.OUT))
+            perm_in.extend(current_tensor.cleared_open_legs(OpenLegKind.IN))
+            perm = perm_out + perm_in
+            return perm
+        errstr = f"Invalid `FinalTransposition` {self}!"
+        raise ValueError(errstr)
 
 class LocalContraction:
 
@@ -173,6 +242,7 @@ class LocalContraction:
             raise ValueError(errstr)
         self.contraction_order = contraction_order
         self.nphys = self._determine_nphys(highest_tensor)
+        self.is_contracted = False
 
     def _determine_nphys(self,
                          highest_tensor: TensorKind) -> int:
@@ -279,6 +349,12 @@ class LocalContraction:
             errstr += "Likely this node is a leaf and needs special treatment."
             raise ValueError(errstr)
         return next(iter(self.subtree_dict.values())).ndim
+
+    def stack_size(self) -> int:
+        """
+        Returns the size of the stack of tensors.
+        """
+        return len(self.node_tensors)
 
     def get_phy_legs(self,
                      index: int,
@@ -464,6 +540,16 @@ class LocalContraction:
         self.current_tensor.set_open_legs_by_kind(new_open_legs, open_leg_kind)
         self.current_tensor.value = curr_tensor
 
+    def internal_contraction(self):
+        """
+        Performs the contraction internally, but does not return the final
+        tensor.
+        """
+        self.contract_first_tensor()
+        for i in range(1, len(self.contraction_order)):
+            self.contract_tensor(i)
+        self.is_contracted = True
+
     def contract_all(self,
                      transpose_option: FinalTransposition | Callable = FinalTransposition.STANDARD
                      ) -> npt.NDArray:
@@ -480,30 +566,15 @@ class LocalContraction:
         Returns:
             npt.NDArray: The final contracted tensor.
         """
-        self.contract_first_tensor()
-        for i in range(1, len(self.contraction_order)):
-            self.contract_tensor(i)
-        if transpose_option is FinalTransposition.STANDARD:
-            # We want the final tensor to be in the order of
-            # [neighbour legs..., out legs..., in legs...]
-            perm = []
-            # First the neighbour legs in the order specified by neighbour_order
-            for neigh_id in self.neighbour_order:
-                if neigh_id in self.current_tensor.neighbour_legs:
-                    perm.extend(self.current_tensor.cleared_neigh_legs(neigh_id))
-                elif self.is_ignored(neigh_id, 0):
-                    # This means the ignored leg is in the final tensor
-                    perm.extend(self.current_tensor.cleared_ignored_legs())
-            # Then the out legs
-            perm.extend(self.current_tensor.cleared_open_legs(OpenLegKind.OUT))
-            # Finally the in legs
-            perm.extend(self.current_tensor.cleared_open_legs(OpenLegKind.IN))
+        self.internal_contraction()
+        if isinstance(transpose_option, FinalTransposition):
+            perm = transpose_option.permutation(self.current_tensor,
+                                                self.neighbour_order,
+                                                lambda x: self.is_ignored(x, 0))
             final_tensor = np.transpose(self.current_tensor.value, axes=perm)
             return final_tensor
-        if transpose_option is FinalTransposition.NONE:
-            return self.current_tensor.value
-        errstr = f"Invalid `FinalTransposition` {transpose_option}!"
-        raise ValueError(errstr)
+        final_tensor = transpose_option(self.current_tensor)
+        return final_tensor
 
     def contract_to_scalar(self) -> complex:
         """
@@ -541,6 +612,69 @@ class LocalContraction:
         self.subtree_dict.add_entry(node_id,
                                     next_node_id,
                                     final_tensor)
+
+    def contract_to_other(self,
+                          other: LocalContraction,
+                          transpose_option: FinalTransposition | Callable = FinalTransposition.STANDARD
+                          ) -> npt.NDArray:
+        """
+        Contracts this LocalContraction with another LocalContraction.
+
+        Args:
+            other (LocalContraction): The other LocalContraction to contract
+                with. Must have the same node identifier and ignored leg as
+                this one, but the opposite connection index.
+            transpose_option (FinalTransposition | Callable): The way in which
+                to tranpose the final tensor. Can be a callable that takes a
+                `CurrentTensor` and outputs the transposed tensor. See
+                `FinalTransposition` class for details on the existing
+                options.
+
+        Returns:
+            npt.NDArray: The final contracted tensor.
+        
+        Raises:
+            ValueError: If either local contraction does not have an ignored
+                leg on which to contract.
+        """
+        if self.no_ignored_legs() or other.no_ignored_legs():
+            errstr = "Both LocalContractions must have an ignored leg to contract on!"
+            raise ValueError(errstr)
+        if self.stack_size() != other.stack_size():
+            errstr = "Both LocalContractions must have the same stack size!"
+            raise ValueError(errstr)
+        self.internal_contraction()
+        other.internal_contraction()
+        self_legs = self.current_tensor.cleared_ignored_legs()
+        other_legs = other.current_tensor.cleared_ignored_legs()
+        tensor = np.tensordot(self.current_tensor.value,
+                              other.current_tensor.value,
+                                axes=(self_legs, other_legs))
+        # We want to keep both current tensors unchanged
+        self_current = copy(self.current_tensor)
+        self_current.adjust_legs(self_legs, contract_ignored=True)
+        other_current = copy(other.current_tensor)
+        other_current.adjust_legs(other_legs, contract_ignored=True)
+        other_current.offset_legs(self_current.ndim()-1)
+        # Now we combine the two current tensors
+        combined_current = CurrentTensor()
+        combined_current.value = tensor
+        combined_current.in_legs = self_current.in_legs + other_current.in_legs
+        combined_current.out_legs = self_current.out_legs + other_current.out_legs
+        combined_current.neighbour_legs = {**self_current.neighbour_legs,
+                                          **other_current.neighbour_legs}
+        # Note that there is no ignored leg left on the combined tensor.
+        if isinstance(transpose_option, FinalTransposition):
+            neighbour_order = combined_current.neighbour_legs.keys()
+            perm = transpose_option.permutation(combined_current,
+                                                neighbour_order,
+                                                lambda x: False)
+            print(perm)
+            print(combined_current)
+            final_tensor = np.transpose(combined_current.value, axes=perm)
+            return final_tensor
+        final_tensor = transpose_option(combined_current)
+        return final_tensor
 
     def __call__(self,
                  transpose_option: FinalTransposition | Callable = FinalTransposition.STANDARD
@@ -588,6 +722,30 @@ class CurrentTensor:
         out += f"Neighbour legs: {self.neighbour_legs}\n"
         out += f"Ignored legs: {self.ignored_legs}\n"
         return out
+
+    def ndim(self) -> int:
+        """
+        Returns the number of dimensions of the current tensor.
+        """
+        return self.value.ndim
+    
+    def offset_legs(self,
+                    offset: int):
+        """
+        Offsets all leg indices by the given offset.
+        
+        Args:
+            offset (int): The offset to apply to all leg indices.
+        """
+        self.in_legs = [leg + offset if leg is not None else None
+                        for leg in self.in_legs]
+        self.out_legs = [leg + offset if leg is not None else None
+                            for leg in self.out_legs]
+        self.neighbour_legs = {neigh_id: [leg + offset if leg is not None else None
+                                         for leg in neigh_legs]
+                               for neigh_id, neigh_legs in self.neighbour_legs.items()}
+        self.ignored_legs = [leg + offset if leg is not None else None
+                             for leg in self.ignored_legs]
 
     def open_leg_by_kind(self,
                          kind: OpenLegKind
@@ -685,7 +843,8 @@ class CurrentTensor:
         return legs
 
     def adjust_legs(self,
-                    contracted_legs: list[int]):
+                    contracted_legs: list[int],
+                    contract_ignored: bool = False):
         """
         Reduces the leg indices by the number of legs that wetre removed due
         to contraction.
@@ -693,6 +852,8 @@ class CurrentTensor:
         Args:
             contracted_legs (list[int]): The leg indices that disappeared due
                 to a contraction.
+            contract_ignored (bool): Whether ignored legs can be contracted.
+                Defaults to False.
         """
         contracted_legs.sort()
         self.in_legs = [_new_leg_val(leg_val, contracted_legs)
@@ -706,7 +867,7 @@ class CurrentTensor:
         for ignored_leg in self.ignored_legs:
             new_val = _new_leg_val(ignored_leg,
                                    contracted_legs)
-            if new_val is None and ignored_leg is not None:
+            if not contract_ignored and new_val is None and ignored_leg is not None:
                 errstr = "Ignored leg shouldn't be contracted!"
                 raise ValueError(errstr)
             new_ign_legs.append(new_val)
