@@ -16,9 +16,8 @@ from ...contractions.tree_cach_dict import PartialTreeCachDict
 from ...core.ttn import pull_tensor_from_different_ttn
 from .effective_time_evolution import single_site_time_evolution
 from ...util.tensor_splitting import tensor_qr_decomposition, SplitMode
-from ...contractions.state_operator_contraction import contract_leaf
 from ...core.leg_specification import LegSpecification
-from ...contractions.state_operator_contraction import contract_any
+from ...contractions.state_operator_contraction import contract_any, contract_any_node
 from ..ttn_time_evolution import TTNTimeEvolutionConfig
 from ..time_evolution import TimeEvoMode
 
@@ -118,8 +117,8 @@ def update_leaf_node(node_id: str,
                                  LegSpecification(None, [], [1]))
     state_node, state_tensor = new_state[node_id]
     op_node, op_tensor = hamiltonian[node_id]
-    block_tensor = contract_leaf(state_node, state_tensor,
-                                 op_node, op_tensor)
+    block_tensor = contract_any_node(state_node.parent, state_node, state_tensor,
+                                         op_node, op_tensor, current_cache)
     return new_state, block_tensor, basis_change_tensor
 
 def update_non_leaf_node(node_id: str,
