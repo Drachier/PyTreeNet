@@ -24,7 +24,7 @@ class TestContractionUtil(unittest.TestCase):
         identifiers = ["parent", "child0", "child1", "child2"]
         shapes = [(6, 2), (5, 3), (4, ), (3, 5, 4)]
         for i, ident in enumerate(identifiers):
-            tensor = crandn(shapes[i])
+            tensor = crandn((shapes[i][0],shapes[i][0]))
             self.dictionary.add_entry(ident,
                                       self.identifier,
                                       tensor)
@@ -96,9 +96,9 @@ class TestContractionUtil(unittest.TestCase):
         correct_tensor = contract_all_neighbour_blocks_to_ket(self.tensor,
                                                               self.node,
                                                               self.dictionary)
-        correct_tensor = correct_tensor.transpose(0,3,4,1,2)
+        correct_tensor = correct_tensor.transpose(2,3,0,1,4)
         # Test
-        correct_shape = (2,5,4,2,3)
+        correct_shape = (4,3,6,5,2)
         self.assertEqual(correct_shape, found.shape)
         self.assertTrue(np.allclose(correct_tensor, found))
 

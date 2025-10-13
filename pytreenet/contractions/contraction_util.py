@@ -141,7 +141,7 @@ def contract_all_neighbour_blocks_to_ket(ket_tensor: np.ndarray,
     loc_contr = LocalContraction(nodes_tensors,
                                  partial_tree_cache,
                                  neighbour_order=order)
-    return loc_contr()   
+    return loc_contr()
 
 def contract_all_but_one_neighbour_block_to_hamiltonian(hamiltonian_tensor: np.ndarray,
                                                         hamiltonian_node: Node,
@@ -189,7 +189,7 @@ def contract_all_but_one_neighbour_block_to_hamiltonian(hamiltonian_tensor: np.n
                                  partial_tree_cache,
                                  connection_index=1,
                                  ignored_leg=next_node_id,
-                                 id_trafos=operator_id_trafo)
+                                 id_trafos=[operator_id_trafo])
     return loc_contr()
 
 def contract_all_neighbour_blocks_to_hamiltonian(hamiltonian_tensor: np.ndarray,

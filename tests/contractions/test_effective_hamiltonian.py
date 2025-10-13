@@ -1,8 +1,8 @@
 import unittest
 
 from numpy import tensordot, transpose, allclose, reshape
+import numpy.testing as npt
 
-from pytreenet.core.graph_node import GraphNode
 from pytreenet.random.random_ttns_and_ttno import (small_ttns_and_ttno,
                                                    big_ttns_and_ttno,
                                                    RandomTTNSMode)
@@ -129,7 +129,7 @@ class TestContractAllExceptNode(unittest.TestCase):
                                    axes=(0,1))
         correct_tensor = correct_tensor.transpose((3,0,2,1))
         self.assertEqual((6,2,6,3), contracted_tensor.shape)
-        self.assertTrue(allclose(correct_tensor, contracted_tensor))
+        npt.assert_allclose(correct_tensor, contracted_tensor)
 
     def test_on_root_sorted(self):
         """
@@ -160,7 +160,7 @@ class TestContractAllExceptNode(unittest.TestCase):
                                    axes=(0,1))
         correct_tensor = correct_tensor.transpose((3,5,0,2,4,1))
         self.assertEqual((4,5,2,4,5,3), contracted_tensor.shape)
-        self.assertTrue(allclose(correct_tensor, contracted_tensor))
+        npt.assert_allclose(correct_tensor, contracted_tensor)
 
     def test_on_root_unsorted(self):
         """
@@ -191,7 +191,7 @@ class TestContractAllExceptNode(unittest.TestCase):
                                    axes=(0,1))
         correct_tensor = correct_tensor.transpose((5,3,0,4,2,1))
         self.assertEqual((4,5,2,4,5,3), contracted_tensor.shape)
-        self.assertTrue(allclose(correct_tensor, contracted_tensor))
+        npt.assert_allclose(correct_tensor, contracted_tensor)
 
     def test_on_node_sorted(self):
         """
@@ -226,7 +226,7 @@ class TestContractAllExceptNode(unittest.TestCase):
                                    axes=(0,1))
         correct_tensor = correct_tensor.transpose((3,5,7,0,2,4,6,1))
         self.assertEqual((6,4,5,2,6,4,5,3), contracted_tensor.shape)
-        self.assertTrue(allclose(correct_tensor, contracted_tensor))
+        npt.assert_allclose(correct_tensor, contracted_tensor)
 
     def test_on_node_unsorted(self):
         """
@@ -263,7 +263,7 @@ class TestContractAllExceptNode(unittest.TestCase):
                                    axes=(0,1))
         correct_tensor = correct_tensor.transpose((3,7,5,0,2,6,4,1))
         self.assertEqual((6,4,5,2,6,4,5,3), contracted_tensor.shape)
-        self.assertTrue(allclose(correct_tensor, contracted_tensor))
+        npt.assert_allclose(correct_tensor, contracted_tensor)
 
 class TestGetEffectiveSingleSiteHamiltonianNodes(unittest.TestCase):
     """
@@ -299,7 +299,7 @@ class TestGetEffectiveSingleSiteHamiltonianNodes(unittest.TestCase):
                                                   hamiltonian_tensor,
                                                   cache)
         correct_tensor = correct_tensor.reshape((6*2,6*3))
-        self.assertTrue(allclose(correct_tensor, h_eff))
+        npt.assert_allclose(correct_tensor, h_eff)
 
     def test_on_root_sorted(self):
         """
@@ -327,7 +327,7 @@ class TestGetEffectiveSingleSiteHamiltonianNodes(unittest.TestCase):
                                                   hamiltonian_tensor,
                                                   cache)
         correct_tensor = correct_tensor.reshape((4*5*2,4*5*3))
-        self.assertTrue(allclose(correct_tensor, h_eff))
+        npt.assert_allclose(correct_tensor, h_eff)
 
     def test_on_root_unsorted(self):
         """
@@ -355,7 +355,7 @@ class TestGetEffectiveSingleSiteHamiltonianNodes(unittest.TestCase):
                                                   hamiltonian_tensor,
                                                   cache)
         correct_tensor = correct_tensor.reshape((4*5*2,4*5*3))
-        self.assertTrue(allclose(correct_tensor, h_eff))
+        npt.assert_allclose(correct_tensor, h_eff)
 
     def test_on_node_sorted(self):
         """
@@ -384,7 +384,7 @@ class TestGetEffectiveSingleSiteHamiltonianNodes(unittest.TestCase):
                                                     hamiltonian_tensor,
                                                     cache)
         correct_tensor = correct_tensor.reshape((6*4*5*2,6*4*5*3))
-        self.assertTrue(allclose(correct_tensor, h_eff))
+        npt.assert_allclose(correct_tensor, h_eff)
 
     def test_on_node_unsorted(self):
         """
@@ -415,7 +415,7 @@ class TestGetEffectiveSingleSiteHamiltonianNodes(unittest.TestCase):
                                                   hamiltonian_tensor,
                                                   cache)
         correct_tensor = correct_tensor.reshape((6*4*5*2,6*4*5*3))
-        self.assertTrue(allclose(correct_tensor, h_eff))                                       
+        npt.assert_allclose(correct_tensor, h_eff)                                       
 
 class TestContractionMethodsSimple(unittest.TestCase):
 
@@ -465,8 +465,7 @@ class TestContractionMethodsSimple(unittest.TestCase):
                                                             self.ttns,
                                                             self.hamiltonian,
                                                             self.cache)
-
-        self.assertTrue(allclose(ref_tensor, found_tensor))
+        npt.assert_allclose(ref_tensor, found_tensor)
 
     def test_get_effective_two_site_hamiltonian_root_c2(self):
         # Compute Reference
@@ -477,13 +476,12 @@ class TestContractionMethodsSimple(unittest.TestCase):
                                axes=(2,0))
         ref_tensor = transpose(ref_tensor, axes=(1,4,2,0,5,3))
         ref_tensor = reshape(ref_tensor, (40,40))
-        self.ttns.contract_nodes("c2", "root", 'TwoSite_c2_contr_root')
         found_tensor = get_effective_two_site_hamiltonian("c2",
                                                             "root",
                                                             self.ttns,
                                                             self.hamiltonian,
                                                             self.cache)
-        self.assertTrue(allclose(ref_tensor, found_tensor))
+        npt.assert_allclose(ref_tensor, found_tensor)
 
     def test_get_effective_site_hamiltonian_c2(self):
         # Compute Reference
