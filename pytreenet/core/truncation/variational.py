@@ -94,8 +94,7 @@ def sweep(init_ttns: TTNS,
         new_tensor = contract_all_neighbour_blocks_to_ket(tensor,
                                                           node,
                                                           subtree_tensors,
-                                                          order=order,
-                                                          output=True)
+                                                          order=order)
         init_ttns.replace_tensor(node_id, new_tensor)
         if index != len(sweep_path) - 1:
             # Otherwise we are at the end of the sweep and do not need to
