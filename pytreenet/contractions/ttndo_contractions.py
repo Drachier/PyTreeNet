@@ -2,18 +2,19 @@
 This module contains functions to contrac a TTNDO.
 """
 from __future__ import annotations
-from typing import List
+from typing import List, TYPE_CHECKING
 from re import match
 
 from numpy import tensordot, ndarray
 
 from ..ttno.ttno_class import TreeTensorNetworkOperator
 from .tree_cach_dict import PartialTreeCachDict
-from .contraction_util import (contract_all_but_one_neighbour_block_to_ket,
-                               get_equivalent_legs)
-from .state_state_contraction import contract_any_nodes as contract_any_nodes_state
-from .state_operator_contraction import (contract_any_node_environment_but_one as contract_any_nodes_operator,
-                                         contract_operator_tensor_ignoring_one_leg)
+from .state_state_contraction import (contract_any_nodes as contract_any_nodes_state,
+                                      contract_node_with_environment_nodes)
+from .state_operator_contraction import contract_any_node as contract_any_nodes_operator
+
+if TYPE_CHECKING:
+    from ..ttns.ttndo import SymmetricTTNDO
 
 def ttndo_contraction_order(ttndo: SymmetricTTNDO) -> List[str]:
     """
@@ -157,7 +158,7 @@ def _contract_final_block(ttndo: SymmetricTTNDO,
 def _contract_ttno_root(ttndo: SymmetricTTNDO,
                         ttno: TreeTensorNetworkOperator,
                         block_cache: PartialTreeCachDict
-                        ) -> ndarray:
+                        ) -> complex:
     """
     Contract the root of the TTNO with the bra and ket node of the TTNDO.
 
@@ -169,43 +170,33 @@ def _contract_ttno_root(ttndo: SymmetricTTNDO,
             blocks in
     
     Returns:
-        ndarray: The contracted block.
+        complex: The contracted block.
 
     """
     root_id = ttno.root_id
+    assert root_id is not None, "The TTNO is empty!"
     root_node, root_tensor = ttno[root_id]
-    ket_node, ket_tensor = ttndo[ttndo.ket_id(root_id)]
+    ket_id = ttndo.ket_id(root_id)
+    ket_node, ket_tensor = ttndo[ket_id]
     bra_node, bra_tensor = ttndo[ttndo.bra_id(root_id)]
     if len(ttno.nodes) == 1:
         # This corresponds to contracting a leaf node.
         assert len(block_cache) == 0, "The block cache has to be empty!"
         return _single_site_contraction(ket_tensor, root_tensor, bra_tensor)
     ttndo_root_id = ttndo.root_id
-    ketblock_tensor = contract_all_but_one_neighbour_block_to_ket(ket_tensor,
-                                                                  ket_node,
-                                                                  ttndo_root_id,
-                                                                  block_cache)
-    # This works, as for this step we can just ignore the missing leg
-    ketopblock_tensor = contract_operator_tensor_ignoring_one_leg(ketblock_tensor,
-                                                                  ket_node,
-                                                                  root_tensor,
-                                                                  root_node,
-                                                                  ttndo_root_id,
-                                                                  id_trafo=ttndo.reverse_ket_id)
-    # However, due to the missing leg, the tensor leg order is now slightly different
-    num_neighbours = ket_node.nneighbours()
-    # The 0th leg is the open leg to the ttndo root, while the last leg is the
-    # physical leg originating from the ttno root
-    legs_tensor = list(range(1,num_neighbours+1))
-    _, legs_bra_tensor = get_equivalent_legs(ket_node,
-                                            bra_node,
-                                            ignore_legs=[ttndo_root_id],
-                                            id_trafo=ttndo.ket_to_bra_id)
-    # Adding the physical leg to be contracted.
-    legs_bra_tensor.append(bra_node.nneighbours())
-    final_block = tensordot(ketopblock_tensor, bra_tensor,
-                        axes=(legs_tensor, legs_bra_tensor))
-    return final_block
+    # We can pretend the root node is a subtree node
+    if root_node.neighbour_index(ket_id) == 1:
+        # We have to have the subtree tensor's zero leg be the ket leg
+        root_tensor = root_tensor.T
+    block_cache.add_entry(root_id, ket_id, root_tensor)
+    # Now we simply contract all subtree blocks
+    result = contract_node_with_environment_nodes(ket_node,
+                                                  ket_tensor,
+                                                  bra_node,
+                                                  bra_tensor,
+                                                  block_cache,
+                                                  id_trafo=ttndo.ket_to_bra_id)
+    return result
 
 def _single_site_contraction(ket_tensor: ndarray,
                              root_tensor: ndarray,

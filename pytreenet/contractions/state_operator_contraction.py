@@ -252,7 +252,7 @@ def contract_node_with_environment_nodes(ket_node: Node, ket_tensor: np.ndarray,
                                          bra_tensor: Union[np.ndarray,None] = None,
                                          operator_id_trafo: Union[Callable,None] = None,
                                          bra_id_trafo: Union[Callable,None] = None
-                                        ) -> np.ndarray:
+                                        ) -> complex:
     """
     Contracts a node with its environment.
 
