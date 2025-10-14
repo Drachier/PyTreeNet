@@ -173,3 +173,22 @@ def superposition(rel_phase: float = 0) -> np.ndarray:
 
     """
     return np.array([1, np.exp(1j*rel_phase * np.pi)], dtype=complex) / np.sqrt(2)
+
+def copy_tensor(degree: int,
+                dim: int
+                ) -> np.ndarray:
+    """
+    Generates a copy tensor of given degree and physical dimension.
+
+    Args:
+        degree (int): The degree of the copy tensor, i.e. the number of legs.
+        dim (int): The physical dimension of each leg.
+
+    Returns:
+        np.ndarray: The copy tensor.
+    """
+    tensor = np.zeros([dim]*degree, dtype=complex)
+    for i in range(dim):
+        index = [i]*degree
+        tensor[tuple(index)] = 1
+    return tensor
