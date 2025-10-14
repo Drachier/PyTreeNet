@@ -14,6 +14,7 @@ from ...contractions.local_contr import LocalContraction
 from ...util.tensor_splitting import (SVDParameters,
                                       truncated_tensor_svd)
 from ...core.node import Node
+from ...util.std_utils import identity_mapping
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -45,7 +46,7 @@ def dm_ttns_ttno_application(ttns: TTNS,
 
     """
     if id_trafo is None:
-        id_trafo = lambda x: x
+        id_trafo = identity_mapping
     subtree_cache = build_full_subtree_cache(ttns,
                                              ttno,
                                              id_trafo)
@@ -83,7 +84,7 @@ def build_full_subtree_cache(ttns: TTNS,
                                                  ttns,
                                                  ttno,
                                                  id_trafo)
-        id_trafos = [lambda x: x, id_trafo, id_trafo, lambda x: x]
+        id_trafos = [identity_mapping, id_trafo, id_trafo, identity_mapping]
         ket_node = nodes_tensors[0][0]
         ignored_leg = ket_node.parent
         assert ignored_leg is not None
@@ -106,7 +107,7 @@ def build_full_subtree_cache(ttns: TTNS,
                                                          ttns,
                                                          ttno,
                                                          id_trafo)
-                id_trafos = [lambda x: x, id_trafo, id_trafo, lambda x: x]
+                id_trafos = [identity_mapping, id_trafo, id_trafo, identity_mapping]
                 ignored_leg = child_id
                 local_contr = LocalContraction(nodes_tensors,
                                                cache,
@@ -230,7 +231,7 @@ def _root_evaluation(ket_node_tensor: tuple[Node, npt.NDArray],
     local_contr = LocalContraction([ket_node_tensor,
                                     op_node_tensor],
                                    half_subtree_cache,
-                                   id_trafos=[lambda x: x, id_trafo])
+                                   id_trafos=[identity_mapping, id_trafo])
     # Due to the final transpose in the local contraction. The legs will all
     # be at the right position, i.e. the subtree of a neighbour has one open
     # leg. This open legs will be a the same position as the neighbour.
@@ -270,7 +271,7 @@ def _node_evaluation(ket_node_tensor: tuple[Node, npt.NDArray],
                                     op_node_tensor],
                                    half_subtree_cache,
                                    ignored_leg=ignored_leg,
-                                   id_trafos=[lambda x: x, id_trafo])
+                                   id_trafos=[identity_mapping, id_trafo])
     lower_contr_tensor = local_contr()
     upper_contr_tensor = lower_contr_tensor.conj()
     # Now we perform the contraction with the subtree tensor

@@ -212,3 +212,15 @@ def average_data(data: List[np.ndarray]) -> np.ndarray:
     if not data:
         raise ValueError("No data provided for averaging!")
     return np.mean(np.array(data), axis=0)
+
+def identity_mapping(x: Any) -> Any:
+    """
+    Identity mapping.
+
+    Args:
+        x (Any): The input.
+
+    Returns:
+        Any: The output, which is the same as the input.
+    """
+    return x
