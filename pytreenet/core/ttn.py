@@ -54,7 +54,7 @@ import os
 import numpy as np
 from numpy import eye
 
-from .tree_structure import TreeStructure
+from .tree_structure import TreeStructure, LinearisationMode
 from .node import Node, relative_leg_permutation
 from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      contr_truncated_svd_splitting,
@@ -435,6 +435,47 @@ class TreeTensorNetwork(TreeStructure):
         former_root_node.open_leg_to_parent(new_root_id, root_leg)
         self._root_id = new_root_id
         self.tensors[new_root_id] = tensor
+
+    @classmethod
+    def from_tensors(cls,
+                     tree_structure: TreeStructure,
+                     tensors: Dict[str, np.ndarray]
+                     ) -> Self:
+        """
+        Create a TreeTensorNetwork from a given TreeStructure and a
+        dictionary of tensors.
+
+        Args:
+            tree_structure (TreeStructure): The tree structure to be used for
+                the TTN.
+            tensors (Dict[str, np.ndarray]): A dictionary mapping node
+                identifiers to tensors.
+        
+        Returns:
+            Self: A new TreeTensorNetwork with the given structure and tensors.
+        """
+        if len(tree_structure.nodes) != len(tensors):
+            errstr = "The number of nodes and the number of tensors have to be the same!"
+            raise NotCompatibleException(errstr)
+        new = cls()
+        if tree_structure.root_id is None:
+            return new
+        order = tree_structure.linearise(mode=LinearisationMode.PARENTS_FIRST)
+        root_id = order[0]
+        new.add_root(Node(identifier=root_id),
+                     tensors[root_id])
+        for node_id in order:
+            node = tree_structure.nodes[node_id]
+            new_node = new.nodes[node_id]
+            # The node itself should already be in the TTN
+            for child_id in node.children:
+                new.add_child_to_parent(Node(identifier=child_id),
+                                            tensors[child_id],
+                                            0,
+                                            node_id,
+                                            new_node.lowest_open_leg()
+                                            )
+        return new
 
     def conjugate(self) -> Self:
         """
