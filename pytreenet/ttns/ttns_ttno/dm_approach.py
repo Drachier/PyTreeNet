@@ -54,7 +54,7 @@ def dm_ttns_ttno_application(ttns: TTNS,
                                         subtree_cache,
                                         id_trafo,
                                         svd_params)
-    new_ttns = build_new_ttns(ttns, new_tensors)
+    new_ttns = TTNS.from_tensors(ttns, new_tensors)
     return new_ttns
 
 def build_full_subtree_cache(ttns: TTNS,
@@ -167,41 +167,6 @@ def find_new_ttns_tensors(ttns: TTNS,
                                   id_trafo)
     new_tensors[root_id] = new_tensor
     return new_tensors
-
-def build_new_ttns(ttns: TTNS,
-                   new_tensors: dict[str, npt.NDArray]
-                     ) -> TTNS:
-    """
-    Builds a new TTNS with the new tensors.
-
-    The connectivity and identifiers of the original TTNS are kept.
-
-    Args:
-        ttns (TTNS): The original TTNS.
-        new_tensors (dict[str, npt.NDArray]): A dictionary containing the new
-            tensors for the TTNS after the contraction with the TTNO.
-
-    Returns:
-        TTNS: A new TTNS with the new tensors.
-    """
-    order = ttns.linearise(LinearisationMode.PARENTS_FIRST)
-    root_id = ttns.root_id
-    assert root_id is not None and root_id == order[0]
-    new_ttns = TTNS()
-    new_ttns.add_root(Node(identifier=root_id),
-                  new_tensors[root_id])
-    for node_id in order:
-        node = ttns.nodes[node_id]
-        new_node = new_ttns.nodes[node_id]
-        # The node itself should already be in the TTNS
-        for child_id in node.children:
-            new_ttns.add_child_to_parent(Node(identifier=child_id),
-                                         new_tensors[child_id],
-                                         0,
-                                         node_id,
-                                         new_node.lowest_open_leg()
-                                         )
-    return new_ttns
 
 def _prepare_contraction_nts(node_id: str,
                              ttns: TTNS,
