@@ -1,20 +1,19 @@
 """
-Implements the succesive randomized compression algorithm for TTN.
-
-This was introduced for MPS in https://arxiv.org/abs/2504.06475
+This module implements the half density matrix approach for the TTNO application.
 """
 from __future__ import annotations
 from typing import TYPE_CHECKING, Callable
 
 import numpy as np
 
-from ...random.random_matrices import crandn
 from ..ttns import TTNS
 from ...core.tree_structure import LinearisationMode
 from ...contractions.tree_cach_dict import PartialTreeCachDict
-from ...contractions.local_contr import LocalContraction
-from ...util.tensor_splitting import tensor_qr_decomposition
-from ...operators.common_operators import copy_tensor
+from ...contractions.local_contr import LocalContraction, FinalTransposition
+from ...util.tensor_splitting import (tensor_qr_decomposition,
+                                      contr_truncated_svd_splitting,
+                                      SVDParameters,
+                                      ContractionMode)
 from ...core.node import Node
 from ...util.std_utils import identity_mapping
 
@@ -23,127 +22,134 @@ if TYPE_CHECKING:
 
     from ...ttno.ttno_class import TTNO
 
-def src_ttns_ttno_application(ttns: TTNS,
-                              ttno: TTNO,
-                              desired_dimension: int,
-                              id_trafo: Callable | None = None,
-                              seed: int | None = None
-                              ) -> TTNS:
+def half_dm_ttns_ttno_application(ttns: TTNS,
+                                  ttno: TTNO,
+                                  id_trafo: Callable = identity_mapping,
+                                  svd_params: SVDParameters | None = None
+                                  ) -> TTNS:
     """
-    Applies the TTNO to the TTNS using the succesive randomized compression
-    algorithm.
+    Applies a TTNO to a TTNS using the half density matrix approach.
 
     Args:
-        ttns (TTNS): The TTNS to apply the TTNO to.
+        ttns (TTNS): The TTNS to apply the operator to.
         ttno (TTNO): The TTNO to apply.
-        desired_dimension (int): The desired dimension of the resulting TTNS.
-        id_trafo (Callable): A function that transforms the TTNS`s node
-            identifiers to the TTNO`s node identifiers. If None, the identity
-            mapping is used. Defaults to None.
-        seed (int | None, optional): Seed for the random number generator.
+        id_trafo (Callable, optional): A function that transforms the TTNS`s
+            node identifiers to the TTNO`s node identifiers. Defaults to
+            identity_mapping.
+        svd_params (SVDParameters | None, optional): The parameters for
+            the SVD truncation. If None, default parameters will be used.
             Defaults to None.
-
+    
     Returns:
-        TTNS: The resulting TTNS after applying the TTNO.
+        TTNS: The resulting TTNS after applying the operator.
     """
-    if id_trafo is None:
-        id_trafo = identity_mapping
-    random_ttns = generate_random_matrices(ttns,
-                                           desired_dimension,
-                                           seed=seed)
+    if svd_params is None:
+        svd_params = SVDParameters()
+    # First build the full subtree cache
     subtree_cache = build_full_subtree_cache(ttns,
                                              ttno,
-                                             random_ttns,
-                                             id_trafo)
+                                             id_trafo,
+                                             svd_params)
+    # Now find the new tensors
     new_tensors = find_new_tensors(ttns,
                                    ttno,
                                    subtree_cache,
                                    id_trafo)
     new_ttns = TTNS.from_tensors(ttns, new_tensors)
-    return new_ttns
-
-def generate_random_matrices(ttns: TTNS,
-                             desired_dimension: int,
-                             seed: int | None = None
-                             ) -> TTNS:
-    """
-    Generates a TTNS with random tensors of compatible dimensions.
-
-    Args:
-        ttns (TTNS): The TTNS to base the random TTNS on.
-        desired_dimension (int): The desired dimension of the random tensors.
-
-    Returns:
-        TTNS: A TTNS representing the Kati-Rao-Product of the input tree
-            structure with random tensors.
-    """
-    tensors = {}
-    for node_id, node in ttns.nodes.items():
-        input_dims = node.open_dimensions()
-        desired_shape = [desired_dimension] + input_dims
-        rand_tensor = crandn(tuple(desired_shape), seed=seed)
-        copy_t = copy_tensor(node.nlegs(), desired_dimension)
-        rand_tensor = np.tensordot(copy_t,
-                                   rand_tensor,
-                                   axes=(0,0))
-        tensors[node_id] = rand_tensor
-        seed = None if seed is None else seed + 1
-    rand_ttns = TTNS.from_tensors(ttns, tensors)
-    return rand_ttns
+    return new_ttns                 
 
 def build_full_subtree_cache(ttns: TTNS,
                              ttno: TTNO,
-                             random_ttns: TTNS,
-                             id_trafo: Callable
+                             id_trafo: Callable,
+                             svd_params: SVDParameters
                              ) -> PartialTreeCachDict:
     """
-    Builds a full subtree cache for the given TTNS and TTNO with random
-    tensors.
+    Builds a full subtree cache for the half density matrix approach.
+
+    Here the singular value decomposition will determine the bond dimensions.
 
     Args:
         ttns (TTNS): The TTNS to build the cache for.
-        ttno (TTNO): The TTNO to use for the contractions.
-        random_ttns (TTNS): The TTNS with random tensors.
-        id_trafo (Callable): A function to transform node identifiers.
+        ttno (TTNO): The TTNO to build the cache for.
+        id_trafo (Callable): The identity transformation to use.
+        svd_params (SVDParameters): The SVD parameters to use.
 
     Returns:
-        PartialTreeCachDict: The full subtree cache.
+        PartialTreeCachDict: The built subtree cache.
     """
     cache = PartialTreeCachDict()
     # Get envs upward
     lin_order = ttns.linearise()[:-1] # Exclude root
-    id_trafos = [identity_mapping, id_trafo, identity_mapping]
+    id_trafos = [identity_mapping, id_trafo]
     for node_id in lin_order:
         ket_node_tensor = ttns[node_id]
-        bra_node_tensor = random_ttns[node_id]
         op_node_tensor = ttno[id_trafo(node_id)]
         ignored_leg = ket_node_tensor[0].parent
         assert ignored_leg is not None
         local_contr = LocalContraction([ket_node_tensor,
-                                        op_node_tensor,
-                                        bra_node_tensor],
+                                        op_node_tensor],
                                         cache,
-                                        ignored_leg=ignored_leg,
-                                        id_trafos=id_trafos)
-        local_contr.contract_into_cache()
+                                        id_trafos=id_trafos,
+                                        ignored_leg=ignored_leg)
+        new_tensor = local_contr.contract_all(transpose_option=FinalTransposition.IGNOREDFIRST)
+        # We can assume the first leg of out tensor is the ignored leg
+        # TODO: Make use of the node structure to identify the legs
+        new_tensor = _truncate_subtree_tensor(new_tensor,
+                                             svd_params)
+        # Now the tensor should have the new leg as last leg and the legs
+        # pointing to the next node as the first two legs, which is exactly
+        # what we want.
+        cache.add_entry(node_id, ignored_leg, new_tensor)
     # At this point all upwards envs are in the cache, so everything towards
     # the root.
     # Now we go back down.
     lin_order = ttns.linearise(mode=LinearisationMode.PARENTS_FIRST)
+    id_trafos = [identity_mapping, id_trafo]
     for node_id in lin_order:
         ket_node_tensor = ttns[node_id]
         if not ket_node_tensor[0].is_leaf():
-            bra_node_tensor = random_ttns[node_id]
             op_node_tensor = ttno[id_trafo(node_id)]
             for child_id in ket_node_tensor[0].children:
+
                 local_contr = LocalContraction([ket_node_tensor,
-                                                op_node_tensor,
-                                                bra_node_tensor],
+                                                op_node_tensor],
                                                 cache,
-                                                ignored_leg=child_id,
-                                                id_trafos=id_trafos)
-                local_contr.contract_into_cache()
+                                                id_trafos=id_trafos,
+                                                ignored_leg=child_id)
+                new_tensor = local_contr.contract_all(transpose_option=FinalTransposition.IGNOREDFIRST)
+                new_tensor = _truncate_subtree_tensor(new_tensor,
+                                                     svd_params)
+                # Now the tensor should have the new leg as last leg and the legs
+                # pointing to the next node as the first two legs, which is exactly
+                # what we want.
+                cache.add_entry(node_id, child_id, new_tensor)
     return cache
+
+def _truncate_subtree_tensor(new_tensor: npt.NDArray,
+                              svd_params: SVDParameters
+                              ) -> npt.NDArray:
+    """
+    Truncate the obtained tensor using a truncated SVD on the open legs.
+
+    Args:
+        new_tensor (npt.NDArray): The tensor to truncate.
+        svd_params (SVDParameters): The SVD parameters to use.
+
+    Returns:
+        npt.NDArray: The truncated tensor. The new leg is the last leg,
+            the legs pointing to the next node are the first two legs.
+    """
+    v_legs = (0,1)
+    u_legs = tuple(range(2, new_tensor.ndim))
+    truncated, _ = contr_truncated_svd_splitting(new_tensor,
+                                                v_legs,
+                                                u_legs,
+                                                svd_params=svd_params,
+                                                contr_mode=ContractionMode.UCONTR)
+    # Now the tensor should have the new leg as last leg and the legs
+    # pointing to the next node as the first two legs, which is exactly
+    # what we want.
+    return truncated
 
 def find_new_tensors(ttns: TTNS,
                      ttno: TTNO,
