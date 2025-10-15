@@ -1,5 +1,5 @@
 """
-This module provides functions to multiply a TTNS with a TTNO
+This module provides functions to multiply a TTNS with a TTNO via the zip-up method.
 """
 from __future__ import annotations
 from typing import TYPE_CHECKING
@@ -20,16 +20,17 @@ from .state_operator_contraction import (contract_operator_tensor_ignoring_one_l
                                          _node_operator_input_leg,
                                          contract_ket_tensor_ignoring_one_leg)
 from ..util.tensor_splitting import SVDParameters
+from ..ttns.ttns import TreeTensorNetworkState
 
 if TYPE_CHECKING:
-    from ..ttns.ttns import TreeTensorNetworkState
     from ..ttno.ttno_class import TreeTensorNetworkOperator
 
 __all__ = ['zipup']
 
 def zipup(operator: TreeTensorNetworkOperator,
           state: TreeTensorNetworkState,
-          svd_params: SVDParameters = None
+          svd_params: SVDParameters | None = None,
+          canonicalise: bool = True
           ) -> TreeTensorNetworkState:
     """
     Apply a TTNO to a TTNS.
@@ -37,7 +38,9 @@ def zipup(operator: TreeTensorNetworkOperator,
     Args:
         operator (TreeTensorNetworkOperator): The TTNO to apply.
         state (TreeTensorNetworkState): The TTNS that TTNO acts on.
-        svd_params (SVDParameters): The SVD parameters.
+        svd_params (SVDParameters | None): The SVD parameters.
+        canonicalise (bool): Whether to canonicalise the resulting TTNS.
+            Default is True.
 
     Returns:    
         TreeTensorNetworkState: The result of the application of the TTNO to the TTNS.
@@ -50,16 +53,15 @@ def zipup(operator: TreeTensorNetworkOperator,
     errstr = "The last element of the linearisation should be the root node."
     assert computation_order[-1] == state.root_id, errstr
     assert computation_order[-1] == operator.root_id, errstr
-    resl_ttns = deepcopy(state)
+    new_tensors = {}
     for node_id in computation_order[:-1]: # The last one is the root node
-        node = resl_ttns.nodes[node_id]
+        node = state.nodes[node_id]
         parent_id = node.parent
         # Due to the linearisation the children should already be contracted.
         q,r = contract_any(node_id, parent_id,
-                             resl_ttns, operator,
+                             state, operator,
                              dictionary, svd_params)
-        resl_ttns.nodes[node_id].link_tensor(q)
-        resl_ttns.replace_tensor(node_id, q)
+        new_tensors[node_id] = q
         dictionary.add_entry(node_id,parent_id,r)
         # The children contraction results are not needed anymore.
         children = node.children
@@ -71,18 +73,20 @@ def zipup(operator: TreeTensorNetworkOperator,
     # Compare which contraction is more efficient, first TTNS then TTNO
     # (contract_node_with_environment) or first TTNO then TTNS
     # (contract_node_with_environment_2).
+    root_id = state.root_id
+    assert root_id is not None
     if state.root[0].nneighbours() > 2 and ttno_point > ttns_point:
-        tensor = contract_node_with_environment_2(resl_ttns.root_id,
-                                            resl_ttns, operator,
+        tensor = contract_node_with_environment_2(root_id,
+                                            state, operator,
                                            dictionary)
     else:
-        tensor = contract_node_with_environment(resl_ttns.root_id,
-                                            resl_ttns, operator,
+        tensor = contract_node_with_environment(root_id,
+                                            state, operator,
                                            dictionary)
-    root_node = resl_ttns.nodes[resl_ttns.root_id]
-    root_node.link_tensor(tensor)
-    resl_ttns.replace_tensor(resl_ttns.root_id, tensor)
-    resl_ttns.canonical_form(resl_ttns.root_id)
+    new_tensors[root_id] = tensor
+    resl_ttns = TreeTensorNetworkState.from_tensors(state, new_tensors)
+    if canonicalise:
+        resl_ttns.canonical_form(root_id)
     return resl_ttns
 
 def contract_node_with_environment(node_id: str,
@@ -121,7 +125,7 @@ def contract_node_with_environment(node_id: str,
                 |     |____|  A   |_____|     |
                 |_____|    |______|     |_____|
     
-    """    
+    """
     ket_node, ket_tensor = state[node_id]
     ket_neigh_block = contract_all_neighbour_blocks_to_ket(ket_tensor,
                                                            ket_node,
