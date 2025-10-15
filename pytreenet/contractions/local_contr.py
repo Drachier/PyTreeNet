@@ -90,6 +90,7 @@ class FinalTransposition(Enum):
     """
     STANDARD = 0
     NONE = 1
+    IGNOREDFIRST = 3
 
 class LocalContraction:
 
@@ -501,6 +502,25 @@ class LocalContraction:
         if transpose_option is FinalTransposition.NONE:
             return self.current_tensor.value
         errstr = f"Invalid `FinalTransposition` {transpose_option}!"
+        if transpose_option is FinalTransposition.IGNOREDFIRST:
+            if self.num_ignored() == 0:
+                errstr = "No ignored leg, cannot use `IGNOREDFIRST` option!"
+                raise ValueError(errstr)
+            # We want the final tensor to be in the order of
+            # [ignored leg, neighbour legs..., out legs..., in legs...]
+            perm = []
+            # First the ignored legs
+            perm.extend(self.current_tensor.cleared_ignored_legs())
+            # Then the neighbour legs in the order specified by neighbour_order
+            for neigh_id in self.neighbour_order:
+                if neigh_id in self.current_tensor.neighbour_legs:
+                    perm.extend(self.current_tensor.cleared_neigh_legs(neigh_id))
+            # Then the out legs
+            perm.extend(self.current_tensor.cleared_open_legs(OpenLegKind.OUT))
+            # Finally the in legs
+            perm.extend(self.current_tensor.cleared_open_legs(OpenLegKind.IN))
+            final_tensor = np.transpose(self.current_tensor.value, axes=perm)
+            return final_tensor
         raise ValueError(errstr)
 
     def contract_to_scalar(self) -> complex:
