@@ -53,7 +53,7 @@ class TestDMApproachrandomTTN(unittest.TestCase):
         ref = op @ state
         found, order = result.to_vector()
         npt.assert_array_almost_equal(found, ref)
-    
+
 class TestDMApproachSpecialTTN(unittest.TestCase):
     """
     Test the DM approach for special TTNs.
