@@ -1,10 +1,9 @@
 from __future__ import annotations
-from typing import List, Tuple, Dict, Union
+from typing import List, Union
+from copy import deepcopy
 
 import numpy as np
-from scipy.sparse.linalg import gmres as gmres
 import scipy
-from copy import deepcopy
 from ..util.tensor_splitting import SplitMode, SVDParameters
 
 from ..ttns import TreeTensorNetworkState
@@ -13,19 +12,28 @@ from ..time_evolution.time_evo_util.update_path import TDVPUpdatePathFinder
 from ..contractions.tree_cach_dict import PartialTreeCachDict
 from ..core.truncation.svd_truncation import svd_truncation
 from ..contractions.sandwich_caching import SandwichCache
-from ..contractions.effective_hamiltonians import get_effective_single_site_hamiltonian, contract_all_except_node
+from ..contractions.effective_hamiltonians import (get_effective_single_site_hamiltonian,
+                                                    contract_all_except_node)
 from ..contractions.contraction_util import get_equivalent_legs
 
 from ..operators.hamiltonian import Hamiltonian
 
 
 class VariationalFitting():
-    """
-    The general abstract class of a Variational Fitting algorithm. It finds a TTNS y with a given rank that best approximates $y \approx \sum_i O_i x_i $
+    r"""
+    The general abstract class of a Variational Fitting algorithm.
+    
+    It finds a TTNS y with a given rank that best approximates
+
+    ..math:: 
+    
+        y \approx \sum_i O_i x_i.
+    
     """
 
-    def __init__(self, O: List[TTNO],
-                 x: List[TreeTensorNetworkState],
+    def __init__(self,
+                 O: List[TTNO] | TTNO,
+                 x: List[TreeTensorNetworkState] | TreeTensorNetworkState,
                  y: TreeTensorNetworkState,
                  num_sweeps: int,
                  max_iter: int,
@@ -45,16 +53,29 @@ class VariationalFitting():
             max_iter (int): The maximum number of iterations.
             svd_params (SVDParameters): The parameters for the SVD.
             site (str): one site or two site sweeps.
+            coeffs (Union[float, complex, List[float], List[complex], None]):
+                The coefficients for the linear combination of the TTNS. If None
+                all coefficients are set to 1. If a single float or complex
+                number is provided, it is used for all TTNS. If a list is
+                provided, it must have the same length as the TTNS.
             residual_rank (int): The rank of the residual.
         """
         assert len(x) == len(O)
         for xi, oi in zip(x, O):
-            assert len(xi.nodes) == len(oi.nodes) == len(y.nodes), "The nodes of the TTNS and the operators must be the same. But got %s and %s"%(len(xi.nodes), len(oi.nodes))
-        self.x = x
+            if not (len(xi.nodes) == len(oi.nodes) == len(y.nodes)):
+                errstr = f"The nodes of the TTNS and the operators must be the same. But got {len(xi.nodes)} and {len(oi.nodes)}"
+                raise ValueError(errstr)
+        if isinstance(x, TreeTensorNetworkState):
+            self.x = [x]
+        else:
+            self.x = x
+        if isinstance(O, TTNO):
+            self.O = [O]
+        else:
+            self.O = O
         y = svd_truncation(deepcopy(y), svd_params)
         y.pad_bond_dimensions(svd_params.max_bond_dim)
         self.y = y
-        self.O = O
         self.num_sweeps = num_sweeps
         self.max_iter = max_iter
         self.site = site
@@ -64,17 +85,17 @@ class VariationalFitting():
             self.svd_params = SVDParameters()
         else:
             self.svd_params = svd_params
-            
+
         if coeffs is None:
             self.coeffs = [1]*len(self.x)
-        elif isinstance(coeffs, float) or isinstance(coeffs, complex):
-            self.coeffs = [coeffs]*len(self.x)
-        elif isinstance(coeffs, list) and isinstance(coeffs[0], float) or isinstance(coeffs[0], complex):
-            assert len(coeffs) == len(self.x), "The number of coefficients must be the same as the number of TTNS"
+        elif isinstance(coeffs, list):
+            if not len(coeffs) == len(self.x):
+                errstr = f"The number of coefficients must be the same as the number of TTNS. But got {len(coeffs)} and {len(self.x)}"
+                raise ValueError(errstr)
             self.coeffs = coeffs
         else:
-            raise ValueError("coeffs must be a float, complex, list of floats, or list of complexes")
-        
+            self.coeffs = [coeffs]*len(self.x)
+
         self.update_path = self._finds_update_path()
         self.orthogonalization_path = self._find_orthogonalization_path(self.update_path)
         self._orthogonalize_init()
