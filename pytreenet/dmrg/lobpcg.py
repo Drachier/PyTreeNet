@@ -8,7 +8,7 @@ from .variational_fitting import VariationalFitting
 from ..util.misc_functions import linear_combination, add, orthogonalise_gram_schmidt, orthogonalise_to, scale
 from ..util.tensor_splitting import SVDParameters
 
-from ..contractions.zipup import zipup 
+from ..ttns.ttns_ttno.zipup import zipup 
 from ..contractions.state_operator_contraction import get_matrix_element
 from ..ttno.ttno_class import TTNO
 from ..ttns import TreeTensorNetworkState

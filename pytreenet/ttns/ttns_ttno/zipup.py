@@ -6,16 +6,16 @@ from typing import TYPE_CHECKING, Callable
 
 import numpy as np
 
-from ..core.node import Node
-from .tree_cach_dict import PartialTreeCachDict
-from ..util.tensor_splitting import tensor_qr_decomposition_pivot
-from ..util.tensor_splitting import SVDParameters
-from ..ttns.ttns import TreeTensorNetworkState
-from .local_contr import LocalContraction
-from ..util.std_utils import identity_mapping
+from ...core.node import Node
+from ...contractions.tree_cach_dict import PartialTreeCachDict
+from ...util.tensor_splitting import tensor_qr_decomposition_pivot
+from ...util.tensor_splitting import SVDParameters
+from ..ttns import TreeTensorNetworkState
+from ...contractions.local_contr import LocalContraction
+from ...util.std_utils import identity_mapping
 
 if TYPE_CHECKING:
-    from ..ttno.ttno_class import TreeTensorNetworkOperator
+    from ...ttno.ttno_class import TreeTensorNetworkOperator
 
 __all__ = ['zipup']
 

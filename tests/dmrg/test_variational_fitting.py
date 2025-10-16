@@ -9,7 +9,7 @@ import pytreenet as ptn
 from pytreenet.random.random_ttns_and_ttno import (small_ttns_and_ttno,
                                                    big_ttns_and_ttno)
 from pytreenet.random.random_mps_and_mpo import random_mps_and_mpo
-from pytreenet.contractions.zipup import zipup
+from pytreenet.ttns.ttns_ttno.zipup import zipup
 
 class TestVariationalFittingSmall(unittest.TestCase):
     def setUp(self):
