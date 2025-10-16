@@ -16,6 +16,8 @@ if TYPE_CHECKING:
 
     from ...ttno.ttno_class import TTNO
 
+__all__ = ["direct"]
+
 def direct(ttns: TTNS,
           ttno: TTNO,
           id_mapping: Callable = lambda x: x

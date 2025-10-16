@@ -23,6 +23,8 @@ if TYPE_CHECKING:
 
     from ...ttno.ttno_class import TTNO
 
+__all__ = ["src_ttns_ttno_application"]
+
 def src_ttns_ttno_application(ttns: TTNS,
                               ttno: TTNO,
                               desired_dimension: int,

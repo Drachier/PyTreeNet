@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 
     from ...ttno.ttno_class import TTNO
 
+__all__ = ["dm_ttns_ttno_application"]
+
 def dm_ttns_ttno_application(ttns: TTNS,
                              ttno: TTNO,
                              id_trafo: None | Callable = None,
