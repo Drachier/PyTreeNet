@@ -237,6 +237,7 @@ class StyleMapping:
         Args:
             param_key (str): The parameter key.
             param_value (Any): The parameter value.
+            style_option (StyleOption): The style option to get the value for.
         
         Returns:
             str: The style value associated with the parameter key and value
@@ -273,6 +274,33 @@ class StyleMapping:
                                                param_value,
                                                style_option)
             setattr(line_config, style_arg, style_value)
+
+    def create_config(self,
+                      keys_values: dict[str, Any],
+                      allow_missing: bool = True
+                      ) -> LineConfig:
+        """
+        Create a LineConfig from the given parameter keys and values.
+
+        Args:
+            keys_values (dict[str, Any]): A mapping from parameter keys to
+                parameter values.
+            allow_missing (bool): Whether to allow missing parameter keys
+                in the mapping. If False, an error will be raised if a
+                parameter key is not found in the mapping. Defaults to True.
+        
+        Returns:
+            LineConfig: The created LineConfig object.
+        """
+        line_config = LineConfig()
+        for key, value in keys_values.items():
+            if key in self.get_parameters():
+                self.apply_to_config(line_config, key, value)
+            else:
+                if not allow_missing:
+                    errstr = f"No style mapping for parameter '{key}'!"
+                    raise KeyError(errstr)
+        return line_config
 
     def get_style_options(self,
                           param_key: str
@@ -371,6 +399,8 @@ class StyleMapping:
                     else:
                         label = f"{param_key}={param_value}"
                     line_config.label = label
+                    if StyleOption.COLOR not in style_options:
+                        line_config.color = "black"
                     line_config.plot_legend(ax=ax)
 
     @classmethod
