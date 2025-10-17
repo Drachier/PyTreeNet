@@ -370,7 +370,7 @@ class StyleMapping:
 
     def apply_legend(self,
                      ax: Axes | None = None,
-                     ignore: set[tuple(str, Any)] | None = None
+                     ignore: set[tuple[str,Any], str] | None = None
                      ) -> None:
         """
         Apply the legend for all style mappings to the given axes.
@@ -389,7 +389,7 @@ class StyleMapping:
         for param_key, value_map in self.param_value_to_style.items():
             style_options = self.get_style_options(param_key)
             for param_value, style_values in value_map.items():
-                if not (param_key, param_value) in ignore:
+                if not (param_key, param_value) in ignore and param_key not in ignore:
                     line_config = LineConfig()
                     for style_option, style_value in zip(style_options,
                                                         style_values):
