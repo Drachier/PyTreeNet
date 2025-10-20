@@ -10,6 +10,8 @@ from enum import Enum
 
 from ..ttns.ttns import TreeTensorNetworkState
 from .random_node import random_tensor_node
+from .random_matrices import crandn
+from ..core.tree_structure import LinearisationMode
 
 class RandomTTNSMode(Enum):
     """
@@ -200,4 +202,37 @@ def random_big_ttns_two_root_children(mode: Union[RandomTTNSMode,List[Tuple[int]
     random_ttns.add_child_to_parent(nodes[5][0],nodes[5][1],0,"site3",2)
     random_ttns.add_child_to_parent(nodes[6][0],nodes[6][1],0,"site0",1)
     random_ttns.add_child_to_parent(nodes[7][0],nodes[7][1],0,"site6",1)
+    return random_ttns
+
+def random_like(ttns: TreeTensorNetworkState,
+                bond_dim: int | None = None,
+                **kwargs
+                ) -> TreeTensorNetworkState:
+    """
+    Generates a random TTNS with the same topology as the given one.
+
+    Args:
+        ttns (TreeTensorNetworkState): The TTNS whose topology is to be copied.
+        bond_dim (int|None): If provided, all virtual bond dimensions will be
+            set maximally to this value. Otherwise, the bond dimensions of
+            the given TTNS are used.
+        **kwargs: Additional keyword arguments passed to the random tensor
+            generator.
+
+    Returns:
+        TreeTensorNetworkState: A random TTNS with the same topology as the
+            given one.
+    """
+    order = ttns.linearise(LinearisationMode.PARENTS_FIRST)
+    new_tensors = {}
+    for node_id in order:
+        old_node = ttns.nodes[node_id]
+        if bond_dim is not None:
+            shape = [min(bond_dim, dim) for dim in old_node.shape]
+        else:
+            shape = old_node.shape
+        _, new_tensor = crandn(shape, **kwargs)
+        new_tensors[node_id] = new_tensor
+    random_ttns = TreeTensorNetworkState.from_tensors(ttns,
+                                                      new_tensors)
     return random_ttns
