@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import List, Union
 from copy import deepcopy
+from enum import Enum
 
 import numpy as np
 import scipy.sparse.linalg as scsplinalg
@@ -10,16 +11,19 @@ from ..util.tensor_splitting import SplitMode, SVDParameters
 from ..ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TTNO
 from ..time_evolution.time_evo_util.update_path import TDVPUpdatePathFinder
-from ..contractions.tree_cach_dict import PartialTreeCachDict
 from ..core.truncation.svd_truncation import svd_truncation
 from ..contractions.sandwich_caching import SandwichCache
-from ..contractions.effective_hamiltonians import (get_effective_single_site_hamiltonian,
-                                                   contract_all_except_node)
+from ..contractions.effective_hamiltonians import (get_effective_single_site_hamiltonian)
 from ..contractions.contraction_util import get_equivalent_legs
-from ..contractions.local_contr import (LocalContraction,
-                                        FinalTransposition)
+from ..contractions.local_contr import (LocalContraction)
 from ..operators.hamiltonian import Hamiltonian
 
+class SiteUpdateMethod(Enum):
+    """
+    The available site update methods.
+    """
+    ONE_SITE = "one-site"
+    TWO_SITE = "two-site"
 
 class VariationalFitting():
     r"""
@@ -40,7 +44,7 @@ class VariationalFitting():
                  num_sweeps: int,
                  max_iter: int,
                  svd_params: SVDParameters,
-                 site: str,
+                 site: str | SiteUpdateMethod = SiteUpdateMethod.ONE_SITE,
                  coeffs: Union[float, complex, List[float],
                                List[complex], None] = None,
                  residual_rank: int = 4,
@@ -55,7 +59,8 @@ class VariationalFitting():
             num_sweeps (int): The number of sweeps to perform.
             max_iter (int): The maximum number of iterations.
             svd_params (SVDParameters): The parameters for the SVD.
-            site (str): one site or two site sweeps.
+            site (str | SiteUpdateMethod): one site or two site sweeps. Defaults
+                to one site.
             coeffs (Union[float, complex, List[float], List[complex], None]):
                 The coefficients for the linear combination of the TTNS. If None
                 all coefficients are set to 1. If a single float or complex
@@ -79,7 +84,10 @@ class VariationalFitting():
         self.y = y
         self.num_sweeps = num_sweeps
         self.max_iter = max_iter
-        self.site = site
+        if isinstance(site, str):
+            self.site = SiteUpdateMethod(site)
+        else:
+            self.site = site
         self.residual_rank = residual_rank
         self.dtype = dtype
         if svd_params is None:
@@ -123,6 +131,15 @@ class VariationalFitting():
             return self.partial_tree_cache
         else:
             return self.partial_tree_cache_states[indx]
+        
+    def get_result_state(self) -> TreeTensorNetworkState:
+        """
+        Returns the resulting TTNS after the variational fitting.
+
+        Returns:
+            TreeTensorNetworkState: The resulting TTNS.
+        """
+        return self.y
 
     def _orthogonalize_init(self):
         """
@@ -298,36 +315,43 @@ class VariationalFitting():
             yf, _ = scsplinalg.gmres(hamiltonian_eff_site, kvec.reshape(-1),
                                    x0=self.y.tensors[node_id].reshape(-1),
                                    maxiter=self.max_iter)
-        y_norm = np.linalg.norm(yf)
-        yf = yf / y_norm
+        #y_norm = np.linalg.norm(yf)
+        #yf = yf / y_norm
 
         l = np.einsum('i,ij,j->', yf.conj(), hamiltonian_eff_site, yf)
         if self.residual_rank > 0:
-            residual = hamiltonian_eff_site@yf - kvec.reshape(-1)/y_norm
+            residual = hamiltonian_eff_site@yf - kvec.reshape(-1)#/y_norm
             residual = residual.reshape(shape)
             residual_norm = np.linalg.norm(residual)
             if residual_norm > 1e-2:
                 if next_node_id is not None:
-                    neighbour_id = self.y.nodes[node_id].neighbour_index(
-                        next_node_id)
-                    node_old = deepcopy(self.y.nodes[node_id])
-                    self.y.pad_bond_dimension(
-                        next_node_id, node_id, shape[neighbour_id]+self.residual_rank)
+                    node = self.y.nodes[node_id]
+                    neighbour_id = node.neighbour_index(next_node_id)
+                    node_old = deepcopy(node)
+                    self.y.pad_bond_dimension(next_node_id,
+                                              node_id,
+                                              shape[neighbour_id]+self.residual_rank)
                     node_new = self.y.nodes[node_id]
                     _, leg2 = get_equivalent_legs(node_new, node_old)
-                    leg2.append(-1)
+                    leg2.extend(node.open_legs)
+                    print(leg2)
 
                     residual = np.moveaxis(residual, neighbour_id, -1)
                     residual = np.reshape(residual, (-1, shape[neighbour_id]))
                     q, _, _ = sclinalg.qr(residual, pivoting=True)
-                    residual = (q[:, :self.residual_rank]).T
+                    print(q.shape, self.residual_rank)
+                    if q.shape[-1] < self.residual_rank:
+                        q = np.pad(q, ((0,0),(0,self.residual_rank - q.shape[-1])))
+                    else:
+                        q = q[:, :self.residual_rank]
+                    residual = q.T
                     residual = np.moveaxis(residual, -1, neighbour_id)
                     residual_shape = list(shape)
                     residual_shape[neighbour_id] = self.residual_rank
                     residual_shape = tuple(residual_shape)
+                    print(node_id, neighbour_id, shape, residual_shape, residual.shape)
                     residual = np.reshape(residual, residual_shape)
-                    tensor = np.concatenate(
-                        (yf.reshape(shape), residual), axis=neighbour_id)
+                    tensor = np.concatenate((yf.reshape(shape), residual), axis=neighbour_id)
                     tensor = np.transpose(tensor, leg2)
                     self.y.replace_tensor(node_id, tensor)
             else:
@@ -358,9 +382,9 @@ class VariationalFitting():
         return eig_vals
 
     def sweep(self):
-        if self.site == 'one-site':
+        if self.site is SiteUpdateMethod.ONE_SITE:
             return self.sweep_one_site()
-        elif self.site == 'two-site':
+        if self.site is SiteUpdateMethod.TWO_SITE:
             raise NotImplementedError("Two site sweeps not implemented")
 
     def run(self):
