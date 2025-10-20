@@ -11,7 +11,7 @@ from .random_matrices import crandn
 from ..ttno.ttno_class import TTNO
 from ..core.node import Node
 
-def random_ttns(structure: TTNStructure,
+def random_ttno(structure: TTNStructure,
                 sys_size: int,
                 phys_dim: int,
                 bond_dim: int,
