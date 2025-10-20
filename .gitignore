@@ -140,3 +140,8 @@ dmypy.json
 
 # h5 files
 *.h5
+
+# Ignore simulation files
+*current_parameters.json
+*log.txt
+*metadata.json
