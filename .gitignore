@@ -137,3 +137,6 @@ dmypy.json
 
 # Job scripts
 *.slurm
+
+# h5 files
+*.h5
