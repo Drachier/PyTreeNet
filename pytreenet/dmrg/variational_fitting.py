@@ -131,7 +131,7 @@ class VariationalFitting():
             return self.partial_tree_cache
         else:
             return self.partial_tree_cache_states[indx]
-        
+
     def get_result_state(self) -> TreeTensorNetworkState:
         """
         Returns the resulting TTNS after the variational fitting.
