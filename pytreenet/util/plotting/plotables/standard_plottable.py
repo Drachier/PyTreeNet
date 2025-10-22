@@ -173,6 +173,27 @@ class StandardPlottable(Plottable):
         self.x = x
         self.y = y
 
+    def add_point(self,
+                  x: float,
+                  y: float) -> None:
+        """
+        Add a single point to the reference results.
+
+        Args:
+            x (float): The x value of the point to add.
+            y (float): The y value of the point to add.
+        """
+        self.x = np.append(self.x, x)
+        self.y = np.append(self.y, y)
+
+    def sort_by_x(self) -> None:
+        """
+        Sort the reference results by the x values.
+        """
+        sorted_indices = np.argsort(self.x)
+        self.x = self.x[sorted_indices]
+        self.y = self.y[sorted_indices]
+
     def x_limits(self) -> tuple[float, float]:
         """
         Get the x-axis limits for the reference results.
