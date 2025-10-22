@@ -123,14 +123,14 @@ def random_big_ttns(mode: RandomTTNSMode = RandomTTNSMode.SAME,
         # All dimensions virtual and physical are initially the same
         shapes = [(2,2,2,2),(2,2,2),(2,2),(2,2,2),
                   (2,2),(2,2,2,2),(2,2),(2,2)]
-        nodes = [random_tensor_node(shape, identifier="site"+str(i+1), seed=seed)
-                 for i, shape in enumerate(shapes)]
     elif mode == RandomTTNSMode.DIFFVIRT:
         shapes = [(4,3,6,1),(4,1,3),(1,2),(3,2,2),
                   (2,2),(6,3,2,1),(3,4),(2,3)]
     else:
         errstr = "The only supported mode is RandomTTNSMode.SAME"
         raise NotImplementedError(errstr)
+    nodes = [random_tensor_node(shape, identifier="site"+str(i+1), seed=seed)
+                 for i, shape in enumerate(shapes)]
     random_ttns = TreeTensorNetworkState()
     random_ttns.add_root(nodes[0][0], nodes[0][1])
     random_ttns.add_child_to_parent(nodes[1][0], nodes[1][1], 0, "site1", 0)
@@ -226,12 +226,15 @@ def random_like(ttns: TreeTensorNetworkState,
     order = ttns.linearise(LinearisationMode.PARENTS_FIRST)
     new_tensors = {}
     for node_id in order:
-        old_node = ttns.nodes[node_id]
+        old_node, _ = ttns[node_id] # get the tensors out to transpose them
         if bond_dim is not None:
-            shape = [min(bond_dim, dim) for dim in old_node.shape]
+            neigh_shape = old_node.neighbour_dims()
+            shape = [min(bond_dim, dim) for dim in neigh_shape]
+            shape += old_node.open_dimensions()
+            shape = tuple(shape)
         else:
             shape = old_node.shape
-        _, new_tensor = crandn(shape, **kwargs)
+        new_tensor = crandn(shape, **kwargs)
         new_tensors[node_id] = new_tensor
     random_ttns = TreeTensorNetworkState.from_tensors(ttns,
                                                       new_tensors)
