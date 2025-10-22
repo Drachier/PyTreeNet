@@ -4,6 +4,8 @@ This module implements the variational way of fitting the application of a TTNO 
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 from ...dmrg.variational_fitting import VariationalFitting, SiteUpdateMethod
 from ...util.tensor_splitting import SVDParameters
 from ...random.random_ttns import random_like
@@ -52,6 +54,8 @@ def variational_ttns_ttno_application(ttns, ttno,
                                 max_iter,
                                 svd_params,
                                 site = SiteUpdateMethod.ONE_SITE,
-                                residual_rank=residual_rank)
+                                residual_rank=residual_rank,
+                                dtype=np.complex64
+                                )
     fitter.run()
     return fitter.get_result_state()

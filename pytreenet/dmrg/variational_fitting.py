@@ -67,6 +67,7 @@ class VariationalFitting():
                 number is provided, it is used for all TTNS. If a list is
                 provided, it must have the same length as the TTNS.
             residual_rank (int): The rank of the residual.
+            dtype (np.dtype): The dtype to use for the calculations.
         """
         if isinstance(x, TreeTensorNetworkState):
             self.x = [x]
