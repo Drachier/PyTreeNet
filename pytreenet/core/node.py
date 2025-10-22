@@ -473,6 +473,13 @@ class Node(GraphNode):
         neighbour_index = self.neighbour_index(neighbour_id)
         return self.shape[neighbour_index]
 
+    def neighbour_dims(self) -> List[int]:
+        """
+        Returns a list of the dimensions of all neighbour legs.
+        """
+        shape = self.shape
+        return [shape[i] for i in range(self.nvirt_legs())]
+
     def leg_kind(self, index: int | str) -> LegKind:
         """
         Returns what kind of leg the given index corresponds to.

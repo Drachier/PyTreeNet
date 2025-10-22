@@ -386,6 +386,50 @@ class TreeStructure():
                     distances[new_dist].extend(nodes)
         return distances
 
+    def same_connectivity_as(self, other_tree: TreeStructure) -> bool:
+        """
+        Tests if this tree has the same connectivity as another tree.
+
+        Args:
+            other_tree (TreeStructure): The other tree to compare to.
+        
+        Returns:
+            bool: True if both trees have the same connectivity, i.e. all
+                nodes have the same neighbours.
+        """
+        if len(self.nodes) != len(other_tree.nodes):
+            return False
+        for node_id, node in self.nodes.items():
+            if node_id not in other_tree.nodes:
+                return False
+            other_node = other_tree.nodes[node_id]
+            if set(node.neighbouring_nodes()) != set(other_node.neighbouring_nodes()):
+                return False
+        return True
+
+    def same_hierarchy_as(self, other_tree: TreeStructure) -> bool:
+        """
+        Tests if this tree has the same hierarchy as another tree.
+
+        Args:
+            other_tree (TreeStructure): The other tree to compare to.
+        
+        Returns:
+            bool: True if both trees have the same hierarchy, i.e. all nodes
+                have the same parents and children.
+        """
+        if len(self.nodes) != len(other_tree.nodes):
+            return False
+        for node_id, node in self.nodes.items():
+            if node_id not in other_tree.nodes:
+                return False
+            other_node = other_tree.nodes[node_id]
+            if node.parent != other_node.parent:
+                return False
+            if set(node.children) != set(other_node.children):
+                return False
+        return True
+
     def find_subtree_of_node(self, node_id: str) -> Dict[str, GraphNode]:
         """
         Obtains the subtree from a given node towards the leaves of this tree.

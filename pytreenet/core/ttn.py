@@ -335,6 +335,86 @@ class TreeTensorNetwork(TreeStructure):
         tensors_equal = np.allclose(test_tensor, tensor)
         return tensors_equal
 
+    def same_structure_as(self, other: TreeTensorNetwork) -> bool:
+        """
+        Checks if this TTN has the same structure as another TTN.
+
+        Args:
+            other (TreeTensorNetwork): The other TTN to compare to.
+        
+        Returns:
+            bool: If the two TTNs have the same structure. This means the two
+                TTNs have the same hierarchy of nodes and the same open leg
+                dimensions.
+        """
+        if not self.same_hierarchy_as(other):
+            return False
+        for node_id, node in self.nodes.items():
+            other_node = other.nodes[node_id]
+            if node.open_dimensions() != other_node.open_dimensions():
+                return False
+        return True
+
+    def same_bond_dimensions_as(self, other: TreeTensorNetwork) -> bool:
+        """
+        Checks if this TTN has the same bond dimensions as another TTN.
+
+        Args:
+            other (TreeTensorNetwork): The other TTN to compare to.
+        
+        Returns:
+            bool: If the two TTNs have the same bond dimensions. This means the
+                two TTNs have the same bond dimensions between all neighbouring
+                nodes.
+        """
+        if not self.same_connectivity_as(other):
+            return False
+        for node_id, node in self.nodes.items():
+            other_node, _ = other[node_id]
+            for neighbour_id in node.neighbouring_nodes():
+                other_dim = other_node.neighbour_dim(neighbour_id)
+                dim = node.neighbour_dim(neighbour_id)
+                if dim != other_dim:
+                    return False
+        return True
+    
+    def same_open_dimensions_as(self, other: TreeTensorNetwork) -> bool:
+        """
+        Checks if this TTN has the same open leg dimensions as another TTN.
+
+        Args:
+            other (TreeTensorNetwork): The other TTN to compare to.
+
+        Returns:
+            bool: If the two TTNs have the same open leg dimensions. This means
+                the two TTNs have the same open leg dimensions for all nodes.
+        """
+        if self.num_nodes() != other.num_nodes():
+            return False
+        for node_id, node in self.nodes.items():
+            if node_id not in other.nodes:
+                return False
+            other_node = other.nodes[node_id]
+            if node.open_dimensions() != other_node.open_dimensions():
+                return False
+        return True
+
+    def same_dimensions_as(self, other: TreeTensorNetwork) -> bool:
+        """
+        Checks if this TTN has the same dimensions as another TTN.
+
+        Args:
+            other (TreeTensorNetwork): The other TTN to compare to.
+
+        Returns:
+            bool: If the two TTNs have the same dimensions. This means the two
+                TTNs have the same bond dimensions between all neighbouring
+                nodes and the same open leg dimensions.
+        """
+        if not self.same_bond_dimensions_as(other):
+            return False
+        return self.same_open_dimensions_as(other)
+
     def ensure_shape_matching(self, new_tensor: np.ndarray, tensor_leg: int,
                               old_node: Node, old_leg: int,
                               new_node_id: Union[str,None] = None):
