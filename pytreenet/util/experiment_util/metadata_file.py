@@ -104,15 +104,17 @@ class MetadataFilter(UserDict):
 
     def change_criterium(self,
                          key: str,
-                         value: Any
+                         value: Any | list[Any]
                          ) -> None:
         """
         Changes the validation criteria of the filter.
 
         Args:
             key (str): The key to change or add in the filter.
-            value (Any): The value to associate with the key.
+            value (Any | list[Any]): The value to associate with the key.
         """
+        if not isinstance(value, list):
+            value = [value]
         self.data[key] = value
 
     def change_criteria(self,

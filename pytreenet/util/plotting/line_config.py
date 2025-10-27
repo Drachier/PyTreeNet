@@ -336,6 +336,29 @@ class StyleMapping:
                 return True
         return False
 
+    def set_no_lines(self,
+                     param_key: str
+                     ) -> None:
+        """
+        For the given parameter key, set no lines to be drawn.
+
+        Args:
+            param_key (str): The parameter key.
+        """
+        if self.option_in_use(StyleOption.LINESTYLE):
+            errstr = "Style option 'linestyle' is already in use!"
+            raise ValueError(errstr)
+        # Set the style option to the linestyle ""
+        if param_key not in self.param_to_option:
+            self.param_to_option[param_key] = [StyleOption.LINESTYLE]
+        else:
+            self.param_to_option[param_key].append(StyleOption.LINESTYLE)
+        # Set the style value for all parameter values to ""
+        value_map = self.param_value_to_style.get(param_key, {})
+        for val in value_map:
+            value_map[val].append("")
+        self.param_value_to_style[param_key] = value_map
+
     def add_mapping(self,
                     param_key: str,
                     style_option: StyleOption,

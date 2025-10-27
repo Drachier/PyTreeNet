@@ -229,6 +229,44 @@ class StandardPlottable(Plottable):
             ax = plt.gca()
         ax.plot(self.x, self.y, **self.line_config.to_kwargs())
 
+    def apply_numpy_to_y(self,
+                         func: Callable[[npt.NDArray[np.floating]],
+                                        npt.NDArray[np.floating]]
+                         ) -> npt.NDArray[np.floating]:
+        """
+        Apply a numpy function to the y values.
+
+        Args:
+            func (Callable[[npt.NDArray[np.floating]],
+                           npt.NDArray[np.floating]]): The numpy function to
+                apply to the y values.
+        
+        Returns:
+            npt.NDArray[np.floating]: The result of applying the function to
+                the y values.
+        """
+        return func(self.y)
+
+    def plot_error_bars(self,
+                        y_min: StandardPlottable,
+                        y_max: StandardPlottable,
+                        ax: Axes | None = None
+                        ) -> None:
+        """
+        Plot error bars on the current axes using the given min and max
+        StandardPlottable objects.
+
+        Args:
+            y_min (StandardPlottable): The StandardPlottable object
+                representing the minimum y values.
+            y_max (StandardPlottable): The StandardPlottable object
+                representing the maximum y values.
+        """
+        if ax is None:
+            ax = plt.gca()
+        yerr = np.stack([y_min.y, y_max.y], axis=0)
+        ax.errorbar(self.x, self.y, yerr=yerr, **self.line_config.to_kwargs())
+
     @classmethod
     def from_simulation_result(cls,
                                result: Results,

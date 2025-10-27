@@ -293,7 +293,7 @@ class ConvergingPlottable(Plottable):
                                  line_config=deepcopy(self.line_config),
                                  assoc_params=copy(self.assoc_params)
                                  )
-    
+
     def average_results(self) -> StandardPlottable:
         """
         Averages the result over the convergence parameter values.
@@ -307,6 +307,80 @@ class ConvergingPlottable(Plottable):
                                  line_config=deepcopy(self.line_config),
                                  assoc_params=copy(self.assoc_params)
                                  )
+
+    def variance_results(self) -> StandardPlottable:
+        """
+        Computes the variance of the results over the convergence
+        parameter values.
+
+        Returns:
+            StandardPlottable: The variance of the results.
+        """
+        y_vals = np.var(np.array(self.values), axis=0)
+        return StandardPlottable(x=self.x_values,
+                                 y=y_vals,
+                                 line_config=deepcopy(self.line_config),
+                                 assoc_params=copy(self.assoc_params)
+                                 )
+
+    def min_results(self) -> StandardPlottable:
+        """
+        Computes the minimum of the results over the convergence
+        parameter values.
+
+        Returns:
+            StandardPlottable: The minimum of the results.
+        """
+        y_vals = np.min(np.array(self.values), axis=0)
+        return StandardPlottable(x=self.x_values,
+                                 y=y_vals,
+                                 line_config=deepcopy(self.line_config),
+                                 assoc_params=copy(self.assoc_params)
+                                 )
+
+    def max_results(self) -> StandardPlottable:
+        """
+        Computes the maximum of the results over the convergence
+        parameter values.
+
+        Returns:
+            StandardPlottable: The maximum of the results.
+        """
+        y_vals = np.max(np.array(self.values), axis=0)
+        return StandardPlottable(x=self.x_values,
+                                 y=y_vals,
+                                 line_config=deepcopy(self.line_config),
+                                 assoc_params=copy(self.assoc_params)
+                                 )
+
+    def difference_between(self,
+                           indx0: int,
+                           indx1: int,
+                           abs: bool = True
+                           ) -> StandardPlottable:
+        """
+        Computes the difference between result entries at two indices.
+
+        Args:
+            indx0 (int): Index of the first result entry.
+            indx1 (int): Index of the second result entry.
+            abs (bool, optional): Whether to take the absolute value of
+                the difference. Defaults to True.
+
+        Returns:
+            StandardPlottable: The difference between the two result entries.
+        """
+        y_diff = np.zeros((len(self.values),), dtype=self.values[0].dtype)
+        for i, vals in enumerate(self.values):
+            if abs:
+                y_diff[i] = np.abs(vals[indx1] - vals[indx0])
+            else:
+                y_diff[i] = vals[indx1] - vals[indx0]
+        return StandardPlottable(x=self.conv_param_values,
+                                    y=y_diff,
+                                    line_config=deepcopy(self.line_config),
+                                    assoc_params=copy(self.assoc_params)
+                                    )
 
     def x_limits(self) -> tuple[float, float]:
         """
@@ -378,7 +452,8 @@ class ConvergingPlottable(Plottable):
     @classmethod
     def from_multiple_standards(cls,
                                 standards: list[StandardPlottable],
-                                line_config: LineConfig | None = None
+                                line_config: LineConfig | None = None,
+                                conv_param: str | None = None
                                 ) -> Self:
         """
         Create a ConvergingResults instance from multiple StandardPlottable
@@ -394,8 +469,18 @@ class ConvergingPlottable(Plottable):
         Returns:
             ConvergingResults: An instance of ConvergingResults.
         """
-        if len(standards) < 2:
+        if conv_param is None and len(standards) < 2:
             raise ValueError("At least two standards must be provided!")
+        if len(standards) == 1:
+            single_plt = standards[0]
+            return cls([single_plt.y],
+                       single_plt.line_config,
+                       [single_plt.assoc_params[conv_param]],
+                       conv_param=conv_param,
+                       x_values=single_plt.x,
+                       assoc_params=copy(single_plt.assoc_params))
+        elif len(standards) == 0:
+            raise ValueError("At least one standard must be provided!")
         if line_config is None:
             line_config = standards[0].line_config
         values = [std.y for std in standards]
@@ -405,15 +490,16 @@ class ConvergingPlottable(Plottable):
             if not np.allclose(std.x, first_x):
                 raise ValueError("All standards must have the similar x values!")
         # Find differing associated parameter
-        conv_param = ""
         assoc_params0 = standards[0].assoc_params
-        assoc_params1 = standards[1].assoc_params
-        for key in assoc_params0.keys():
-            if assoc_params1[key] != assoc_params0[key]:
-                conv_param = key
-                break
-        if conv_param == "":
-            raise ValueError("No differing associated parameter found!")
+        if conv_param is None:
+            conv_param = ""
+            assoc_params1 = standards[1].assoc_params
+            for key in assoc_params0.keys():
+                if assoc_params1[key] != assoc_params0[key]:
+                    conv_param = key
+                    break
+            if conv_param == "":
+                raise ValueError("No differing associated parameter found!")
         for std in standards[1:]:
             if not std.assoc_equal(standards[0], ignored_keys={conv_param}):
                 raise ValueError("All standards must differ in the same parameter!")
