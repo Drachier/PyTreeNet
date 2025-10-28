@@ -164,6 +164,33 @@ class QCLevel:
             hamiltonian.add_hamiltonian(gate.get_generator())
         return hamiltonian
 
+    def as_circuit_ttno(self,
+                        ref_tree: TreeTensorNetwork,
+                        method: TTNOFinder = TTNOFinder.SGE
+                        ) -> TreeTensorNetworkOperator:
+        """
+        Convert the quantum circuit level to a TTNO.
+
+        Args:
+            ref_tree (TreeTensorNetwork): The reference tree tensor network
+                to use for the TTNO.
+            method (TTNOFinder): The method to use for finding the
+                tree tensor network operator in the state diagram.
+                Defaults to `TTNOFinder.SGE`.
+        
+        Returns:
+            TreeTensorNetworkOperator: The TTNO representing the quantum
+                circuit level as quantum gates. This means the TTNO is
+                applied directly to the qubits.
+        """
+        ham = Hamiltonian()
+        for gate in self.gates:
+            ham.add_hamiltonian(gate.as_sum_of_products())
+        ham.pad_with_identities(ref_tree)
+        ham.include_identities()
+        return TreeTensorNetworkOperator.from_hamiltonian(ham,
+                                                          ref_tree,
+                                                          method=method)
 
 class AbstractQCircuit(ABC):
     """
@@ -479,6 +506,30 @@ class QCircuit(AbstractQCircuit):
         """
         gate = PhaseGate(phase, qubit_id)
         self.add_gate(gate, level_index)
+
+    def as_circuit_ttno(self,
+                        ref_tree: TreeTensorNetwork,
+                        method: TTNOFinder = TTNOFinder.SGE
+                        ) -> list[TreeTensorNetworkOperator]:
+        """
+        Convert the quantum circuit to a list of TTNOs.
+
+        Args:
+            ref_tree (TreeTensorNetwork): The reference tree tensor network
+                to use for the TTNOs.
+            method (TTNOFinder): The method to use for finding the
+                tree tensor network operators in the state diagrams.
+                Defaults to `TTNOFinder.SGE`.
+
+        Returns:
+            list[TreeTensorNetworkOperator]: A list of TTNOs representing
+                the quantum circuit. This means the TTNOs are applied directly
+                to the qubits.
+        """
+        ttnos = []
+        for level in self.levels:
+            ttnos.append(level.as_circuit_ttno(ref_tree, method=method))
+        return ttnos
 
 class CompiledQuantumCircuit(AbstractQCircuit):
     """

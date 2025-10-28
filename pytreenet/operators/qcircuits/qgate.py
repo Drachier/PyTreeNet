@@ -8,13 +8,15 @@ from fractions import Fraction
 from enum import Enum
 
 import numpy as np
+from numpy._typing import NDArray
 
 from ..common_operators import (pauli_matrices,
                                 hadamard,
                                 swap_gate,
                                 toffoli_gate)
-from ..hamiltonian import Hamiltonian
+from ..hamiltonian import Hamiltonian, ONE_SYMBOL
 from ..tensorproduct import TensorProduct
+from ...random.random_matrices import random_unitary_matrix
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -110,6 +112,17 @@ class QuantumGate(ABC):
         """
         raise NotImplementedError("Subclasses must implement this method!")
 
+    @abstractmethod
+    def as_sum_of_products(self) -> Hamiltonian:
+        """
+        Represent the quantum gate as a sum of tensor products.
+
+        Returns:
+            Hamiltonian: The sum of tensor products representation of the
+                quantum gate.
+        """
+        raise NotImplementedError("Subclasses must implement this method!")
+
 class SingleQubitGate(QuantumGate):
     """
     Abstract base class for single-qubit gates.
@@ -124,6 +137,21 @@ class SingleQubitGate(QuantumGate):
         """
         super().__init__(symbol, [qubit_id])
         self.qubit_id = qubit_id
+
+    def as_sum_of_products(self) -> Hamiltonian:
+        """
+        Represent the single-qubit gate as a sum of tensor products.
+
+        Returns:
+            Hamiltonian: The sum of tensor products representation of the
+                single-qubit gate.
+        """
+        ham = Hamiltonian()
+        tp = TensorProduct({self.qubit_id: self.symbol})
+        conv_dict = {self.symbol: self.matrix()}
+        ham.add_term((Fraction(1), ONE_SYMBOL, tp))
+        ham.update_mappings(conv_dict, {ONE_SYMBOL: 1})
+        return ham
 
 class InvolutarySingleSiteGate(SingleQubitGate):
     """
@@ -307,6 +335,37 @@ class PhaseGate(SingleQubitGate):
             errstr = f"Invalid Enum for PhaseGate: {gate_enum}!"
             raise ValueError(errstr)
         return cls(phase, qubit_id)
+    
+class HaarRandomSingleQubitGate(SingleQubitGate):
+    """
+    A class representing a Haar-random single-qubit gate.
+    """
+
+    def __init__(self,
+                 qubit_id: str,
+                 seed: int | None = None,
+                 symbol: str = ""
+                 ) -> None:
+        """
+        Initialize a Haar-random single-qubit gate.
+
+        Args:
+            qubit_id (str): The ID of the qubit the gate acts on.
+            seed (int | None): An optional seed for reproducibility.
+            symbol (str): An optional symbol representing the gate.
+        """
+        if symbol == "":
+            symbol = f"HaarRandom_{qubit_id}"
+            if seed is not None:
+                symbol += f"_seed{seed}"
+        self.gate_matrix = random_unitary_matrix(size=2, seed=seed)
+        super().__init__(symbol, qubit_id)
+
+    def matrix(self) -> NDArray[np.complexfloating]:
+        return self.gate_matrix
+
+    def get_generator(self) -> Hamiltonian:
+        raise NotImplementedError("Generator for Haar-random gates is not implemented!")
 
 class CNOTGate(QuantumGate):
     """
@@ -385,6 +444,32 @@ class CNOTGate(QuantumGate):
                          [0, 1, 0, 0],
                          [0, 0, 0, 1],
                          [0, 0, 1, 0]], dtype=np.complex64)
+
+    def as_sum_of_products(self) -> Hamiltonian:
+        """
+        Represent the CNOT gate as a sum of tensor products.
+
+        Returns:
+            Hamiltonian: The sum of tensor products representation of the
+                CNOT gate.
+        """
+        ham = Hamiltonian()
+        identity = "I2"
+        term1 = (Fraction(1, 2), ONE_SYMBOL, TensorProduct({self.control_qubit_id: identity,
+                                                            self.target_qubit_id: identity}))
+        term2 = (Fraction(1, 2), ONE_SYMBOL, TensorProduct({self.control_qubit_id: identity,
+                                                            self.target_qubit_id: QGate.PAULI_X.value}))
+        term3 = (Fraction(1, 2), ONE_SYMBOL, TensorProduct({self.control_qubit_id: QGate.PAULI_Z.value,
+                                                            self.target_qubit_id: identity}))
+        term4 = (Fraction(-1, 2), ONE_SYMBOL, TensorProduct({self.control_qubit_id: QGate.PAULI_Z.value,
+                                                             self.target_qubit_id: QGate.PAULI_X.value}))
+        ham.add_multiple_terms([term1, term2, term3, term4])
+        conversion_dict = {"I2": np.eye(2, dtype=complex),
+                            QGate.PAULI_X.value: pauli_matrices()[0],
+                            QGate.PAULI_Z.value: pauli_matrices()[2]}
+        coeffs_map = {ONE_SYMBOL: 1.0+0.0j}
+        ham.update_mappings(conversion_dict, coeffs_map)
+        return ham
 
     @classmethod
     def from_enum(cls,
@@ -477,6 +562,36 @@ class SWAPGate(QuantumGate):
                 SWAP gate.
         """
         return swap_gate()
+
+    def as_sum_of_products(self) -> Hamiltonian:
+        """
+        Represent the SWAP gate as a sum of tensor products.
+
+        Returns:
+            Hamiltonian: The sum of tensor products representation of the
+                SWAP gate.
+        """
+        ham = Hamiltonian()
+        identity = "I2"
+        pauli_x = QGate.PAULI_X.value
+        pauli_y = QGate.PAULI_Y.value
+        pauli_z = QGate.PAULI_Z.value
+        term1 = (Fraction(1, 2), ONE_SYMBOL, TensorProduct({self.qubit_id1: identity,
+                                                            self.qubit_id2: identity}))
+        term2 = (Fraction(1, 2), ONE_SYMBOL, TensorProduct({self.qubit_id1: pauli_x,
+                                                            self.qubit_id2: pauli_x}))
+        term3 = (Fraction(1, 2), ONE_SYMBOL, TensorProduct({self.qubit_id1: pauli_y,
+                                                            self.qubit_id2: pauli_y}))
+        term4 = (Fraction(1, 2), ONE_SYMBOL, TensorProduct({self.qubit_id1: pauli_z,
+                                                            self.qubit_id2: pauli_z}))
+        ham.add_multiple_terms([term1, term2, term3, term4])
+        conversion_dict = {"I2": np.eye(2, dtype=complex),
+                            QGate.PAULI_X.value: pauli_matrices()[0],
+                            QGate.PAULI_Y.value: pauli_matrices()[1],
+                            QGate.PAULI_Z.value: pauli_matrices()[2]}
+        coeffs_map = {ONE_SYMBOL: 1.0+0.0j}
+        ham.update_mappings(conversion_dict, coeffs_map)
+        return ham
 
     @classmethod
     def from_enum(cls,
@@ -592,7 +707,17 @@ class ToffoliGate(QuantumGate):
                 Toffoli gate.
         """
         return toffoli_gate()
-    
+
+    def as_sum_of_products(self) -> Hamiltonian:
+        """
+        Represent the Toffoli gate as a sum of tensor products.
+
+        Returns:
+            Hamiltonian: The sum of tensor products representation of the
+                Toffoli gate.
+        """
+        raise NotImplementedError("ToffoliGate.as_sum_of_products() is not yet implemented!")
+
     @classmethod
     def from_enum(cls,
                   gate_enum: QGate | str,
