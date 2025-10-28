@@ -6,7 +6,6 @@ from enum import Enum
 
 import numpy as np
 import numpy.random as npr
-from scipy.linalg import expm
 from scipy.stats import unitary_group
 
 from ..util.ttn_exceptions import positivity_check
@@ -110,7 +109,7 @@ def random_hermitian_matrix(size: int = 2) -> np.ndarray:
     return 0.5 * (rmatrix + rmatrix.T.conj())
 
 def random_unitary_matrix(size: int = 2,
-                          seed: int = 42
+                          seed: int | None = None
                           ) -> np.ndarray:
     """
     Creates a random unitary matrix U^\\dagger U = I
@@ -124,8 +123,8 @@ def random_unitary_matrix(size: int = 2,
     return unitary_group.rvs(size, random_state=seed)
 
 def haar_random_state(size: int = 2,
-                     seed: int = 42
-                     ) -> np.ndarray:
+                      seed: int | None = None
+                      ) -> np.ndarray:
     """
     Generates a random normalized state vector using the Haar measure.
 
