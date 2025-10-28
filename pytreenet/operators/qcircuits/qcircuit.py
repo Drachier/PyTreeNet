@@ -3,7 +3,8 @@ This module implements the actual quantum circuit.
 """
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Self
+from copy import copy
 
 from ...core.ttn import TreeTensorNetwork
 from ...ttno.ttno_class import TreeTensorNetworkOperator
@@ -191,6 +192,19 @@ class QCLevel:
         return TreeTensorNetworkOperator.from_hamiltonian(ham,
                                                           ref_tree,
                                                           method=method)
+
+    def invert(self) -> Self:
+        """
+        Get the inverse of the quantum circuit level.
+
+        Returns:
+            QCLevel: The inverse of the quantum circuit level.
+        """
+        inverted_level = self.__class__()
+        for gate in reversed(self.gates):
+            inverted_gate = gate.invert()
+            inverted_level.add_gate(inverted_gate)
+        return inverted_level
 
 class AbstractQCircuit(ABC):
     """
@@ -530,6 +544,19 @@ class QCircuit(AbstractQCircuit):
         for level in self.levels:
             ttnos.append(level.as_circuit_ttno(ref_tree, method=method))
         return ttnos
+
+    def invert(self) -> Self:
+        """
+        Get the inverse of the quantum circuit.
+
+        Returns:
+            AbstractQCircuit: The inverse of the quantum circuit.
+        """
+        inverted_circuit = self.__class__()
+        for level in reversed(self.levels):
+            inverted_level = level.invert()
+            inverted_circuit.add_level(inverted_level)
+        return inverted_circuit
 
 class CompiledQuantumCircuit(AbstractQCircuit):
     """
