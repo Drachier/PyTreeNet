@@ -316,12 +316,12 @@ class VariationalFitting():
             yf, _ = scsplinalg.gmres(hamiltonian_eff_site, kvec.reshape(-1),
                                    x0=self.y.tensors[node_id].reshape(-1),
                                    maxiter=self.max_iter)
-        #y_norm = np.linalg.norm(yf)
-        #yf = yf / y_norm
+        y_norm = np.linalg.norm(yf)
+        yf = yf / y_norm
 
         l = np.einsum('i,ij,j->', yf.conj(), hamiltonian_eff_site, yf)
         if self.residual_rank > 0:
-            residual = hamiltonian_eff_site@yf - kvec.reshape(-1)#/y_norm
+            residual = hamiltonian_eff_site@yf - kvec.reshape(-1)/y_norm
             residual = residual.reshape(shape)
             residual_norm = np.linalg.norm(residual)
             if residual_norm > 1e-2:
@@ -335,12 +335,11 @@ class VariationalFitting():
                     node_new = self.y.nodes[node_id]
                     _, leg2 = get_equivalent_legs(node_new, node_old)
                     leg2.extend(node.open_legs)
-                    print(leg2)
 
                     residual = np.moveaxis(residual, neighbour_id, -1)
                     residual = np.reshape(residual, (-1, shape[neighbour_id]))
                     q, _, _ = sclinalg.qr(residual, pivoting=True)
-                    print(q.shape, self.residual_rank)
+
                     if q.shape[-1] < self.residual_rank:
                         q = np.pad(q, ((0,0),(0,self.residual_rank - q.shape[-1])))
                     else:
@@ -350,7 +349,7 @@ class VariationalFitting():
                     residual_shape = list(shape)
                     residual_shape[neighbour_id] = self.residual_rank
                     residual_shape = tuple(residual_shape)
-                    print(node_id, neighbour_id, shape, residual_shape, residual.shape)
+
                     residual = np.reshape(residual, residual_shape)
                     tensor = np.concatenate((yf.reshape(shape), residual), axis=neighbour_id)
                     tensor = np.transpose(tensor, leg2)

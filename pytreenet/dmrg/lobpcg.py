@@ -77,7 +77,7 @@ def lobpcg_block(ttno:TTNO, state_x_list: List[TreeTensorNetworkState],precond_f
         state_r_list = []
         for ix, state_x in enumerate(state_x_list):
             state_new = zipup(ttno, state_x, svd_params)
-            varfit = VariationalFitting([ttno], [deepcopy(state_x)], state_new.conjugate(), varfit_num_sweeps, 100, svd_params, "one-site", [1.])
+            varfit = VariationalFitting([ttno], [deepcopy(state_x)], state_new.conjugate(), varfit_num_sweeps, 500, svd_params, "one-site", [1.])
             varfit.run()
             state_r = varfit.y.conjugate()
             state_r = add(state_x, state_r, -rayleigh[ix], 1.)
