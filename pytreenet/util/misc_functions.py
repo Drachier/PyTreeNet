@@ -13,7 +13,6 @@ from ..ttno.ttno_class import TTNO
 from ..dmrg.variational_fitting import VariationalFitting
 from ..operators.hamiltonian import Hamiltonian
 from ..contractions.state_operator_contraction import get_matrix_element
-from ..contractions.tree_cach_dict import PartialTreeCachDict
 from ..contractions.contraction_util import get_equivalent_legs
 from ..util.tensor_splitting import SVDParameters
 
@@ -75,7 +74,7 @@ def orthogonalise_cholesky(ttns_list: List[TreeTensorNetworkState],
     for i in range(len(ttns_list)):
         dtype = ttns_list[i].tensors[ttns_list[i].root_id].dtype
         ttns_list_return[i] = linear_combination(ttns_list,
-                                                 L_inv[:,i].tolist(),
+                                                 L_inv[:,i],
                                                  max_bond_dim,
                                                  num_sweeps,
                                                  dtype)
@@ -103,14 +102,14 @@ def orthogonalise_gep(ttno: TTNO,
     ovp = np.zeros((len(ttns_list), len(ttns_list)), dtype=np.complex128)
     h = np.zeros((len(ttns_list), len(ttns_list)), dtype=np.complex128)
     for i, ttns in enumerate(ttns_list):
-        ovp[i,i] = ttns.scalar_product().real
-        h[i,i] = ttns.operator_expectation_value(ttno).real
+        ovp[i,i] = ttns.scalar_product()
+        h[i,i] = ttns.operator_expectation_value(ttno)
         for j in range(i+1, len(ttns_list)):
-            ovp[i,j] = ttns_list[j].scalar_product(ttns_list[i]).real
+            ovp[i,j] = ttns_list[j].scalar_product(ttns_list[i])
             ovp[j,i] = ovp[i,j]
             h[i,j] = get_matrix_element(ttns.conjugate(),
                                         ttno,
-                                        ttns_list[j]).real
+                                        ttns_list[j])
             h[j,i] = h[i,j]
     # Solve the generalized eigenvalue problem
     _, ev = scipy.linalg.eigh(h, ovp)
@@ -157,7 +156,7 @@ def orthogonalise_to(ttns: TreeTensorNetworkState,
     return linear_combination(ttns_list, coeffs, max_bond_dim, num_sweeps, dtype)
 
 def linear_combination(ttns: List[TreeTensorNetworkState],
-                       coeffs: Union[float, complex, List[float], List[complex]],
+                       coeffs: Union[float, complex, List[float], List[complex], np.ndarray],
                        max_bond_dim: int,
                        num_sweeps: int = 10,
                        dtype: np.dtype = np.float64
@@ -167,7 +166,7 @@ def linear_combination(ttns: List[TreeTensorNetworkState],
     
     Args:
         ttns (List[TreeTensorNetworkState]): The list of TTNS to combine.
-        coeffs (List[float | complex]): The coefficients of the linear combination.
+        coeffs (Union[float, complex, List[float], List[complex], np.ndarray]): The coefficients of the linear combination.
         max_bond_dim (int): The maximum bond dimension of the resulting TTNS.
         num_sweeps (int): The number of sweeps for the variational fitting.
 
@@ -179,25 +178,31 @@ def linear_combination(ttns: List[TreeTensorNetworkState],
                                           dtype=dtype)
     if isinstance(coeffs, (float, complex)):
         coeffs = [coeffs]*len(ttns)
+    elif isinstance(coeffs, np.ndarray):
+        assert coeffs.shape == (len(ttns),), "The coefficients must be a list of length the number of TTNS."
+        coeffs = coeffs.tolist()
     assert isinstance(coeffs, list)
     abs_coeffs = [abs(coeff) for coeff in coeffs]
     ordering = np.argsort(abs_coeffs)[::-1]
     # Filter out small coefficients using a mask
     mask = np.array([abs_coeffs[i] >= 1e-4 for i in ordering])
+    if not mask.any():
+        mask[0] = True
     ordering = ordering[mask]
     ttns = [ttns[i] for i in ordering]
     coeffs = [coeffs[i] for i in ordering]
     y = deepcopy(ttns[0])
-    y.canonical_form(y.root_id)
-    y.pad_bond_dimensions(max_bond_dim)
+    # y.canonical_form(y.root_id)
+    # y.pad_bond_dimensions(max_bond_dim)
     # y.normalize()
     varfit = VariationalFitting([identity_ttno]*len(ttns),
                                 deepcopy(ttns),
                                 y,
-                                num_sweeps, 100,
-                                SVDParameters(max_bond_dim, 1e-10, 1e-10),
+                                num_sweeps, 500,
+                                SVDParameters(max_bond_dim, 1e-8, 1e-8),
                                 "one-site",
                                 coeffs,
+                                residual_rank=2,
                                 dtype=dtype)
     varfit.run()
     # varfit.y.normalize()
