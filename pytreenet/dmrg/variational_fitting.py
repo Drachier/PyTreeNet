@@ -335,12 +335,10 @@ class VariationalFitting():
                     node_new = self.y.nodes[node_id]
                     _, leg2 = get_equivalent_legs(node_new, node_old)
                     leg2.extend(node.open_legs)
-                    print(leg2)
 
                     residual = np.moveaxis(residual, neighbour_id, -1)
                     residual = np.reshape(residual, (-1, shape[neighbour_id]))
                     q, _, _ = sclinalg.qr(residual, pivoting=True)
-                    print(q.shape, self.residual_rank)
                     if q.shape[-1] < self.residual_rank:
                         q = np.pad(q, ((0,0),(0,self.residual_rank - q.shape[-1])))
                     else:
@@ -350,7 +348,6 @@ class VariationalFitting():
                     residual_shape = list(shape)
                     residual_shape[neighbour_id] = self.residual_rank
                     residual_shape = tuple(residual_shape)
-                    print(node_id, neighbour_id, shape, residual_shape, residual.shape)
                     residual = np.reshape(residual, residual_shape)
                     tensor = np.concatenate((yf.reshape(shape), residual), axis=neighbour_id)
                     tensor = np.transpose(tensor, leg2)
