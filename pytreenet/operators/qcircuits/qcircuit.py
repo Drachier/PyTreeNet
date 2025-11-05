@@ -3,7 +3,8 @@ This module implements the actual quantum circuit.
 """
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Self
+from copy import copy
 
 from ...core.ttn import TreeTensorNetwork
 from ...ttno.ttno_class import TreeTensorNetworkOperator
@@ -164,6 +165,46 @@ class QCLevel:
             hamiltonian.add_hamiltonian(gate.get_generator())
         return hamiltonian
 
+    def as_circuit_ttno(self,
+                        ref_tree: TreeTensorNetwork,
+                        method: TTNOFinder = TTNOFinder.SGE
+                        ) -> TreeTensorNetworkOperator:
+        """
+        Convert the quantum circuit level to a TTNO.
+
+        Args:
+            ref_tree (TreeTensorNetwork): The reference tree tensor network
+                to use for the TTNO.
+            method (TTNOFinder): The method to use for finding the
+                tree tensor network operator in the state diagram.
+                Defaults to `TTNOFinder.SGE`.
+        
+        Returns:
+            TreeTensorNetworkOperator: The TTNO representing the quantum
+                circuit level as quantum gates. This means the TTNO is
+                applied directly to the qubits.
+        """
+        ham = Hamiltonian()
+        for gate in self.gates:
+            ham.add_hamiltonian(gate.as_sum_of_products())
+        ham.pad_with_identities(ref_tree)
+        ham.include_identities()
+        return TreeTensorNetworkOperator.from_hamiltonian(ham,
+                                                          ref_tree,
+                                                          method=method)
+
+    def invert(self) -> Self:
+        """
+        Get the inverse of the quantum circuit level.
+
+        Returns:
+            QCLevel: The inverse of the quantum circuit level.
+        """
+        inverted_level = self.__class__()
+        for gate in reversed(self.gates):
+            inverted_gate = gate.invert()
+            inverted_level.add_gate(inverted_gate)
+        return inverted_level
 
 class AbstractQCircuit(ABC):
     """
@@ -292,6 +333,18 @@ class QCircuit(AbstractQCircuit):
             return False
         self._index_level_check(level_index)
         return self.levels[level_index].contains_gate(gate)
+
+    def qubit_ids(self) -> set[str]:
+        """
+        Get the set of qubit IDs in the quantum circuit.
+
+        Returns:
+            set[str]: The set of qubit IDs in the quantum circuit.
+        """
+        qubit_ids = set()
+        for level in self.levels:
+            qubit_ids.update(level.qubit_ids)
+        return qubit_ids
 
     def add_level(self,
                   level: QCLevel | None = None):
@@ -479,6 +532,43 @@ class QCircuit(AbstractQCircuit):
         """
         gate = PhaseGate(phase, qubit_id)
         self.add_gate(gate, level_index)
+
+    def as_circuit_ttno(self,
+                        ref_tree: TreeTensorNetwork,
+                        method: TTNOFinder = TTNOFinder.SGE
+                        ) -> list[TreeTensorNetworkOperator]:
+        """
+        Convert the quantum circuit to a list of TTNOs.
+
+        Args:
+            ref_tree (TreeTensorNetwork): The reference tree tensor network
+                to use for the TTNOs.
+            method (TTNOFinder): The method to use for finding the
+                tree tensor network operators in the state diagrams.
+                Defaults to `TTNOFinder.SGE`.
+
+        Returns:
+            list[TreeTensorNetworkOperator]: A list of TTNOs representing
+                the quantum circuit. This means the TTNOs are applied directly
+                to the qubits.
+        """
+        ttnos = []
+        for level in self.levels:
+            ttnos.append(level.as_circuit_ttno(ref_tree, method=method))
+        return ttnos
+
+    def invert(self) -> Self:
+        """
+        Get the inverse of the quantum circuit.
+
+        Returns:
+            AbstractQCircuit: The inverse of the quantum circuit.
+        """
+        inverted_circuit = self.__class__()
+        for level in reversed(self.levels):
+            inverted_level = level.invert()
+            inverted_circuit.add_level(inverted_level)
+        return inverted_circuit
 
 class CompiledQuantumCircuit(AbstractQCircuit):
     """

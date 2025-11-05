@@ -25,6 +25,8 @@ from .tensorproduct import TensorProduct
 from ..core.ttn import TreeTensorNetwork
 from ..util.ttn_exceptions import NotCompatibleException
 
+ONE_SYMBOL = "1"
+
 class PadMode(Enum):
     """
     When padding a Hamiltonian, we can decide to check its compatabilty with a
@@ -70,7 +72,7 @@ class Hamiltonian():
         self.terms = deal_with_term_input(terms)
 
         if coeffs_mapping is None:
-            coeffs_mapping = {"1" : 1}
+            coeffs_mapping = {ONE_SYMBOL : 1}
 
         if conversion_dictionary is None:
             self.conversion_dictionary = {}
@@ -78,7 +80,7 @@ class Hamiltonian():
             self.conversion_dictionary = conversion_dictionary
 
         self.coeffs_mapping = coeffs_mapping
-        coeffs_mapping["1"] = 1  # ensure that the default coefficient is 1
+        coeffs_mapping[ONE_SYMBOL] = 1  # ensure that the default coefficient is 1
 
     def __str__(self) -> str:
         """
@@ -195,7 +197,7 @@ class Hamiltonian():
         if isinstance(term, tuple):
             self.terms.append(term)
         else:
-            self.terms.append((Fraction(1),"1",term))
+            self.terms.append((Fraction(1),ONE_SYMBOL,term))
 
     def add_hamiltonian(self, other: Hamiltonian):
         """
@@ -218,7 +220,7 @@ class Hamiltonian():
             terms (list[TensorProduct]): Terms to be added.
         """
         if all([isinstance(term, TensorProduct) for term in terms]):
-            self.terms.extend([(Fraction(1),"1",term) for term in terms])
+            self.terms.extend([(Fraction(1),ONE_SYMBOL,term) for term in terms])
         else:
             self.terms.extend(terms)
 
@@ -439,7 +441,7 @@ class Hamiltonian():
             dims.add(dim)
         ham = Hamiltonian()
         tp = TensorProduct(matrix_dict)
-        ham.add_term((Fraction(scale), "1", tp))
+        ham.add_term((Fraction(scale), ONE_SYMBOL, tp))
         ham.include_identities(list(dims),
                                ident_creation=lambda d: eye(d, dtype=dtype))
         return ham
@@ -463,10 +465,10 @@ def deal_with_term_input(terms: Union[List[Union[Tuple[Fraction, str, TensorProd
     if terms is None:
         return []
     if isinstance(terms, TensorProduct):
-        return [(Fraction(1),"1",terms)]
+        return [(Fraction(1),ONE_SYMBOL,terms)]
     if isinstance(terms, tuple) and len(terms) == 3:
         return [terms]
     for index, term in enumerate(terms):
         if isinstance(term, TensorProduct):
-            terms[index] = (Fraction(1),"1",term)
+            terms[index] = (Fraction(1),ONE_SYMBOL,term)
     return terms
