@@ -320,7 +320,7 @@ def bond_dim_range(params: CircuitSimParams) -> range:
                  params.bond_dim_step)
 
 
-RES_IDS = ("bond_dim", "trunc_error", "run_time")
+RES_IDS = ("bond_dim", "trunc_error", "run_time", "max_size")
 
 def init_results(params: CircuitSimParams) -> Results:
     """
@@ -357,6 +357,7 @@ def run_simulation(params: CircuitSimParams
                                          seed=params.seed)
     results = init_results(params)
     for idx, bond_dim in enumerate(bond_dim_range(params)):
+        max_size = float("-inf")
         ttns = deepcopy(init_state)
         svd_params = SVDParameters(max_bond_dim=bond_dim)
         if params.appl_method == ApplicationMethod.VARIATIONAL:
@@ -379,9 +380,10 @@ def run_simulation(params: CircuitSimParams
             apply_ttno_to_ttns(ttns, ttno,
                                method=params.appl_method,
                                **kwargs)
+            max_size = max(max_size, ttns.size())
         end = time()
         error = init_state.distance(ttns, normalise=True)
-        res_values = (bond_dim, error, end - start)
+        res_values = (bond_dim, error, end - start, max_size)
         for res_id, res_value in zip(RES_IDS, res_values):
             results.set_element(res_id, idx, res_value)
     return results
