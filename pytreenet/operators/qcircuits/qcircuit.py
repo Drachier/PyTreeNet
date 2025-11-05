@@ -334,6 +334,18 @@ class QCircuit(AbstractQCircuit):
         self._index_level_check(level_index)
         return self.levels[level_index].contains_gate(gate)
 
+    def qubit_ids(self) -> set[str]:
+        """
+        Get the set of qubit IDs in the quantum circuit.
+
+        Returns:
+            set[str]: The set of qubit IDs in the quantum circuit.
+        """
+        qubit_ids = set()
+        for level in self.levels:
+            qubit_ids.update(level.qubit_ids)
+        return qubit_ids
+
     def add_level(self,
                   level: QCLevel | None = None):
         """
