@@ -16,6 +16,8 @@ class DocumentStyle(Enum):
     """
     THESIS = "thesis"
     ARTICLE = "article"
+    PRONE_COLUMN = "single_column"
+    PRTWO_COLUMN = "double_column"
 
 def set_size(width: float | str | DocumentStyle,
              fraction: float = 1,
@@ -38,10 +40,17 @@ def set_size(width: float | str | DocumentStyle,
     # Width of figure (in pts)
     if isinstance(width, str):
         width = DocumentStyle(width)
-    if width == DocumentStyle.THESIS:
+    elif width == DocumentStyle.THESIS:
         width_pt = 483.6969
+    elif width == DocumentStyle.PRONE_COLUMN:
+        width_pt = 505
+    elif width == DocumentStyle.PRTWO_COLUMN:
+        width_pt = 505 / 2
     elif not isinstance(width, DocumentStyle):
         width_pt = width
+    else:
+        errstr = f"Unknown width style {width}!"
+        raise ValueError(errstr)
     fig_width_pt = width_pt * fraction
     # Convert from pt to inches
     inches_per_pt = 1 / 72.27

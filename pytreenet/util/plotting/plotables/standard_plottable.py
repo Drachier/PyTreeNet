@@ -11,6 +11,7 @@ import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
+from h5py import File
 
 from ..line_config import (LineConfig, StyleMapping)
 from ...experiment_util.sim_params import SimulationParameters
@@ -305,6 +306,54 @@ class StandardPlottable(Plottable):
                    line_config=LineConfig(),
                    assoc_params=copy(sim_params.to_json_dict())
                    )
+
+    def len(self) -> int:
+        """
+        Get the length of the plottable data.
+
+        Returns:
+            int: The length of the x and y data arrays.
+        """
+        out = len(self.x)
+        assert out == len(self.y)
+        return out
+
+    def truncate(self,
+                 new_length: int
+                 ) -> Self:
+        """
+        Truncate the plottable to the given new length.
+
+        Args:
+            new_length (int): The new length to truncate to.
+
+        Returns:
+            StandardPlottable: The truncated plottable.
+        """
+        newx = self.x[:new_length]
+        newy = self.y[:new_length]
+        return StandardPlottable(x=newx,
+                                 y=newy,
+                                 line_config=deepcopy(self.line_config),
+                                 assoc_params=copy(self.assoc_params)
+                                 )
+
+    def save_to_h5(self, file: str | File):
+        """
+        Save the StandardPlottable to an HDF5 file.
+
+        Args:
+            file (str | File): The path to the HDF5 file or an open h5py File
+                object.
+        """
+        if isinstance(file, str):
+            with File(file, "w") as h5file:
+                self.save_to_h5(h5file)
+        else:
+            file.create_dataset("x", data=self.x)
+            file.create_dataset("y", data=self.y)
+            for key, value in self.assoc_params.items():
+                file.attrs[key] = value
 
 def combine_equivalent_standard_plottables(x_vals: StandardPlottable,
                                            y_vals: StandardPlottable

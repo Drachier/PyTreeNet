@@ -516,3 +516,38 @@ class ConvergingPlottable(Plottable):
                    )
         out.sort()
         return out
+    
+def multiple_conv_from_multiple_standard(standards: list[StandardPlottable],
+                                         conv_param: str
+                                         ) -> list[ConvergingPlottable]:
+    """
+    Create multiple ConvergingResults instances from a list of StandardPlottable.
+
+    Args:
+        standards (list[StandardPlottable]): List of StandardPlottable
+            instances to combine.
+        conv_param (str): The parameter over which convergence is plotted.
+            All other parameters are compared and the plotables are grouped
+            accordingly.
+    
+    Returns:
+        list[ConvergingResults]: List of ConvergingResults instances.
+    """
+    equiv: list[list[StandardPlottable]] = []
+    for pltb in standards:
+        for other_pltb in equiv:
+            if pltb.assoc_equal(other_pltb[0], ignored_keys={conv_param}):
+                other_pltb.append(pltb)
+                break
+        else:
+            equiv.append([pltb])
+    min_lens = [min(pltb.len() for pltb in e) for e in equiv]
+    truncated_equiv = [[pltb.truncate(min_len) for pltb in e]
+                       for e, min_len in zip(equiv, min_lens)]
+    out: list[StandardPlottable] = []
+    for group in truncated_equiv:
+        conv = ConvergingPlottable.from_multiple_standards(group,
+                                                           conv_param=conv_param)
+        avg_pltb = conv.average_results()
+        out.append(avg_pltb)
+    return out
