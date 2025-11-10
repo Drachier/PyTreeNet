@@ -22,25 +22,20 @@ def generate_parameter_set() -> list[ApplicationParams]:
     """
     low = -0.5
     high = 1.0
+    phys_dim = 3
     structures = (TTNStructure.TSTAR, TTNStructure.MPS,
                   TTNStructure.BINARY, TTNStructure.FTPS)
-    methods = (ApplicationMethod.DENSITY_MATRIX,
-               ApplicationMethod.HALF_DENSITY_MATRIX,
-               ApplicationMethod.SRC,
-               ApplicationMethod.ZIPUP,
-               ApplicationMethod.VARIATIONAL,
-               ApplicationMethod.ZIPUP_VARIATIONAL,
-               ApplicationMethod.HALF_DENSITY_MATRIX_VARIATIONAL,
-               ApplicationMethod.DIRECT_TRUNCATE
+    methods = (
+               ApplicationMethod.DIRECT_TRUNCATE,
                )
     seeds = (1234, 4321, 32974, 238934, 239401)
-    bond_dims = (40, 50, 60)
+    bond_dims = (10, 20, 30, 40, 50, 60)
     param_set = []
     for structure, method, bond_dim, seed in product(structures, methods, bond_dims, seeds):
         if structure is TTNStructure.MPS:
             sys_size = 50
         elif structure is TTNStructure.BINARY:
-            sys_size = 7
+            sys_size = 6
         elif structure is TTNStructure.FTPS:
             sys_size = 8
         elif structure is TTNStructure.TSTAR:
@@ -50,7 +45,7 @@ def generate_parameter_set() -> list[ApplicationParams]:
         params = ApplicationParams(
             structure=structure,
             sys_size=sys_size,
-            phys_dim=5,
+            phys_dim=phys_dim,
             bond_dim=bond_dim,
             appl_method=method,
             max_target_bond_dim=bond_dim + 1,
@@ -73,7 +68,7 @@ def main():
                                    SIMSCRIPT_STANDARD_NAME)
     supervisor = Supervisor.from_commandline(param_set,
                                              sim_script_path)
-    supervisor.timeout = 10 * 60 * 60  # 10 hours
+    supervisor.timeout = 5 * 60 * 60  # 5 hours
     supervisor.run_simulations()
 
 if __name__ == "__main__":

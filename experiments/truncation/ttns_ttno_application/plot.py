@@ -232,19 +232,21 @@ if __name__ == "__main__":
         print("Usage: python plot.py <data_directory>")
         sys.exit(1)
     data_dir = sys.argv[1]
-    structures = (TTNStructure.TSTAR,)
-    sys_sizes = (3, )
-    for structure, sys_size in zip(structures, sys_sizes):
+    structures = (TTNStructure.MPS, TTNStructure.TSTAR, TTNStructure.BINARY, TTNStructure.FTPS)
+    sys_sizes = (50, 20, 6, 8)
+    bond_dims = (50, 20, 10, 20)
+    for structure, sys_size, bond_dim in zip(structures, sys_sizes, bond_dims):
+        print(f"Plotting for structure: {structure.value}")
         md_filter = MetadataFilter()
+        md_filter.add_to_criterium("phys_dim", 3)
         md_filter.add_to_criterium("structure", structure.value)
         md_filter.add_to_criterium("sys_size", sys_size)
-        md_filter.add_to_criterium("bond_dim", 10)
-        md_filter.add_to_criterium("appl_method", [ApplicationMethod.DENSITY_MATRIX.value,
-                                                   ApplicationMethod.HALF_DENSITY_MATRIX.value,
+        md_filter.add_to_criterium("bond_dim", bond_dim)
+        md_filter.add_to_criterium("appl_method", [#ApplicationMethod.DENSITY_MATRIX.value,
                                                    ApplicationMethod.SRC.value,
                                                    ApplicationMethod.ZIPUP.value,
-                                                   ApplicationMethod.HALF_DENSITY_MATRIX_VARIATIONAL.value,
-                                                   ApplicationMethod.DIRECT_TRUNCATE.value])
+                                                   ApplicationMethod.DIRECT_TRUNCATE.value,
+                                                   ApplicationMethod.HALF_DENSITY_MATRIX.value])
         save_path = os.path.join(data_dir, "plots")
         save_path = os.path.join(save_path, f"truncation_comparison_{structure.value}.pdf")
         plot_all(md_filter, data_dir, save_path=save_path)

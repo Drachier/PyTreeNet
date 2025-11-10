@@ -24,10 +24,9 @@ def generate_parameter_set() -> list[TruncationParams]:
     high = 1.0
     structures = (TTNStructure.MPS, TTNStructure.BINARY,
                   TTNStructure.FTPS, TTNStructure.TSTAR)
-    methods = (TruncationMethod.RECURSIVE, TruncationMethod.SVD,
-               TruncationMethod.VARIATIONAL)
+    methods = (TruncationMethod.SVD, TruncationMethod.SVD2SITE)
     seeds = (1234, 4321, 43954, 3923, 49384)
-    bond_dims = (40, 50, 60, 70, 80)
+    bond_dims = (80, )
     param_set = []
     for structure, method, bond_dim, seed in product(structures, methods, bond_dims, seeds):
         if structure is TTNStructure.MPS:

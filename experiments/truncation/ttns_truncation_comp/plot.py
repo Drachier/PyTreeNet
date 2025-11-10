@@ -52,10 +52,14 @@ def method_colour(params: TruncationParams) -> str:
             return "tab:orange"
         if params.trunc_method is TruncationMethod.RECURSIVE:
             return "tab:red"
+        if params.trunc_method is TruncationMethod.SVD2SITE:
+            return "tab:cyan"
     if params.trunc_method is TruncationMethod.SVD:
         return "tab:blue"
     if params.trunc_method is TruncationMethod.RECURSIVE:
         return "tab:purple"
+    if params.trunc_method is TruncationMethod.SVD2SITE:
+        return "tab:brown"
     raise ValueError(f"Unknown truncation method: {params.trunc_method}")
 
 def build_lineconfig(params: TruncationParams) -> LineConfig:
