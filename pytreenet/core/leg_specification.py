@@ -47,7 +47,7 @@ Example:
 
 """
 from __future__ import annotations
-from typing import Union, List
+from typing import Union, List, Self
 
 from .node import Node
 
@@ -190,3 +190,35 @@ class LegSpecification():
             n_ids = []
         n_ids.extend(self.child_legs)
         return n_ids
+
+    @classmethod
+    def all_but_parent(cls, node: Node) -> Self:
+        """
+        Creates a LegSpecification for all legs except the parent leg.
+
+        Args:
+            node (Node): The node for which the LegSpecification is created.
+        
+        Returns:
+            LegSpecification: The created LegSpecification.
+        """
+        if node.is_root():
+            raise ValueError("The node is a root and has no parent leg!")
+        child_legs = node.children
+        open_legs = node.open_legs
+        return cls(None, child_legs, open_legs, node)
+
+    @classmethod
+    def only_parent(cls, node: Node) -> Self:
+        """
+        Creates a LegSpecification for only the parent leg.
+
+        Args:
+            node (Node): The node for which the LegSpecification is created.
+        
+        Returns:
+            LegSpecification: The created LegSpecification.
+        """
+        if node.is_root():
+            raise ValueError("The node is a root and has no parent leg!")
+        return cls(node.parent, [], [], node)
