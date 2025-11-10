@@ -62,7 +62,7 @@ class ApplicationMethod(Enum):
             return lambda ttns, ttno, *args, **kwargs: apply_and_truncate(ttns,
                                                                            ttno,
                                                                            ApplicationMethod.DIRECT,
-                                                                           TruncationMethod.RECURSIVE,
+                                                                           TruncationMethod.SVD,
                                                                            trunc_args=args,
                                                                            trunc_kwargs=kwargs)
         raise ValueError(f"Unknown application method: {self}")

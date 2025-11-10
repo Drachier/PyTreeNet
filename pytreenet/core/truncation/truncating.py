@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Callable, TYPE_CHECKING
 
-from .svd_truncation import svd_truncation
+from .svd_truncation import svd_truncation, SVDSiteNumber
 from .recursive_truncation import recursive_truncation
 from .variational import single_site_fitting
 
@@ -18,6 +18,7 @@ class TruncationMethod(Enum):
     """
     RECURSIVE = "recursive"
     SVD = "svd"
+    SVD2SITE = "svd_2site"
     VARIATIONAL = "variational"
     NONE = "none"
 
@@ -42,6 +43,10 @@ class TruncationMethod(Enum):
             return recursive_truncation
         if self == TruncationMethod.SVD:
             return svd_truncation
+        if self == TruncationMethod.SVD2SITE:
+            return lambda ttns, params: svd_truncation(ttns,
+                                                       params,
+                                                       site_number=SVDSiteNumber.TWOSITE)
         if self == TruncationMethod.VARIATIONAL:
             return single_site_fitting
         if self == TruncationMethod.NONE:
