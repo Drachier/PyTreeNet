@@ -124,7 +124,7 @@ def run_simulation(params: ApplicationParams) -> Results:
         elif params.appl_method == ApplicationMethod.ZIPUP_VARIATIONAL:
             kwargs = {"num_sweeps": 2,
                       "var_svd_params": svd_params,
-                      "dm_svd_params": svd_params}
+                      "zipup_svd_params": svd_params}
         elif params.appl_method == ApplicationMethod.HALF_DENSITY_MATRIX_VARIATIONAL:
             kwargs = {"num_sweeps": 2,
                       "var_svd_params": svd_params,

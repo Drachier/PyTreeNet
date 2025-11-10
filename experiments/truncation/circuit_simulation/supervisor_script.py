@@ -26,22 +26,19 @@ def generate_parameter_set() -> list[CircuitSimParams]:
                ApplicationMethod.HALF_DENSITY_MATRIX,
                ApplicationMethod.SRC,
                ApplicationMethod.ZIPUP,
-               ApplicationMethod.VARIATIONAL,
-               ApplicationMethod.ZIPUP_VARIATIONAL,
-               ApplicationMethod.HALF_DENSITY_MATRIX_VARIATIONAL,
                ApplicationMethod.DIRECT_TRUNCATE
                )
     seeds = (1234, 4321, 32974, 238934, 239401)
     min_bd = 5
-    max_bd = 50
+    max_bd = 15
     param_set = []
-    for structure, method, seed in product(structures, methods, seeds):
+    for structure, method, seed, bond_dim in product(structures, methods, seeds, range(min_bd, max_bd + 1, 5)):
         params = CircuitSimParams(
             ttn_structure=structure,
             appl_method=method,
-            min_bond_dim=min_bd,
-            max_bond_dim=max_bd,
-            bond_dim_step=5,
+            min_bond_dim=bond_dim,
+            max_bond_dim=bond_dim,
+            bond_dim_step=1,
             seed=seed,
             num_circuit_repeats=1
         )

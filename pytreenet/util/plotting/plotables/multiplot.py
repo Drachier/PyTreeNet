@@ -516,7 +516,7 @@ class ConvergingPlottable(Plottable):
                    )
         out.sort()
         return out
-    
+
 def multiple_conv_from_multiple_standard(standards: list[StandardPlottable],
                                          conv_param: str
                                          ) -> list[ConvergingPlottable]:

@@ -334,7 +334,7 @@ def init_results(params: CircuitSimParams) -> Results:
     """
     num_res = len(list(bond_dim_range(params))) - 1
     results = Results()
-    res_dtypes = (int, float, float)
+    res_dtypes = (int, float, float, float)
     results.initialize(dict(zip(RES_IDS, res_dtypes)),
                        num_res,
                        with_time=False)
