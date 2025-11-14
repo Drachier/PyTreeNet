@@ -453,7 +453,8 @@ class ConvergingPlottable(Plottable):
     def from_multiple_standards(cls,
                                 standards: list[StandardPlottable],
                                 line_config: LineConfig | None = None,
-                                conv_param: str | None = None
+                                conv_param: str | None = None,
+                                ignored_keys: set[str] | None = None
                                 ) -> Self:
         """
         Create a ConvergingResults instance from multiple StandardPlottable
@@ -465,6 +466,11 @@ class ConvergingPlottable(Plottable):
             line_config (LineConfig | None, optional): The line configuration
                 for the plot. If None, a default LineConfig will be used.
                 Defaults to None.
+            conv_param (str | None, optional): The parameter over which
+                convergence is plotted. If None, the first differing parameter
+                between the standards will be used. Defaults to None.
+            ignored_keys (set[str] | None, optional): Set of associated parameter
+                keys to ignore when comparing standards. Defaults to None.
 
         Returns:
             ConvergingResults: An instance of ConvergingResults.
@@ -500,8 +506,11 @@ class ConvergingPlottable(Plottable):
                     break
             if conv_param == "":
                 raise ValueError("No differing associated parameter found!")
+        ignored_keys = ignored_keys or set()
+        ignored_keys = copy(ignored_keys)
+        ignored_keys.add(conv_param)
         for std in standards[1:]:
-            if not std.assoc_equal(standards[0], ignored_keys={conv_param}):
+            if not std.assoc_equal(standards[0], ignored_keys=ignored_keys):
                 raise ValueError("All standards must differ in the same parameter!")
         conv_param_values = [std.assoc_params[conv_param]
                              for std in standards]
