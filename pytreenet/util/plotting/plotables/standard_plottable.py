@@ -217,6 +217,24 @@ class StandardPlottable(Plottable):
             return (float("inf"), float("-inf"))
         return (np.min(self.y), np.max(self.y))
 
+    def start_end_difference(self,
+                             absolute: bool = True
+                             ) -> float:
+        """
+        Get the difference between the last and first y values.
+
+        Args:
+            absolute (bool): Whether to return the absolute difference.
+
+        Returns:
+            float: The difference between the last and first y values.
+        """
+        if len(self.y) < 2:
+            return 0.0
+        if absolute:
+            return abs(self.y[-1] - self.y[0])
+        return self.y[-1] - self.y[0]
+
     def plot_on_axis(self,
                      ax: Axes | None = None):
         """
@@ -306,6 +324,19 @@ class StandardPlottable(Plottable):
                    line_config=LineConfig(),
                    assoc_params=copy(sim_params.to_json_dict())
                    )
+
+    def empty_clone(self) -> Self:
+        """
+        Create an empty clone of this StandardPlottable.
+
+        Returns:
+            StandardPlottable: An empty clone of this StandardPlottable.
+        """
+        return StandardPlottable(x=np.array([], dtype=float),
+                                 y=np.array([], dtype=float),
+                                 line_config=deepcopy(self.line_config),
+                                 assoc_params=copy(self.assoc_params)
+                                 )
 
     def len(self) -> int:
         """
