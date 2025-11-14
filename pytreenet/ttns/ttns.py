@@ -11,6 +11,7 @@ from numpy import sqrt
 from ..core.ttn import TreeTensorNetwork
 from ..ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
+from ..operators.measurment import Measurement
 from ..contractions.state_state_contraction import contract_two_ttns
 from ..contractions.state_operator_contraction import expectation_value
 from .ttns_util import multi_single_site_expectation_value
@@ -312,5 +313,45 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         """
         for node_id, single_site_operator in operator.items():
             self.absorb_into_open_legs(node_id, single_site_operator)
+
+    def measurement_projection(self,
+                               measurements: Measurement,
+                               renorm: bool = False
+                               ) -> float:
+        """
+        Projects the TTNS onto the measurement outcomes specified.
+
+        Args:
+            measurements (Measurement): A dictionary mapping node IDs to
+                measurement outcomes (indices).
+            renorm (bool, optional): Whether to renormalise the TTNS after
+                projection. Defaults to False.
+        
+        Returns:
+            float: The norm of the projected TTNS.
+        """
+        for node_id, outcome in measurements.items():
+            node, tensor = self[node_id]
+            if node.nopen_legs() != 1:
+                errstr = (f"Node {node_id} has {node.nopen_legs()} open legs, "
+                          "projection is only implemented for single-site nodes!")
+                raise NotImplementedError(errstr)
+            if outcome < 0 or outcome >= node.open_dimension():
+                errstr = (f"Measurement outcome {outcome} is out of bounds "
+                          f"for node {node_id} with phys. dim. {node.open_dimension()}!")
+                raise ValueError(errstr)
+            # Seetting all entries to zero except the measurement outcome
+            slice_low = [slice(None) for _ in range(node.neighbouring_nodes())]
+            slice_low.append(slice(None, outcome))
+            slice_low = tuple(slice_low)
+            slice_high = [slice(None) for _ in range(node.neighbouring_nodes())]
+            slice_high.append(slice(outcome+1, None))
+            slice_high = tuple(slice_high)
+            tensor[slice_low] = 0
+            tensor[slice_high] = 0
+        norm = self.norm()
+        if renorm:
+            self.normalise(norm)
+        return norm
 
 TTNS = TreeTensorNetworkState
