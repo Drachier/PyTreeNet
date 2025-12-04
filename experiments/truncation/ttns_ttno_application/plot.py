@@ -234,7 +234,7 @@ if __name__ == "__main__":
     data_dir = sys.argv[1]
     structures = (TTNStructure.MPS, TTNStructure.TSTAR, TTNStructure.BINARY, TTNStructure.FTPS)
     sys_sizes = (50, 20, 6, 8)
-    bond_dims = (50, 20, 10, 20)
+    bond_dims = (40, 10, 10, 10)
     for structure, sys_size, bond_dim in zip(structures, sys_sizes, bond_dims):
         print(f"Plotting for structure: {structure.value}")
         md_filter = MetadataFilter()
@@ -242,7 +242,7 @@ if __name__ == "__main__":
         md_filter.add_to_criterium("structure", structure.value)
         md_filter.add_to_criterium("sys_size", sys_size)
         md_filter.add_to_criterium("bond_dim", bond_dim)
-        md_filter.add_to_criterium("appl_method", [#ApplicationMethod.DENSITY_MATRIX.value,
+        md_filter.add_to_criterium("appl_method", [ApplicationMethod.DENSITY_MATRIX.value,
                                                    ApplicationMethod.SRC.value,
                                                    ApplicationMethod.ZIPUP.value,
                                                    ApplicationMethod.DIRECT_TRUNCATE.value,

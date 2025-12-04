@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from copy import deepcopy
 from time import time
 import os
+import fnmatch
 
 from h5py import File
 
@@ -193,6 +194,88 @@ def generate_circuit_ttno(num_repeats: int,
     qcircuit = build_simulation_circuit(num_repeats, seed=seed)
     return qcircuit.as_circuit_ttno(ref_tree)
 
+def ttno_dir(num_repeats: int,
+              seed: int,
+              tree_type: TTNStructure
+              ) -> str:
+    """
+    Generate a directory name for caching the circuit TTNO.
+
+    Args:
+        num_repeats (int): Number of times to repeat the circuit.
+        seed (int): Seed for random number generation.
+        tree_type (TTNStructure): The TTN structure type.
+
+    Returns:
+        str: The generated directory name.
+    """
+    return f"ttno_{tree_type.value}_r{num_repeats}_s{seed}"
+
+def level_file_name(level_index: int) -> str:
+    """
+    Generate a file name for a specific level of the TTNO.
+
+    Args:
+        level_index (int): The index of the level.
+
+    Returns:
+        str: The generated file name.
+    """
+    return f"ttno_level_{level_index}"
+
+def generate_or_load_circuit_ttno(num_repeats: int,
+                                  ref_tree: TTNS,
+                                  seed: int,
+                                  tree_type: TTNStructure,
+                                  cache_directory: str | None = None,
+                                  ) -> list[TTNO]:
+    """
+    Generate or load the circuit TTNO for the simulation.
+
+    Args:
+        num_repeats (int): Number of times to repeat the circuit.
+        ref_tree (TTNS): The reference TTNS structure.
+        seed (int): Seed for random number generation.
+        tree_type (TTNStructure): The TTN structure type.
+        cache_directory (str | None): Directory to load/save cached TTNO.
+            Defaults to None.
+
+    Returns:
+        list[TTNO]: The generated or loaded circuit TTNO as a list of TTNOs.
+            One TTNO per level in the circuit.
+    """
+    if cache_directory is None:
+        return generate_circuit_ttno(num_repeats,
+                                     ref_tree,
+                                     seed=seed)
+    try:
+        dirname = ttno_dir(num_repeats,
+                                 seed,
+                                 tree_type)
+        ttno_dir_name = os.path.join(cache_directory, dirname)
+        if not os.path.exists(ttno_dir_name):
+            raise FileNotFoundError()
+        num_ttno = len(fnmatch.filter(os.listdir(ttno_dir_name), "*.json")) # Half the files are .json and half are .npz
+        ttno = []
+        for idx in range(num_ttno):
+            filename = os.path.join(ttno_dir_name, level_file_name(idx))
+            single_ttno = TTNO.load(filename)
+            ttno.append(single_ttno)
+        return ttno
+    except (FileNotFoundError, OSError):
+        ttno = generate_circuit_ttno(num_repeats,
+                                     ref_tree,
+                                     seed=seed)
+        ttno_dir_name = ttno_dir(num_repeats,
+                                 seed,
+                                 tree_type)
+        ttno_dir_name = os.path.join(cache_directory, ttno_dir_name)
+        os.mkdir(ttno_dir_name)
+        for idx, single_ttno in enumerate(ttno):
+            filename = os.path.join(ttno_dir_name, level_file_name(idx))
+            single_ttno.save(filename)
+    return ttno
+
 def initial_state(ttn_structure: TTNStructure) -> TTNS:
     """
     Generate the initial zero state for the quantum circuit simulation.
@@ -340,21 +423,26 @@ def init_results(params: CircuitSimParams) -> Results:
                        with_time=False)
     return results
 
-def run_simulation(params: CircuitSimParams
+def run_simulation(params: CircuitSimParams,
+                   cache_directory: str | None = None
                    ) -> Results:
     """
     Run the quantum circuit simulation experiment.
 
     Args:
         params (CircuitSimParams): The parameters for the simulation.
-
+        cache_directory (str | None): Directory to load/save cached TTNO.
+            Defaults to None.
+        
     Returns:
         Results: The results of the simulation.
     """
     init_state = initial_state(params.ttn_structure)
-    circuit_ttno = generate_circuit_ttno(params.num_circuit_repeats,
-                                         init_state,
-                                         seed=params.seed)
+    circuit_ttno = generate_or_load_circuit_ttno(params.num_circuit_repeats,
+                                                 init_state,
+                                                 params.seed,
+                                                 params.ttn_structure,
+                                                 cache_directory=cache_directory)
     results = init_results(params)
     for idx, bond_dim in enumerate(bond_dim_range(params)):
         max_size = float("-inf")
@@ -373,13 +461,15 @@ def run_simulation(params: CircuitSimParams
                       "dm_svd_params": svd_params}
         elif params.appl_method == ApplicationMethod.SRC:
             kwargs = {"desired_dimension": bond_dim}
+        elif params.appl_method == ApplicationMethod.DIRECT_TRUNCATE:
+            kwargs = {"params": svd_params}
         else:
             kwargs = {"svd_params": svd_params}
         start = time()
         for ttno in circuit_ttno:
-            apply_ttno_to_ttns(ttns, ttno,
-                               method=params.appl_method,
-                               **kwargs)
+            ttns = apply_ttno_to_ttns(ttns, ttno,
+                                      method=params.appl_method,
+                                      **kwargs)
             max_size = max(max_size, ttns.size())
         end = time()
         error = init_state.distance(ttns, normalise=True)
@@ -416,9 +506,11 @@ def run_and_save(params: CircuitSimParams,
         params (CircuitSimParams): The parameters for the simulation.
         save_directory (str): The directory to save the results in.
     """
-    results = run_simulation(params)
+    ttno_cache_dir = os.path.join(save_directory, "ttno")
+    results = run_simulation(params,
+                             cache_directory=ttno_cache_dir)
     save_results(params, results, save_directory)
 
 if __name__ == "__main__":
     script_main(run_and_save,
-                CircuitSimParams)
+               CircuitSimParams)
