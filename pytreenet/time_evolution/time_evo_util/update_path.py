@@ -6,9 +6,29 @@ from typing import List
 from ...core.tree_structure import TreeStructure
 from enum import Enum
 
+__all__ = ["PathFinderMode", "TDVPUpdatePathFinder", "find_path"]
+
 class PathFinderMode(Enum):
       LeafToLeaf = "LeafToLeaf"
       LeafToRoot = "LeafToRoot"
+
+def find_path(state: TreeStructure,
+              mode: PathFinderMode = PathFinderMode.LeafToLeaf
+              ) -> List[str]:
+    """
+    Find the optimal update path through a tree structure.
+
+    Args:
+        state (TreeStructure): The tree structure to find the update path on.
+        mode (PathFinderMode): The update path strategy mode.
+                               Can be either `LeafToLeaf` or `LeafToRoot`.
+    
+    Returns:
+        List[str]: The ordered list of node identifiers constituting the update
+            path.
+    """
+    finder = TDVPUpdatePathFinder(state, mode)
+    return finder.find_path()
 
 class TDVPUpdatePathFinder():
     """
