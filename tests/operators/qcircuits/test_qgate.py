@@ -13,7 +13,8 @@ from pytreenet.operators.qcircuits.qgate import (QGate,
                                                  PhaseGate,
                                                  CNOTGate,
                                                  SWAPGate,
-                                                 ToffoliGate)
+                                                 ToffoliGate,
+                                                 HaarRandomSingleQubitGate)
 
 def close(a, b):
     """
@@ -241,3 +242,62 @@ class TestThreeQubitGates(unittest.TestCase):
         evolved_matrix = expm(-1j * matrix.operator)
         expected_matrix = toffoli_gate.matrix()
         close(evolved_matrix, expected_matrix)
+
+class TestInversion(unittest.TestCase):
+    """
+    Unit tests for gate inversion.
+    """
+    def setUp(self) -> None:
+        self.qubit_ids = ["q0", "q1", "q2"]
+
+    def test_involution_gates(self):
+        """
+        Test that involutary gates are their own inverses.
+        """
+        involutary_gates = [
+            InvolutarySingleSiteGate.from_enum(QGate.PAULI_X, self.qubit_ids[0]),
+            InvolutarySingleSiteGate.from_enum(QGate.PAULI_Y, self.qubit_ids[0]),
+            InvolutarySingleSiteGate.from_enum(QGate.PAULI_Z, self.qubit_ids[0]),
+            InvolutarySingleSiteGate.from_enum(QGate.HADAMARD, self.qubit_ids[0]),
+            CNOTGate(self.qubit_ids[0], self.qubit_ids[1]),
+            SWAPGate(self.qubit_ids[0], self.qubit_ids[1]),
+            ToffoliGate(self.qubit_ids[0],
+                        self.qubit_ids[1],
+                        self.qubit_ids[2])
+        ]
+        for gate in involutary_gates:
+            matrix = gate.matrix()
+            inverse_matrix = gate.invert().matrix()
+            close(matrix, inverse_matrix)
+            identity = np.eye(matrix.shape[0], dtype=np.complex64)
+            product_matrix = np.dot(matrix, inverse_matrix)
+            close(product_matrix, identity)
+
+    def test_phase_gate_inversion(self):
+        """
+        Test that the inverse of a Phase gate with phase `phi` is a Phase gate
+        with phase `-phi`.
+        """
+        phases = [0.5, 1.0, 1.5, 2.0]
+        for phase in phases:
+            p_gate = PhaseGate(phase, self.qubit_ids[0])
+            inv_p_gate = p_gate.invert()
+            matrix = p_gate.matrix()
+            inverse_matrix = inv_p_gate.matrix()
+            identity = np.eye(matrix.shape[0], dtype=np.complex64)
+            product_matrix = np.dot(matrix, inverse_matrix)
+            close(product_matrix, identity)
+
+    def test_haar_random_single_qubit_gate_inversion(self):
+        """
+        Test that the inverse of a Haar random single-qubit gate is correct.
+        """
+        seeds = [42, 1234, 2021, 9999]
+        for seed in seeds:
+            haar_gate = HaarRandomSingleQubitGate(self.qubit_ids[0], seed)
+            inv_haar_gate = haar_gate.invert()
+            matrix = haar_gate.matrix()
+            inverse_matrix = inv_haar_gate.matrix()
+            identity = np.eye(matrix.shape[0], dtype=np.complex64)
+            product_matrix = np.dot(matrix, inverse_matrix)
+            close(product_matrix, identity)

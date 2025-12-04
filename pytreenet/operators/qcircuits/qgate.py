@@ -13,7 +13,8 @@ from numpy._typing import NDArray
 from ..common_operators import (pauli_matrices,
                                 hadamard,
                                 swap_gate,
-                                toffoli_gate)
+                                toffoli_gate,
+                                projector)
 from ..hamiltonian import Hamiltonian, ONE_SYMBOL
 from ..tensorproduct import TensorProduct
 from ...random.random_matrices import random_unitary_matrix
@@ -122,7 +123,7 @@ class QuantumGate(ABC):
                 quantum gate.
         """
         raise NotImplementedError("Subclasses must implement this method!")
-    
+
     @abstractmethod
     def invert(self) -> Self:
         """
@@ -247,9 +248,13 @@ class InvolutarySingleSiteGate(SingleQubitGate):
             return cls(QGate.HADAMARD.value,
                        hadamard(),
                        qubit_id)
+        elif gate_enum == QGate.IDENTITY:
+            return cls(QGate.IDENTITY.value,
+                       np.eye(2, dtype=np.complex64),
+                       qubit_id)
         errstr = f"Invalid Enum for InvolutarySingleSiteGate: {gate_enum}!"
         raise ValueError(errstr)
-    
+
     def invert(self) -> Self:
         """
         Get the inverse of the involutary single-site gate.
@@ -496,18 +501,16 @@ class CNOTGate(QuantumGate):
         """
         ham = Hamiltonian()
         identity = "I2"
-        term1 = (Fraction(1, 2), ONE_SYMBOL, TensorProduct({self.control_qubit_id: identity,
+        proj_symbols = ["Proj0", "Proj1"]
+        term1 = (Fraction(1), ONE_SYMBOL, TensorProduct({self.control_qubit_id: proj_symbols[0],
                                                             self.target_qubit_id: identity}))
-        term2 = (Fraction(1, 2), ONE_SYMBOL, TensorProduct({self.control_qubit_id: identity,
+        term2 = (Fraction(1), ONE_SYMBOL, TensorProduct({self.control_qubit_id: proj_symbols[1],
                                                             self.target_qubit_id: QGate.PAULI_X.value}))
-        term3 = (Fraction(1, 2), ONE_SYMBOL, TensorProduct({self.control_qubit_id: QGate.PAULI_Z.value,
-                                                            self.target_qubit_id: identity}))
-        term4 = (Fraction(-1, 2), ONE_SYMBOL, TensorProduct({self.control_qubit_id: QGate.PAULI_Z.value,
-                                                             self.target_qubit_id: QGate.PAULI_X.value}))
-        ham.add_multiple_terms([term1, term2, term3, term4])
+        ham.add_multiple_terms([term1, term2])
         conversion_dict = {"I2": np.eye(2, dtype=complex),
                             QGate.PAULI_X.value: pauli_matrices()[0],
-                            QGate.PAULI_Z.value: pauli_matrices()[2]}
+                            proj_symbols[0]: projector(2,0),
+                            proj_symbols[1]: projector(2,1)}
         coeffs_map = {ONE_SYMBOL: 1.0+0.0j}
         ham.update_mappings(conversion_dict, coeffs_map)
         return ham
