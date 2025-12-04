@@ -349,7 +349,8 @@ class MetadataFilter(UserDict):
                                           parameter_class: type[SimulationParameters],
                                           results_class = Results,
                                           file_name_creation: Callable = standard_result_file_name,
-                                          metadatafile_name: str = METADATAFILE_STANDARD_NAME
+                                          metadatafile_name: str = METADATAFILE_STANDARD_NAME,
+                                          allow_non_exist: bool = False
                                           ) -> list[tuple[SimulationParameters, Results]]:
         """
         Loads results and their corresponding parameters from the metadata file
@@ -366,6 +367,10 @@ class MetadataFilter(UserDict):
                 from the hash value. Defaults to `standard_result_file_name`.
             metadatafile_name (str): The filename of the metadata file.
                 Defaults to `"metadata.json"`.
+            allow_non_exist (bool): Whether to allow non-existing files.
+                If True, missing files will be skipped with a warning.
+                Otherwise, a FileNotFoundError will be raised.
+                Defaults to False.
 
         Returns:
             list[tuple[SimulationParameters, Results]]: A list of tuples,
@@ -377,6 +382,11 @@ class MetadataFilter(UserDict):
         for hash_val in hashes:
             file_name = file_name_creation(hash_val)
             file_path = os.path.join(directory, file_name)
+            if not os.path.exists(file_path):
+                if allow_non_exist:
+                    warn(f"File {file_path} does not exist! Skipping...")
+                    continue
+                raise FileNotFoundError(f"File {file_path} does not exist!")
             with File(file_path, 'r') as file:
                 result = results_class.load_from_h5(file)
                 parameters = parameter_class.from_dict(file.attrs)

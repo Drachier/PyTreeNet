@@ -58,6 +58,7 @@ class LineConfig:
     linewidth: float | None = None
     label: str | None = None
     marker: str | None = None
+    marker_size: float | None = None
 
     def to_kwargs(self, exclude: set[str] | None = None
                   ) -> dict:
@@ -85,6 +86,8 @@ class LineConfig:
             kwargs['label'] = self.label
         if self.marker is not None and 'marker' not in exclude:
             kwargs['marker'] = self.marker
+        if self.marker_size is not None and 'markersize' not in exclude:
+            kwargs['markersize'] = self.marker_size
         return kwargs
 
     def plot_legend(self,
@@ -146,7 +149,8 @@ class StyleMapping:
 
     def __init__(self,
                  param_to_option: dict[str, list[StyleOption]] | None = None,
-                 param_value_to_style: dict[str, dict[Any, list[str]]] | None = None
+                 param_value_to_style: dict[str, dict[Any, list[str]]] | None = None,
+                 labels_mapping: dict[str, dict[Any, str]] | None = None
                  ) -> None:
         """
         Initialize a StyleMapping object.
@@ -159,11 +163,16 @@ class StyleMapping:
                 from parameter keys to a mapping of parameter values to style
                 values. If None, an empty mapping will be used. Defaults to
                 None.
+            labels_mapping (dict[str, dict[Any, str]] | None): A mapping from
+                parameter keys to a mapping of parameter values to labels. If
+                None, an empty mapping will be used. Defaults to None.
         """
         if param_to_option is None:
             param_to_option = {}
         if param_value_to_style is None:
             param_value_to_style = {}
+        if labels_mapping is None:
+            labels_mapping = {}
         if len(set(param_to_option.values())) != len(param_to_option):
             errstr = "Each StyleOption can only be used once!"
             raise ValueError(errstr)
@@ -180,6 +189,7 @@ class StyleMapping:
                     raise ValueError(errstr)
         self.param_to_option = param_to_option
         self.param_value_to_style = param_value_to_style
+        self.labels_mapping = labels_mapping
 
     def get_parameters(self) -> set[str]:
         """
@@ -274,6 +284,23 @@ class StyleMapping:
                                                param_value,
                                                style_option)
             setattr(line_config, style_arg, style_value)
+
+    def set_label(self,
+                  param_key: str,
+                  param_value: Any,
+                  label: str
+                  ) -> None:
+        """
+        Set the label for a given parameter key and value.
+
+        Args:
+            param_key (str): The parameter key.
+            param_value (Any): The parameter value.
+            label (str): The label to set.
+        """
+        if param_key not in self.labels_mapping:
+            self.labels_mapping[param_key] = {}
+        self.labels_mapping[param_key][param_value] = label
 
     def create_config(self,
                       keys_values: dict[str, Any],
@@ -393,7 +420,7 @@ class StyleMapping:
 
     def apply_legend(self,
                      ax: Axes | None = None,
-                     ignore: set[tuple[str,Any], str] | None = None
+                     ignore: set[tuple[str,Any] | str] | None = None
                      ) -> None:
         """
         Apply the legend for all style mappings to the given axes.
@@ -417,7 +444,9 @@ class StyleMapping:
                     for style_option, style_value in zip(style_options,
                                                         style_values):
                         setattr(line_config, style_option.value, style_value)
-                    if param_key == "ttns_structure":
+                    if param_key in self.labels_mapping and param_value in self.labels_mapping[param_key]:
+                        label = self.labels_mapping[param_key][param_value]
+                    elif param_key == "ttns_structure":
                         label = TTNStructure(param_value).label()
                     else:
                         label = f"{param_key}={param_value}"

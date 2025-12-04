@@ -187,6 +187,23 @@ class StandardPlottable(Plottable):
         self.x = np.append(self.x, x)
         self.y = np.append(self.y, y)
 
+    def get_value(self,
+                  x: float
+                  ) -> float | None:
+        """
+        Get the y value corresponding to the given x value.
+
+        Args:
+            x (float): The x value to look for.
+        
+        Returns:
+            float | None: The corresponding y value, or None if not found.
+        """
+        indices = np.where(self.x == x)[0]
+        if len(indices) == 0:
+            return None
+        return self.y[indices[0]]
+
     def sort_by_x(self) -> None:
         """
         Sort the reference results by the x values.
@@ -385,6 +402,25 @@ class StandardPlottable(Plottable):
             file.create_dataset("y", data=self.y)
             for key, value in self.assoc_params.items():
                 file.attrs[key] = value
+
+    def interpolate_y(self,
+                      new_x: npt.NDArray[np.floating]
+                      ) -> Self:
+        """
+        Interpolate the y values to the given new x values.
+
+        Args:
+            new_x (npt.NDArray[np.floating]): The new x values to interpolate to.
+        
+        Returns:
+            StandardPlottable: A new StandardPlottable with the interpolated
+                y values.
+        """
+        new_y = np.interp(new_x, self.x, self.y)
+        new = self.empty_clone()
+        new.x = new_x
+        new.y = new_y
+        return new
 
 def combine_equivalent_standard_plottables(x_vals: StandardPlottable,
                                            y_vals: StandardPlottable

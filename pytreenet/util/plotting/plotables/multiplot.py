@@ -123,6 +123,42 @@ class ConvergingPlottable(Plottable):
         self.conv_param_values = [self.conv_param_values[i] for i in sorted_indices]
         self.values = [self.values[i] for i in sorted_indices]
 
+    def add_standard_plottable(self,
+                               standard: StandardPlottable,
+                               allow_x_mismatch: bool = False,
+                               conv_param_value: Any = None):
+        """
+        Add a StandardPlottable to the convergence results.
+
+        Args:
+            standard (StandardPlottable): The StandardPlottable to add.
+            allow_x_mismatch (bool, optional): Whether to allow mismatch
+                in x values. Defaults to False.
+            conv_param_value (Any): The value of the convergence parameter
+                corresponding to the StandardPlottable. Defaults to None.
+        """
+        if conv_param_value is None:
+            conv_param_value = standard.assoc_params[self.conv_param]
+        if not np.allclose(standard.x, self.x_values):
+            if not allow_x_mismatch:
+                raise ValueError("X values do not match!")
+            new_x = np.union1d(self.x_values, standard.x)
+            new_values = []
+            current_missing_idxs = np.searchsorted(new_x, self.x_values)
+            for i, vals in enumerate(self.values):
+                new_val = np.full_like(new_x, np.nan, dtype=vals.dtype)
+                new_val[current_missing_idxs] = vals
+                new_values.append(new_val)
+            standard_missing_idxs = np.searchsorted(new_x, standard.x)
+            new_standard_vals = np.full_like(new_x, np.nan, dtype=standard.y.dtype)
+            new_standard_vals[standard_missing_idxs] = standard.y
+            new_values.append(new_standard_vals)
+            self.x_values = new_x
+            self.values = new_values
+        else:
+            self.values.append(standard.y)
+        self.conv_param_values.append(conv_param_value)
+
     @classmethod
     def from_array_list(cls,
                         values: list[npt.NDArray[np.floating]],
@@ -301,7 +337,7 @@ class ConvergingPlottable(Plottable):
         Returns:
             StandardPlottable: The averaged results.
         """
-        y_vals = np.mean(np.array(self.values), axis=0)
+        y_vals = np.nanmean(np.array(self.values), axis=0)
         return StandardPlottable(x=self.x_values,
                                  y=y_vals,
                                  line_config=deepcopy(self.line_config),
@@ -316,7 +352,7 @@ class ConvergingPlottable(Plottable):
         Returns:
             StandardPlottable: The variance of the results.
         """
-        y_vals = np.var(np.array(self.values), axis=0)
+        y_vals = np.nanvar(np.array(self.values), axis=0)
         return StandardPlottable(x=self.x_values,
                                  y=y_vals,
                                  line_config=deepcopy(self.line_config),
@@ -331,7 +367,7 @@ class ConvergingPlottable(Plottable):
         Returns:
             StandardPlottable: The minimum of the results.
         """
-        y_vals = np.min(np.array(self.values), axis=0)
+        y_vals = np.nanmin(np.array(self.values), axis=0)
         return StandardPlottable(x=self.x_values,
                                  y=y_vals,
                                  line_config=deepcopy(self.line_config),
@@ -346,7 +382,7 @@ class ConvergingPlottable(Plottable):
         Returns:
             StandardPlottable: The maximum of the results.
         """
-        y_vals = np.max(np.array(self.values), axis=0)
+        y_vals = np.nanmax(np.array(self.values), axis=0)
         return StandardPlottable(x=self.x_values,
                                  y=y_vals,
                                  line_config=deepcopy(self.line_config),
@@ -454,7 +490,8 @@ class ConvergingPlottable(Plottable):
                                 standards: list[StandardPlottable],
                                 line_config: LineConfig | None = None,
                                 conv_param: str | None = None,
-                                ignored_keys: set[str] | None = None
+                                ignored_keys: set[str] | None = None,
+                                allow_x_mismatch: bool = False
                                 ) -> Self:
         """
         Create a ConvergingResults instance from multiple StandardPlottable
@@ -471,6 +508,8 @@ class ConvergingPlottable(Plottable):
                 between the standards will be used. Defaults to None.
             ignored_keys (set[str] | None, optional): Set of associated parameter
                 keys to ignore when comparing standards. Defaults to None.
+            allow_x_mismatch (bool, optional): Whether to allow mismatch
+                in x values. Defaults to False.
 
         Returns:
             ConvergingResults: An instance of ConvergingResults.
@@ -487,16 +526,11 @@ class ConvergingPlottable(Plottable):
                        assoc_params=copy(single_plt.assoc_params))
         elif len(standards) == 0:
             raise ValueError("At least one standard must be provided!")
+        first_std = standards[0]
         if line_config is None:
-            line_config = standards[0].line_config
-        values = [std.y for std in standards]
-        # Check that all x values are the same
-        first_x = standards[0].x
-        for std in standards[1:]:
-            if not np.allclose(std.x, first_x):
-                raise ValueError("All standards must have the similar x values!")
+            line_config = first_std.line_config
         # Find differing associated parameter
-        assoc_params0 = standards[0].assoc_params
+        assoc_params0 = first_std.assoc_params
         if conv_param is None:
             conv_param = ""
             assoc_params1 = standards[1].assoc_params
@@ -509,25 +543,28 @@ class ConvergingPlottable(Plottable):
         ignored_keys = ignored_keys or set()
         ignored_keys = copy(ignored_keys)
         ignored_keys.add(conv_param)
-        for std in standards[1:]:
-            if not std.assoc_equal(standards[0], ignored_keys=ignored_keys):
-                raise ValueError("All standards must differ in the same parameter!")
-        conv_param_values = [std.assoc_params[conv_param]
-                             for std in standards]
-        assoc_params = copy(assoc_params0)
-        assoc_params.pop(conv_param)
-        out = cls(values,
+        assoc_params0 = copy(assoc_params0)
+        for key in ignored_keys:
+            assoc_params0.pop(key, None)
+        assoc_params0.pop(conv_param, None)
+        out = cls([first_std.y],
                    line_config,
-                   conv_param_values,
+                   [first_std.assoc_params[conv_param]],
                    conv_param=conv_param,
-                   x_values=first_x,
-                   assoc_params=assoc_params
-                   )
+                   x_values=first_std.x,
+                   assoc_params=assoc_params0)
+        for std in standards[1:]:
+            if not std.assoc_equal(first_std, ignored_keys=ignored_keys):
+                raise ValueError("All standards must differ in the same parameter!")
+            out.add_standard_plottable(std,
+                                       allow_x_mismatch=allow_x_mismatch,
+                                       conv_param_value=std.assoc_params[conv_param])
         out.sort()
         return out
 
 def multiple_conv_from_multiple_standard(standards: list[StandardPlottable],
-                                         conv_param: str
+                                         conv_param: str,
+                                         **kwargs
                                          ) -> list[ConvergingPlottable]:
     """
     Create multiple ConvergingResults instances from a list of StandardPlottable.
@@ -538,6 +575,8 @@ def multiple_conv_from_multiple_standard(standards: list[StandardPlottable],
         conv_param (str): The parameter over which convergence is plotted.
             All other parameters are compared and the plotables are grouped
             accordingly.
+        **kwargs: Additional keyword arguments to pass to
+            ConvergingResults.from_multiple_standards.
     
     Returns:
         list[ConvergingResults]: List of ConvergingResults instances.
@@ -553,10 +592,10 @@ def multiple_conv_from_multiple_standard(standards: list[StandardPlottable],
     min_lens = [min(pltb.len() for pltb in e) for e in equiv]
     truncated_equiv = [[pltb.truncate(min_len) for pltb in e]
                        for e, min_len in zip(equiv, min_lens)]
-    out: list[StandardPlottable] = []
+    out: list[ConvergingPlottable] = []
     for group in truncated_equiv:
         conv = ConvergingPlottable.from_multiple_standards(group,
-                                                           conv_param=conv_param)
-        avg_pltb = conv.average_results()
-        out.append(avg_pltb)
+                                                           conv_param=conv_param,
+                                                           **kwargs)
+        out.append(conv)
     return out
