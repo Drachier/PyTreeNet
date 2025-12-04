@@ -10,6 +10,7 @@ from enum import Enum
 from ..ttn import TreeTensorNetwork
 from ...util.tensor_splitting import (SVDParameters)
 from ..leg_specification import LegSpecification
+from ...time_evolution.time_evo_util.update_path import find_path
 
 class SVDSiteNumber(Enum):
     """
@@ -37,7 +38,7 @@ def svd_truncation(tree: TreeTensorNetwork,
             It will be in site canonical form with respect to the root.
     """
     # Find the update path for the truncation.
-    update_path = tree.linearise()
+    update_path = find_path(tree)
     tree.canonical_form(update_path[0])
     # Move the orthogonality center along the path and truncate the tensors.
     for node_id in update_path[:-1]: # Root not needed.
