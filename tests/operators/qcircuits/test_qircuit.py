@@ -489,3 +489,108 @@ class TestCompiledQCircuitRunning(unittest.TestCase):
         correct = correct / np.sqrt(2)
         np.testing.assert_allclose(found, correct,
                                    atol=1e-10)
+
+
+class TestQCircuitTTNO(unittest.TestCase):
+    """
+    Tests the turning of a quantum circuit into multiple TTNOs.
+    """
+
+    def setUp(self) -> None:
+        self.q_ids = ["q0", "q1", "q2", "q3"]
+
+        self.oneq_tree = MatrixProductState.from_tensor_list([ket_i(0,2)],
+                                                       node_prefix="q")
+        self.twoq_tree = MatrixProductState.from_tensor_list([ket_i(0,2).reshape(1,2)
+                                                              for _ in range(2)],
+                                                       node_prefix="q")
+        tensors = [ket_i(0,2).reshape(1,2)]
+        tensors.append(ket_i(0,2).reshape(1,1,2))
+        tensors.append(ket_i(0,2).reshape(1,2))
+        self.threeq_tree = MatrixProductState.from_tensor_list(tensors,
+                                                            node_prefix="q")
+        tensors.insert(1, ket_i(0,2).reshape(1,1,2))
+        self.fourq_tree = MatrixProductState.from_tensor_list(tensors,
+                                                           node_prefix="q")
+
+    def test_circuit_one_gate(self):
+        """
+        Test a circuit with one gate.
+        """
+        qc = QCircuit()
+        qc.add_x(self.q_ids[0])
+        ttno_list = qc.as_circuit_ttno(self.oneq_tree)
+        self.assertEqual(1, len(ttno_list))
+        matrix, _ = ttno_list[0].as_matrix()
+        correct = np.array([[0, 1],
+                            [1, 0]], dtype=complex)
+        np.testing.assert_allclose(matrix, correct, atol=1e-10)
+
+    def test_circuit_two_gates(self):
+        """
+        Test a circuit with two gates.
+        """
+        qc = QCircuit()
+        qc.add_x(self.q_ids[0])
+        qc.add_hadamard(self.q_ids[1], level_index=0)
+        ttno_list = qc.as_circuit_ttno(self.twoq_tree)
+        self.assertEqual(1, len(ttno_list))
+        matrix, _ = ttno_list[0].as_matrix()
+        hadamard = (1/np.sqrt(2)) * np.array([[1, 1],
+                                              [1, -1]], dtype=complex)
+        pauli_x = np.array([[0, 1],
+                            [1, 0]], dtype=complex)
+        correct = np.kron(pauli_x, hadamard)
+        np.testing.assert_allclose(matrix, correct, atol=1e-10)
+
+    def test_circuit_two_qubit_gate(self):
+        """
+        Test a circuit with a two-qubit gate.
+        """
+        qc = QCircuit()
+        qc.add_cnot(self.q_ids[0], self.q_ids[1])
+        ttno_list = qc.as_circuit_ttno(self.twoq_tree)
+        self.assertEqual(1, len(ttno_list))
+        matrix, _ = ttno_list[0].as_matrix()
+        correct = np.array([[1, 0, 0, 0],
+                            [0, 1, 0, 0],
+                            [0, 0, 0, 1],
+                            [0, 0, 1, 0]], dtype=complex)
+        np.testing.assert_allclose(matrix, correct, atol=1e-10)
+
+    def test_circuit_cnot_and_single(self):
+        """
+        Test a circuit with a CNOT and a single qubit gate.
+        """
+        qc = QCircuit()
+        qc.add_cnot(self.q_ids[0], self.q_ids[1])
+        qc.add_hadamard(self.q_ids[2], level_index=0)
+        ttno_list = qc.as_circuit_ttno(self.threeq_tree)
+        self.assertEqual(1, len(ttno_list))
+        matrix0, _ = ttno_list[0].as_matrix()
+        correct0 = np.array([[1, 0, 0, 0],
+                             [0, 1, 0, 0],
+                             [0, 0, 0, 1],
+                             [0, 0, 1, 0]], dtype=complex)
+        correct2 = (1/np.sqrt(2)) * np.array([[1, 1],
+                                             [1, -1]], dtype=complex)
+        correct = np.kron(correct0, correct2)
+        np.testing.assert_allclose(matrix0, correct, atol=1e-10)
+
+    def test_parallel_cnot(self):
+        """
+        Test a circuit with two CNOTs in parallel.
+        """
+        qc = QCircuit()
+        qc.add_cnot(self.q_ids[0], self.q_ids[1])
+        qc.add_cnot(self.q_ids[2], self.q_ids[3], level_index=0)
+        ttno_list = qc.as_circuit_ttno(self.fourq_tree)
+        self.assertEqual(1, len(ttno_list))
+        matrix0, _ = ttno_list[0].as_matrix()
+        correct0 = np.array([[1, 0, 0, 0],
+                             [0, 1, 0, 0],
+                             [0, 0, 0, 1],
+                             [0, 0, 1, 0]], dtype=complex)
+        correct1 = correct0
+        correct = np.kron(correct0, correct1)
+        np.testing.assert_allclose(matrix0, correct, atol=1e-10)

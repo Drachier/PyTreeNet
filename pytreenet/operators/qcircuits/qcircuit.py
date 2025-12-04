@@ -186,8 +186,7 @@ class QCLevel:
         """
         ham = Hamiltonian()
         for gate in self.gates:
-            ham.add_hamiltonian(gate.as_sum_of_products())
-        ham.pad_with_identities(ref_tree)
+            ham = ham.otimes(gate.as_sum_of_products())
         ham.include_identities()
         return TreeTensorNetworkOperator.from_hamiltonian(ham,
                                                           ref_tree,
@@ -201,9 +200,10 @@ class QCLevel:
             QCLevel: The inverse of the quantum circuit level.
         """
         inverted_level = self.__class__()
-        for gate in reversed(self.gates):
+        for gate in self.gates:
             inverted_gate = gate.invert()
             inverted_level.add_gate(inverted_gate)
+        inverted_level.qubit_ids = copy(self.qubit_ids)
         return inverted_level
 
 class AbstractQCircuit(ABC):
