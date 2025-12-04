@@ -1528,6 +1528,13 @@ class TreeTensorNetwork(TreeStructure):
         """
         return completely_contract_tree(self, to_copy=to_copy)
 
+    def transpose_all_tensors(self):
+        """
+        Transposes all tensors to match the leg ordering of their nodes.
+        """
+        for node_id in self.nodes:
+            _ = self.tensors[node_id]
+
     def save(self, filepath: str):
         """
         Saves the TreeTensorNetwork to files.
@@ -1541,8 +1548,8 @@ class TreeTensorNetwork(TreeStructure):
         """
         # Save tensors
         # Required call to transpose them correctly.
-        tensor_dict = {node_id: tensor
-                       for node_id, tensor in self.tensors.items()}
+        self.transpose_all_tensors()
+        tensor_dict = dict(self.tensors.items())
         np.savez(f"{filepath}.npz", **tensor_dict)
 
         # Prepare structure data
