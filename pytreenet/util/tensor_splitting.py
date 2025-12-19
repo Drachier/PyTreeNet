@@ -281,7 +281,7 @@ class SVDParameters:
     total_tol: float = 1e-15
     renorm: bool = False
     sum_trunc: bool = False
-    sum_renorm: bool = True
+    sum_renorm: bool = False
     random: bool = False
     decomp: DecompositionType = DecompositionType.SVD
 

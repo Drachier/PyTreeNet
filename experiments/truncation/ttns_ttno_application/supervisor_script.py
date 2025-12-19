@@ -29,7 +29,7 @@ def generate_parameter_set() -> list[ApplicationParams]:
                ApplicationMethod.DIRECT_TRUNCATE,
                )
     seeds = (1234, 4321, 32974, 238934, 239401)
-    bond_dims = (10, 20, 30, 40)
+    bond_dims = (10, 30, 40, 50)
     param_set = []
     for structure, method, bond_dim, seed in product(structures, methods, bond_dims, seeds):
         if structure is TTNStructure.MPS:

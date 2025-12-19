@@ -33,7 +33,7 @@ def method_name(params: ApplicationParams) -> str:
     if params.appl_method is ApplicationMethod.DENSITY_MATRIX:
         return "DM"
     if params.appl_method is ApplicationMethod.HALF_DENSITY_MATRIX:
-        return "Half DM"
+        return "CBC"
     if params.appl_method is ApplicationMethod.SRC:
         return "SRC"
     if params.appl_method is ApplicationMethod.ZIPUP:
@@ -45,7 +45,7 @@ def method_name(params: ApplicationParams) -> str:
     if params.appl_method is ApplicationMethod.HALF_DENSITY_MATRIX_VARIATIONAL:
         return "HDMFit"
     if params.appl_method is ApplicationMethod.DIRECT_TRUNCATE:
-        return "SVD"
+        return "Direct"
     raise ValueError(f"Unknown application method: {params.appl_method}")
 
 def method_colour(params: ApplicationParams) -> str:

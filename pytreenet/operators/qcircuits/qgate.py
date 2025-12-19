@@ -38,9 +38,9 @@ class QGate(Enum):
     TOFFOLI = "TOFFOLI"
     PHASE = "PHASE"
 
-class QuantumGate(ABC):
+class QuantumOperation(ABC):
     """
-    Abstract base class for quantum gates.
+    Abstract base class for quantum operations.
     """
 
     def __init__(self,
@@ -48,14 +48,36 @@ class QuantumGate(ABC):
                  qubit_ids: list[str]
                  ) -> None:
         """
-        Initialize a quantum gate.
+        Initialize a quantum operation.
 
         Args:
-            symbol (str): The symbol representing the quantum gate.
-            qubit_ids (list[str]): List of qubit IDs that the gate acts on.
+            symbol (str): The symbol representing the quantum operation.
+            qubit_ids (list[str]): List of qubit IDs that the operation acts
+                on.
         """
         self.symbol = symbol
         self.qubit_ids = qubit_ids
+
+    def acts_on(self, qubit_ids: str | list[str]) -> bool:
+        """
+        Check if the quantum operation acts on the given qubit IDs.
+
+        Args:
+            qubit_ids (str | list[str]): The ID or list of IDs of the qubits
+                to check.
+
+        Returns:
+            bool: True if the operation acts on the given qubit IDs, False
+                otherwise.
+        """
+        if isinstance(qubit_ids, str):
+            return qubit_ids in self.qubit_ids
+        return all(qid in self.qubit_ids for qid in qubit_ids)
+
+class QuantumGate(QuantumOperation):
+    """
+    Abstract base class for quantum gates.
+    """
 
     def __eq__(self, other: QuantumGate) -> bool:
         """
@@ -86,21 +108,6 @@ class QuantumGate(ABC):
         """
         raise NotImplementedError("Subclasses must implement this method!")
 
-    def acts_on(self, qubit_ids: str | list[str]) -> bool:
-        """
-        Check if the quantum gate acts on the given qubit IDs.
-
-        Args:
-            qubit_ids (str | list[str]): The ID or list of IDs of the qubits
-                to check.
-
-        Returns:
-            bool: True if the gate acts on the given qubit IDs, False
-                otherwise.
-        """
-        if isinstance(qubit_ids, str):
-            return qubit_ids in self.qubit_ids
-        return all(qid in self.qubit_ids for qid in qubit_ids)
 
     @abstractmethod
     def matrix(self) -> npt.NDArray[np.complex64]:
@@ -816,3 +823,52 @@ class ToffoliGate(QuantumGate):
             ToffoliGate: The inverse of the Toffoli gate.
         """
         return self  # Toffoli is its own inverse
+
+class ProjectionOperation(QuantumOperation):
+    """
+    Class for projection operations.
+    """
+
+    def __init__(self,
+                 symbol: str,
+                 qubit_id: str,
+                 outcome: int
+                 ) -> None:
+        """
+        Initialize a projection operation.
+
+        Args:
+            symbol (str): The symbol representing the projection operation.
+            qubit_id (str): The ID of the qubit the projection acts on.
+            outcome (int): The measurement outcome (0 or 1).
+        """
+        super().__init__(symbol, [qubit_id])
+        self.qubit_id = qubit_id
+        self.outcome = outcome
+
+    def matrix(self) -> npt.NDArray[np.complex64]:
+        """
+        Get the matrix representation of the projection operation.
+
+        Returns:
+            npt.NDArray[np.complex64]: The matrix representation of the
+                projection operation.
+        """
+        proj_matrix = projector(2, self.outcome)
+        return proj_matrix
+    
+class Reset(ProjectionOperation):
+    """
+    Class for the reset operation.
+    """
+
+    def __init__(self,
+                 qubit_id: str
+                 ) -> None:
+        """
+        Initialize a reset operation.
+
+        Args:
+            qubit_id (str): The ID of the qubit to reset.
+        """
+        super().__init__("RESET", qubit_id, 0)

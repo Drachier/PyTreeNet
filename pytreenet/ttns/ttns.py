@@ -316,7 +316,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
 
     def measurement_projection(self,
                                measurements: Measurement,
-                               renorm: bool = False
+                               renorm: bool = True
                                ) -> float:
         """
         Projects the TTNS onto the measurement outcomes specified.
@@ -325,7 +325,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             measurements (Measurement): A dictionary mapping node IDs to
                 measurement outcomes (indices).
             renorm (bool, optional): Whether to renormalise the TTNS after
-                projection. Defaults to False.
+                projection. Defaults to True.
         
         Returns:
             float: The norm of the projected TTNS.
@@ -349,9 +349,10 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             slice_high = tuple(slice_high)
             tensor[slice_low] = 0
             tensor[slice_high] = 0
-        norm = self.norm()
         if renorm:
+            norm = self.norm()
             self.normalise(norm)
-        return norm
+            return norm
+        return float("NaN")
 
 TTNS = TreeTensorNetworkState

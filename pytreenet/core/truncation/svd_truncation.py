@@ -41,14 +41,15 @@ def svd_truncation(tree: TreeTensorNetwork,
     update_path = find_path(tree)
     tree.canonical_form(update_path[0])
     # Move the orthogonality center along the path and truncate the tensors.
-    for node_id in update_path[:-1]: # Root not needed.
-        tree.move_orthogonalization_center(node_id)
-        if site_number is SVDSiteNumber.ONESITE:
-            compress_parent_leg(node_id, tree, params)
-        elif site_number is SVDSiteNumber.TWOSITE:
-            contract_and_split_with_parent(node_id, tree, params)
-        else:
-            raise ValueError(f"Unknown site number: {site_number}")
+    for node_id in update_path:
+        if node_id != tree.root_id:
+            tree.move_orthogonalization_center(node_id)
+            if site_number is SVDSiteNumber.ONESITE:
+                compress_parent_leg(node_id, tree, params)
+            elif site_number is SVDSiteNumber.TWOSITE:
+                contract_and_split_with_parent(node_id, tree, params)
+            else:
+                raise ValueError(f"Unknown site number: {site_number}")
     return tree
 
 def compress_parent_leg(node_id: str,
