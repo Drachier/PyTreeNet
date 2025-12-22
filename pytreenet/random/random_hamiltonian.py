@@ -6,23 +6,14 @@ The Hamiltonians can be both symbolic and numeric.
 from typing import List, Union, Tuple, Dict
 
 from numpy.random import default_rng, Generator
-from numpy import ndarray, eye
+from numpy import ndarray, eye, arange
 from fractions import Fraction
-from enum import Enum
 
 from ..core.ttn import TreeStructure
 from ..operators.tensorproduct import TensorProduct
 from ..operators.hamiltonian import Hamiltonian
 from .random_matrices import random_hermitian_matrix
 from .random_ttns import random_big_ttns_two_root_children
-
-
-class RandomType(Enum):
-    """
-    Enum class to specify the type of random Hamiltonian to be generated.
-    """
-    UNIQUE = "Unique"
-    RANDOM = "Random"
 
 def random_hamiltonian(num_of_terms: int,
                        possible_operators: Union[List[str],List[ndarray]],
@@ -277,21 +268,21 @@ def random_symbolic_term(possible_operators: List[str],
     """
     rng = default_rng(seed=seed)
     num_sites = rng.integers(low=min_num_sites, high=max_num_sites)
-    rand_sites = rng.choice(sites, size=num_sites, replace=False)
-    rand_operators = rng.choice(possible_operators, size=num_sites)
+    rand_sites = [str(i) for i in rng.choice(sites, size=num_sites, replace=False)]
+    rand_operators = [str(i) for i in rng.choice(possible_operators, size=num_sites)]
     return TensorProduct(dict(zip(rand_sites, rand_operators)))
 
 def random_symbolic_terms_with_coeffs(num_of_terms: int,
                           possible_operators: List[str],
                           sites: List[str],
-                          min_coeff: float = -10,
-                          max_coeff: float = 10,
+                          min_coeff: int = -10,
+                          max_coeff: int = 10,
                           min_num_sites: int = 2,
                           max_num_sites: int = 2,
-                          random_type: RandomType = RandomType.UNIQUE,
-                          seed=None,
-                          possible_gammas: Union[List[str],None] = None
-                          ) -> List[TensorProduct]:
+                          seed = None,
+                          possible_gammas: Union[List[str],None] = None,
+                          unique: bool = False
+                          ) -> List[tuple[Fraction,str,TensorProduct]]:
     """
     Creates random symbolic interaction terms with random coefficients.
 
@@ -301,6 +292,10 @@ def random_symbolic_terms_with_coeffs(num_of_terms: int,
             operators.
         sites (List[str]): A list containing the possible identifiers of
             sites/nodes.
+        min_coeff (int): Minimum value of the rational factor of the
+            coefficient.
+        max_coeff (int): Maximum value of the rational factor of the
+            coefficient.
         min_num_sites (int, optional): The minimum number of sites that can
             partake in an interaction term, i.e. have one of the possible
             operators applied to them. Defaults to 2.
@@ -309,38 +304,51 @@ def random_symbolic_terms_with_coeffs(num_of_terms: int,
             operators applied to them. Defaults to 2.
         seed (Union[None,int,Generator], optional): A seed for the random
             number generator or a generator itself. Defaults to None.
+        possible_gammas (List[str] | None): List of possible symbolic factors.
+            If None, the prefactor "1" is the only possible one.
+        unique (bool): Whether every term should have its own symbolic
+            prefactor.
 
     Returns:
-        List[TensorProduct]: A list containing all the random terms.
+        List[tuple[Fraction,str,TensorProduct]]: A list containing all the
+            random terms.
     """
-    rterms = []
-    coeffs = []
+    out: List[tuple[Fraction,str,TensorProduct]] = []
     rng = default_rng(seed=seed)
-    for i in range(num_of_terms):
-        term = random_symbolic_term(possible_operators, sites,
+    if unique:
+        if possible_gammas is None:
+            possible_gammas = [str(i) for i in range(1,num_of_terms+1)]
+        elif len(possible_gammas) != num_of_terms:
+            errstr = "Num of possible factors must be equal to num of desired terms!"
+            raise ValueError(errstr)
+        for symb in possible_gammas:
+            tp = random_symbolic_term(possible_operators,
+                                      sites,
+                                      min_num_sites=min_num_sites,
+                                      max_num_sites=max_num_sites,
+                                      seed=rng)
+            term = (Fraction(1),symb,tp)
+            out.append(term)
+        return out
+    if possible_gammas is None:
+        possible_gammas = ["1"]
+    for _ in range(num_of_terms):
+        tp = random_symbolic_term(possible_operators,
+                                    sites,
                                     min_num_sites=min_num_sites,
                                     max_num_sites=max_num_sites,
-                                    seed=seed)
-        
-        if random_type == RandomType.UNIQUE:
-            assert len(possible_gammas.keys()) > num_of_terms, "Not enough possible gammas for unique terms"
-            coeff_gamma = possible_gammas.keys()[i]
-        elif random_type == RandomType.RANDOM:
-            coeff_gamma = rng.choice(list(possible_gammas.keys()))
-
-        coeff_lambda = Fraction(rng.choice([i for i in range(min_coeff, max_coeff) if i != 0]), rng.integers(1, 4))
-        while abs(possible_gammas[coeff_gamma] * float(coeff_lambda)) <= 1.5 or abs(possible_gammas[coeff_gamma] * float(coeff_lambda)) >= 10:
-            coeff_lambda = Fraction(rng.choice([i for i in range(min_coeff, max_coeff) if i != 0]), rng.integers(1, 4))
-            
-        while term in rterms: # To avoid multiples
-            term = random_symbolic_term(possible_operators, sites,
-                                        min_num_sites=min_num_sites,
-                                        max_num_sites=max_num_sites,
-                                        seed=seed)
-            
-        rterms.append((coeff_lambda,coeff_gamma,term))
-        
-    return rterms
+                                    seed=rng)
+        symb = str(rng.choice(possible_gammas, size=1)[0])
+        factor_options = list(range(min_coeff, max_coeff + 1))
+        try:
+            factor_options.remove(0)
+        except ValueError:
+            pass
+        factor = rng.choice(factor_options,
+                            size=1)[0]
+        new_term = (Fraction(factor), symb, tp)
+        out.append(new_term)
+    return out
 
 def random_hamiltonian_compatible() -> Hamiltonian:
     """

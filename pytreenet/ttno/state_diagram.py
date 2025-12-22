@@ -27,14 +27,22 @@ class TTNOFinder(Enum):
     """
     An Enum to switch between different construction modes of a state diagram.
     TREE: The tree comparison method construction of state diagram bottom up.
-    SGE: The Symbolic Gaussian Elimination method with bipartite graph theory to construct TTNO. 
+    SGE: The Symbolic Gaussian Elimination method with bipartite graph theory to construct TTNO.
+    SGE_PURE: The pure Symbolic Gaussian Elimination method without bipartite graph theory to construct TTNO. 
     BIPARTITE: The Bipartite Graph method. Suboptimal implemented method in Ren et al. 2020.
     BASE: The base method without any compression. Worst possible construction method.
     """
     TREE = "Tree"
     SGE = "Symbolic Gaussian Elimination"
+    SGE_PURE = "SGE Pure"
     BIPARTITE = "Bipartite Graph"
     BASE = "Base"
+
+    def has_sge_step(self) -> bool:
+        """
+        Returns whether the method involves an SGE step.
+        """
+        return self in {TTNOFinder.SGE, TTNOFinder.SGE_PURE}
 
 
 class StateDiagram():
@@ -165,16 +173,14 @@ class StateDiagram():
         """
         state_diagram = None
         
-        # DOES NOT WORK WITH COEFFICIENTS
         if method == TTNOFinder.TREE:
+            # DOES NOT WORK WITH COEFFICIENTS
             state_diagram = cls.from_hamiltonian_tree_comparison(hamiltonian,
                                                                  ref_tree)
-        elif method == TTNOFinder.SGE:
-            state_diagram = cls.from_hamiltonian_modified(hamiltonian, ref_tree, method.SGE)
-
-        elif method == TTNOFinder.BIPARTITE:
-            state_diagram = cls.from_hamiltonian_modified(hamiltonian, ref_tree, method.BIPARTITE)
-
+        elif method in {TTNOFinder.SGE, TTNOFinder.SGE_PURE, TTNOFinder.BIPARTITE}:
+            state_diagram = cls.from_hamiltonian_modified(hamiltonian,
+                                                          ref_tree,
+                                                          method=method)
         elif method == TTNOFinder.BASE:
             state_diagram = cls.from_hamiltonian_base(hamiltonian, ref_tree)
         else:
@@ -466,7 +472,7 @@ class StateDiagram():
         state_diagrams = cls.get_state_diagrams(hamiltonian,ref_tree)
         compound_state_diagram = cls.get_state_diagram_compound(state_diagrams)
         
-        compound_state_diagram.SGE = method == TTNOFinder.SGE
+        compound_state_diagram.SGE = method
 
         compound_state_diagram.hamiltonian = hamiltonian
 
@@ -649,18 +655,19 @@ class StateDiagram():
         bigraph = BipartiteGraph(m, n, edges)
         u_cover, v_cover = minimum_vertex_cover(bigraph)
 
-        Op_l_old, Op_r_old, u_cover_old, v_cover_old, edges_enumerated_old, bigraph_old, m_old, n_old = self._apply_bipartite_to_gamma(Gamma, u_nodes_enumerated, v_nodes_enumerated)
+        if self.SGE == TTNOFinder.SGE:
+            Op_l_old, Op_r_old, u_cover_old, v_cover_old, edges_enumerated_old, bigraph_old, m_old, n_old = self._apply_bipartite_to_gamma(Gamma, u_nodes_enumerated, v_nodes_enumerated)
 
-        # When Gaussian Elimination result is not better, we revert back to the old state
-        if len(u_cover + v_cover) >= len(u_cover_old + v_cover_old):
-            u_cover, v_cover = u_cover_old, v_cover_old
+            # When Gaussian Elimination result is not better, we revert back to the old state
+            if len(u_cover + v_cover) >= len(u_cover_old + v_cover_old):
+                u_cover, v_cover = u_cover_old, v_cover_old
 
-            edges_enumerated = edges_enumerated_old
-            edges = list(edges_enumerated_old)
-            
-            bigraph = bigraph_old
-            m, n = m_old, n_old
-            Op_l, Op_r = Op_l_old, Op_r_old
+                edges_enumerated = edges_enumerated_old
+                edges = list(edges_enumerated_old)
+                
+                bigraph = bigraph_old
+                m, n = m_old, n_old
+                Op_l, Op_r = Op_l_old, Op_r_old
         
         return Op_l, Op_r, u_cover, v_cover, edges_enumerated, bigraph, m, n
 
@@ -860,7 +867,7 @@ class StateDiagram():
         self._remove_all_vertices_cut_site(current_node, parent) 
         self._remove_reduntant_v_hyperedges(V_set)
 
-        if self.SGE : 
+        if self.SGE.has_sge_step():
             Op_l, Op_r, u_cover, v_cover, edges_enumerated, bigraph, m, n = self._apply_bipartite_to_gamma_u(Gamma_u, Gamma, u_nodes_enumerated, v_nodes_enumerated, Op_l, Op_r)
         else:
             Op_l, Op_r, u_cover, v_cover, edges_enumerated, bigraph, m, n = self._apply_bipartite_to_gamma(Gamma, u_nodes_enumerated, v_nodes_enumerated)
