@@ -8,7 +8,8 @@ import h5py
 import matplotlib.pyplot as plt
 
 from pytreenet.util.plotting.configuration import (DocumentStyle,
-                                                   set_size)
+                                                   set_size,
+                                                   config_matplotlib_to_latex)
 
 from sim_script import (RandomGenerationMode, TTNOFinder,
                          create_filename)
@@ -25,11 +26,11 @@ def plot_kwargs(finder: TTNOFinder) -> dict:
     """
     out_kwargs = {"markersize": 2, "linewidth": 0.5}
     if finder == TTNOFinder.SGE:
-        out_kwargs.update({"label": "SGE", "color": "blue", "marker": "o", "label": "Combined"})
+        out_kwargs.update({"color": "blue", "marker": "o", "label": "Combined"})
     elif finder == TTNOFinder.SGE_PURE:
-        out_kwargs.update({"label": "SGE Pure", "color": "orange", "marker": "s", "label": "SGE"})
+        out_kwargs.update({"color": "orange", "marker": "s", "label": "SGE"})
     elif finder == TTNOFinder.BIPARTITE:
-        out_kwargs.update({"label": "Bipartite", "color": "green", "marker": "^", "label": "Bipartite"})
+        out_kwargs.update({"color": "green", "marker": "^", "label": "Bipartite"})
     else:
         raise ValueError(f"Invalid finder: {finder}")
     return out_kwargs
@@ -68,6 +69,7 @@ def plot_basic_comparison(filepath: str):
     Args:
         filepath (str): Path to the directory containing the data files.
     """
+    config_matplotlib_to_latex(DocumentStyle.THESIS)
     size = set_size(DocumentStyle.THESIS, subplots=(1, 3))
     size = (size[0], size[1] * 2)
     fig_avg, axes_avg = plt.subplots(1, 3, figsize=size, sharey=True)
