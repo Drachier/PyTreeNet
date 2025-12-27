@@ -87,13 +87,11 @@ def plot_basic_comparison(filepath: str):
             kwargs = plot_kwargs(finder)
             ax_avg.plot(n_terms, diff_avgs, **kwargs)
             ax_num.plot(n_terms, diff_nums, **kwargs)
-        ax_avg.set_title(f"Mode: {mode.name.replace('_', ' ').title()}")
         ax_avg.set_xlabel("Number of Terms")
-        ax_num.set_title(f"Mode: {mode.name.replace('_', ' ').title()}")
         ax_num.set_xlabel("Number of Terms")
         if i == 0:
-            ax_avg.set_ylabel("Average  Difference")
-            ax_num.set_ylabel("Number of Differences")
+            ax_avg.set_ylabel("avg bd")
+            ax_num.set_ylabel("num diff")
         if i == 2:
             ax_avg.legend()
             ax_num.legend()

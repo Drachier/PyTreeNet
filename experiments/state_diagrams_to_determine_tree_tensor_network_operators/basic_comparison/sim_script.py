@@ -274,7 +274,7 @@ def main():
                 construct_tree_root_at_1(),
                 leg_dict1,
                 mode=mode,
-                num_runs=10,
+                num_runs=100,
                 finder=finder)
 
 if __name__ == "__main__":
