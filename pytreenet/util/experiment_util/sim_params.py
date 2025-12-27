@@ -43,6 +43,8 @@ class SimulationParameters:
         """
         Saves the simulation parameters to an HDF5 file.
 
+        The parameters are saved as attributes of the file.
+
         Args:
             file (File): The HDF5 file to save the parameters to.
 

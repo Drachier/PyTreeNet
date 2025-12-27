@@ -10,12 +10,14 @@ from numpy.typing import NDArray
 
 from ..ttns.ttns import TreeTensorNetworkState
 from ..operators.common_operators import ket_i
-from ..operators.models.abc_model import generate_t_topology_indices
+from ..operators.models.abc_model import (generate_t_topology_indices,
+                                          generate_2d_indices)
 from ..operators.models.topology import Topology
 from ..operators.exact_operators import exact_constant_product_state
 from .binary import generate_binary_ttns
 from .mps import MatrixProductState
 from .star import StarTreeTensorState
+from .fttn import ForkTreeProductState
 from ..util.tensor_splitting import SplitMode
 
 
@@ -97,6 +99,8 @@ class TTNStructure(Enum):
             return self in {TTNStructure.MPS, TTNStructure.BINARY}
         if topology == Topology.TTOPOLOGY:
             return self == TTNStructure.TSTAR
+        if topology == Topology.SQUARE:
+            return self == TTNStructure.FTPS
         return False
 
     def system_size(self,
@@ -195,6 +199,34 @@ def generate_constant_product_state(value: int,
         state = StarTreeTensorState.from_tensor_lists(central_tensor,
                                                       chain_tensors,
                                                       identifiers=list(node_ids))
+        state.pad_bond_dimensions(bond_dim)
+        if orth_root:
+            state.orthogonalize_root(mode=SplitMode.KEEP)
+        return state
+    if structure == TTNStructure.FTPS:
+        main_chain_tensors = []
+        for i in range(system_size):
+            tensor = np.asarray([1], dtype=np.complex64)
+            if i in (0, system_size - 1):
+                tensor = tensor.reshape(1,1,1)
+            else:
+                tensor = tensor.reshape(1,1,1,1)
+            main_chain_tensors.append(tensor)
+        phys_tensors = []
+        for i in range(system_size):
+            phys_tensor = ket_i(value, phys_dim)
+            if i == system_size - 1:
+                phys_tensor = phys_tensor.reshape((1, phys_dim))
+            else:
+                phys_tensor = phys_tensor.reshape((1,1, phys_dim))
+            phys_tensors.append(phys_tensor)
+        phys_tensor_chains = [deepcopy(phys_tensors)
+                              for _ in range(system_size)]
+        node_ids = generate_2d_indices(system_size,
+                                          site_ids=node_prefix)
+        state = ForkTreeProductState.from_tensors(main_chain_tensors,
+                                                  phys_tensor_chains,
+                                                  subchain_identifier_prefix=node_ids)
         state.pad_bond_dimensions(bond_dim)
         if orth_root:
             state.orthogonalize_root(mode=SplitMode.KEEP)

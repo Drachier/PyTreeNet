@@ -76,8 +76,8 @@ class ForkTreeTensorNetwork(TreeTensorNetwork):
         super().__init__()
         self.main_identifier_prefix = main_identifier_prefix
         self.subchain_identifier_prefix = subchain_identifier_prefix
-        self.main_chain = []
-        self.sub_chains = []
+        self.main_chain: list[Node] = []
+        self.sub_chains: list[list[Node]] = []
 
     def main_length(self) -> int:
         """
@@ -95,6 +95,8 @@ class ForkTreeTensorNetwork(TreeTensorNetwork):
         """
         Creates the identifier of the 'index'th node in the main chain.
         """
+        if index < self.main_length():
+            return self.main_chain[index].identifier
         return self.main_identifier_prefix + str(index)
 
     def subchain_id(self, main_index: int, sub_index: int) -> str:
@@ -108,11 +110,15 @@ class ForkTreeTensorNetwork(TreeTensorNetwork):
         Returns:
             str: The identifier of the node.
         """
+        if main_index < self.main_length():
+            if sub_index < self.subchain_length(main_index):
+                return self.sub_chains[main_index][sub_index].identifier
         coord_str = str(main_index) + "_" + str(sub_index)
         return self.subchain_identifier_prefix + coord_str
 
     def add_main_chain_node(self, tensor: np.ndarray,
-                            parent_leg: Union[None, int] = None):
+                            parent_leg: Union[None, int] = None,
+                            node_id: Union[None, str] = None):
         """
         Add a new node to the main chain.
         
@@ -124,11 +130,17 @@ class ForkTreeTensorNetwork(TreeTensorNetwork):
             parent_leg (Union[None, int], optional): If there is already a node
                 in the chain, the leg that should be attached to the new node
                 can be specified. Otherwise it defaults to the first open leg.
+            node_id (Union[None, str], optional): If given, this identifier
+                will be used instead of the automatically generated one.
+
         """
         main_length = self.main_length()
-        identifier = self.main_chain_id(main_length)
+        if node_id is None:
+            identifier = self.main_chain_id(main_length)
+        else:
+            identifier = node_id
         node = Node(identifier=identifier)
-        if main_length== 0:
+        if main_length == 0:
             self.add_root(node, tensor)
         else:
             parent_id = self.main_chain_id(main_length - 1)
@@ -142,7 +154,8 @@ class ForkTreeTensorNetwork(TreeTensorNetwork):
     def add_sub_chain_node(self,
                            tensor: np.ndarray,
                            subchain_index: int,
-                           parent_leg: Union[None, int] = None):
+                           parent_leg: Union[None, int] = None,
+                           node_id : Union[None, str] = None):
         """
         Add a new node to a given subchain.
         
@@ -162,7 +175,10 @@ class ForkTreeTensorNetwork(TreeTensorNetwork):
             errstr = "A subchain has to be attached to the main chain!"
             raise ValueError(errstr)
         subchain_length = self.subchain_length(subchain_index)
-        identifier = self.subchain_id(subchain_index, subchain_length)
+        if node_id is None:
+            identifier = self.subchain_id(subchain_index, subchain_length)
+        else:
+            identifier = node_id
         node = Node(identifier=identifier)
         if subchain_length == 0:
             parent_id = self.main_chain_id(subchain_index)
@@ -181,8 +197,8 @@ class ForkTreeTensorNetwork(TreeTensorNetwork):
     def from_tensors(cls,
                      main_tensors: list[np.ndarray],
                      subchain_tensors: list[list[np.ndarray]],
-                     main_identifier_prefix: str = "main",
-                     subchain_identifier_prefix: str = "sub"
+                     main_identifier_prefix: str | list[str] = "main",
+                     subchain_identifier_prefix: str | list[list[str]]= "sub"
                      ) -> Self:
         """
         Creates a ForkTreeTensorNetwork from a list of tensors.
@@ -195,22 +211,53 @@ class ForkTreeTensorNetwork(TreeTensorNetwork):
                 tensors for the subchains. The outer list has to have the
                 same length as the main_tensors list. The tensors should
                 have the leg order `(v_to_main, v_to_subchain, phys)`.
-            main_identifier_prefix (str, optional): Prefix of the main chain
-                nodes. The identifiers will have the form `prefix + position in
-                chain`. Defaults to "main".
-            subchain_identifier_prefix (str, optional): Prefix of the sub chain
-                nodes. The identifiers will have the form `prefix + main chain
-                node position + _ + subchain node position`. Defaults to "sub".
-        
+            main_identifier_prefix (str | list[str], optional): Prefix of the
+                main chain nodes. The identifiers will have the form
+                `prefix + position in chain`. If given as a list, the strings
+                in the list are taken instead. Defaults to "main".
+            subchain_identifier_prefix (str | list[list[str]], optional): Prefix
+                of the sub chain nodes. The identifiers will have the form
+                `prefix + main chain node position + _ + subchain node position`.
+                If given as a list, the strings in the list are taken instead.
+                Defaults to "sub".
+
         Returns:
             ForkTreeTensorNetwork: The created ForkTreeTensorNetwork.
         """
+        if isinstance(main_identifier_prefix, str):
+            main_ids = None
+        else:
+            if len(main_identifier_prefix) != len(main_tensors):
+                errstr = "If a list of main identifiers is given, its length "
+                errstr += "has to match the number of main tensors!"
+                raise ValueError(errstr)
+            main_ids = main_identifier_prefix
+            main_identifier_prefix = ""
+        if isinstance(subchain_identifier_prefix, str):
+            sub_ids = None
+        else:
+            if len(subchain_identifier_prefix) != len(subchain_tensors):
+                errstr = "If a list of subchain identifiers is given, its length "
+                errstr += "has to match the number of subchains!"
+                raise ValueError(errstr)
+            for i, subchain in enumerate(subchain_tensors):
+                if len(subchain_identifier_prefix[i]) != len(subchain):
+                    errstr = "If a list of subchain identifiers is given, its "
+                    errstr += "length has to match the number of tensors in "
+                    errstr += "the corresponding subchain!"
+                    raise ValueError(errstr)
+            sub_ids = subchain_identifier_prefix
+            subchain_identifier_prefix = ""
         fttn = cls(main_identifier_prefix, subchain_identifier_prefix)
         for i, mtensor in enumerate(main_tensors):
-            fttn.add_main_chain_node(mtensor)
+            node_id = main_ids[i] if main_ids is not None else None
+            fttn.add_main_chain_node(mtensor,
+                                     node_id=node_id)
         for i, subchain in enumerate(subchain_tensors):
-            for stensor in subchain:
-                fttn.add_sub_chain_node(stensor, i)
+            for j, stensor in enumerate(subchain):
+                node_id = sub_ids[i][j] if sub_ids is not None else None
+                fttn.add_sub_chain_node(stensor, i,
+                                        node_id=node_id)
         return fttn
 
 class ForkTreeProductState(ForkTreeTensorNetwork, TreeTensorNetworkState):
