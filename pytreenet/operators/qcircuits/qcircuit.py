@@ -263,8 +263,6 @@ class ProjectionLevel(AbstractLevel):
         super().__init__()
         self.operations: list[ProjectionOperation]
 
-    def compile(self) -> 
-
 
 class AbstractQCircuit(ABC):
     """

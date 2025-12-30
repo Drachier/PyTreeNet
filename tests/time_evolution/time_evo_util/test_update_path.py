@@ -3,7 +3,7 @@ import unittest
 from pytreenet.random import (random_big_ttns,
                               random_small_ttns,
                               random_big_ttns_two_root_children)
-from pytreenet.time_evolution.time_evo_util import (
+from pytreenet.time_evolution.time_evo_util.update_path import (
                               TDVPUpdatePathFinder_LeafToRoot,
                               TDVPUpdatePathFinder_LeafToLeaf)
 

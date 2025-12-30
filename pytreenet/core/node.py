@@ -545,7 +545,7 @@ def relative_leg_permutation(old_node: Node,
         modified_parent (bool): If True, the parent leg can also be different.
         use_open_legs (NodeEnum): Which open legs to use to create the
             permutation. Irrelevant if both nodes have the same number of open
-            legs. Degaults to `NodeEnum.NEW`.
+            legs. Defaults to `NodeEnum.NEW`.
     
     Returns:
         List[int]: The relative permutation.
@@ -568,3 +568,4 @@ def relative_leg_permutation(old_node: Node,
         else:
             raise ValueError(f"Invalid Node Kind: {use_open_legs}")
         return perm
+
