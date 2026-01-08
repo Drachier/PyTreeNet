@@ -16,6 +16,10 @@ from pytreenet.ttns.ttns_ttno.application import ApplicationMethod
 from pytreenet.time_evolution.results import Results
 from pytreenet.util.plotting.line_config import LineConfig
 from pytreenet.special_ttn.special_states import TTNStructure
+from pytreenet.util.plotting.configuration import (DocumentStyle,
+                                                   set_size,
+                                                   config_matplotlib_to_latex
+                                                   )
 
 from sim_script import (ApplicationParams,
                         RES_IDS)
@@ -227,6 +231,41 @@ def plot_all(md_filter: MetadataFilter,
     else:
         plt.show()
 
+def only_plot_err_vs_rt(md_filter: MetadataFilter,
+                         directory_path: str,
+                         save_path: str | None = None,
+                         legend: bool = True
+                         ) -> None:
+    """
+    Plots only the error vs. runtime data from the specified directory after filtering
+    it based on the provided metadata filter.
+
+    Args:
+        md_filter (MetadataFilter): The metadata filter to apply.
+        directory_path (str): The path to the directory containing the data.
+        save_path (str | None, optional): The path to save the plot. If None,
+            the plot will be displayed instead of being saved. Defaults to None.
+        legend (bool, optional): Whether to display the legend. Defaults to True.
+    """
+    data = load_data(md_filter, directory_path)
+    fig_size = set_size(DocumentStyle.PRONE_COLUMN, fraction=1 / 2)
+    config_matplotlib_to_latex(style=DocumentStyle.PRONE_COLUMN)
+    fig, ax = plt.subplots(1, 1, figsize=(fig_size[0], fig_size[0] * 0.75))
+    for method, (_, _, runtime_vs_err) in data.items():
+        runtime_vs_err.plot_on_axis(ax)
+    ax.set_xlabel("Runtime [s]")
+    ax.set_ylabel("Error")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    if legend:
+        ax.legend(loc="upper right")
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, format="pdf")
+        plt.close(fig)
+    else:
+        plt.show()
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python plot.py <data_directory>")
@@ -250,3 +289,9 @@ if __name__ == "__main__":
         save_path = os.path.join(data_dir, "plots")
         save_path = os.path.join(save_path, f"truncation_comparison_{structure.value}.pdf")
         plot_all(md_filter, data_dir, save_path=save_path)
+        rt_save_path = os.path.join(data_dir, "plots")
+        rt_save_path = os.path.join(rt_save_path, f"truncation_comparison_err_vs_rt_{structure.value}.pdf")
+        plt_legend = True if structure is structures[-1] else False
+        only_plot_err_vs_rt(md_filter, data_dir,
+                            save_path=rt_save_path,
+                            legend=plt_legend)

@@ -26,10 +26,14 @@ def generate_parameter_set() -> list[ApplicationParams]:
     structures = (TTNStructure.TSTAR, TTNStructure.MPS,
                   TTNStructure.BINARY, TTNStructure.FTPS)
     methods = (
-               ApplicationMethod.DIRECT_TRUNCATE,
+            ApplicationMethod.DENSITY_MATRIX,
+            ApplicationMethod.SRC,
+            ApplicationMethod.ZIPUP,
+            ApplicationMethod.DIRECT_TRUNCATE,
+            ApplicationMethod.HALF_DENSITY_MATRIX
                )
     seeds = (1234, 4321, 32974, 238934, 239401)
-    bond_dims = (10, 30, 40, 50)
+    bond_dims = (10, 20, 40, 50)
     param_set = []
     for structure, method, bond_dim, seed in product(structures, methods, bond_dims, seeds):
         if structure is TTNStructure.MPS:
