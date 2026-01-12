@@ -8,6 +8,7 @@ from typing import Callable, TYPE_CHECKING
 from .svd_truncation import svd_truncation, SVDSiteNumber
 from .recursive_truncation import recursive_truncation
 from .variational import single_site_fitting
+from .density_matrix import density_matrix_truncation
 
 if TYPE_CHECKING:
     from ...ttns.ttns import TTNS
@@ -20,6 +21,7 @@ class TruncationMethod(Enum):
     SVD = "svd"
     SVD2SITE = "svd_2site"
     VARIATIONAL = "variational"
+    DENSITYMATRIX = "density matrix"
     NONE = "none"
 
     def randomisable(self) -> bool:
@@ -49,6 +51,8 @@ class TruncationMethod(Enum):
                                                        site_number=SVDSiteNumber.TWOSITE)
         if self == TruncationMethod.VARIATIONAL:
             return single_site_fitting
+        if self == TruncationMethod.DENSITYMATRIX:
+            return density_matrix_truncation
         if self == TruncationMethod.NONE:
             raise ValueError("Truncation method 'NONE' does not have a "
                              "corresponding function.")
