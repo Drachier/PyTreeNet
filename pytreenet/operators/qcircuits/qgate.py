@@ -18,6 +18,7 @@ from ..common_operators import (pauli_matrices,
 from ..hamiltonian import Hamiltonian, ONE_SYMBOL
 from ..tensorproduct import TensorProduct
 from ...random.random_matrices import random_unitary_matrix
+from ..measurment import Measurement
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -257,7 +258,7 @@ class InvolutarySingleSiteGate(SingleQubitGate):
                        qubit_id)
         elif gate_enum == QGate.IDENTITY:
             return cls(QGate.IDENTITY.value,
-                       np.eye(2, dtype=np.complex64),
+                       np.zeros((2,2), dtype=np.complex64),
                        qubit_id)
         errstr = f"Invalid Enum for InvolutarySingleSiteGate: {gate_enum}!"
         raise ValueError(errstr)
@@ -856,7 +857,17 @@ class ProjectionOperation(QuantumOperation):
         """
         proj_matrix = projector(2, self.outcome)
         return proj_matrix
-    
+
+    def to_measurement(self) -> Measurement:
+        """
+        Convert the projection operation to a Measurement instance.
+
+        Returns:
+            Measurement: The corresponding Measurement instance.
+        """
+        measures = {self.qubit_id: self.outcome}
+        return Measurement(measures)
+
 class Reset(ProjectionOperation):
     """
     Class for the reset operation.

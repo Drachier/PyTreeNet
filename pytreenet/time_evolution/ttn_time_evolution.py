@@ -270,6 +270,7 @@ class TTNOBasedTimeEvolution(TTNTimeEvolution):
         This method is only required for time-dependent Hamiltonians.
         """
         self.hamiltonian.update(self.time_step_size)
+        self.hamiltonian.modify_state(self.state)
 
     def reset_hamiltonian(self):
         """
