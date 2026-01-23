@@ -112,7 +112,6 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
                                 conversion_dict, dtype)
         # Now we have a TTNO filled with zero tensors of the correct shape.
         state_diagram.set_all_vertex_indices() # Fixing index_values
-        state_diagram.set_all_vertex_indices() # Fixing index_values
 
         for he in state_diagram.get_all_hyperedges():
             position = he.find_tensor_position(reference_tree)

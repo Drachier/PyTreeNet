@@ -316,7 +316,8 @@ class TreeTensorNetworkState(TreeTensorNetwork):
 
     def measurement_projection(self,
                                measurements: Measurement,
-                               renorm: bool = True
+                               renorm: bool = True,
+                               renorm_threshold: float = 1e-13
                                ) -> float:
         """
         Projects the TTNS onto the measurement outcomes specified.
@@ -326,10 +327,23 @@ class TreeTensorNetworkState(TreeTensorNetwork):
                 measurement outcomes (indices).
             renorm (bool, optional): Whether to renormalise the TTNS after
                 projection. Defaults to True.
+            renorm_threshold (float, optional): The threshold below which
+                renormalisation is not performed, as the norm is considered
+                to be zero. Defaults to 1e-13.
         
         Returns:
-            float: The norm of the projected TTNS.
+            float: The norm of the projected TTNS before renormalization. If no
+                renormalization is performed, NaN is returned.
+
+        Raises:
+            NotImplementedError: If a node with more than one open leg is
+                measured.
+            ValueError: If a measurement outcome is out of bounds for the
+                corresponding physical dimension.
+            ZeroDivisionError: If renormalization is requested, but the norm
+                after projection is below the renorm_threshold.
         """
+        print(self.completely_contract_tree(to_copy=True)[0])
         for node_id, outcome in measurements.items():
             node, tensor = self[node_id]
             if node.nopen_legs() != 1:
@@ -341,17 +355,21 @@ class TreeTensorNetworkState(TreeTensorNetwork):
                           f"for node {node_id} with phys. dim. {node.open_dimension()}!")
                 raise ValueError(errstr)
             # Seetting all entries to zero except the measurement outcome
-            slice_low = [slice(None) for _ in range(node.neighbouring_nodes())]
+            slice_low = [slice(None) for _ in range(node.nneighbours())]
             slice_low.append(slice(None, outcome))
             slice_low = tuple(slice_low)
-            slice_high = [slice(None) for _ in range(node.neighbouring_nodes())]
+            slice_high = [slice(None) for _ in range(node.nneighbours())]
             slice_high.append(slice(outcome+1, None))
             slice_high = tuple(slice_high)
             tensor[slice_low] = 0
             tensor[slice_high] = 0
         if renorm:
             norm = self.norm()
+            if norm < renorm_threshold:
+                errstr = f"Cannot renormalise TTNS after measurement, norm is zero ({norm})!"
+                raise ZeroDivisionError(errstr)
             self.normalise(norm)
+            print(self.completely_contract_tree(to_copy=True)[0])
             return norm
         return float("NaN")
 

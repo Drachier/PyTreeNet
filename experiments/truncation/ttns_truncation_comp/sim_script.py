@@ -13,9 +13,7 @@ from h5py import File
 from pytreenet.util.experiment_util.sim_params import SimulationParameters
 from pytreenet.util.experiment_util.script_util import script_main
 from pytreenet.core.truncation import (TruncationMethod,
-                                       recursive_truncation,
-                                       svd_truncation,
-                                       single_site_fitting)
+                                       truncate_ttns)
 from pytreenet.random.random_matrices import RandomDistribution
 from pytreenet.special_ttn.special_states import TTNStructure
 from pytreenet.random.random_special_ttns import random_ttns
@@ -119,6 +117,7 @@ def run_fitting(params: TruncationParams) -> Results:
                        high=params.distr_high
                        )
     results = init_results(params)
+    trunc_func = TruncationMethod.VARIATIONAL.get_function()
     for index, bond_dim in enumerate(bond_dim_range(params)):
         init_ttns = random_ttns(params.structure,
                                  params.sys_size,
@@ -130,8 +129,7 @@ def run_fitting(params: TruncationParams) -> Results:
                                  high=params.distr_high
                                  )
         start_time = time()
-        single_site_fitting(ttns, init_ttns,
-                            2)
+        trunc_func(ttns, init_ttns, 2)
         end_time = time()
         trunc_error = ttns.distance(init_ttns, normalise=True)
         set_result_values(results, index,
@@ -161,10 +159,7 @@ def run_svd_based_truncation(params: TruncationParams) -> Results:
     results = init_results(params)
     for index, bond_dim in enumerate(bond_dim_range(params)):
         comp_ttns = deepcopy(ttns)
-        if params.trunc_method == TruncationMethod.RECURSIVE:
-            trunc_func = recursive_truncation
-        else:
-            trunc_func = svd_truncation
+        trunc_func = params.trunc_method.get_function()
         svd_params = SVDParameters(max_bond_dim=bond_dim,
                                    random=params.random_trunc)
         start_time = time()

@@ -432,6 +432,33 @@ class StateDiagram():
                 vertex.contained = False
                 vertex.new = False
 
+    def number_of_elements(self,
+                           conversion_dict: dict[str, np.ndarray] | None = None
+                           ) -> int:
+        """
+        Number of elements in the state diagram.
+
+        Args:
+            conversion_dict (dict[str, np.ndarray] | None): A dictionary to
+                convert the labels into arrays, to determine the required
+                physical dimension. If None, physical dimensions are not
+                considered.
+
+        Returns:
+            int: The number of hyperedges in the state diagram.
+        """
+        out = 0
+        for hyperedge_coll in self.hyperedge_colls.values():
+            connected_other_nodes = hyperedge_coll.get_connected_edges()
+            node_id = hyperedge_coll.corr_node_id
+            connected_vertex_colls = [self.get_vertex_coll_two_ids(other_node, node_id)
+                                      for other_node in connected_other_nodes]
+            num_elements = 1
+            for vertex_coll in connected_vertex_colls:
+                num_elements *= vertex_coll.num_vertices()
+            out += num_elements
+        return out
+
     @classmethod
     def from_hamiltonian_base(cls, hamiltonian, ref_tree,)-> StateDiagram:
         """

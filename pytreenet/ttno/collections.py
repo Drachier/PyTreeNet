@@ -5,6 +5,8 @@ This module provides collections/sets of hyperedges and vertices.
 from __future__ import annotations
 from typing import List, Union, Tuple
 
+import numpy as np
+
 from .hyperedge import HyperEdge
 from .vertex import Vertex
 
@@ -65,6 +67,42 @@ class HyperEdgeColl():
         return [hyperedge for hyperedge in self.contained_hyperedges
                 if hyperedge.all_vertices_contained()]
 
+    def get_connected_edges(self) -> set[str]:
+        """
+        Returns a set of all the other nodes connected to this node via edges
+
+        Returns:
+            set[str]: A set of all node identifiers connected to this node.
+        """
+        connected_edges = set()
+        if not self.contained_hyperedges:
+            return connected_edges
+        # Note that all hyperedges should connect to the same set of nodes,
+        # so it suffices to just look at the first hyperedge.
+        first_he = self.contained_hyperedges[0]
+        for vertex in first_he.vertices:
+            other = vertex.get_second_node_id(self.corr_node_id)
+            connected_edges.add(other)
+        return connected_edges
+
+    def physical_dimension(self,
+                           conversion_dict: dict[str, np.ndarray]) -> int:
+        """
+        Returns the physical dimension of this collection.
+
+        Args:
+            conversion_dict (dict[str, np.ndarray]): A dictionary mapping labels to
+                their operators.
+
+        Returns:
+            int: The physical dimension of this collection.
+        """
+        if not self.contained_hyperedges:
+            errstr = "Cannot determine physical dimension of empty "
+            errstr += "HyperEdgeColl!"
+            raise ValueError(errstr)
+        first_he = self.contained_hyperedges[0]
+        return conversion_dict[first_he.label].shape[0]
 
 class VertexColl:
     """
@@ -93,6 +131,12 @@ class VertexColl:
         if contained_vertices is None:
             contained_vertices = []
         self.contained_vertices: List[Vertex] = contained_vertices
+
+    def num_vertices(self) -> int:
+        """
+        Returns the number of vertices in this collection.
+        """
+        return len(self.contained_vertices)
 
     def contains_contained(self) -> bool:
         """

@@ -45,7 +45,7 @@ def method_colour(params: TruncationParams) -> str:
     Returns:
         str: A color code for the truncation method.
     """
-    if params.trunc_method is TruncationMethod.VARIATIONAL:
+    if params.trunc_method is TruncationMethod.DENSITYMATRIX:
         return "tab:green"
     if params.random_trunc:
         if params.trunc_method is TruncationMethod.SVD:
