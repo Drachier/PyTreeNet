@@ -50,7 +50,7 @@ def load_bond_dimensions(dir_path: str,
                                  realise=True)
         sys_size = res.operator_result("sys_size",
                                        realise=True)
-        plottable.add_point(float(sys_size), float(bd))
+        plottable.add_point(float(sys_size[0]), float(bd[0]))
     return plottable
 
 def get_line_config(finder: TTNOFinder) -> LineConfig:
@@ -63,7 +63,7 @@ def get_line_config(finder: TTNOFinder) -> LineConfig:
     Returns:
         LineConfig: The line configuration for plotting.
     """
-    out_kwargs = {"markersize": 2, "linewidth": 0.5}
+    out_kwargs = {"marker_size": 2, "linewidth": 0.5, "linestyle": ""}
     if finder == TTNOFinder.SGE:
         out_kwargs.update({"color": "blue", "marker": "o", "label": "Combined"})
     elif finder == TTNOFinder.SGE_PURE:
@@ -96,6 +96,7 @@ def plot_bond_dimensions(dir_path: str,
     config_matplotlib_to_latex(DocumentStyle.THESIS)
     size = set_size(DocumentStyle.THESIS,
                     subplots=(1, 3))
+    size = (size[0], size[1] * 2)
     fig_avg, axes_avg = plt.subplots(1, 3, figsize=size, sharey=True)
     fig_max, axes_max = plt.subplots(1, 3, figsize=size, sharey=True)
     for finder in finders:
@@ -125,6 +126,8 @@ def plot_bond_dimensions(dir_path: str,
                 ax_max.set_ylabel("max bd")
             ax_avg.set_xlabel("$L$")
             ax_max.set_xlabel("$L$")
+            ax_avg.grid(True)
+            ax_max.grid(True)
     fig_avg.tight_layout()
     fig_max.tight_layout()
     avg_file_name = f"avgbd_{model_kind.value.lower()}.pdf"
@@ -139,12 +142,16 @@ def main():
     Main function to parse arguments and plot bond dimensions.
     """
     parser = ArgumentParser()
-    parser.add_argument("--dir_path", type=str, required=True,
+    parser.add_argument("dir_path", type=str,
                         help="Directory path where bond dimension files are stored.")
     dir_path = vars(parser.parse_args())["dir_path"]
     output_path = os.path.join(dir_path, "plots")
+    print("Output path:", output_path)
     os.makedirs(output_path, exist_ok=True)
     for model_kind in [ModelKind.ISING, ModelKind.XXZ]:
         plot_bond_dimensions(dir_path,
                              output_path,
                              model_kind)
+
+if __name__ == "__main__":
+    main()

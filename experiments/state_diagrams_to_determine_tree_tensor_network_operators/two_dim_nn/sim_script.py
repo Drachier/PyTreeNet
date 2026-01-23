@@ -110,7 +110,7 @@ def save_bond_dim(dir_path: str,
         params (TwoDimParams): The parameters used for the TTNO finding.
     """
     param_hash = params.get_hash()
-    file_path = os.path.join(dir_path, f"bond_dims_{param_hash}.h5")
+    file_path = os.path.join(dir_path, f"{param_hash}.h5")
     with File(file_path, "w") as f:
         params.save_to_h5(f)
         max_bd = ttno.max_bond_dim()

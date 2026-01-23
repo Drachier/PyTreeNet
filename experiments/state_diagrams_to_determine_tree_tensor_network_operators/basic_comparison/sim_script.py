@@ -213,7 +213,7 @@ def one_sim(filename: str, ref_tree: ptn.TreeTensorNetworkState,
                                                            num_runs)
             run = 0
             while run < num_runs:
-                if run % 100 == 0:
+                if run % 1000 == 0:
                     print("num:", run)
                 hamiltonian = generate_random_hamiltonian(conversion_dict,
                                                           ref_tree,
@@ -221,14 +221,25 @@ def one_sim(filename: str, ref_tree: ptn.TreeTensorNetworkState,
                                                           num_terms,
                                                           mode)
                 if not hamiltonian.contains_duplicates():
-                    ttno_ham = ptn.TTNO.from_hamiltonian(hamiltonian,
-                                                         ref_tree,
-                                                         method=finder)
+                    try:
+                        ttno_ham = ptn.TTNO.from_hamiltonian(hamiltonian,
+                                                             ref_tree,
+                                                             method=finder)
+                    except KeyboardInterrupt as e:
+                        raise e
+                    except Exception as e:
+                        print("Exception encountered, skipping this run.")
+                        print(e)
+                        continue
                     total_tensor = hamiltonian.to_tensor(ref_tree).operator
-                    ttno_svd = ptn.TTNO.from_tensor(ref_tree,
-                                                    total_tensor,
-                                                    leg_dict,
-                                                    mode=ptn.Decomposition.tSVD)
+                    try:
+                        ttno_svd = ptn.TTNO.from_tensor(ref_tree,
+                                                        total_tensor,
+                                                        leg_dict,
+                                                        mode=ptn.Decomposition.tSVD)
+                    except np.linalg.LinAlgError:
+                        print("LinAlgError encountered, skipping this run.")
+                        continue
                     dset_ham[run, :] = obtain_bond_dimensions(ttno_ham)
                     dset_svd[run, :] = obtain_bond_dimensions(ttno_svd)
                     if np.any(dset_ham[run, :] > dset_svd[run, :]):
@@ -262,7 +273,7 @@ def main():
     print("Data will be saved in " + filepath)
     leg_dict1 = {"site1": 0, "site2": 1, "site3": 2, "site4": 3, "site5": 4,
                 "site6": 5, "site7": 6, "site8": 7}
-    modes = (RandomGenerationMode.EQUAL,
+    modes = (# RandomGenerationMode.EQUAL,
                  RandomGenerationMode.SOME_SHARED,
                  RandomGenerationMode.UNIQUE)
     finders = (TTNOFinder.SGE,
@@ -274,7 +285,7 @@ def main():
                 construct_tree_root_at_1(),
                 leg_dict1,
                 mode=mode,
-                num_runs=100,
+                num_runs=30000,
                 finder=finder)
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ import os
 
 import h5py
 import matplotlib.pyplot as plt
+import numpy as np
 
 from pytreenet.util.plotting.configuration import (DocumentStyle,
                                                    set_size,
@@ -72,8 +73,14 @@ def plot_basic_comparison(filepath: str):
     config_matplotlib_to_latex(DocumentStyle.THESIS)
     size = set_size(DocumentStyle.THESIS, subplots=(1, 3))
     size = (size[0], size[1] * 2)
-    fig_avg, axes_avg = plt.subplots(1, 3, figsize=size, sharey=True)
-    fig_num, axes_num = plt.subplots(1, 3, figsize=size, sharey=True)
+    fig_avg, axes_avg = plt.subplots(2, 3,
+                                     figsize=size,
+                                     sharex=True,
+                                     sharey="row",
+                                     height_ratios=[5, 1])
+    fig_num, axes_num = plt.subplots(2, 3,
+                                     figsize=size, sharex=True,
+                                     height_ratios=[5, 1])
     modes = (RandomGenerationMode.EQUAL,
              RandomGenerationMode.SOME_SHARED,
              RandomGenerationMode.UNIQUE)
@@ -81,24 +88,59 @@ def plot_basic_comparison(filepath: str):
                TTNOFinder.SGE_PURE,
                TTNOFinder.BIPARTITE)
     for i, mode in enumerate(modes):
-        ax_avg = axes_avg[i]
-        ax_num = axes_num[i]
+        ax_avg_up = axes_avg[0, i]
+        ax_avg_down = axes_avg[1, i]
+        ax_num_up = axes_num[0, i]
+        ax_num_down = axes_num[1, i]
         for finder in finders:
             filename = create_filename(filepath, mode, finder)
             n_terms, diff_avgs, diff_nums = load_data(filename)
             kwargs = plot_kwargs(finder)
-            ax_avg.plot(n_terms, diff_avgs, **kwargs)
-            ax_num.plot(n_terms, diff_nums, **kwargs)
-        ax_avg.set_xlabel("Number of Terms")
-        ax_num.set_xlabel("Number of Terms")
+            ax_avg_up.plot(n_terms, np.asarray(diff_avgs), ls="", **kwargs)
+            ax_avg_down.plot(n_terms, np.asarray(diff_avgs), ls="", **kwargs)
+            ax_num_up.plot(n_terms, np.asarray(diff_nums), ls="", **kwargs)
+            ax_num_down.plot(n_terms, np.asarray(diff_nums), ls="", **kwargs)
+        # Split axes for avg diff
+        ax_avg_up.set_ylim(1e-6+1e-7, 1e-2)
+        ax_avg_down.set_ylim(0, 1e-10)
+        ax_avg_up.spines.bottom.set_visible(False)
+        ax_avg_down.spines.top.set_visible(False)
+        ax_avg_up.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
+        ax_avg_down.xaxis.tick_bottom()
+        ax_avg_down.set_yticks([0])
+        d = 0.5
+        kwargs = dict(marker=[(-1, -d), (1, d)], markersize=12,
+              linestyle="none", color='k', mec='k', mew=1, clip_on=False)
+        ax_avg_up.plot([0, 1], [0, 0], transform=ax_avg_up.transAxes, **kwargs)
+        ax_avg_down.plot([0, 1], [1, 1], transform=ax_avg_down.transAxes, **kwargs)
+        # Split axes for num diff
+        ax_num_up.set_ylim(1e-1+1e-2, 1e3)
+        ax_num_down.set_ylim(0, 1e-2)
+        ax_num_up.spines.bottom.set_visible(False)
+        ax_num_down.spines.top.set_visible(False)
+        ax_num_up.tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
+        ax_num_up.tick_params(labeltop=False)
+        ax_num_down.xaxis.tick_bottom()
+        ax_num_down.set_yticks([0])
+        d = 0.5
+        kwargs = dict(marker=[(-1, -d), (1, d)], markersize=12,
+              linestyle="none", color='k', mec='k', mew=1, clip_on=False)
+        ax_num_up.plot([0, 1], [0, 0], transform=ax_num_up.transAxes, **kwargs)
+        ax_num_down.plot([0, 1], [1, 1], transform=ax_num_down.transAxes, **kwargs)
+        ax_avg_up.set_yscale("log")
+        ax_num_up.set_yscale("log")
+        ax_avg_down.set_xlabel("Number of Terms")
+        ax_num_down.set_xlabel("Number of Terms")
         if i == 0:
-            ax_avg.set_ylabel("avg bd")
-            ax_num.set_ylabel("num diff")
+            ax_avg_up.set_ylabel("avg bd")
+            ax_num_up.set_ylabel("num diff")
         if i == 2:
-            ax_avg.legend()
-            ax_num.legend()
+            ax_avg_up.legend()
+            ax_num_up.legend()
     fig_avg.tight_layout()
     fig_num.tight_layout()
+    fig_avg.subplots_adjust(hspace=0.1)
+    fig_num.subplots_adjust(hspace=0.1)
     fig_avg.savefig(os.path.join(filepath, "basic_comparison_avg.pdf"))
     fig_num.savefig(os.path.join(filepath, "basic_comparison_num.pdf"))
 
