@@ -472,7 +472,10 @@ class Results:
             attrs = dset.attrs
             for attr_key, attr_value in attrs.items():
                 results.set_attribute(key, attr_key, attr_value)
-            loaded_data = dset[:]
+            if np.isscalar(dset[()]):
+                loaded_data = np.asarray([(dset[()])])
+            else:
+                loaded_data = np.asarray(dset)
             if i == 0:
                 len_data = len(loaded_data)
             else:
