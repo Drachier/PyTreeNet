@@ -389,7 +389,7 @@ class BTTNLevel:
     @classmethod
     def from_starting_params(cls,
                              lattice_size: int,
-                             phys_prefix: str,
+                             phys_prefix: str | list[list[str]],
                              virtual_prefix: str
                              ) -> Self:
         """
@@ -402,9 +402,15 @@ class BTTNLevel:
             row: list[tuple[str] | tuple[str,str]] = []
             own_ids_row: list[str] = []
             for x in range(lattice_size):
-                site_id = phys_prefix + str(y * lattice_size + x)
+                if isinstance(phys_prefix, list):
+                    site_id = phys_prefix[y][x]
+                else:
+                    site_id = phys_prefix + str(y * lattice_size + x)
                 if x % 2 == 0 and x != lattice_size - 1:
-                    neigh_id = phys_prefix + str(y * lattice_size + (x + 1))
+                    if isinstance(phys_prefix, list):
+                        neigh_id = phys_prefix[y][x + 1]
+                    else:
+                        neigh_id = phys_prefix + str(y * lattice_size + (x + 1))
                     row.append((site_id, neigh_id))
                     own_ids_row.append(virtual_prefix + "lev1_" + str(y) + "_" + str(x // 2))
                 elif x % 2 == 1:
@@ -438,7 +444,6 @@ class BTTNLevel:
         for i1 in range(previous_level.size_by_direction(opposite_direction)):
             for i2 in range(previous_level.size_by_direction(pairing_direction)):
                 if i2 % 2 == 0:
-                    print(level.own_ids)
                     nn = previous_level.get_nn_by_direction(i2, i1,
                                                             pairing_direction)
                     if len(nn) == 2:
@@ -469,7 +474,7 @@ class BTTNLevel:
 def optimised_2d_binary_ttn(lattice_size: int,
                             initial_bond_dim: int,
                             phys_tensor: ndarray,
-                            phys_prefix: str = "site",
+                            phys_prefix: str | list[list[str]] = "site",
                             virtual_prefix: str = "node"
                             ) -> TreeTensorNetworkState:
     """
@@ -480,7 +485,8 @@ def optimised_2d_binary_ttn(lattice_size: int,
         initial_bond_dim (int): The bond dimension of the tree tensor network state.
         phys_tensor (ndarray): The tensor for the physical sites. Not included are
             the virtual bond dimension to the parent leg.
-        phys_prefix (str): The prefix for the physical nodes.
+        phys_prefix (str | list[list[str]]): The prefix for the physical nodes.
+            Alternatively, a 2D list of physical node identifiers can be given.
         virtual_prefix (str): The prefix for the virtual nodes.
     
     Returns:
