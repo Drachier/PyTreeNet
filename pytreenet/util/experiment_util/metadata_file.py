@@ -537,6 +537,7 @@ def generate_metadata_file(
                 parameters_obj = parameter_class.from_dict(parameters)
                 hash = parameters_obj.get_hash()
                 out[hash] = parameters_obj.to_json_dict()
+                out[hash]['status'] = Status.SUCCESS.value
     if len(out) == 0:
         raise FileNotFoundError(f"No .h5 files found in {save_directory}!")
     with open(metadata_file_path, 'w') as f:
