@@ -21,23 +21,71 @@ def generate_parameter_set() -> list[AllToAllSimParams]:
         evolution parameters.
     """
     param_set: list[AllToAllSimParams] = []
-    sys_sizes = range(2, 4)
-    dimensionalities = [DimensionalityType.ONE_D, DimensionalityType.TWO_D]
-    ttn_structures = [TTNStructure.MPS,
-                      TTNStructure.BINARY,
-                      TTNStructure.FTPS]
     methods = [TTNOFinder.SGE,
                TTNOFinder.SGE_PURE,
                TTNOFinder.BIPARTITE]
-    num_operators = range(1, 3)
-    for sys_size, dimensionality, ttn_structure, method, num_op in product(sys_sizes,
-                                                                  dimensionalities,
-                                                                  ttn_structures,
-                                                                  methods,
-                                                                  num_operators):
+    # Params for system size depencence sim 1D
+    sys_sizes = range(5, 200, 10)
+    ttn_structures = [TTNStructure.MPS,
+                      TTNStructure.BINARY]
+    num_operators = (1,3,6)
+    for sys_size, ttn_structure, method, num_op in product(sys_sizes,
+                                                            ttn_structures,
+                                                            methods,
+                                                            num_operators):
         params = AllToAllSimParams()
         params.system_size = sys_size
-        params.dimensionality = dimensionality
+        params.dimensionality = DimensionalityType.ONE_D
+        params.ttn_structure = ttn_structure
+        params.method = method
+        params.num_operators = num_op
+        param_set.append(params)
+    # Params for system size depencence sim 2D
+    sys_sizes = range(2, 20)
+    ttn_structures = [TTNStructure.MPS,
+                      TTNStructure.BINARY,
+                      TTNStructure.FTPS]
+    num_operators = (1,3,6)
+    for sys_size, ttn_structure, method, num_op in product(sys_sizes,
+                                                            ttn_structures,
+                                                            methods,
+                                                            num_operators):
+        params = AllToAllSimParams()
+        params.system_size = sys_size
+        params.dimensionality = DimensionalityType.TWO_D
+        params.ttn_structure = ttn_structure
+        params.method = method
+        params.num_operators = num_op
+        param_set.append(params)
+    # Operator Number Dependence 1D
+    sys_sizes = (20, 50, 100)
+    ttn_structures = [TTNStructure.MPS,
+                        TTNStructure.BINARY]
+    num_operators = range(1, 21, 2)
+    for sys_size, ttn_structure, method, num_op in product(sys_sizes,
+                                                            ttn_structures,
+                                                            methods,
+                                                            num_operators):
+        params = AllToAllSimParams()
+        params.system_size = sys_size
+        params.dimensionality = DimensionalityType.ONE_D
+        params.ttn_structure = ttn_structure
+        params.method = method
+        params.num_operators = num_op
+        param_set.append(params)
+    # Operator Number Dependence 2D
+    sys_sizes = (5, 10)
+    ttn_structures = [TTNStructure.MPS,
+                      TTNStructure.BINARY,
+                      TTNStructure.FTPS]
+    num_operators = range(1, 21, 2)
+    for sys_size, ttn_structure, method, num_op in product(sys_sizes,
+                                                            ttn_structures,
+                                                            methods,
+                                                            num_operators):
+        params = AllToAllSimParams()
+        params.system_size = sys_size
+        params.dimensionality = DimensionalityType.TWO_D
         params.ttn_structure = ttn_structure
         params.method = method
         params.num_operators = num_op
