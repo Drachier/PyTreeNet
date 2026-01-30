@@ -78,7 +78,9 @@ class TimeStepUpdateBool(Enum):
     """
     UPDATE = 1
     NO_UPDATE = 0
-    LAST_STEP = -1
+    BEFORE_FINAL_MEASUREMENT = -1
+    AT_FINAL_MEASUREMENT = -2
+    AFTER_FINAL_MEASUREMENT = -3
 
 
 class DiscreetTimeTTNO(AbstractTimeDepTTNO):
@@ -156,7 +158,12 @@ class DiscreetTimeTTNO(AbstractTimeDepTTNO):
                 should occur.
         """
         if self.current_time_step == len(self.ttnos) - 1:
-            return TimeStepUpdateBool.LAST_STEP
+            if self.current_time >= (self.current_time_step + 1) * self.dt:
+                return TimeStepUpdateBool.AT_FINAL_MEASUREMENT
+            if self._ts_update in {TimeStepUpdateBool.AT_FINAL_MEASUREMENT,
+                                   TimeStepUpdateBool.AFTER_FINAL_MEASUREMENT}:
+                return TimeStepUpdateBool.AFTER_FINAL_MEASUREMENT
+            return TimeStepUpdateBool.BEFORE_FINAL_MEASUREMENT
         if self.current_time >= (self.current_time_step + 1) * self.dt:
             return TimeStepUpdateBool.UPDATE
         return TimeStepUpdateBool.NO_UPDATE
@@ -186,6 +193,11 @@ class DiscreetTimeTTNO(AbstractTimeDepTTNO):
         """
         if self._ts_update is TimeStepUpdateBool.UPDATE:
             measurement = self.measurements[self.current_time_step - 1]
+            if not measurement.is_empty():
+                state.measurement_projection(measurement,
+                                             renorm_threshold=self.measurement_renorm_threshold)
+        if self._ts_update is TimeStepUpdateBool.AT_FINAL_MEASUREMENT:
+            measurement = self.measurements[-1]
             if not measurement.is_empty():
                 state.measurement_projection(measurement,
                                              renorm_threshold=self.measurement_renorm_threshold)
