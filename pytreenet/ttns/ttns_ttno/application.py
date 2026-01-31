@@ -196,3 +196,30 @@ def apply_and_truncate(ttns: TTNS,
     truncated_ttns = truncate_ttns(new_ttns, trunc_method,
                                    *trunc_args, **trunc_kwargs)
     return truncated_ttns
+
+def power_of_ttno(ttns: TTNS,
+                  ttno: TTNO,
+                  power: int,
+                  app_method: ApplicationMethod,
+                  *args,
+                  **kwargs) -> TTNS:
+    """
+    Apply a TTNO to a TTNS multiple times.
+
+    Args:
+        ttns (TTNS): The tree tensor network state to which the TTNO is
+            applied.
+        ttno (TTNO): The tree tensor network operator to be applied.
+        power (int): The number of times to apply the TTNO.
+        app_method (ApplicationMethod): The method to use for the application.
+        *args: Additional positional arguments for the application function.
+        **kwargs: Additional keyword arguments for the application function.
+
+    Returns:
+        TTNS: The resulting tree tensor network state after applying the TTNO
+            multiple times.
+    """
+    result = ttns
+    for _ in range(power):
+        result = apply_ttno_to_ttns(result, ttno, app_method, *args, **kwargs)
+    return result
