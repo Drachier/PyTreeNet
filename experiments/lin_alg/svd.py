@@ -14,8 +14,8 @@ import matplotlib
 
 from pytreenet.random.random_matrices import crandn
 from pytreenet.util.tensor_splitting import tensor_svd
-from pytreenet.util.plotting.plotting import (config_matplotlib_to_latex,
-                                     set_size)
+from pytreenet.util.plotting.configuration import (config_matplotlib_to_latex,
+                                                    set_size)
 
 def run_random(num_samples: int,
                dimension: int

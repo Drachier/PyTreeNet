@@ -11,6 +11,7 @@ from ...contractions.local_contr import LocalContraction
 from ...util.tensor_splitting import (SVDParameters,
                                       truncated_tensor_svd)
 from ...ttns.ttns import TTNS
+from ...contractions.state_state_contraction import build_full_subtree_cache
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -30,7 +31,7 @@ def density_matrix_truncation(ttns: TTNS,
         TTNS: The truncated tree tensor network state.
     """
     # First we need to build the full subtree cache
-    cache = _build_full_subtree_cache(ttns)
+    cache = build_full_subtree_cache(ttns)
     # Next we find the new tensors for the TTNS
     new_tensors = _find_new_ttns_tensors(ttns,
                                          cache,
@@ -38,49 +39,6 @@ def density_matrix_truncation(ttns: TTNS,
     # Finally we build the new TTNS
     new_ttns = TTNS.from_tensors(ttns, new_tensors)
     return new_ttns
-
-def _build_full_subtree_cache(ttns: TTNS
-                              ) -> PartialTreeCachDict:
-    """
-    Contracts all subtrees of the TTNS-TTNS.conj contraction.
-
-    This means all subtrees pointing up and down the tree.
-
-    Args:
-        ttns (TTNS): The tree tensor network state.
-    
-    Returns:
-        PartialTreeCachDict: The contracted subtrees.
-    """
-    cache = PartialTreeCachDict()
-    lin_order = ttns.linearise() # Exclude root
-    # Get subtrees upwards
-    for node_id in lin_order[:-1]:
-        node, tensor = ttns[node_id]
-        nodes_tensors = [(node, tensor),
-                         (node, tensor.conj())]
-        ignored_leg = node.parent
-        assert ignored_leg is not None
-        local_contr = LocalContraction(nodes_tensors,
-                                       cache,
-                                       ignored_leg=ignored_leg)
-        local_contr.contract_into_cache()
-    # At this point all upwards envs are in the cache, so everything towards
-    # the root.
-    # Now we go back down.
-    lin_order.reverse()
-    for node_id in lin_order:
-        node, tensor = ttns[node_id]
-        if not node.is_leaf():
-            nodes_tensors = [(node, tensor),
-                             (node, tensor.conj())]
-            for child_id in node.children:
-                ignored_leg = child_id
-                local_contr = LocalContraction(nodes_tensors,
-                                               cache,
-                                               ignored_leg=ignored_leg)
-                local_contr.contract_into_cache()
-    return cache
 
 def _find_new_ttns_tensors(ttns: TTNS,
                            cache: PartialTreeCachDict,

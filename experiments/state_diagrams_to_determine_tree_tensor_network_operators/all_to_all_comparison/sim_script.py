@@ -15,12 +15,15 @@ from pytreenet.ttno.state_diagram import StateDiagram
 from pytreenet.special_ttn.special_states import (TTNStructure,
                                                   STANDARD_NODE_PREFIX,
                                                   generate_zero_state,
-                                                  Topology)
+                                                  Topology,
+                                                  TreeTensorNetworkState)
+from pytreenet.special_ttn.binary import optimised_2d_binary_ttn
 from pytreenet.util.experiment_util.sim_params import SimulationParameters
 from pytreenet.operators.hamiltonian import Hamiltonian
 from pytreenet.operators.sim_operators import create_single_site_hamiltonian
 from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.util.experiment_util.script_util import script_main
+from pytreenet.operators.common_operators import ket_i
 
 class DimensionalityType(Enum):
     ONE_D = 1
@@ -68,7 +71,7 @@ class DimensionalityType(Enum):
             x1, y1 = divmod(i, system_size)
             x2, y2 = divmod(j, system_size)
             return abs(x2 - x1) + abs(y2 - y1)
-        
+
     def topology(self) -> Topology:
         """
         Get the topology corresponding to the dimensionality.
@@ -140,6 +143,31 @@ def generate_hamiltonian(systems_size: int,
     ham.include_identities([1,2])
     return ham
 
+def reference_ttn_structure(system_size: int,
+                            structure: TTNStructure,
+                            dimensionality: DimensionalityType
+                            ) -> TreeTensorNetworkState:
+    """
+    Get the reference TTN structure for the given system size and dimensionality.
+
+    Args:
+        system_size (int): The size of the system.
+        structure (TTNStructure): The TTN structure.
+        dimensionality (DimensionalityType): The dimensionality of the system.
+    
+    Returns:
+        TreeTensorNetworkState: The reference TTN structure.
+    """
+    if structure is TTNStructure.BINARY and dimensionality is DimensionalityType.TWO_D:
+        node_ids = [[STANDARD_NODE_PREFIX + str(y * system_size + x)
+                        for x in range(system_size)]
+                        for y in range(system_size)]
+        return optimised_2d_binary_ttn(system_size, 2, ket_i(0,2),
+                                       phys_prefix=node_ids)
+    return generate_zero_state(system_size,
+                                structure,
+                                topology=dimensionality.topology())
+
 def get_size_of_state_diagram(params: AllToAllSimParams) -> int:
     """
     Get the size of the state diagram for the given simulation parameters.
@@ -153,16 +181,17 @@ def get_size_of_state_diagram(params: AllToAllSimParams) -> int:
     ham = generate_hamiltonian(params.system_size,
                                params.dimensionality,
                                params.num_operators)
-    tree_structure = generate_zero_state(params.system_size,
-                                         params.ttn_structure,
-                                         topology=params.dimensionality.topology())
+    tree_structure = reference_ttn_structure(params.system_size,
+                                             params.ttn_structure,
+                                             params.dimensionality)
+    ham = ham.pad_with_identities(tree_structure)
     state_diagram = StateDiagram.from_hamiltonian(ham,
                                                   tree_structure,
                                                   method=params.method)
     return state_diagram.number_of_elements()
 
-def run_and_save(dir_path: str,
-                 params: AllToAllSimParams) -> None:
+def run_and_save(params: AllToAllSimParams,
+                 dir_path: str) -> None:
     """
     Run the simulation and save the results.
 

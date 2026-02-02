@@ -18,6 +18,7 @@ from .tree_cach_dict import PartialTreeCachDict
 from .contraction_util import (contract_all_but_one_neighbour_block_to_ket,
                                contract_all_neighbour_blocks_to_ket,
                                get_equivalent_legs)
+from .local_contr import LocalContraction
 
 if TYPE_CHECKING:
     from ..core.node import Node
@@ -484,3 +485,47 @@ def contract_bra_to_ket_and_blocks_ignore_one_leg(bra_tensor: np.ndarray,
     legs_bra.append(num_neighbours)
     return np.tensordot(ketblock_tensor, bra_tensor,
                         axes=(legs_block, legs_bra))
+
+
+def build_full_subtree_cache(ttns: TreeTensorNetworkState
+                              ) -> PartialTreeCachDict:
+    """
+    Contracts all subtrees of the TTNS-TTNS.conj contraction.
+
+    This means all subtrees pointing up and down the tree.
+
+    Args:
+        ttns (TTNS): The tree tensor network state.
+    
+    Returns:
+        PartialTreeCachDict: The contracted subtrees.
+    """
+    cache = PartialTreeCachDict()
+    lin_order = ttns.linearise() # Exclude root
+    # Get subtrees upwards
+    for node_id in lin_order[:-1]:
+        node, tensor = ttns[node_id]
+        nodes_tensors = [(node, tensor),
+                         (node, tensor.conj())]
+        ignored_leg = node.parent
+        assert ignored_leg is not None
+        local_contr = LocalContraction(nodes_tensors,
+                                       cache,
+                                       ignored_leg=ignored_leg)
+        local_contr.contract_into_cache()
+    # At this point all upwards envs are in the cache, so everything towards
+    # the root.
+    # Now we go back down.
+    lin_order.reverse()
+    for node_id in lin_order:
+        node, tensor = ttns[node_id]
+        if not node.is_leaf():
+            nodes_tensors = [(node, tensor),
+                             (node, tensor.conj())]
+            for child_id in node.children:
+                ignored_leg = child_id
+                local_contr = LocalContraction(nodes_tensors,
+                                               cache,
+                                               ignored_leg=ignored_leg)
+                local_contr.contract_into_cache()
+    return cache

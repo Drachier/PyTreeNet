@@ -343,7 +343,6 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             ZeroDivisionError: If renormalization is requested, but the norm
                 after projection is below the renorm_threshold.
         """
-        print(self.completely_contract_tree(to_copy=True)[0])
         for node_id, outcome in measurements.items():
             node, tensor = self[node_id]
             if node.nopen_legs() != 1:
@@ -369,7 +368,6 @@ class TreeTensorNetworkState(TreeTensorNetwork):
                 errstr = f"Cannot renormalise TTNS after measurement, norm is zero ({norm})!"
                 raise ZeroDivisionError(errstr)
             self.normalise(norm)
-            print(self.completely_contract_tree(to_copy=True)[0])
             return norm
         return float("NaN")
 

@@ -376,12 +376,23 @@ class AbstractQCircuit(ABC):
 
     def depth(self) -> int:
         """
-        Get the depth of the quantum circuit.
+        Get the depth of the quantum circuit including projections.
 
         Returns:
             int: The number of levels in the quantum circuit.
         """
         return len(self.levels)
+
+    def gate_depth(self) -> int:
+        """
+        Get the depth of the quantum circuit excluding projections.
+
+        Returns:
+            int: The number of quantum circuit levels in the quantum circuit.
+        """
+        gate_levels = [level for level in self.levels
+                       if isinstance(level, QCLevel)]
+        return len(gate_levels)
 
     @abstractmethod
     def add_level(self, level: Any | None = None, level_kind: type[AbstractLevel] | None = None):
@@ -901,7 +912,7 @@ class CompiledQuantumCircuit(AbstractQCircuit):
             else:
                 errstr = f"Level {level_index} is not a Hamiltonian!"
                 raise TypeError(errstr)
-            
+   
     def add_measurement(self,
                         measurement: Measurement,
                         level_index: int = -1):

@@ -472,7 +472,7 @@ def run_circuit(qc: QCircuit) -> np.ndarray:
     ttno.measurement_renorm_threshold = 1e-10
     ops = local_magnetisation_from_topology(Topology.CHAIN, num_qb,
                                             site_prefix="qubit")
-    final_time = qc.depth() * 1
+    final_time = qc.gate_depth() * 1
     time_step_size = 0.01
     config = BUGConfig(time_evo_mode=TimeEvoMode.RK45,
                     time_dep=True)
@@ -588,9 +588,8 @@ class TestCompiledQCircuitRunning(unittest.TestCase):
         qc = QCircuit()
         qc.add_hadamard(q_name(0))
         qc.add_projection(q_name(0), 0, level_index=1)
-        # We need the identity, as final measurements should be done manually usually
-        qc.add_identity(q_name(0), level_index=2)
         found = run_circuit(qc)
+        print(np.linalg.norm(found))
         correct = ket_i(0,2)
         np.testing.assert_allclose(found, correct,
                                    atol=1e-10)
@@ -604,8 +603,6 @@ class TestCompiledQCircuitRunning(unittest.TestCase):
         qc = QCircuit()
         qc.add_x(q_name(0))
         qc.add_projection(q_name(0), 1, level_index=1)
-        # We need the identity, as final measurements should be done manually usually
-        qc.add_identity(q_name(0), level_index=2)
         found = run_circuit(qc)
         correct = ket_i(1,2)
         np.testing.assert_allclose(found, correct,
@@ -620,8 +617,6 @@ class TestCompiledQCircuitRunning(unittest.TestCase):
         qc = QCircuit()
         qc.add_x(q_name(0))
         qc.add_projection(q_name(0), 0, level_index=1)
-        # We need the identity, as final measurements should be done manually usually
-        qc.add_identity(q_name(0), level_index=2)
         self.assertRaises(ZeroDivisionError, run_circuit, qc)
 
     def test_x_and_1_meas(self):
@@ -633,13 +628,10 @@ class TestCompiledQCircuitRunning(unittest.TestCase):
         qc = QCircuit()
         qc.add_x(q_name(0))
         qc.add_projection(q_name(0), 1, level_index=1)
-        # We need the identity, as final measurements should be done manually usually
-        qc.add_identity(q_name(0), level_index=2)
         found = run_circuit(qc)
         correct = ket_i(1,2)
         np.testing.assert_allclose(found, correct,
                                    atol=1e-10)
-        assert False
 
     def test_hadamard_cnot_and_meas_first_1(self):
         """
@@ -651,9 +643,6 @@ class TestCompiledQCircuitRunning(unittest.TestCase):
         qc.add_hadamard(q_name(0))
         qc.add_cnot(q_name(0), q_name(1), level_index=1)
         qc.add_projection(q_name(0), 1, level_index=2)
-        # We need the identity, as final measurements should be done manually usually
-        qc.add_identity(q_name(0), level_index=3)
-        qc.add_identity(q_name(1), level_index=3)
         found = run_circuit(qc)
         correct = ket_i(3,4)
         np.testing.assert_allclose(found, correct,
