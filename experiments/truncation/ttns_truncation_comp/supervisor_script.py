@@ -29,17 +29,17 @@ def generate_parameter_set() -> list[TruncationParams]:
                TruncationMethod.RECURSIVE,
                TruncationMethod.DENSITYMATRIX)
     seeds = (1234, 4321, 43954, 3923, 49384)
-    bond_dims = (80, )
+    bond_dims = (25, 50, 100, 150, 200)
     param_set = []
     for structure, method, bond_dim, seed in product(structures, methods, bond_dims, seeds):
         if structure is TTNStructure.MPS:
-            sys_size = 50
+            sys_size = 100
         elif structure is TTNStructure.BINARY:
-            sys_size = 7
-        elif structure is TTNStructure.FTPS:
             sys_size = 8
+        elif structure is TTNStructure.FTPS:
+            sys_size = 10
         elif structure is TTNStructure.TSTAR:
-            sys_size = 20
+            sys_size = 30
         else:
             raise ValueError(f"Unknown structure: {structure}")
         params = TruncationParams(

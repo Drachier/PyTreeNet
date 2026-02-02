@@ -79,4 +79,5 @@ def truncate_ttns(ttns: TTNS,
     if method == TruncationMethod.NONE:
         return ttns
     truncation_function = method.get_function()
-    return truncation_function(ttns, *args, **kwargs)
+    new_ttns = truncation_function(ttns, *args, **kwargs)
+    return new_ttns

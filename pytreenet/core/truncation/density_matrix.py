@@ -181,7 +181,7 @@ def _node_evaluation(node_tensor: tuple[Node, npt.NDArray],
                                     out_legs,
                                     in_legs,
                                     svd_params)
-    # Now u has legs order (neighs, phys, new_bond) and 
+    # Now u has legs order (neighs, phys, new_bond) and
     # uh has (new_bond, neighs, phys)
     # We perform the final contraction to get the R matrix
     uh_legs = tuple(range(1, uh.ndim)) # Skip new bond leg
@@ -195,4 +195,3 @@ def _node_evaluation(node_tensor: tuple[Node, npt.NDArray],
     perm = [last_leg] + list(range(last_leg))
     new_tensor = np.transpose(u, axes=perm)
     return new_tensor, r_matrix
-

@@ -163,7 +163,7 @@ def run_svd_based_truncation(params: TruncationParams) -> Results:
         svd_params = SVDParameters(max_bond_dim=bond_dim,
                                    random=params.random_trunc)
         start_time = time()
-        trunc_func(comp_ttns, svd_params)
+        comp_ttns = trunc_func(comp_ttns, svd_params)
         end_time = time()
         trunc_error = comp_ttns.distance(ttns, normalise=True)
         set_result_values(results, index,
