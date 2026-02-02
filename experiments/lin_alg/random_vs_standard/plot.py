@@ -31,8 +31,9 @@ def method_name(params: RandomVsStandardParams) -> str:
     """
     if params.svd_type == params.svd_type.STANDARD:
         return "Standard SVD"
-    else:
-        return "Randomized SVD"
+    if params.svd_type == params.svd_type.QB:
+        return "Randomized QB"
+    return "Randomized SVD"
 
 def method_colour(params: RandomVsStandardParams) -> str:
     """
@@ -46,8 +47,9 @@ def method_colour(params: RandomVsStandardParams) -> str:
     """
     if params.svd_type == params.svd_type.STANDARD:
         return "tab:blue"
-    else:
-        return "tab:orange"
+    if params.svd_type == params.svd_type.QB:
+        return "tab:green"
+    return "tab:orange"
 
 def build_lineconfig(params: RandomVsStandardParams) -> LineConfig:
     """
