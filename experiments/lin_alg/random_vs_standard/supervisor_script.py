@@ -23,7 +23,8 @@ def generate_parameter_set() -> list[RandomVsStandardParams]:
     low = -0.5
     high = 1.0
     svd_types = [SVDType.STANDARD,
-                 SVDType.RANDOMIZED]
+                 SVDType.RANDOMIZED,
+                 SVDType.QB]
     dimensions = [1e2,1e3,1e4,1e5]
     seeds = [669564823, 556548421]
     parameter_set = []
