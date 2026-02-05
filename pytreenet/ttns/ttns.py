@@ -2,7 +2,7 @@
 Provides a class representing tree tensor network states (TTNS)
 """
 from __future__ import annotations
-from typing import Union
+from typing import Self
 from copy import deepcopy
 
 import numpy as np
@@ -23,6 +23,29 @@ class TreeTensorNetworkState(TreeTensorNetwork):
     A TTNS is a TTN representing a quantum state. This means that every node
     has exactly one physical leg. That leg can be trivial, i.e. of dimension 1.
     """
+
+    @classmethod
+    def from_ttn(cls, ttn: TreeTensorNetwork) -> Self:
+        """
+        Reinterprets a TTN as a TTNS.
+        
+        This is only a shallow copy, so the tensors
+        are shared between the original TTN and the resulting TTNS. This means
+        that modifying the tensors of the resulting TTNS will also modify the 
+        tensors of the original TTN, and vice versa.
+
+        Args:
+            ttn (TreeTensorNetwork): The TTN to reinterpret as a TTNS.
+
+        Returns:
+            Self: The resulting TTNS.
+        """
+        new = cls()
+        new._tensors = ttn.tensors
+        new._nodes = ttn.nodes
+        new._root_id = ttn.root_id
+        new.orthogonality_center_id = ttn.orthogonality_center_id
+        return new
 
     def to_vector(self, to_copy: bool = False) -> tuple[np.ndarray, list[str]]:
         """

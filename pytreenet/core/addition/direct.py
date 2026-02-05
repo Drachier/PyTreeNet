@@ -88,7 +88,6 @@ def _create_new_tensor(node_id: str,
             upper_bound = lower_bound + dim
             insert_slices.append(slice(lower_bound, upper_bound))
             current_lower_bounds[neigh_id] = upper_bound
-        print(node_id, insert_slices, open_slices)
         new_tensor[tuple(insert_slices + open_slices)] = permuted_tensor
     return new_tensor
 

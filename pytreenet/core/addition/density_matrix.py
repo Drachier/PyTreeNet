@@ -11,9 +11,9 @@ from ...contractions.state_state_contraction import build_full_subtree_cache
 from ...util.tensor_splitting import SVDParameters, truncated_tensor_svd
 from ..node import relative_leg_permutation
 from ...contractions.local_contr import LocalContraction
+from ...contractions.tree_cach_dict import PartialTreeCachDict
 
 if TYPE_CHECKING:
-    from ...contractions.tree_cach_dict import PartialTreeCachDict
     from ..node import Node
     import numpy.typing as npt
 
