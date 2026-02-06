@@ -25,8 +25,8 @@ def generate_parameter_set() -> list[RandomVsStandardParams]:
     svd_types = [SVDType.STANDARD,
                  SVDType.RANDOMIZED,
                  SVDType.QB]
-    dimensions = [1e2,1e3,1e4,1e5]
-    seeds = [669564823, 556548421]
+    dimensions = [1e2,1e3]
+    seeds = [669564823, 556548421, 373485893, 8484922, 4849293874]
     parameter_set = []
     for dim, svd_type, seed in product(dimensions, svd_types, seeds):
         params = RandomVsStandardParams()

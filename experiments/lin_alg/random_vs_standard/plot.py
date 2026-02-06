@@ -157,7 +157,10 @@ def load_data(md_filter: MetadataFilter,
         stand_plts = (conv_plots[0].average_results(),
                       conv_plots[1].average_results())
         comb_plot = combine_equivalent_standard_plottables(stand_plts[1],stand_plts[0])
-        actual_out[method] = (stand_plts[0], stand_plts[1], comb_plot)
+        length = comb_plot.len()
+        actual_out[method] = (stand_plts[0].truncate(length - 1),
+                              stand_plts[1].truncate(length - 1),
+                              comb_plot.truncate(length - 1))
     for label, pltbs in actual_out.items():
         for pl in pltbs:
             pl.line_config.label = label
@@ -195,6 +198,8 @@ def plot_all(md_filter: MetadataFilter,
         if y_log:
             ax.set_yscale("log")
     axs[0].legend()
+    axs[0].set_ylim(bottom=1e-4)
+    axs[2].set_ylim(bottom=1e-4)
     fig.tight_layout()
     if save_path is not None:
         fig.savefig(save_path, format="pdf")
@@ -207,7 +212,7 @@ if __name__ == "__main__":
         print("Usage: python plot.py <data_directory>")
         sys.exit(1)
     data_dir = sys.argv[1]
-    sizes = (1e3, )
+    sizes = (1e2,1e3)
     for size in sizes:
         md_filter = MetadataFilter()
         md_filter.add_to_criterium("dimension", size)
