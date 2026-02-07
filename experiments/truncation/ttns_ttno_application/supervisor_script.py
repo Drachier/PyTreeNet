@@ -60,6 +60,11 @@ def generate_parameter_set() -> list[ApplicationParams]:
             distr_high=high
         )
         param_set.append(params)
+        if structure is TTNStructure.MPS and method == ApplicationMethod.ZIPUP:
+            # For MPS and zipup, we also want to test the canonical zipup.
+            params_canonical = copy(params)
+            params_canonical.appl_method = ApplicationMethod.ZIPUP_CANONICAL
+            param_set.append(params_canonical)
     return param_set
 
 def main():
