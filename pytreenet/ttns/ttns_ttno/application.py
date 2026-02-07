@@ -29,6 +29,7 @@ class ApplicationMethod(Enum):
     HALF_DENSITY_MATRIX = "half_density_matrix"
     SRC = "src"
     ZIPUP = "zipup"
+    ZIPUP_CANONICAL = "zipup_canonical"
     VARIATIONAL = "variational"
     ZIPUP_VARIATIONAL = "zipup_variational"
     HALF_DENSITY_MATRIX_VARIATIONAL = "half_density_matrix_variational"
@@ -52,6 +53,10 @@ class ApplicationMethod(Enum):
         if self == ApplicationMethod.ZIPUP:
             # Annoyingly, zipup has a different signature than the other application methods.
             return lambda ttns, ttno, *args, **kwargs: zipup(ttno, ttns, *args, **kwargs)
+        if self == ApplicationMethod.ZIPUP_CANONICAL:
+            return lambda ttns, ttno, *args, **kwargs: zipup(ttno, ttns, *args,
+                                                             canonicalize=True,
+                                                             **kwargs)
         if self == ApplicationMethod.VARIATIONAL:
             return variational_ttns_ttno_application
         if self == ApplicationMethod.ZIPUP_VARIATIONAL:

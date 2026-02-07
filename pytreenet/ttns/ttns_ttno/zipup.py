@@ -13,6 +13,7 @@ from ...util.tensor_splitting import SVDParameters
 from ..ttns import TreeTensorNetworkState
 from ...contractions.local_contr import LocalContraction
 from ...util.std_utils import identity_mapping
+from ...random.random_mps_and_mpo import random_mps_and_mpo_by_dimensions
 
 if TYPE_CHECKING:
     from ...ttno.ttno_class import TreeTensorNetworkOperator
@@ -22,8 +23,41 @@ __all__ = ['zipup']
 def zipup(operator: TreeTensorNetworkOperator,
           state: TreeTensorNetworkState,
           svd_params: SVDParameters | None = None,
-          id_trafo: Callable = identity_mapping
+          id_trafo: Callable = identity_mapping,
+          canonicalize: bool = False
           ) -> TreeTensorNetworkState:
+    """
+    Apply a TTNO to a TTNS.
+
+    Args:
+        operator (TreeTensorNetworkOperator): The TTNO to apply.
+        state (TreeTensorNetworkState): The TTNS that TTNO acts on.
+        svd_params (SVDParameters | None): The SVD parameters.
+        id_trafo (Callable): A function that transforms the node
+            identifiers of the state to the identifiers of the operator.
+            By default the identity mapping is used.
+        canonicalize (bool): Whether to canonicalize before runnin ZipUp.
+            This improves accuracy but can be costly due to running the
+            canonicalization procedure. By default False.
+
+    Returns:    
+        TreeTensorNetworkState: The result of the application of the TTNO to the TTNS.
+    """
+    if canonicalize:
+        return canonical_zipup(operator,
+                               state,
+                               svd_params,
+                               id_trafo)
+    return non_canonical_zipup(operator,
+                               state,
+                               svd_params,
+                               id_trafo)
+
+def non_canonical_zipup(operator: TreeTensorNetworkOperator,
+                        state: TreeTensorNetworkState,
+                        svd_params: SVDParameters | None = None,
+                        id_trafo: Callable = identity_mapping
+                        ) -> TreeTensorNetworkState:
     """
     Apply a TTNO to a TTNS.
 
@@ -209,13 +243,107 @@ def contract_any_nodes(ignored_node_id: str,
                                  ignored_leg=ignored_node_id,
                                  id_trafos=id_trafos)
     new_tensor = loc_contr()
-    assert ignored_node_id == ket_node_tensor[0].parent
-    parent_leg = ket_node_tensor[0].parent_leg
-    q_legs = list(range(parent_leg)) + list(range(parent_leg+2, new_tensor.ndim))
-    r_legs = (parent_leg, parent_leg + 1)
+    neigh_leg = ket_node_tensor[0].neighbour_index(ignored_node_id)
+    r_legs = (neigh_leg, neigh_leg + 1)
+    q_legs = tuple(filter(lambda i: i not in r_legs, range(new_tensor.ndim)))
     q, r = tensor_qr_decomposition_pivot(new_tensor,
                                          tuple(q_legs), r_legs,
                                          svd_params=svd_params)
-    new_state_tensor = np.moveaxis(q, -1, parent_leg)
+    new_state_tensor = np.moveaxis(q, -1, neigh_leg)
     cache_tensor = r.transpose([1,2,0])
     return new_state_tensor, cache_tensor
+
+def canonical_zipup(operator: TreeTensorNetworkOperator,
+                    state: TreeTensorNetworkState,
+                    svd_params: SVDParameters | None = None,
+                    id_trafo: Callable = identity_mapping
+                    ) -> TreeTensorNetworkState:
+    """
+    Apply a TTNO to a TTNS.
+
+    Args:
+        operator (TreeTensorNetworkOperator): The TTNO to apply.
+        state (TreeTensorNetworkState): The TTNS that TTNO acts on.
+        svd_params (SVDParameters | None): The SVD parameters.
+        id_trafo (Callable): A function that transforms the node
+            identifiers of the state to the identifiers of the operator.
+            By default the identity mapping is used.
+
+    Returns:    
+        TreeTensorNetworkState: The result of the application of the TTNO to the TTNS.
+    """
+    if svd_params is None:
+        svd_params = SVDParameters()
+    leafs = state.get_leafs()
+    if len(leafs) == 0:
+        # There are no tensors in both TTN.
+        return state
+    r_tensors = PartialTreeCachDict()
+    if len(leafs) <= 2:
+        # This is basically the MPS case, in which we can optimise the zip-up.
+        new_tensors: dict[str, np.ndarray] = {}
+        current_node_id = leafs[0]
+        state.canonical_form(current_node_id)
+        operator.canonical_form(id_trafo(current_node_id))
+        # We need to pull the node after the canonicalisation,
+        # as the nodes in the state will change due to it.
+        current_node = state.nodes[current_node_id]
+        while not current_node.is_root():
+            # We are on the way up to the root.
+            ignored_node_id = current_node.parent
+            assert ignored_node_id is not None
+            q, r = contract_any(current_node_id,
+                                 ignored_node_id,
+                                 state, operator,
+                                 r_tensors, svd_params,
+                                 id_trafo)
+            new_tensors[current_node_id] = q
+            r_tensors.add_entry(current_node_id,
+                                ignored_node_id,
+                                r)
+            # Move to the parent node.
+            last_node_id = current_node_id # Needed to know for the root.
+            current_node_id = ignored_node_id
+            current_node = state.nodes[current_node_id]
+        # Now we are at the root node.
+        assert current_node_id == state.root_id
+        children = current_node.children
+        if len(children) == 1:
+            # The only child is already contracted,
+            # So we only need to contract the r-tensors.
+            new_root_tensor = contract_root(state[current_node_id],
+                                            operator[id_trafo(current_node_id)],
+                                            r_tensors,
+                                            id_trafo)
+            new_tensors[current_node_id] = new_root_tensor
+        else:
+            # We need to walk down the tree to contract everything.
+            # This also means, the root is treated as any other node.
+            child_id = next(filter(lambda cid: cid != last_node_id, children))
+            while not current_node.is_leaf():
+                ignored_node_id = child_id
+                q, r = contract_any(current_node_id,
+                                     ignored_node_id,
+                                     state, operator,
+                                     r_tensors, svd_params,
+                                     id_trafo)
+                new_tensors[current_node_id] = q
+                r_tensors.add_entry(current_node_id,
+                                    ignored_node_id,
+                                    r)
+                # Move to the child node.
+                current_node_id = child_id
+                current_node = state.nodes[current_node_id]
+                if not current_node.is_leaf():
+                    # The only child is the next one to contract.
+                    child_id = current_node.children[0]
+            # Now we are at the other leaf node, which we only need to contract
+            new_leaf_tensor = contract_root(state[current_node_id],
+                                            operator[id_trafo(current_node_id)],
+                                            r_tensors,
+                                            id_trafo)
+            new_tensors[current_node_id] = new_leaf_tensor
+        resl_ttns = TreeTensorNetworkState.from_tensors(state, new_tensors)
+        return resl_ttns
+    errstr = "Canonical zip-up is currently only implemented for TTNS with at most two leafs."
+    raise NotImplementedError(errstr)

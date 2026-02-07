@@ -55,6 +55,7 @@ def random_ttns(structure: TTNStructure,
 def random_mps(num_sites: int,
                phys_dim: int,
                bond_dim: int,
+               root_site: int | None = None,
                **kwargs
                ) -> MatrixProductState:
     """
@@ -64,12 +65,16 @@ def random_mps(num_sites: int,
         num_sites (int): Number of sites in the MPS.
         phys_dim (int): Physical dimension of each site.
         bond_dim (int): Bond dimension between sites.
+        root_site (int | None): The site to be used as the root in the MPS.
+            If None, the middle site is used. By default None.
         **kwargs: Additional keyword arguments for the random number
             generation.
 
     Returns:
         MatrixProductState: The generated random MPS.
     """
+    if root_site is None:
+        root_site = num_sites // 2
     if num_sites < 2:
         shapes = [(phys_dim, )]
     else:
@@ -79,7 +84,7 @@ def random_mps(num_sites: int,
         shapes += [(bond_dim, phys_dim)]
     tensors = [crandn(shape, **kwargs) for shape in shapes]
     mps = MatrixProductState.from_tensor_list(tensors,
-                                              root_site=num_sites//2)
+                                              root_site=root_site)
     return mps
 
 def random_tstar_state(arm_length: int,

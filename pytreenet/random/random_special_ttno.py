@@ -51,6 +51,7 @@ def random_ttno(structure: TTNStructure,
 def random_mpo(num_sites: int,
                phys_dim: int,
                bond_dim: int,
+               root_site: int | None = None,
                **kwargs
 
                ) -> MatrixProductOperator:
@@ -67,6 +68,8 @@ def random_mpo(num_sites: int,
     Returns:
         MatrixProductOperator: The generated random MPO.
     """
+    if root_site is None:
+        root_site = num_sites // 2
     if num_sites < 2:
         shapes = [(phys_dim, phys_dim)]
     else:
@@ -76,7 +79,7 @@ def random_mpo(num_sites: int,
         shapes += [(bond_dim, phys_dim, phys_dim)]
     tensors = [crandn(shape, **kwargs) for shape in shapes]
     mpo = MatrixProductOperator.from_tensor_list(tensors,
-                                              root_site=num_sites//2)
+                                              root_site=root_site)
     return mpo
 
 def random_tstar_operator(arm_length: int,
