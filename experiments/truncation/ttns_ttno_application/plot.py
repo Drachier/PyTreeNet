@@ -50,6 +50,8 @@ def method_name(params: ApplicationParams) -> str:
         return "HDMFit"
     if params.appl_method is ApplicationMethod.DIRECT_TRUNCATE:
         return "Direct"
+    if params.appl_method is ApplicationMethod.ZIPUP_CANONICAL:
+        return "ZipUpCan"
     raise ValueError(f"Unknown application method: {params.appl_method}")
 
 def method_colour(params: ApplicationParams) -> str:
@@ -78,6 +80,8 @@ def method_colour(params: ApplicationParams) -> str:
         return "tab:olive"
     if params.appl_method is ApplicationMethod.DIRECT_TRUNCATE:
         return "tab:blue"
+    if params.appl_method is ApplicationMethod.ZIPUP_CANONICAL:
+        return "tab:cyan"
     raise ValueError(f"Unknown application method: {params.appl_method}")
 
 def build_lineconfig(params: ApplicationParams) -> LineConfig:
@@ -285,7 +289,10 @@ if __name__ == "__main__":
                                                    ApplicationMethod.SRC.value,
                                                    ApplicationMethod.ZIPUP.value,
                                                    ApplicationMethod.DIRECT_TRUNCATE.value,
-                                                   ApplicationMethod.HALF_DENSITY_MATRIX.value])
+                                                   ApplicationMethod.HALF_DENSITY_MATRIX.value,
+                                                   ])
+        if structure is TTNStructure.MPS:
+            md_filter.add_to_criterium("appl_method", ApplicationMethod.ZIPUP_CANONICAL.value)
         save_path = os.path.join(data_dir, "plots")
         save_path = os.path.join(save_path, f"truncation_comparison_{structure.value}.pdf")
         plot_all(md_filter, data_dir, save_path=save_path)
