@@ -34,6 +34,7 @@ class ApplicationMethod(Enum):
     ZIPUP_VARIATIONAL = "zipup_variational"
     HALF_DENSITY_MATRIX_VARIATIONAL = "half_density_matrix_variational"
     DIRECT_TRUNCATE = "direct_truncate"
+    DIRECT_TRUNCATE_RANDOM = "direct_truncate_random"
 
     def get_function(self) -> Callable:
         """
@@ -70,6 +71,18 @@ class ApplicationMethod(Enum):
                                                                            TruncationMethod.SVD,
                                                                            trunc_args=args,
                                                                            trunc_kwargs=kwargs)
+        if self == ApplicationMethod.DIRECT_TRUNCATE_RANDOM:
+            def random_truncation_method(ttns, ttno, *args, **kwargs):
+                params = kwargs.get("params", SVDParameters())
+                params.random = True
+                kwargs["params"] = params
+                return apply_and_truncate(ttns,
+                                          ttno,
+                                          ApplicationMethod.DIRECT,
+                                          TruncationMethod.SVD,
+                                          trunc_args=args,
+                                          trunc_kwargs=kwargs)
+            return random_truncation_method
         raise ValueError(f"Unknown application method: {self}")
 
 def variational_zipup(ttns: TTNS,
