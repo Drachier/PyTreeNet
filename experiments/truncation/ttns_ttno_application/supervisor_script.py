@@ -23,14 +23,17 @@ def generate_parameter_set() -> list[ApplicationParams]:
     low = -0.5
     high = 1.0
     phys_dim = 3
-    structures = (TTNStructure.TSTAR, TTNStructure.MPS,
-                  TTNStructure.BINARY, TTNStructure.FTPS)
+    structures = (TTNStructure.TSTAR,
+                  TTNStructure.MPS,
+                  TTNStructure.BINARY,
+                  TTNStructure.FTPS)
     methods = (
-            ApplicationMethod.DENSITY_MATRIX,
-            ApplicationMethod.SRC,
+            #ApplicationMethod.DENSITY_MATRIX,
+            #ApplicationMethod.SRC,
             ApplicationMethod.ZIPUP,
-            ApplicationMethod.DIRECT_TRUNCATE,
-            ApplicationMethod.HALF_DENSITY_MATRIX
+            ApplicationMethod.DIRECT_TRUNCATE_RANDOM,
+            #ApplicationMethod.DIRECT_TRUNCATE,
+            #ApplicationMethod.HALF_DENSITY_MATRIX
                )
     seeds = (1234, 4321, 32974, 238934, 239401)
     bond_dims = (10, 20, 40, 50)

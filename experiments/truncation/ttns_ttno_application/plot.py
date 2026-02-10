@@ -52,6 +52,8 @@ def method_name(params: ApplicationParams) -> str:
         return "Direct"
     if params.appl_method is ApplicationMethod.ZIPUP_CANONICAL:
         return "ZipUpCan"
+    if params.appl_method is ApplicationMethod.DIRECT_TRUNCATE_RANDOM:
+        return "DirectRDM"
     raise ValueError(f"Unknown application method: {params.appl_method}")
 
 def method_colour(params: ApplicationParams) -> str:
@@ -75,12 +77,14 @@ def method_colour(params: ApplicationParams) -> str:
     if params.appl_method is ApplicationMethod.VARIATIONAL:
         return "tab:brown"
     if params.appl_method is ApplicationMethod.ZIPUP_VARIATIONAL:
-        return "tab:pink"
+        return "tab:grey"
     if params.appl_method is ApplicationMethod.HALF_DENSITY_MATRIX_VARIATIONAL:
         return "tab:olive"
     if params.appl_method is ApplicationMethod.DIRECT_TRUNCATE:
         return "tab:blue"
     if params.appl_method is ApplicationMethod.ZIPUP_CANONICAL:
+        return "tab:pink"
+    if params.appl_method is ApplicationMethod.DIRECT_TRUNCATE_RANDOM:
         return "tab:cyan"
     raise ValueError(f"Unknown application method: {params.appl_method}")
 
@@ -290,6 +294,7 @@ if __name__ == "__main__":
                                                    ApplicationMethod.ZIPUP.value,
                                                    ApplicationMethod.DIRECT_TRUNCATE.value,
                                                    ApplicationMethod.HALF_DENSITY_MATRIX.value,
+                                                   ApplicationMethod.DIRECT_TRUNCATE_RANDOM.value
                                                    ])
         if structure is TTNStructure.MPS:
             md_filter.add_to_criterium("appl_method", ApplicationMethod.ZIPUP_CANONICAL.value)
