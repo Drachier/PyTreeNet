@@ -85,6 +85,18 @@ class ApplicationMethod(Enum):
             return random_truncation_method
         raise ValueError(f"Unknown application method: {self}")
 
+    def can_sum(self) -> bool:
+        """
+        Wether the method can be used to directly sum two TTNS together.
+
+        Notably, they should be able to apply a TTNO on each TTNS and sum
+        during the application, instead of applying the TTNOs and then sum
+        afterwards.
+        """
+        return self in {ApplicationMethod.DENSITY_MATRIX,
+                        ApplicationMethod.HALF_DENSITY_MATRIX,
+                        ApplicationMethod.SRC}
+
 def variational_zipup(ttns: TTNS,
                       ttno: TTNO,
                       *args,

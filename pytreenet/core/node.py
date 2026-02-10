@@ -526,7 +526,8 @@ def relative_leg_permutation(old_node: Node,
                              new_node: Node,
                              modify_function: Union[Callable,None] = None,
                              modified_parent: bool = False,
-                             use_open_legs: NodeEnum = NodeEnum.NEW
+                             use_open_legs: NodeEnum = NodeEnum.NEW,
+                             include_parent: bool = True
                              ) -> List[int]:
     """
     Calculates the relative permutation between two nodes.
@@ -546,6 +547,7 @@ def relative_leg_permutation(old_node: Node,
         use_open_legs (NodeEnum): Which open legs to use to create the
             permutation. Irrelevant if both nodes have the same number of open
             legs. Defaults to `NodeEnum.NEW`.
+        include_parent (bool): Whether to include the parent leg in the permutation.
     
     Returns:
         List[int]: The relative permutation.
@@ -556,7 +558,7 @@ def relative_leg_permutation(old_node: Node,
         child_perm = find_child_permutation_neighbour_index(old_node,
                                                             new_node,
                                                             modify_function)
-        if new_node.is_root():
+        if new_node.is_root() or not include_parent:
             perm = []
         else:
             perm = [new_node.parent_leg]
@@ -568,4 +570,3 @@ def relative_leg_permutation(old_node: Node,
         else:
             raise ValueError(f"Invalid Node Kind: {use_open_legs}")
         return perm
-

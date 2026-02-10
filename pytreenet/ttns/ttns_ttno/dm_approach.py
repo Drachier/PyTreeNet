@@ -13,8 +13,10 @@ from ...contractions.tree_cach_dict import PartialTreeCachDict
 from ...contractions.local_contr import LocalContraction
 from ...util.tensor_splitting import (SVDParameters,
                                       truncated_tensor_svd)
-from ...core.node import Node
+from ...core.node import (Node,
+                          relative_leg_permutation)
 from ...util.std_utils import identity_mapping
+from .abtract_lc_class import AbstractLinearCombination
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -23,9 +25,290 @@ if TYPE_CHECKING:
 
 __all__ = ["dm_ttns_ttno_application"]
 
+class DMTTNOApplication(AbstractLinearCombination):
+    """
+    A class to apply TTNOs to TTNSs via the density matrix based algorithm.
+    """
+
+    def __init__(self,
+                 ttnss: list[TTNS] | TTNS,
+                 ttnos: list[TTNO] | TTNO | None = None,
+                 id_trafos_ttns: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
+                 id_trafos_ttnos: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
+                 svd_params: SVDParameters | None = None
+                 ) -> None:
+        """
+        Initialises the DMTTNOApplication.
+
+        Args:
+            ttnss (list[TTNS] | TTNS): The TTNSs to apply the TTNOs to. If a
+                single TTNS is given, it is treated as a list of length one.
+            ttnos (list[TTNO] | TTNO | None, optional): The TTNOs to apply to
+                the TTNSs. If a single TTNO is given, it is treated as a list of
+                length one, and applied to all TTNSs in ttnss. If None is given,
+                the sum of the TTNSs is computed.
+                Defaults to None.
+            id_trafos_ttns (list[Callable[[str],str]] | Callable[[str],str], optional):
+                The identifier transformation functions for the TTNSs. The i-th
+                function transforms the node identifiers of the 0-th TTNS to the node
+                identifiers of the i-th TTNS. If a single function is given, it is
+                treated as a list of length one, and applied to all TTNSs in ttnss.
+                Defaults to identity_mapping.
+            id_trafos_ttnos (list[Callable[[str],str]] | Callable[[str],str], optional):
+                The identifier transformation functions for the TTNOs. The i-th
+                function transforms the node identifiers of the 0-th TTNS to the node
+                identifiers of the i-th TTNO. If a single function is given, it is
+                treated as a list of length one, and applied to all TTNOs in ttnos.
+                Defaults to identity_mapping.
+            svd_params (SVDParameters | None, optional): The parameters for the
+                decomposition. If None is given, the default parameters are used.
+                Defaults to None.
+        """
+        super().__init__(ttnss,
+                         ttnos=ttnos,
+                         id_trafos_ttns=id_trafos_ttns,
+                         id_trafos_ttnos=id_trafos_ttnos)
+        if svd_params is None:
+            svd_params = SVDParameters()
+        self._svd_params: SVDParameters = svd_params
+        self._subtree_caches = [PartialTreeCachDict()
+                                for _ in range(self.num_ttns())]
+
+    def __call__(self) -> TTNS:
+        """
+        Computes the result TTNS.
+
+        Returns:
+            TTNS: The result TTNS.
+        """
+        self._subtree_caches = self.build_full_subtree_caches()
+        new_tensors = self.find_new_ttns_tensors()
+        new_ttns = TTNS.from_tensors(self.get_base_ttns(), new_tensors)
+        return new_ttns
+
+    def build_full_subtree_caches(self) -> list[PartialTreeCachDict]:
+        """
+        Builds the full subtree caches for all TTNS-TTNO pairs.
+
+        Returns:
+            list[PartialTreeCachDict]: A list of subtree caches for all
+                TTNS-TTNO pairs.
+        """
+        caches = [self.build_full_subtree_cache(i)
+                  for i in range(self.num_ttns())]
+        return caches
+
+    def build_full_subtree_cache(self,
+                                 index: int
+                                 ) -> PartialTreeCachDict:
+        """
+        Builds the full subtree cache for the TTNS-TTNO pair at the given index.
+
+        Args:
+            index (int): The index of the TTNS-TTNO pair.
+        
+        Returns:
+            PartialTreeCachDict: The subtree cache for the TTNS-TTNO pair.
+        """
+        ttns = self._ttnss[index]
+        # TODO: Support no TTNOs
+        ttno = self._ttnos[index]
+        id_trafo = self.get_id_trafos_ttns_ttno(index)
+        cache = build_full_subtree_cache(ttns,
+                                         ttno,
+                                         id_trafo)
+        return cache
+
+    def find_new_ttns_tensors(self) -> dict[str, npt.NDArray]:
+        """
+        Finds the new tensors for the result TTNS.
+
+        Returns:
+            dict[str, npt.NDArray]: A dictionary containing the new tensors for the
+                result TTNS.
+        """
+        new_tensors = {}
+        order = self.get_base_ttns().linearise()
+        r_tensors_caches = [PartialTreeCachDict()
+                            for _ in range(self.num_ttns())]
+        for node_id in order[:-1]: # Root is handled separately
+            new_tensor = self._node_evaluation(node_id,
+                                               r_tensors_caches)
+            new_tensors[node_id] = new_tensor
+        root_tensor = self._root_evaluation(r_tensors_caches)
+        new_tensors[order[-1]] = root_tensor
+        return new_tensors
+
+    def _root_evaluation(self,
+                         r_tensor_caches: list[PartialTreeCachDict]
+                         ) -> npt.NDArray:
+        """
+        Evaluates the new root tensor.
+
+        Args:
+            r_tensor_caches (list[PartialTreeCachDict]): A list of caches for
+                the contractions of all subtrees below the root for all
+                TTNS-TTNO pairs.
+
+        Returns:
+            npt.NDArray: The new root tensor.
+        """
+        # The root is a special case, as we don't have a parent leg to contract
+        # with, so we just contract the whole subtree tensor with the local
+        # contraction of the root node.
+        loca_contr_tensors: list[npt.NDArray] = []
+        root_id = self.get_base_ttns().root_id
+        assert root_id is not None
+        for i in range(self.num_ttns()):
+            non_base_root_id = self.base_id_to_ttns(root_id, i)
+            ket_node_tensor = self.get_ttns_node_tensor(i, non_base_root_id)
+            op_node_tensor = self.get_ttno_node_tensor(i, non_base_root_id)
+            r_tensor_cache = r_tensor_caches[i]
+            ttns_ttno_trafo = self.get_id_trafos_ttns_ttno(i)
+            local_contr = LocalContraction([ket_node_tensor,
+                                            op_node_tensor],
+                                            r_tensor_cache,
+                                            id_trafos=[identity_mapping,
+                                                       ttns_ttno_trafo])
+            local_contr_tensor = local_contr.contract_all()
+            loca_contr_tensors.append(local_contr_tensor)
+        new_tensor = np.sum(loca_contr_tensors, axis=0)
+        return new_tensor
+
+    def _node_evaluation(self,
+                         node_id: str,
+                         r_tensor_caches: list[PartialTreeCachDict]
+                         ) -> npt.NDArray:
+        """
+        Evaluates the new tensor for the given node and index.
+
+        Args:
+            node_id (str): The identifier of the node to evaluate. This is not
+                the identifier in the base TTNS!
+            r_tensor_caches (list[PartialTreeCachDict]): A list of caches for
+                the contractions of all subtrees below this node for all
+                TTNS-TTNO pairs. Note, that these will be modified by adding
+                the new contractions for this node.
+
+        Returns:
+            npt.NDArray: The tensor in the new TTNS.
+        """
+        red_dms: list[npt.NDArray] = []
+        # It is efficient to reuse the contraction result
+        lower_contr_tensors: list[npt.NDArray] = []
+        for i in range(self.num_ttns()):
+            non_base_node_id = self.base_id_to_ttns(node_id, i)
+            ket_node_tensor = self.get_ttns_node_tensor(i, non_base_node_id)
+            parent_id = ket_node_tensor[0].parent
+            assert parent_id is not None
+            subtree_tensor = self._subtree_caches[i].get_entry(parent_id,
+                                                                non_base_node_id)
+            red_dm, lower_contr_tensor = self.get_reduced_density_matrix(i,
+                                                                         non_base_node_id,
+                                                                         subtree_tensor,
+                                                                         r_tensor_caches[i])
+            red_dms.append(red_dm)
+            lower_contr_tensors.append(lower_contr_tensor)
+        # Now we can find the combined density matrix
+        combined_red_dm = np.sum(red_dms, axis=0)
+        # Remember, the first half of the legs are the output legs,
+        # the second half are the input legs. We want to split in the middle
+        half = combined_red_dm.ndim // 2
+        out_legs = tuple(range(half))
+        in_legs = tuple(range(half, combined_red_dm.ndim))
+        u, _, uh = truncated_tensor_svd(combined_red_dm,
+                                        out_legs,
+                                        in_legs,
+                                        self._svd_params)
+        base_node = self.get_base_node(0, node_id)
+        for i in range(self.num_ttns()):
+            # The order of the order of the legs in uh is (new, neighs, phys) as it
+            # is not changed in the svd.
+            # The same is true for lower_contr_tensor, but the order of the legs
+            # is (parent0, parent1, neighs, phys).
+            # We now need to find the new r_tensors
+            uh_legs = tuple(range(1,uh.ndim))
+            non_base_node = self.get_ttns_node_tensor(i, non_base_node_id)[0]
+            low_legs = relative_leg_permutation(non_base_node,
+                                                base_node,
+                                                modify_function=self.get_ttns_base_id_map(i),
+                                                include_parent=False
+                                                )
+            # +1 as we have one leg from the TTNS and one from TTNO pointing to the parent.
+            low_legs = tuple([leg + 1 for leg in low_legs])
+            r_tensor = np.tensordot(lower_contr_tensors[i],
+                                    uh,
+                                    axes=(low_legs, uh_legs))
+            r_tensor_caches[i].add_entry(non_base_node_id,
+                                         non_base_node.parent,
+                                         r_tensor)
+        new_tensor = _adjust_new_ttns_tensor(u)
+        return new_tensor
+
+    def get_reduced_density_matrix(self,
+                                   index: int,
+                                   node_id: str,
+                                   subtree_tensor: npt.NDArray,
+                                   r_tensor_cache: PartialTreeCachDict,
+                                   ) -> tuple[npt.NDArray, npt.NDArray]:
+        """
+        Gets the reduced density matrix for the given node for the given
+        TTNS-TTNO pair.
+
+        Args:
+            index (int): The index of the TTNS-TTNO pair.
+            node_id (str): The identifier of the node to get the reduced density
+                matrix for of the considered TTNS. This is not the identifier in 
+                the base TTNS!
+            subtree_tensor (npt.NDArray): The subtree tensor to contract the
+                parent legs with.
+            r_tensor_cache (PartialTreeCachDict): A cache containing the
+                contractions of all subtrees below this node.
+
+        Returns:
+            tuple[npt.NDArray, npt.NDArray]: The reduced density matrix adapted
+                to the leg order of the base TTNS, and the lower contraction
+                result.
+        """
+        id_trafo = self.get_id_trafos_ttns_ttno(index)
+        ket_node_tensor = self._ttnss[index][node_id]
+        op_node_tensor = self._ttnos[index][id_trafo(node_id)]
+        ignored_leg = ket_node_tensor[0].parent
+        assert ignored_leg is not None
+        local_contr = LocalContraction([ket_node_tensor,
+                                        op_node_tensor],
+                                        r_tensor_cache,
+                                        ignored_leg=ignored_leg,
+                                        id_trafos=[identity_mapping, id_trafo])
+        lower_contr_tensor = local_contr()
+        upper_contr_tensor = lower_contr_tensor.conj()
+        # Now we perform the contraction with the subtree tensor
+        # The first two open legs of the lower tensor are the legs towards the
+        # parent, which is exactly what we want to contract with the subtree tensor
+        tensor = np.tensordot(subtree_tensor,
+                            lower_contr_tensor,
+                            axes=([0,1],[0,1]))
+        tensor = np.tensordot(tensor,
+                            upper_contr_tensor,
+                            axes=([0,1],[1,0])) # Note the order of axes here
+        # Now the first half of the legs are the output legs, the second half
+        # are the input legs of the reduced density matrix
+        # We also must adapt the leg order to fit with the base tensor.
+        children_permutation = relative_leg_permutation(ket_node_tensor[0],
+                                                        self.get_base_node(index,node_id),
+                                                        self.get_ttns_base_id_map(index),
+                                                        include_parent=False)
+        # The parent leg is the first, which we don't have anymore, so -1
+        children_permutation = [leg - 1 for leg in children_permutation]
+        transpose_map = children_permutation
+        half_legs = len(transpose_map)
+        transpose_map += [i + half_legs for i in transpose_map]
+        return tensor.transpose(transpose_map), lower_contr_tensor
+
+
 def dm_ttns_ttno_application(ttns: TTNS,
                              ttno: TTNO,
-                             id_trafo: None | Callable = None,
+                             id_trafo: Callable = identity_mapping,
                              svd_params: SVDParameters = SVDParameters()
                              ) -> TTNS:
     """
@@ -38,8 +321,8 @@ def dm_ttns_ttno_application(ttns: TTNS,
         ttns (TTNS): The TTNS to contract.
         ttno (TTNO): The TTNO to contract.
         id_trafo (Callable, optional): A function that transforms the TTNS`s
-            node identifiers to the TTNO`s node identifiers. If None, the
-            identity function is used. Defaults to None.
+            node identifiers to the TTNO`s node identifiers. Defaults to
+            the identity_mapping.
         svd_params (SVDParameters): The parameters for the decomposition.
     
     Returns:
@@ -47,17 +330,11 @@ def dm_ttns_ttno_application(ttns: TTNS,
             contraction of the TTNS with the TTNO.
 
     """
-    if id_trafo is None:
-        id_trafo = identity_mapping
-    subtree_cache = build_full_subtree_cache(ttns,
-                                             ttno,
-                                             id_trafo)
-    new_tensors = find_new_ttns_tensors(ttns,
-                                        ttno,
-                                        subtree_cache,
-                                        id_trafo,
-                                        svd_params)
-    new_ttns = TTNS.from_tensors(ttns, new_tensors)
+    appl_obj = DMTTNOApplication(ttns,
+                                 ttnos=ttno,
+                                 id_trafos_ttnos=id_trafo,
+                                 svd_params=svd_params)
+    new_ttns = appl_obj()
     return new_ttns
 
 def build_full_subtree_cache(ttns: TTNS,
@@ -118,59 +395,6 @@ def build_full_subtree_cache(ttns: TTNS,
                 local_contr.contract_into_cache()
     return cache
 
-def find_new_ttns_tensors(ttns: TTNS,
-                          ttno: TTNO,
-                          subtree_cache: PartialTreeCachDict,
-                          id_trafo: Callable,
-                          svd_params: SVDParameters
-                          ) -> dict[str, npt.NDArray]:
-    """
-    Finds the new tensors for the TTNS after the contraction with the TTNO.
-
-    Args:
-        ttns (TTNS): The TTNS to contract.
-        ttno (TTNO): The TTNO to contract.
-        subtree_cache (PartialTreeCachDict): A cache containing the
-            contractions of all subtrees.
-        id_trafo (Callable): A function that transforms the TTNS`s
-            node identifiers to the TTNO`s node identifiers.
-        svd_params (SVDParameters): The parameters for the decomposition.
-
-    Returns:
-        dict[str, npt.NDArray]: A dictionary containing the new tensors for the
-            TTNS after the contraction with the TTNO.
-    """
-    order = ttns.linearise()
-    new_tensors = {}
-    half_subtree_cache = PartialTreeCachDict()
-    for node_id in order[:-1]:
-        ket_node_tensor = ttns[node_id]
-        op_node_tensor = ttno[id_trafo(node_id)]
-        parent_id = ket_node_tensor[0].parent
-        assert parent_id is not None
-        subtree_tensor = subtree_cache.get_entry(parent_id,
-                                                 node_id)
-        new_tensor, half_tensor = _node_evaluation(ket_node_tensor,
-                                                   op_node_tensor,
-                                                   subtree_tensor,
-                                                   half_subtree_cache,
-                                                   id_trafo,
-                                                   svd_params)
-        new_tensors[node_id] = new_tensor
-        half_subtree_cache.add_entry(node_id,
-                                     parent_id,
-                                     half_tensor)
-    root_id = ttns.root_id
-    assert root_id is not None and order[-1] == root_id
-    ket_node_tensor = ttns[root_id]
-    op_node_tensor = ttno[id_trafo(root_id)]
-    new_tensor = _root_evaluation(ket_node_tensor,
-                                  op_node_tensor,
-                                  half_subtree_cache,
-                                  id_trafo)
-    new_tensors[root_id] = new_tensor
-    return new_tensors
-
 def _prepare_contraction_nts(node_id: str,
                              ttns: TTNS,
                              ttno: TTNO,
@@ -207,104 +431,6 @@ def _prepare_operator_conj_nt(op_nt: tuple[Node, npt.NDArray]
     op_conj_node.operator_transpose()
     op_conj_tensor = op_conj_node.transpose_tensor(op_nt[1]).conj()
     return (op_conj_node, op_conj_tensor)
-
-def _root_evaluation(ket_node_tensor: tuple[Node, npt.NDArray],
-                        op_node_tensor: tuple[Node, npt.NDArray],
-                        half_subtree_cache: PartialTreeCachDict,
-                        id_trafo: Callable
-                     ) -> npt.NDArray:
-    """
-    Evaluates the new root node.
-
-    Args:
-        ket_node_tensor (tuple[Node, npt.NDArray]): The ket node-tensor pair.
-        op_node_tensor (tuple[Node, npt.NDArray]): The operator node-tensor
-            pair.
-        half_subtree_cache (PartialTreeCachDict): A cache containing the
-            contractions of all subtrees below this node.
-        id_trafo (Callable): A function that transforms the TTNS`s
-            node identifiers to the TTNO`s node identifiers.
-    
-    Returns:
-        npt.NDArray: The new root tensor. Corresponds to M_1 in
-            https://tensornetwork.org/mps/algorithms/denmat_mpo_mps/.
-    """
-    # Now we contract a half environment to every neighbour
-    local_contr = LocalContraction([ket_node_tensor,
-                                    op_node_tensor],
-                                   half_subtree_cache,
-                                   id_trafos=[identity_mapping, id_trafo])
-    # Due to the final transpose in the local contraction. The legs will all
-    # be at the right position, i.e. the subtree of a neighbour has one open
-    # leg. This open legs will be a the same position as the neighbour.
-    return local_contr.contract_all()
-
-def _node_evaluation(ket_node_tensor: tuple[Node, npt.NDArray],
-                        op_node_tensor: tuple[Node, npt.NDArray],
-                        subtree_tensor: npt.NDArray,
-                        half_subtree_cache: PartialTreeCachDict,
-                        id_trafo: Callable,
-                        svd_params: SVDParameters
-                        ) -> tuple[npt.NDArray, npt.NDArray]:
-    """
-    Evaluates the optimisation of a node.
-
-    Args:
-        ket_node_tensor (tuple[Node, npt.NDArray]): The ket node-tensor pair.
-        op_node_tensor (tuple[Node, npt.NDArray]): The operator node-tensor
-            pair.
-        subtree_tensor (npt.NDArray): The subtree tensor to contract with.
-        half_subtree_cache (PartialTreeCachDict): A cache containing the
-            contractions of all subtrees below this node.
-        id_trafo (Callable): A function that transforms the TTNS`s
-            node identifiers to the TTNO`s node identifiers.
-        svd_params (SVDParameters): The parameters for the decomposition.
-    
-    Returns:
-        tuple[npt.NDArray, npt.NDArray]: The first tensor is the tensor in the
-            new TTNS, and the second tensor is the subtree tensor of the lower
-            half of the contraction (only ket and op). This corresponds to
-            U_i and C_i in https://tensornetwork.org/mps/algorithms/denmat_mpo_mps/.
-    """
-    # First we perform the lower contraction
-    ignored_leg = ket_node_tensor[0].parent
-    assert ignored_leg is not None
-    local_contr = LocalContraction([ket_node_tensor,
-                                    op_node_tensor],
-                                   half_subtree_cache,
-                                   ignored_leg=ignored_leg,
-                                   id_trafos=[identity_mapping, id_trafo])
-    lower_contr_tensor = local_contr()
-    upper_contr_tensor = lower_contr_tensor.conj()
-    # Now we perform the contraction with the subtree tensor
-    # The first two open legs of the lower tensor are the legs towards the
-    # parent, which is exactly what we want to contract with the subtree tensor
-    tensor = np.tensordot(subtree_tensor,
-                          lower_contr_tensor,
-                          axes=([0,1],[0,1]))
-    tensor = np.tensordot(tensor,
-                          upper_contr_tensor,
-                          axes=([0,1],[1,0])) # Note the order of axes here
-    # Now the first half of the legs are the output legs, the second half
-    # are the input legs of the reduced density matrix
-    half = tensor.ndim // 2
-    out_legs = tuple(range(half))
-    in_legs = tuple(range(half, tensor.ndim))
-    u, _, uh = truncated_tensor_svd(tensor,
-                                    out_legs,
-                                    in_legs,
-                                    svd_params)
-    # The order of the order of the legs in uh is (new, neighs, phys) as it
-    # is not changed in the svd.
-    # The same is true for lower_contr_tensor, but the order of the legs
-    # is (parent0, parent1, neighs, phys).
-    uh_legs = tuple(range(1,uh.ndim))
-    low_legs = tuple(range(2,lower_contr_tensor.ndim))
-    low_half_tensor = np.tensordot(lower_contr_tensor,
-                                   uh,
-                                   axes=(low_legs, uh_legs))
-    u = _adjust_new_ttns_tensor(u)
-    return u, low_half_tensor
 
 def _adjust_new_ttns_tensor(ttns_tensor: npt.NDArray) -> npt.NDArray:
     """

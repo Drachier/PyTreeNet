@@ -1,7 +1,7 @@
 """
 Some useful tools that do not fit into any other category.
 """
-from typing import Iterator, Any, Dict, List
+from typing import Iterator, Any, Dict, List, Callable, Iterable
 from copy import deepcopy, copy
 from collections import Counter
 
@@ -224,3 +224,30 @@ def identity_mapping(x: Any) -> Any:
         Any: The output, which is the same as the input.
     """
     return x
+
+def inverse_bijective_finite_map(mapping: dict[Any, Any] | Callable[[Any], Any],
+                                 keys_to_invert: Iterable[Any] | None = None
+                                 ) -> Callable[[Any], Any]:
+    """
+    Computes the inverse of a bijective finite map.
+
+    Args:
+        mapping (dict[Any, Any] | Callable[[Any], Any]): The bijective finite
+            map to invert. If a dictionary is given, it is treated as a
+            function that maps the keys to the values. If a callable is given,
+            it is treated as a function that maps the input to the output.
+        keys_to_invert (Iterable[Any] | None, optional): The keys to invert. If
+            None is given, all keys are inverted. Defaults to None.
+
+    Returns:
+        Callable[[Any], Any]: The inverse of the input mapping.
+    """
+    if isinstance(mapping, dict):
+        inverse_mapping = {v: k for k, v in mapping.items()
+                           if keys_to_invert is None or k in keys_to_invert}
+    else:
+        if keys_to_invert is None:
+            errstr = "If mapping is a callable, keys_to_invert must be provided!"
+            raise ValueError(errstr)
+        inverse_mapping = {mapping(k): k for k in keys_to_invert}
+    return lambda x: inverse_mapping[x]
