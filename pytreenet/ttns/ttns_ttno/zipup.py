@@ -8,12 +8,11 @@ import numpy as np
 
 from ...core.node import Node
 from ...contractions.tree_cach_dict import PartialTreeCachDict
-from ...util.tensor_splitting import tensor_qr_decomposition_pivot
-from ...util.tensor_splitting import SVDParameters
+from ...util.tensor_splitting import (SVDParameters,
+                                      contr_truncated_svd_splitting)
 from ..ttns import TreeTensorNetworkState
 from ...contractions.local_contr import LocalContraction
 from ...util.std_utils import identity_mapping
-from ...random.random_mps_and_mpo import random_mps_and_mpo_by_dimensions
 
 if TYPE_CHECKING:
     from ...ttno.ttno_class import TreeTensorNetworkOperator
@@ -246,7 +245,7 @@ def contract_any_nodes(ignored_node_id: str,
     neigh_leg = ket_node_tensor[0].neighbour_index(ignored_node_id)
     r_legs = (neigh_leg, neigh_leg + 1)
     q_legs = tuple(filter(lambda i: i not in r_legs, range(new_tensor.ndim)))
-    q, r = tensor_qr_decomposition_pivot(new_tensor,
+    q, r = contr_truncated_svd_splitting(new_tensor,
                                          tuple(q_legs), r_legs,
                                          svd_params=svd_params)
     new_state_tensor = np.moveaxis(q, -1, neigh_leg)
