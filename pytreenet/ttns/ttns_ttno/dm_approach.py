@@ -72,32 +72,6 @@ class DMTTNOApplication(AbstractLinearCombination):
         if svd_params is None:
             svd_params = SVDParameters()
         self._svd_params: SVDParameters = svd_params
-        self._subtree_caches = [PartialTreeCachDict()
-                                for _ in range(self.num_ttns())]
-
-    def __call__(self) -> TTNS:
-        """
-        Computes the result TTNS.
-
-        Returns:
-            TTNS: The result TTNS.
-        """
-        self._subtree_caches = self.build_full_subtree_caches()
-        new_tensors = self.find_new_ttns_tensors()
-        new_ttns = TTNS.from_tensors(self.get_base_ttns(), new_tensors)
-        return new_ttns
-
-    def build_full_subtree_caches(self) -> list[PartialTreeCachDict]:
-        """
-        Builds the full subtree caches for all TTNS-TTNO pairs.
-
-        Returns:
-            list[PartialTreeCachDict]: A list of subtree caches for all
-                TTNS-TTNO pairs.
-        """
-        caches = [self.build_full_subtree_cache(i)
-                  for i in range(self.num_ttns())]
-        return caches
 
     def build_full_subtree_cache(self,
                                  index: int
@@ -121,65 +95,6 @@ class DMTTNOApplication(AbstractLinearCombination):
                                             ttno,
                                             id_trafo)
         return cache
-
-    def find_new_ttns_tensors(self) -> dict[str, npt.NDArray]:
-        """
-        Finds the new tensors for the result TTNS.
-
-        Returns:
-            dict[str, npt.NDArray]: A dictionary containing the new tensors for the
-                result TTNS.
-        """
-        new_tensors = {}
-        order = self.get_base_ttns().linearise()
-        r_tensors_caches = [PartialTreeCachDict()
-                            for _ in range(self.num_ttns())]
-        for node_id in order[:-1]: # Root is handled separately
-            new_tensor = self._node_evaluation(node_id,
-                                               r_tensors_caches)
-            new_tensors[node_id] = new_tensor
-        root_tensor = self._root_evaluation(r_tensors_caches)
-        new_tensors[order[-1]] = root_tensor
-        return new_tensors
-
-    def _root_evaluation(self,
-                         r_tensor_caches: list[PartialTreeCachDict]
-                         ) -> npt.NDArray:
-        """
-        Evaluates the new root tensor.
-
-        Args:
-            r_tensor_caches (list[PartialTreeCachDict]): A list of caches for
-                the contractions of all subtrees below the root for all
-                TTNS-TTNO pairs.
-
-        Returns:
-            npt.NDArray: The new root tensor.
-        """
-        # The root is a special case, as we don't have a parent leg to contract
-        # with, so we just contract the whole subtree tensor with the local
-        # contraction of the root node.
-        local_contr_tensors: list[npt.NDArray] = []
-        root_id = self.get_base_ttns().root_id
-        assert root_id is not None
-        for i in range(self.num_ttns()):
-            non_base_root_id = self.base_id_to_ttns(root_id, i)
-            ket_node_tensor = self.get_ttns_node_tensor(i, non_base_root_id)
-            node_tensors = [ket_node_tensor]
-            id_trafos = [identity_mapping]
-            if self.ttno_applied(i):
-                op_node_tensor = self.get_ttno_node_tensor(i, non_base_root_id)
-                node_tensors.append(op_node_tensor)
-                ttns_ttno_trafo = self.get_id_trafos_ttns_ttno(i)
-                id_trafos.append(ttns_ttno_trafo)
-            r_tensor_cache = r_tensor_caches[i]
-            local_contr = LocalContraction(node_tensors,
-                                            r_tensor_cache,
-                                            id_trafos=id_trafos)
-            local_contr_tensor = local_contr.contract_all()
-            local_contr_tensors.append(local_contr_tensor)
-        new_tensor = np.sum(local_contr_tensors, axis=0)
-        return new_tensor
 
     def _node_evaluation(self,
                          node_id: str,
