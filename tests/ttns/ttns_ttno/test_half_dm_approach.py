@@ -2,6 +2,7 @@
 This module provides unittests for the density matrix based TTNO application.
 """
 import unittest
+from copy import deepcopy
 
 import numpy.testing as npt
 
@@ -17,7 +18,9 @@ from pytreenet.random.random_special_ttno import (random_ftpo,
                                                   random_tstar_operator)
 from pytreenet.util.tensor_splitting import SVDParameters
 
-from pytreenet.ttns.ttns_ttno.half_dm_approach import half_dm_ttns_ttno_application
+from pytreenet.ttns.ttns_ttno.half_dm_approach import (half_dm_ttns_ttno_application,
+                                                       half_dm_linear_combination,
+                                                       half_dm_addition)
 
 class TestHalfDMApproachrandomTTN(unittest.TestCase):
     """
@@ -39,6 +42,44 @@ class TestHalfDMApproachrandomTTN(unittest.TestCase):
         found, order = result.to_vector()
         npt.assert_array_almost_equal(found, ref)
 
+    def test_linear_combination_small_ttn(self):
+        """
+        Test the DM approach for a linear combination of small TTNs.
+        """
+        ttns1, ttno1 = small_ttns_and_ttno()
+        ttns2, ttno2 = small_ttns_and_ttno()
+        ttns3, ttno3 = small_ttns_and_ttno()
+        ref = [deepcopy(ttno1).as_matrix()[0] @ deepcopy(ttns1).to_vector()[0],
+               deepcopy(ttno2).as_matrix()[0] @ deepcopy(ttns2).to_vector()[0],
+              # deepcopy(ttno3).as_matrix()[0] @ deepcopy(ttns3).to_vector()[0]
+              ]
+        ref = sum(ref)
+        ref = ref / (ref.T.conj()@ref)
+        found = half_dm_linear_combination([ttns1, ttns2],
+                                      [ttno1, ttno2])
+        found, order = found.to_vector()
+        found = found / (found.T.conj()@found)
+        npt.assert_array_almost_equal(found, ref)
+
+    def test_addition_small_ttn(self):
+        """
+        Test the addition case of the DM approach for a small TTN.
+        """
+        ttns1 = small_ttns_and_ttno()[0]
+        ttns2 = small_ttns_and_ttno()[0]
+        ttns3 = small_ttns_and_ttno()[0]
+        ref = deepcopy(ttns1).to_vector()[0]
+        ref += deepcopy(ttns2).to_vector()[0]
+        #ref += deepcopy(ttns3).to_vector()[0]
+        #ref = ref / (ref.T.conj()@ref)
+        found = half_dm_addition([ttns1,
+                                  ttns2,
+                                  # ttns3
+                                  ])
+        found = found.to_vector()[0]
+        #found = found / (found.T.conj()@found)
+        npt.assert_array_almost_equal(found, ref)
+
     def test_big_ttn(self):
         """
         Test the half DM approach for a bigger TTN.
@@ -52,6 +93,25 @@ class TestHalfDMApproachrandomTTN(unittest.TestCase):
         op, order_op = ttno.as_matrix()
         ref = op @ state
         found, order = result.to_vector()
+        npt.assert_array_almost_equal(found, ref)
+
+    def test_addition_big_ttn(self):
+        """
+        Test the addition case of the DM approach for a bigger TTN.
+        """
+        ttns1 = big_ttns_and_ttno()[0]
+        ttns2 = big_ttns_and_ttno()[0]
+        ttns3 = big_ttns_and_ttno()[0]
+        ref = deepcopy(ttns1).to_vector()[0]
+        ref += deepcopy(ttns2).to_vector()[0]
+        #ref += deepcopy(ttns3).to_vector()[0]
+        ref = ref / (ref.T.conj()@ref)
+        found = half_dm_addition([ttns1,
+                                  ttns2,
+                                  # ttns3
+                                  ])
+        found = found.to_vector()[0]
+        found = found / (found.T.conj()@found)
         npt.assert_array_almost_equal(found, ref)
 
 class TestHalfDMApproachSpecialTTN(unittest.TestCase):

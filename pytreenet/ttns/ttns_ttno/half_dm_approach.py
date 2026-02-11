@@ -129,6 +129,7 @@ class HalfDMTTNOApplication(AbstractLinearCombination):
                                            r_tensor_cache,
                                            id_trafos=id_trafos)
             effective_tensor = local_contr()
+            print(effective_tensor.shape)
             r_tensor_cache.delete_entry(parent_id,
                                         non_base_node_id)
             # Now we need to perform the QR-decomposition
@@ -235,7 +236,74 @@ def half_dm_ttns_ttno_application(ttns: TTNS,
                                      ttnos=ttno,
                                      id_trafos_ttnos=id_trafo,
                                      svd_params=svd_params)
-    return appl_obj()   
+    return appl_obj()
+
+def half_dm_linear_combination(ttnss: list[TTNS],
+                          ttnos: list[TTNO | None],
+                          id_trafos_ttns: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
+                          id_trafos_ttnos: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
+                          svd_params: SVDParameters = SVDParameters()
+                            ) -> TTNS:
+    """
+    Computes a linear combination of the given TTNSs with the given TTNOs via the
+    half density matrix based algorithm.
+
+    Args:
+        ttnss (list[TTNS]): The TTNSs to combine.
+        ttnos (list[TTNO]): The TTNOs to apply to the TTNSs. The i-th TTNO is
+            applied to the i-th TTNS.
+        id_trafos_ttns (list[Callable[[str],str]] | Callable[[str],str], optional):
+            The identifier transformation functions for the TTNSs. The i-th
+            function transforms the node identifiers of the 0-th TTNS to the node
+            identifiers of the i-th TTNS. If a single function is given, it is
+            treated as a list of length one, and applied to all TTNSs in ttnss.
+            Defaults to identity_mapping.
+        id_trafos_ttnos (list[Callable[[str],str]] | Callable[[str],str], optional):
+            The identifier transformation functions for the TTNOs. The i-th
+            function transforms the node identifiers of the 0-th TTNS to the node
+            identifiers of the i-th TTNO. If a single function is given, it is
+            treated as a list of length one, and applied to all TTNOs in ttnos.
+            Defaults to identity_mapping.
+        svd_params (SVDParameters, optional): The parameters for the
+            decomposition. Defaults to SVDParameters().
+        
+    Returns:
+        TTNS: The result of the linear combination.
+    """
+    appl_obj = HalfDMTTNOApplication(ttnss,
+                                     ttnos=ttnos,
+                                     id_trafos_ttns=id_trafos_ttns,
+                                     id_trafos_ttnos=id_trafos_ttnos,
+                                     svd_params=svd_params)
+    new_ttns = appl_obj()
+    return new_ttns
+
+def half_dm_addition(ttnss: list[TTNS],
+                id_trafos_ttns: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
+                svd_params: SVDParameters = SVDParameters()
+                ) -> TTNS:
+    """
+    Computes the sum of the given TTNSs via the half density matrix based algorithm.
+
+    Args:
+        ttnss (list[TTNS]): The TTNSs to sum.
+        id_trafos_ttns (list[Callable[[str],str]] | Callable[[str],str], optional):
+            The identifier transformation functions for the TTNSs. The i-th
+            function transforms the node identifiers of the 0-th TTNS to the node
+            identifiers of the i-th TTNS. If a single function is given, it is
+            treated as a list of length one, and applied to all TTNSs in ttnss.
+            Defaults to identity_mapping.
+        svd_params (SVDParameters, optional): The parameters for the
+            decomposition. Defaults to SVDParameters().
+    
+    Returns:
+        TTNS: The sum of the TTNSs.
+    """
+    appl_obj = HalfDMTTNOApplication(ttnss,
+                                     id_trafos_ttns=id_trafos_ttns,
+                                     svd_params=svd_params)
+    new_ttns = appl_obj()
+    return new_ttns
 
 def build_full_subtree_cache(ttns: TTNS,
                              ttno: TTNO | None = None,
@@ -292,7 +360,6 @@ def build_full_subtree_cache(ttns: TTNS,
     # the root.
     # Now we go back down.
     lin_order = ttns.linearise(mode=LinearisationMode.PARENTS_FIRST)
-    id_trafos = [identity_mapping, id_trafo]
     for node_id in lin_order:
         ket_node_tensor = ttns[node_id]
         node_tensors = [ket_node_tensor]
