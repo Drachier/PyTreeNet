@@ -11,6 +11,7 @@ from ..ttns import TTNS
 from ...core.tree_structure import LinearisationMode
 from ...contractions.tree_cach_dict import PartialTreeCachDict
 from ...contractions.local_contr import LocalContraction
+from ...contractions.state_state_contraction import build_full_subtree_cache as build_full_subtree_cache_state_only
 from ...util.tensor_splitting import (SVDParameters,
                                       truncated_tensor_svd)
 from ...core.node import (Node,
@@ -32,7 +33,7 @@ class DMTTNOApplication(AbstractLinearCombination):
 
     def __init__(self,
                  ttnss: list[TTNS] | TTNS,
-                 ttnos: list[TTNO] | TTNO | None = None,
+                 ttnos: list[TTNO | None] | TTNO | None = None,
                  id_trafos_ttns: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
                  id_trafos_ttnos: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
                  svd_params: SVDParameters | None = None
@@ -43,7 +44,7 @@ class DMTTNOApplication(AbstractLinearCombination):
         Args:
             ttnss (list[TTNS] | TTNS): The TTNSs to apply the TTNOs to. If a
                 single TTNS is given, it is treated as a list of length one.
-            ttnos (list[TTNO] | TTNO | None, optional): The TTNOs to apply to
+            ttnos (list[TTNO | None] | TTNO | None, optional): The TTNOs to apply to
                 the TTNSs. If a single TTNO is given, it is treated as a list of
                 length one, and applied to all TTNSs in ttnss. If None is given,
                 the sum of the TTNSs is computed.
@@ -111,12 +112,14 @@ class DMTTNOApplication(AbstractLinearCombination):
             PartialTreeCachDict: The subtree cache for the TTNS-TTNO pair.
         """
         ttns = self._ttnss[index]
-        # TODO: Support no TTNOs
         ttno = self._ttnos[index]
-        id_trafo = self.get_id_trafos_ttns_ttno(index)
-        cache = build_full_subtree_cache(ttns,
-                                         ttno,
-                                         id_trafo)
+        if ttno is None:
+            cache = build_full_subtree_cache_state_only(ttns)
+        else:
+            id_trafo = self.get_id_trafos_ttns_ttno(index)
+            cache = build_full_subtree_cache(ttns,
+                                            ttno,
+                                            id_trafo)
         return cache
 
     def find_new_ttns_tensors(self) -> dict[str, npt.NDArray]:
@@ -156,23 +159,26 @@ class DMTTNOApplication(AbstractLinearCombination):
         # The root is a special case, as we don't have a parent leg to contract
         # with, so we just contract the whole subtree tensor with the local
         # contraction of the root node.
-        loca_contr_tensors: list[npt.NDArray] = []
+        local_contr_tensors: list[npt.NDArray] = []
         root_id = self.get_base_ttns().root_id
         assert root_id is not None
         for i in range(self.num_ttns()):
             non_base_root_id = self.base_id_to_ttns(root_id, i)
             ket_node_tensor = self.get_ttns_node_tensor(i, non_base_root_id)
-            op_node_tensor = self.get_ttno_node_tensor(i, non_base_root_id)
+            node_tensors = [ket_node_tensor]
+            id_trafos = [identity_mapping]
+            if self.ttno_applied(i):
+                op_node_tensor = self.get_ttno_node_tensor(i, non_base_root_id)
+                node_tensors.append(op_node_tensor)
+                ttns_ttno_trafo = self.get_id_trafos_ttns_ttno(i)
+                id_trafos.append(ttns_ttno_trafo)
             r_tensor_cache = r_tensor_caches[i]
-            ttns_ttno_trafo = self.get_id_trafos_ttns_ttno(i)
-            local_contr = LocalContraction([ket_node_tensor,
-                                            op_node_tensor],
+            local_contr = LocalContraction(node_tensors,
                                             r_tensor_cache,
-                                            id_trafos=[identity_mapping,
-                                                       ttns_ttno_trafo])
+                                            id_trafos=id_trafos)
             local_contr_tensor = local_contr.contract_all()
-            loca_contr_tensors.append(local_contr_tensor)
-        new_tensor = np.sum(loca_contr_tensors, axis=0)
+            local_contr_tensors.append(local_contr_tensor)
+        new_tensor = np.sum(local_contr_tensors, axis=0)
         return new_tensor
 
     def _node_evaluation(self,
@@ -234,8 +240,16 @@ class DMTTNOApplication(AbstractLinearCombination):
                                                 modify_function=self.get_ttns_base_id_map(i),
                                                 include_parent=False
                                                 )
-            # +1 as we have one leg from the TTNS and one from TTNO pointing to the parent.
-            low_legs = tuple([leg + 1 for leg in low_legs])
+            
+            if self.ttno_applied(i):
+                # In this case there is an additional leg towards the parent in the
+                # lower_contr_tensor, the one coming from the operator tensor.
+                offset = 1
+            else:
+                # In this case all legs on the lower_contr_tensor are in the same order as
+                # in the corresponding TTNS
+                offset = 0
+            low_legs = tuple([leg + offset for leg in low_legs])
             r_tensor = np.tensordot(lower_contr_tensors[i],
                                     uh,
                                     axes=(low_legs, uh_legs))
@@ -270,27 +284,39 @@ class DMTTNOApplication(AbstractLinearCombination):
                 to the leg order of the base TTNS, and the lower contraction
                 result.
         """
-        id_trafo = self.get_id_trafos_ttns_ttno(index)
         ket_node_tensor = self._ttnss[index][node_id]
-        op_node_tensor = self._ttnos[index][id_trafo(node_id)]
+        node_tensors = [ket_node_tensor]
+        id_trafos = [identity_mapping]
+        if self.ttno_applied(index):
+            id_trafo = self.get_id_trafos_ttns_ttno(index)
+            op_node_tensor = self._ttnos[index][id_trafo(node_id)]
+            node_tensors.append(op_node_tensor)
+            ttns_ttno_trafo = self.get_id_trafos_ttns_ttno(index)
+            id_trafos.append(ttns_ttno_trafo)
         ignored_leg = ket_node_tensor[0].parent
         assert ignored_leg is not None
-        local_contr = LocalContraction([ket_node_tensor,
-                                        op_node_tensor],
+        local_contr = LocalContraction(node_tensors,
                                         r_tensor_cache,
                                         ignored_leg=ignored_leg,
-                                        id_trafos=[identity_mapping, id_trafo])
+                                        id_trafos=id_trafos)
         lower_contr_tensor = local_contr()
         upper_contr_tensor = lower_contr_tensor.conj()
         # Now we perform the contraction with the subtree tensor
-        # The first two open legs of the lower tensor are the legs towards the
-        # parent, which is exactly what we want to contract with the subtree tensor
+        if self.ttno_applied(index):
+            # The first two open legs of the lower tensor are the legs towards the
+            # parent, which is exactly what we want to contract with the subtree tensor
+            legs_1 = ([0,1], [0,1])
+            legs_2 = ([0,1], [1,0]) # Note the order of axes here
+        else:
+            # If we don't have a ttno, we only have one leg towards the parent.
+            legs_1 = ([0], [0])
+            legs_2 = ([0], [0])
         tensor = np.tensordot(subtree_tensor,
                             lower_contr_tensor,
-                            axes=([0,1],[0,1]))
+                            axes=legs_1)
         tensor = np.tensordot(tensor,
                             upper_contr_tensor,
-                            axes=([0,1],[1,0])) # Note the order of axes here
+                            axes=legs_2)
         # Now the first half of the legs are the output legs, the second half
         # are the input legs of the reduced density matrix
         # We also must adapt the leg order to fit with the base tensor.
@@ -338,7 +364,7 @@ def dm_ttns_ttno_application(ttns: TTNS,
     return new_ttns
 
 def dm_linear_combination(ttnss: list[TTNS],
-                          ttnos: list[TTNO],
+                          ttnos: list[TTNO | None],
                           id_trafos_ttns: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
                           id_trafos_ttnos: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
                           svd_params: SVDParameters = SVDParameters()
@@ -373,6 +399,33 @@ def dm_linear_combination(ttnss: list[TTNS],
                                  ttnos=ttnos,
                                  id_trafos_ttns=id_trafos_ttns,
                                  id_trafos_ttnos=id_trafos_ttnos,
+                                 svd_params=svd_params)
+    new_ttns = appl_obj()
+    return new_ttns
+
+def dm_addition(ttnss: list[TTNS],
+                id_trafos_ttns: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
+                svd_params: SVDParameters = SVDParameters()
+                ) -> TTNS:
+    """
+    Computes the sum of the given TTNSs via the density matrix based algorithm.
+
+    Args:
+        ttnss (list[TTNS]): The TTNSs to sum.
+        id_trafos_ttns (list[Callable[[str],str]] | Callable[[str],str], optional):
+            The identifier transformation functions for the TTNSs. The i-th
+            function transforms the node identifiers of the 0-th TTNS to the node
+            identifiers of the i-th TTNS. If a single function is given, it is
+            treated as a list of length one, and applied to all TTNSs in ttnss.
+            Defaults to identity_mapping.
+        svd_params (SVDParameters, optional): The parameters for the
+            decomposition. Defaults to SVDParameters().
+    
+    Returns:
+        TTNS: The sum of the TTNSs.
+    """
+    appl_obj = DMTTNOApplication(ttnss,
+                                 id_trafos_ttns=id_trafos_ttns,
                                  svd_params=svd_params)
     new_ttns = appl_obj()
     return new_ttns

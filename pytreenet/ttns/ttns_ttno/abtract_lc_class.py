@@ -23,7 +23,7 @@ class AbstractLinearCombination:
 
     def __init__(self,
                  ttnss: list[TTNS] | TTNS,
-                 ttnos: list[TTNO] | TTNO | None = None,
+                 ttnos: list[TTNO | None] | TTNO | None = None,
                  id_trafos_ttns: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
                  id_trafos_ttnos: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
                  ) -> None:
@@ -33,10 +33,11 @@ class AbstractLinearCombination:
         Args:
             ttnss (list[TTNS] | TTNS): The TTNSs to apply the TTNOs to. If a
                 single TTNS is given, it is treated as a list of length one.
-            ttnos (list[TTNO] | TTNO | None, optional): The TTNOs to apply to
+            ttnos (list[TTNO | None] | TTNO | None, optional): The TTNOs to apply to
                 the TTNSs. If a single TTNO is given, it is treated as a list of
                 length one, and applied to all TTNSs in ttnss. If None is given,
-                the sum of the TTNSs is computed.
+                the sum of the TTNSs is computed. If a TTNO is given as None,
+                the TTNO is assumed to be the identity operator.
                 Defaults to None.
             id_trafos_ttns (list[Callable[[str],str]] | Callable[[str],str], optional):
                 The identifier transformation functions for the TTNSs. The i-th
@@ -58,7 +59,7 @@ class AbstractLinearCombination:
             ttnos = [None] * len(ttnss)
         elif isinstance(ttnos, TTNO):
             ttnos = [ttnos] * len(ttnss)
-        self._ttnos: list[TTNO | None] = ttnos
+        self._ttnos: list[TTNO, None] = ttnos
         if isinstance(id_trafos_ttns, Callable):
             id_trafos_ttns = [id_trafos_ttns] * len(ttnss)
         self._id_trafos_ttns: list[Callable[[str],str]] = id_trafos_ttns
@@ -69,6 +70,20 @@ class AbstractLinearCombination:
         self._inverse_id_trafos_ttnos: list[Callable[[str],str] | None] = [None] * len(ttnss)
         self._id_trafos_ttns_ttno: list[Callable[[str],str] | None] = [None] * len(ttnss)
         self._id_trafos_ttno_ttns: list[Callable[[str],str] | None] = [None] * len(ttnss)
+
+    def ttno_applied(self,
+                     index: int
+                     ) -> bool:
+        """
+        Checks whether a TTNO is applied to the i-th TTNS.
+
+        Args:
+            index (int): The index of the TTNS to check.
+
+        Returns:
+            bool: True if a TTNO is applied to the i-th TTNS, False otherwise.
+        """
+        return self._ttnos[index] is not None
 
     def base_id_to_ttns(self,
                         identifier: str,
