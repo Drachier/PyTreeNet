@@ -5,18 +5,24 @@ transformations between them.
 """
 from __future__ import annotations
 from typing import TYPE_CHECKING, Callable
+from abc import ABC, abstractmethod
 
+import numpy as np
+
+from ...contractions.tree_cach_dict import PartialTreeCachDict
+from ...contractions.local_contr import LocalContraction
 from ...util.std_utils import (identity_mapping,
                                inverse_bijective_finite_map)
 from ...ttns import TTNS
 from ...ttno import TTNO
+from ...core.node import relative_leg_permutation
 
 if TYPE_CHECKING:
     import numpy.typing as npt
 
     from ...core.node import Node
 
-class AbstractLinearCombination:
+class AbstractLinearCombination(ABC):
     """
     A class to apply TTNOs to TTNSs via the density matrix based algorithm.
     """
@@ -70,6 +76,9 @@ class AbstractLinearCombination:
         self._inverse_id_trafos_ttnos: list[Callable[[str],str] | None] = [None] * len(ttnss)
         self._id_trafos_ttns_ttno: list[Callable[[str],str] | None] = [None] * len(ttnss)
         self._id_trafos_ttno_ttns: list[Callable[[str],str] | None] = [None] * len(ttnss)
+
+        self._subtree_caches = [PartialTreeCachDict()
+                                for _ in range(self.num_ttns())]
 
     def ttno_applied(self,
                      index: int
@@ -341,3 +350,125 @@ class AbstractLinearCombination:
             int: The number of TTNSs in the linear combination.
         """
         return len(self._ttnss)
+    
+    @abstractmethod
+    def build_full_subtree_cache(self,
+                                index: int
+                                ) -> PartialTreeCachDict:
+        """
+        Builds the full subtree cache for the i-th TTNS and TTNO.
+
+        Args:
+            index (int): The index of the TTNS and TTNO to build the subtree cache for.
+        
+        Returns:
+            PartialTreeCachDict: The full subtree cache for the i-th TTNS and TTNO.
+        """
+        pass
+
+    def build_full_subtree_caches(self) -> list[PartialTreeCachDict]:
+        """
+        Builds the full subtree caches for all TTNS-TTNO pairs.
+
+        Returns:
+            list[PartialTreeCachDict]: A list of subtree caches for all
+                TTNS-TTNO pairs.
+        """
+        caches = [self.build_full_subtree_cache(i)
+                  for i in range(self.num_ttns())]
+        return caches
+
+    @abstractmethod
+    def _node_evaluation(self,
+                         node_id: str,
+                         r_tensors_caches: list[PartialTreeCachDict]
+                         ) -> npt.NDArray:
+        """
+        Evaluates the new tensor for a non-root node in the result TTNS.
+
+        Args:
+            node_id (str): The identifier of the node to evaluate the tensor for.
+            r_tensors_caches (list[PartialTreeCachDict]): The subtree caches for
+                the TTNSs and TTNOs in the linear combination.
+        
+        Returns:
+            npt.NDArray: The new tensor for the node with the given identifier in
+                the result TTNS.
+        """
+        pass
+
+    def _root_evaluation(self,
+                         r_tensor_caches: list[PartialTreeCachDict]
+                         ) -> npt.NDArray:
+        """
+        Evaluates the new root tensor.
+
+        Args:
+            r_tensor_caches (list[PartialTreeCachDict]): A list of caches for
+                the contractions of all subtrees below the root for all
+                TTNS-TTNO pairs.
+
+        Returns:
+            npt.NDArray: The new root tensor.
+        """
+        # The root is a special case, as we don't have a parent leg to contract
+        # with, so we just contract the whole subtree tensor with the local
+        # contraction of the root node.
+        local_contr_tensors: list[npt.NDArray] = []
+        root_id = self.get_base_ttns().root_id
+        assert root_id is not None
+        base_root_node = self.get_base_node(0, root_id)
+        for i in range(self.num_ttns()):
+            non_base_root_id = self.base_id_to_ttns(root_id, i)
+            ket_node_tensor = self.get_ttns_node_tensor(i, non_base_root_id)
+            node_tensors = [ket_node_tensor]
+            id_trafos = [identity_mapping]
+            if self.ttno_applied(i):
+                op_node_tensor = self.get_ttno_node_tensor(i, non_base_root_id)
+                node_tensors.append(op_node_tensor)
+                ttns_ttno_trafo = self.get_id_trafos_ttns_ttno(i)
+                id_trafos.append(ttns_ttno_trafo)
+            r_tensor_cache = r_tensor_caches[i]
+            local_contr = LocalContraction(node_tensors,
+                                            r_tensor_cache,
+                                            id_trafos=id_trafos)
+            local_contr_tensor = local_contr.contract_all()
+            transpose_map = relative_leg_permutation(ket_node_tensor[0],
+                                                     base_root_node,
+                                                     modify_function=self.get_ttns_base_id_map(i))
+            local_contr_tensor = local_contr_tensor.transpose(transpose_map) 
+            local_contr_tensors.append(local_contr_tensor)
+        new_tensor = np.sum(local_contr_tensors, axis=0)
+        return new_tensor
+
+    def find_new_ttns_tensors(self) -> dict[str, npt.NDArray]:
+        """
+        Finds the new tensors for the result TTNS.
+
+        Returns:
+            dict[str, npt.NDArray]: A dictionary containing the new tensors for the
+                result TTNS.
+        """
+        new_tensors = {}
+        order = self.get_base_ttns().linearise()
+        r_tensors_caches = [PartialTreeCachDict()
+                            for _ in range(self.num_ttns())]
+        for node_id in order[:-1]: # Root is handled separately
+            new_tensor = self._node_evaluation(node_id,
+                                               r_tensors_caches)
+            new_tensors[node_id] = new_tensor
+        root_tensor = self._root_evaluation(r_tensors_caches)
+        new_tensors[order[-1]] = root_tensor
+        return new_tensors
+
+    def __call__(self) -> TTNS:
+        """
+        Computes the result TTNS.
+
+        Returns:
+            TTNS: The result TTNS.
+        """
+        self._subtree_caches = self.build_full_subtree_caches()
+        new_tensors = self.find_new_ttns_tensors()
+        new_ttns = TTNS.from_tensors(self.get_base_ttns(), new_tensors)
+        return new_ttns
