@@ -9,6 +9,14 @@ from itertools import product
 
 import numpy as np
 
+try:
+    import quimb as qu
+    from quimb.tensor.tensor_core import (TensorNetwork,
+                                          Tensor)
+    quimb_available = True
+except ImportError:
+    quimb_available = False
+
 if TYPE_CHECKING:
     import numpy.typing as npt
 
@@ -115,7 +123,7 @@ class LocalContraction:
             May be less than the degree of the subtree tensors.
         subtree_dict (PartialTreeCachDict): Contains the subtree tensors
             to be used. Subtree identifiers should correspond to the lowest
-            node in the list, possibly after transformin the node's
+            node in the list, possibly after transforming the node's
             identifiers.
         node_identifier (str | None): The identifier of this node as used
             in the subtree cache. If None, will be the identifier of the
@@ -163,6 +171,7 @@ class LocalContraction:
                 errstr = f"Need as many `id_trafo` as tensors, ({len(id_trafos)},{len(nodes_tensors)})!"
                 raise IndexError(errstr)
         self.id_trafos = id_trafos
+        self._inverse_id_trafos: list[None | Callable[[str], str]] = [None for _ in nodes_tensors]
         self.connection_index = connection_index
         self.current_tensor = CurrentTensor()
         if contraction_order is None:
@@ -218,6 +227,45 @@ class LocalContraction:
             else:
                 errstr = "Invalid highest tensor type!"
                 raise ValueError(errstr)
+            
+    def to_neighbour_id(self,
+                        index: int,
+                        neigh_id: str
+                        ) -> str:
+        """
+        Translates a neighbour identifier from the neighbour order to the
+        identifier used in the node.
+
+        Args:
+            index (int): The index of the node and tensor in the list.
+            neigh_id (str): The identifier of the neighbour in the neighbour
+                order.
+        
+        Returns:
+            str: The identifier of the neighbour in the node's identifier system.
+        """
+        return self.id_trafos[index](neigh_id)
+    
+    def from_neighbour_id(self,
+                          index: int,
+                          neigh_id: str
+                          ) -> str:
+        """
+        Translates a neighbour identifier from the node's identifier system to the
+        identifier used in the neighbour order.
+
+        Args:
+            index (int): The index of the node and tensor in the list.
+            neigh_id (str): The identifier of the neighbour in the node's
+                identifier system.
+        
+        Returns:
+            str: The identifier of the neighbour in the neighbour order.
+        """
+        if self._inverse_id_trafos[index] is None:
+            self.create_reverse_trafo(index)
+            self._inverse_id_trafos[index] = self.create_reverse_trafo(index)
+        return self._inverse_id_trafos[index](neigh_id)
 
     def determine_tensor_kind(self,
                             index: int
@@ -256,12 +304,22 @@ class LocalContraction:
             return 0
         return 1
 
-    def is_ignored(self, neigh_id: str, node_index: int) -> bool:
+    def is_ignored(self, neigh_id: str, node_index: int | None) -> bool:
         """
         Returns whether a given neighbour leg is ignored.
+
+        Args:
+            neigh_id (str): The identifier of the neighbour leg to check. This is
+                the identifier in the neighbour order.
+            node_index (int | None): The index of the node and tensor in the list
+                to which the neighbour leg belongs. If None, the neighbour leg
+                is not transformed. This is useful to check the neighbour order
+                identifiers themselves for being ignored legs.
         """
         if self.no_ignored_legs():
             return False
+        if node_index is None:
+            return neigh_id == self.ignored_leg
         # We must transform the ignored leg to the current node's
         # identifier system.
         transformed_ignored = self.id_trafos[node_index](self.ignored_leg)
@@ -479,6 +537,8 @@ class LocalContraction:
         Returns:
             npt.NDArray: The final contracted tensor.
         """
+        # if quimb_available:
+        #     return self._quimb_contract_all(transpose_option=transpose_option)
         self.contract_first_tensor()
         for i in range(1, len(self.contraction_order)):
             self.contract_tensor(i)
@@ -522,6 +582,47 @@ class LocalContraction:
             final_tensor = np.transpose(self.current_tensor.value, axes=perm)
             return final_tensor
         raise ValueError(errstr)
+
+    def _quimb_contract_all(self,
+                            transpose_option: FinalTransposition | Callable = FinalTransposition.STANDARD
+                            ) -> npt.NDArray:
+        """
+        Contracts all tensors in the contraction order using quimb.
+
+        Args:
+            transpose_option (FinalTransposition | Callable): The way in which
+                to tranpose the final tensor. Can be a callable that takes a
+                `CurrentTensor` and outputs the transposed tensor. See
+                `FinalTransposition` class for details on the existing
+                options.
+        
+        Returns:
+            npt.NDArray: The final contracted tensor.
+        """
+        # We first need to construct the quimb tensor network for this
+        tn = TensorNetwork()
+        for index, (node, tensor) in enumerate(self.node_tensors):
+            inds = []
+            for neigh_id in node.neighbouring_nodes():
+                low_neigh_id = self.to_neighbour_id(index, neigh_id)
+                inds.append(f"{low_neigh_id}_at{index+self.connection_index}")
+            out_legs = self.get_phy_legs(index, OpenLegKind.OUT)
+            inds.extend([f"phys_at{index+self.connection_index}_num{leg}" for leg in out_legs])
+            in_legs = self.get_phy_legs(index, OpenLegKind.IN)
+            inds.extend([f"phys_at{index+self.connection_index-1}_num{leg}" for leg in in_legs])
+            quimb_tensor = Tensor(data=tensor, inds=inds)
+            tn.add_tensor(quimb_tensor)
+        # Now we need to add the subtree tensors
+        for neigh_id in self.neighbour_order:
+            if self.is_ignored(neigh_id, None):
+                tensor = self.subtree_dict.get_entry(neigh_id, self.node_identifier)
+                inds = [f"{neigh_id}_at{index}"
+                        for index in range(tensor.ndim)]
+                quimb_tensor = Tensor(data=tensor, inds=inds)
+                tn.add_tensor(quimb_tensor)
+        # Now we can contract the tensor network
+        tn.contract(inplace=True,optimize=self.contraction_order)
+        final_tensor = tn.tensors_sorted()[0].data
 
     def contract_to_scalar(self) -> complex:
         """

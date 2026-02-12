@@ -5,9 +5,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable
 from enum import Enum
 
-from .density_matrix import density_matrix_addition
 from .direct import (direct_addition,
                      direct_addition_and_truncation)
+from ...ttns.ttns_ttno.dm_approach import (dm_addition,
+                                           dm_linear_combination)
+from ...ttns.ttns_ttno.half_dm_approach import (half_dm_addition,
+                                                half_dm_linear_combination)
+from ...ttns.ttns_ttno.src import (src_addition,
+                                   src_linear_combination)
 
 if TYPE_CHECKING:
     from ..ttn import TreeTensorNetwork
@@ -19,6 +24,8 @@ class AdditionMethod(Enum):
     DIRECT = "direct"
     DIRECT_TRUNCATE = "direct_truncate"
     DENSITY_MATRIX = "density_matrix"
+    HALF_DENSITY_MATRIX = "half_density_matrix"
+    SRC = "src"
 
     def get_function(self) -> Callable:
         """
@@ -32,9 +39,43 @@ class AdditionMethod(Enum):
         elif self == AdditionMethod.DIRECT_TRUNCATE:
             return direct_addition_and_truncation
         elif self == AdditionMethod.DENSITY_MATRIX:
-            return density_matrix_addition
+            return dm_addition
+        elif self == AdditionMethod.HALF_DENSITY_MATRIX:
+            return half_dm_addition
+        elif self == AdditionMethod.SRC:
+            return src_addition
         else:
             raise ValueError(f"Unknown addition method: {self}")
+
+    def lin_comb_possible(self) -> bool:
+        """
+        Checks if the addition method can be used for linear combinations.
+
+        Returns:
+            bool: True if the addition method can be used for linear combinations, False otherwise.
+        """
+        return self in {AdditionMethod.DENSITY_MATRIX,
+                        AdditionMethod.HALF_DENSITY_MATRIX,
+                        AdditionMethod.SRC}
+
+    def lin_comb_function(self) -> Callable:
+        """
+        Gets the linear combination function corresponding to the addition method.
+
+        Returns:
+            Callable: The linear combination function.
+
+        Raises:
+            ValueError: If the addition method cannot be used for linear combinations.
+        """
+        if self == AdditionMethod.DENSITY_MATRIX:
+            return dm_linear_combination
+        elif self == AdditionMethod.HALF_DENSITY_MATRIX:
+            return half_dm_linear_combination
+        elif self == AdditionMethod.SRC:
+            return src_linear_combination
+        else:
+            raise ValueError(f"Addition method {self} cannot be used for linear combinations!")
 
 def add_two_ttns(ttn1: TreeTensorNetwork,
                  ttn2: TreeTensorNetwork,
