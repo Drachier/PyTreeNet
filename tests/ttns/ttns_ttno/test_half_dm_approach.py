@@ -7,7 +7,9 @@ from copy import deepcopy
 import numpy.testing as npt
 
 from pytreenet.random.random_ttns_and_ttno import (small_ttns_and_ttno,
-                                                   big_ttns_and_ttno)
+                                                   big_ttns_and_ttno,
+                                                   RandomTTNSMode)
+from pytreenet.random.random_node import random_tensor_node
 from pytreenet.random.random_special_ttns import (random_ftps,
                                                   random_binary_state,
                                                   random_mps,
@@ -17,12 +19,14 @@ from pytreenet.random.random_special_ttno import (random_ftpo,
                                                   random_mpo,
                                                   random_tstar_operator)
 from pytreenet.util.tensor_splitting import SVDParameters
+from pytreenet.ttns.ttns import TTNS
+from pytreenet.ttno.ttno_class import TTNO
 
 from pytreenet.ttns.ttns_ttno.half_dm_approach import (half_dm_ttns_ttno_application,
                                                        half_dm_linear_combination,
                                                        half_dm_addition)
 
-class TestHalfDMApproachrandomTTN(unittest.TestCase):
+class TestHalfDMApproachRandomTTN(unittest.TestCase):
     """
     Test the half DM apporach for a random TTNs.
     """
@@ -51,12 +55,12 @@ class TestHalfDMApproachrandomTTN(unittest.TestCase):
         ttns3, ttno3 = small_ttns_and_ttno()
         ref = [deepcopy(ttno1).as_matrix()[0] @ deepcopy(ttns1).to_vector()[0],
                deepcopy(ttno2).as_matrix()[0] @ deepcopy(ttns2).to_vector()[0],
-              # deepcopy(ttno3).as_matrix()[0] @ deepcopy(ttns3).to_vector()[0]
+               deepcopy(ttno3).as_matrix()[0] @ deepcopy(ttns3).to_vector()[0]
               ]
         ref = sum(ref)
         ref = ref / (ref.T.conj()@ref)
-        found = half_dm_linear_combination([ttns1, ttns2],
-                                      [ttno1, ttno2])
+        found = half_dm_linear_combination([ttns1, ttns2, ttns3],
+                                      [ttno1, ttno2, ttno3])
         found, order = found.to_vector()
         found = found / (found.T.conj()@found)
         npt.assert_array_almost_equal(found, ref)
@@ -70,14 +74,14 @@ class TestHalfDMApproachrandomTTN(unittest.TestCase):
         ttns3 = small_ttns_and_ttno()[0]
         ref = deepcopy(ttns1).to_vector()[0]
         ref += deepcopy(ttns2).to_vector()[0]
-        #ref += deepcopy(ttns3).to_vector()[0]
-        #ref = ref / (ref.T.conj()@ref)
+        ref += deepcopy(ttns3).to_vector()[0]
+        ref = ref / (ref.T.conj()@ref)
         found = half_dm_addition([ttns1,
                                   ttns2,
-                                  # ttns3
+                                  ttns3
                                   ])
         found = found.to_vector()[0]
-        #found = found / (found.T.conj()@found)
+        found = found / (found.T.conj()@found)
         npt.assert_array_almost_equal(found, ref)
 
     def test_big_ttn(self):
@@ -95,11 +99,30 @@ class TestHalfDMApproachrandomTTN(unittest.TestCase):
         found, order = result.to_vector()
         npt.assert_array_almost_equal(found, ref)
 
+    def test_linear_combination_big_ttn(self):
+        """
+        Test the DM approach for a linear combination of bigger TTNs.
+        """
+        ttns1, ttno1 = big_ttns_and_ttno(mode=RandomTTNSMode.DIFFVIRT)
+        ttns2, ttno2 = big_ttns_and_ttno()
+        ttns3, ttno3 = big_ttns_and_ttno()
+        ref = [deepcopy(ttno1).as_matrix()[0] @ deepcopy(ttns1).to_vector()[0],
+               deepcopy(ttno2).as_matrix()[0] @ deepcopy(ttns2).to_vector()[0],
+               deepcopy(ttno3).as_matrix()[0] @ deepcopy(ttns3).to_vector()[0]
+              ]
+        ref = sum(ref)
+        ref = ref / (ref.T.conj()@ref)
+        found = half_dm_linear_combination([ttns1, ttns2, ttns3],
+                                      [ttno1, ttno2, ttno3])
+        found, order = found.to_vector()
+        found = found / (found.T.conj()@found)
+        npt.assert_array_almost_equal(found, ref)
+
     def test_addition_big_ttn(self):
         """
         Test the addition case of the DM approach for a bigger TTN.
         """
-        ttns1 = big_ttns_and_ttno()[0]
+        ttns1 = big_ttns_and_ttno(mode=RandomTTNSMode.DIFFVIRT)[0]
         ttns2 = big_ttns_and_ttno()[0]
         ttns3 = big_ttns_and_ttno()[0]
         ref = deepcopy(ttns1).to_vector()[0]
@@ -108,9 +131,9 @@ class TestHalfDMApproachrandomTTN(unittest.TestCase):
         ref = ref / (ref.T.conj()@ref)
         found = half_dm_addition([ttns1,
                                   ttns2,
-                                  # ttns3
+                                  #ttns3
                                   ])
-        found = found.to_vector()[0]
+        found, order = found.to_vector()
         found = found / (found.T.conj()@found)
         npt.assert_array_almost_equal(found, ref)
 
@@ -137,6 +160,44 @@ class TestHalfDMApproachSpecialTTN(unittest.TestCase):
         ref = ref / (ref.T.conj()@ref)
         npt.assert_array_almost_equal(found, ref)
 
+    def test_addition_mps(self):
+        """
+        Test the addition case of the DM approach for an MPS.
+        """
+        ttns1 = random_mps(7, 3, 20, seed=42)
+        ttns2 = random_mps(7, 3, 25, seed=43)
+        ttns3 = random_mps(7, 3, 15, seed=44)
+        ref = deepcopy(ttns1).to_vector()[0]
+        ref += deepcopy(ttns2).to_vector()[0]
+        ref += deepcopy(ttns3).to_vector()[0]
+        ref = ref / (ref.T.conj()@ref)
+        found = half_dm_addition([ttns1,
+                                  ttns2,
+                                  ttns3
+                                  ])
+        found = found.to_vector()[0]
+        found = found / (found.T.conj()@found)
+        npt.assert_array_almost_equal(found, ref)
+
+    def test_linear_combination_mps(self):
+        """
+        Test the DM approach for a linear combination of MPS.
+        """
+        ttns1, ttno1 = random_mps(7, 3, 20, seed=42), random_mpo(7, 3, 15, seed=24)
+        ttns2, ttno2 = random_mps(7, 3, 25, seed=43), random_mpo(7, 3, 20, seed=25)
+        ttns3, ttno3 = random_mps(7, 3, 15, seed=44), random_mpo(7, 3, 10, seed=26)
+        ref = [deepcopy(ttno1).as_matrix()[0] @ deepcopy(ttns1).to_vector()[0],
+               deepcopy(ttno2).as_matrix()[0] @ deepcopy(ttns2).to_vector()[0],
+               deepcopy(ttno3).as_matrix()[0] @ deepcopy(ttns3).to_vector()[0]
+              ]
+        ref = sum(ref)
+        ref = ref / (ref.T.conj()@ref)
+        found = half_dm_linear_combination([ttns1, ttns2, ttns3],
+                                      [ttno1, ttno2, ttno3])
+        found, order = found.to_vector()
+        found = found / (found.T.conj()@found)
+        npt.assert_array_almost_equal(found, ref)
+
     def test_binary_state(self):
         """
         Test the half DM approach for a binary TTN state.
@@ -153,6 +214,44 @@ class TestHalfDMApproachSpecialTTN(unittest.TestCase):
         found, order = result.to_vector()
         found = found / (found.T.conj()@found)
         ref = ref / (ref.T.conj()@ref)
+        npt.assert_array_almost_equal(found, ref)
+
+    def test_addition_binary_state(self):
+        """
+        Test the addition case of the DM approach for a binary TTN state.
+        """
+        ttns1 = random_binary_state(3, 2, 10, seed=42)
+        ttns2 = random_binary_state(3, 2, 5, seed=43)
+        ttns3 = random_binary_state(3, 2, 6, seed=44)
+        ref = deepcopy(ttns1).to_vector()[0]
+        ref += deepcopy(ttns2).to_vector()[0]
+        ref += deepcopy(ttns3).to_vector()[0]
+        ref = ref / (ref.T.conj()@ref)
+        found = half_dm_addition([ttns1,
+                                  ttns2,
+                                  ttns3
+                                  ])
+        found = found.to_vector()[0]
+        found = found / (found.T.conj()@found)
+        npt.assert_array_almost_equal(found, ref)
+
+    def test_linear_combination_binary_state(self):
+        """
+        Test the DM approach for a linear combination of binary TTN states.
+        """
+        ttns1, ttno1 = random_binary_state(3, 2, 10, seed=42), random_binary_operator(3, 2, 7, seed=24)
+        ttns2, ttno2 = random_binary_state(3, 2, 5, seed=43), random_binary_operator(3, 2, 4, seed=25)
+        ttns3, ttno3 = random_binary_state(3, 2, 6, seed=44), random_binary_operator(3, 2, 5, seed=26)
+        ref = [deepcopy(ttno1).as_matrix()[0] @ deepcopy(ttns1).to_vector()[0],
+               deepcopy(ttno2).as_matrix()[0] @ deepcopy(ttns2).to_vector()[0],
+               deepcopy(ttno3).as_matrix()[0] @ deepcopy(ttns3).to_vector()[0]
+              ]
+        ref = sum(ref)
+        ref = ref / (ref.T.conj()@ref)
+        found = half_dm_linear_combination([ttns1, ttns2, ttns3],
+                                      [ttno1, ttno2, ttno3])
+        found, order = found.to_vector()
+        found = found / (found.T.conj()@found)
         npt.assert_array_almost_equal(found, ref)
 
     def test_tstar_state(self):
@@ -173,6 +272,44 @@ class TestHalfDMApproachSpecialTTN(unittest.TestCase):
         ref = ref / (ref.T.conj()@ref)
         npt.assert_array_almost_equal(found, ref)
 
+    def test_linear_combination_tstar_state(self):
+        """
+        Test the DM approach for a linear combination of T* states.
+        """
+        ttns1, ttno1 = random_tstar_state(3, 2, 15, seed=42), random_tstar_operator(3, 2, 10, seed=24)
+        ttns2, ttno2 = random_tstar_state(3, 2, 11, seed=43), random_tstar_operator(3, 2, 7, seed=25)
+        ttns3, ttno3 = random_tstar_state(3, 2, 8, seed=44), random_tstar_operator(3, 2, 5, seed=26)
+        ref = [deepcopy(ttno1).as_matrix()[0] @ deepcopy(ttns1).to_vector()[0],
+               deepcopy(ttno2).as_matrix()[0] @ deepcopy(ttns2).to_vector()[0],
+               deepcopy(ttno3).as_matrix()[0] @ deepcopy(ttns3).to_vector()[0]
+              ]
+        ref = sum(ref)
+        ref = ref / (ref.T.conj()@ref)
+        found = half_dm_linear_combination([ttns1, ttns2, ttns3],
+                                      [ttno1, ttno2, ttno3])
+        found, order = found.to_vector()
+        found = found / (found.T.conj()@found)
+        npt.assert_array_almost_equal(found, ref)
+
+    def test_addition_tstar_state(self):
+        """
+        Test the addition case of the DM approach for a T* state.
+        """
+        ttns1 = random_tstar_state(3, 2, 15, seed=42)
+        ttns2 = random_tstar_state(3, 2, 11, seed=43)
+        ttns3 = random_tstar_state(3, 2, 8, seed=44)
+        ref = deepcopy(ttns1).to_vector()[0]
+        ref += deepcopy(ttns2).to_vector()[0]
+        ref += deepcopy(ttns3).to_vector()[0]
+        ref = ref / (ref.T.conj()@ref)
+        found = half_dm_addition([ttns1,
+                                  ttns2,
+                                  ttns3
+                                  ])
+        found = found.to_vector()[0]
+        found = found / (found.T.conj()@found)
+        npt.assert_array_almost_equal(found, ref)
+
     def test_ftps(self):
         """
         Test the half DM approach for a FTPS.
@@ -189,4 +326,42 @@ class TestHalfDMApproachSpecialTTN(unittest.TestCase):
         found, order = result.to_vector()
         found = found / (found.T.conj()@found)
         ref = ref / (ref.T.conj()@ref)
+        npt.assert_array_almost_equal(found, ref)
+
+    def test_linear_combination_ftps(self):
+        """
+        Test the DM approach for a linear combination of FTPS.
+        """
+        ttns1, ttno1 = random_ftps(3, 2, 10, seed=42), random_ftpo(3, 2, 7, seed=24)
+        ttns2, ttno2 = random_ftps(3, 2, 5, seed=43), random_ftpo(3, 2, 4, seed=25)
+        ttns3, ttno3 = random_ftps(3, 2, 6, seed=44), random_ftpo(3, 2, 5, seed=26)
+        ref = [deepcopy(ttno1).as_matrix()[0] @ deepcopy(ttns1).to_vector()[0],
+               deepcopy(ttno2).as_matrix()[0] @ deepcopy(ttns2).to_vector()[0],
+               deepcopy(ttno3).as_matrix()[0] @ deepcopy(ttns3).to_vector()[0]
+              ]
+        ref = sum(ref)
+        ref = ref / (ref.T.conj()@ref)
+        found = half_dm_linear_combination([ttns1, ttns2, ttns3],
+                                      [ttno1, ttno2, ttno3])
+        found, order = found.to_vector()
+        found = found / (found.T.conj()@found)
+        npt.assert_array_almost_equal(found, ref)
+
+    def test_addition_ftps(self):
+        """
+        Test the addition case of the DM approach for a FTPS.
+        """
+        ttns1 = random_ftps(3, 2, 5, seed=42)
+        ttns2 = random_ftps(3, 2, 8, seed=43)
+        ttns3 = random_ftps(3, 2, 10, seed=44)
+        ref = deepcopy(ttns1).to_vector()[0]
+        ref += deepcopy(ttns2).to_vector()[0]
+        ref += deepcopy(ttns3).to_vector()[0]
+        ref = ref / (ref.T.conj()@ref)
+        found = half_dm_addition([ttns1,
+                                  ttns2,
+                                  ttns3
+                                  ])
+        found = found.to_vector()[0]
+        found = found / (found.T.conj()@found)
         npt.assert_array_almost_equal(found, ref)
