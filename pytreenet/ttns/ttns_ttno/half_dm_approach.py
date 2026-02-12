@@ -3,22 +3,16 @@ This module implements the half density matrix approach for the TTNO application
 """
 from __future__ import annotations
 from typing import TYPE_CHECKING, Callable
-from copy import deepcopy
-
-import numpy as np
-from numpy._typing import NDArray
 
 from ..ttns import TTNS
 from ...core.tree_structure import LinearisationMode
 from ...contractions.tree_cach_dict import PartialTreeCachDict
 from ...contractions.local_contr import LocalContraction, FinalTransposition
-from ...util.tensor_splitting import (tensor_qr_decomposition,
-                                      contr_truncated_svd_splitting,
+from ...util.tensor_splitting import (contr_truncated_svd_splitting,
                                       SVDParameters,
                                       ContractionMode)
-from ...core.node import Node, relative_leg_permutation
 from ...util.std_utils import identity_mapping
-from .abtract_lc_class import AbstractLinearCombination
+from .abtract_lc_class import AbtractLCwithTempTensors
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -27,7 +21,7 @@ if TYPE_CHECKING:
 
 __all__ = ["half_dm_ttns_ttno_application"]
 
-class HalfDMTTNOApplication(AbstractLinearCombination):
+class HalfDMTTNOApplication(AbtractLCwithTempTensors):
     """
     A class for applying a TTNO to a TTNS using the half density matrix approach.
     """
@@ -69,12 +63,8 @@ class HalfDMTTNOApplication(AbstractLinearCombination):
         super().__init__(ttnss,
                          ttnos=ttnos,
                          id_trafos_ttns=id_trafos_ttns,
-                         id_trafos_ttnos=id_trafos_ttnos)
-        if svd_params is None:
-            svd_params = SVDParameters()
-        self._svd_params: SVDParameters = svd_params
-        self._subtree_caches = [PartialTreeCachDict()
-                                for _ in range(self.num_ttns())]
+                         id_trafos_ttnos=id_trafos_ttnos,
+                         svd_params=svd_params)
 
     def build_full_subtree_cache(self,
                                  index: int
@@ -94,105 +84,6 @@ class HalfDMTTNOApplication(AbstractLinearCombination):
             cache = build_full_subtree_cache_state_only(ttns,
                                                         self._svd_params)
         return cache
-
-    def _node_evaluation(self,
-                         node_id: str,
-                         r_tensors_caches: list[PartialTreeCachDict]
-                         ) -> NDArray:
-        """
-        Evaluates the new tensor for the given node and index.
-        """
-        effective_tensors: list[npt.NDArray] = []
-        base_node = self.get_base_node(0, node_id)
-        for i in range(self.num_ttns()):
-            non_base_node_id = self.base_id_to_ttns(node_id, i)
-            ket_node_tensor = self._ttnss[i][non_base_node_id]
-            parent_id = ket_node_tensor[0].parent
-            assert parent_id is not None
-            node_tensors = [ket_node_tensor]
-            id_trafos = [identity_mapping]
-            if self.ttno_applied(i):
-                id_trafo_ttns_ttno = self.get_id_trafos_ttns_ttno(i)
-                ttno_node_id = id_trafo_ttns_ttno(non_base_node_id)
-                op_node_tensor = self.get_ttno_node_tensor(i,
-                                                           ttno_node_id)
-                node_tensors.append(op_node_tensor)
-                id_trafos.append(id_trafo_ttns_ttno)
-            r_tensor_cache = r_tensors_caches[i]
-            # We can temporarily add the subtree tensor to this cache, as it
-            # fits with the contraction structre. In turn we don't need
-            # an ignored leg
-            subtree_tensor = self._subtree_caches[i].get_entry(parent_id,
-                                                    non_base_node_id)
-            r_tensor_cache.add_entry(parent_id,
-                                     non_base_node_id,
-                                     subtree_tensor)
-            local_contr = LocalContraction(node_tensors,
-                                           r_tensor_cache,
-                                           id_trafos=id_trafos)
-            effective_tensor = local_contr()
-            r_tensor_cache.delete_entry(parent_id,
-                                        non_base_node_id)
-            # Now we need to bring the effective tensor in the same order as the
-            # base TTNS node
-            perm = relative_leg_permutation(ket_node_tensor[0],
-                                            base_node,
-                                            modify_function=self.get_ttns_base_id_map(i))
-            effective_tensor = effective_tensor.transpose(perm)
-            effective_tensors.append(effective_tensor)
-        # Now that we have all the effective tensors, we need to 
-        # concatenate them to allow for a larger bond when summing them.
-        # They will differ in  the dimension towards the parent.
-        effective_tensor = np.concatenate(effective_tensors,
-                                          axis=base_node.parent_leg)
-        # Nowe we need to decompose to obtain an isometric tensor
-        # Luckily we can use the same leg in both cases.
-        r_legs = (base_node.parent_leg, )
-        q_legs = tuple([leg for leg in range(base_node.nlegs())
-                    if leg != r_legs[0]])
-        if len(effective_tensors) == 1:
-            # In this case no bond enlargement was needed, so we can just qr.
-            # Perform the QR-decomposition
-            # Note that the R can be thrown away.
-            q, _ = tensor_qr_decomposition(effective_tensor,
-                                            q_legs,
-                                            r_legs)
-        else:
-            # In this case the bond dimension was enlarged, so we need to truncate it
-            # back down.
-            q, _ = contr_truncated_svd_splitting(effective_tensor,
-                                                         q_legs,
-                                                         r_legs,
-                                                         svd_params=self._svd_params)
-        # Now we need to adjust the leg order of the output
-        new_tensor = _adjust_new_ttns_tensor(q, base_node)
-        # Now we need to compute the new r-tensors
-        for i in range(self.num_ttns()):
-            non_base_node_id = self.base_id_to_ttns(node_id, i)
-            ket_node_tensor = self.get_ttns_node_tensor(i, non_base_node_id)
-            ignored_leg = ket_node_tensor[0].parent
-            assert ignored_leg is not None
-            node_tensors = [ket_node_tensor]
-            id_trafos = [identity_mapping]
-            if self.ttno_applied(i):
-                id_trafo_ttns_ttno = self.get_id_trafos_ttns_ttno(i)
-                ttno_node_id = id_trafo_ttns_ttno(non_base_node_id)
-                op_node_tensor = self.get_ttno_node_tensor(i,
-                                                           ttno_node_id)
-                node_tensors.append(op_node_tensor)
-                id_trafos.append(id_trafo_ttns_ttno)
-            # We also need to add the new tensor to the contraction
-            node_tensors.append((base_node, new_tensor.conj())) # Note the conjugate
-            id_trafos.append(self.get_ttns_base_id_map(i))
-            local_contr = LocalContraction(node_tensors,
-                                           r_tensors_caches[i],
-                                           id_trafos=id_trafos,
-                                           ignored_leg=ignored_leg)
-            r_tensor = local_contr()
-            r_tensors_caches[i].add_entry(non_base_node_id,
-                                          ignored_leg,
-                                          r_tensor)
-        return new_tensor
 
 def half_dm_ttns_ttno_application(ttns: TTNS,
                                   ttno: TTNO,
@@ -415,27 +306,3 @@ def _truncate_subtree_tensor(new_tensor: npt.NDArray,
     # pointing to the next node as the first two legs, which is exactly
     # what we want.
     return truncated
-
-def _adjust_new_ttns_tensor(ttns_tensor: npt.NDArray,
-                            ttns_node: Node
-                            ) -> npt.NDArray:
-    """
-    Adjusts the new TTNS tensor to be in the correct shape in the TTNS.
-
-    Args:
-        ttns_tensor (npt.NDArray): The new TTNS tensor.
-        ttns_node (Node): The TTNS node corresponding to the tensor.
-
-    Returns:
-        npt.NDArray: The adjusted TTNS tensor.
-    """
-    # The new tensor has the shape (neighs, phys, new_bond)
-    # The new bond is the original parent bond and must be moved to the
-    # correct position.
-    new_leg = ttns_tensor.ndim - 1
-    parent_leg = ttns_node.parent_leg
-    if parent_leg == new_leg:
-        return ttns_tensor
-    perm = list(range(new_leg))
-    perm.insert(parent_leg, new_leg)
-    return ttns_tensor.transpose(perm)
