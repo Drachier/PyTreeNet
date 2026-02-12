@@ -13,10 +13,12 @@ from ..ttns import TTNS
 from ...core.tree_structure import LinearisationMode
 from ...contractions.tree_cach_dict import PartialTreeCachDict
 from ...contractions.local_contr import LocalContraction
-from ...util.tensor_splitting import tensor_qr_decomposition
+from ...util.tensor_splitting import (tensor_qr_decomposition,
+                                      SVDParameters)
 from ...operators.common_operators import copy_tensor
 from ...core.node import Node
 from ...util.std_utils import identity_mapping
+from .abtract_lc_class import AbtractLCwithTempTensors
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -24,6 +26,95 @@ if TYPE_CHECKING:
     from ...ttno.ttno_class import TTNO
 
 __all__ = ["src_ttns_ttno_application"]
+
+class SRCTTNOApplication(AbtractLCwithTempTensors):
+    """
+    A class for applying a TTNO to a TTNS using the succesive randomized compression
+    algorithm.
+    """
+
+    def __init__(self,
+                 ttnss: list[TTNS] | TTNS,
+                 ttnos: list[TTNO | None] | TTNO | None = None,
+                 id_trafos_ttns: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
+                 id_trafos_ttnos: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
+                 svd_params: SVDParameters | None = None,
+                 desired_dimension: int | None = None,
+                 seed: int | None = None
+                 ) -> None:
+        """
+        Initialises the HalfDMTTNOApplication.
+
+        Args:
+            ttnss (list[TTNS] | TTNS): The TTNSs to apply the TTNOs to. If a
+                single TTNS is given, it is treated as a list of length one.
+            ttnos (list[TTNO | None] | TTNO | None, optional): The TTNOs to apply to
+                the TTNSs. If a single TTNO is given, it is treated as a list of
+                length one, and applied to all TTNSs in ttnss. If None is given,
+                the sum of the TTNSs is computed.
+                Defaults to None.
+            id_trafos_ttns (list[Callable[[str],str]] | Callable[[str],str], optional):
+                The identifier transformation functions for the TTNSs. The i-th
+                function transforms the node identifiers of the 0-th TTNS to the node
+                identifiers of the i-th TTNS. If a single function is given, it is
+                treated as a list of length one, and applied to all TTNSs in ttnss.
+                Defaults to identity_mapping.
+            id_trafos_ttnos (list[Callable[[str],str]] | Callable[[str],str], optional):
+                The identifier transformation functions for the TTNOs. The i-th
+                function transforms the node identifiers of the 0-th TTNS to the node
+                identifiers of the i-th TTNO. If a single function is given, it is
+                treated as a list of length one, and applied to all TTNOs in ttnos.
+                Defaults to identity_mapping.
+            svd_params (SVDParameters | None, optional): The parameters for the SVD
+                decomposition used to truncate the temporary tensors. If None is given,
+                default parameters are used. Defaults to None.
+            desired_dimension (int | None, optional): The desired dimension of the
+                for the randomly generated matrices. If None is given, the dimension
+                in the SVD parameters is used. Defaults to None.
+            seed (int | None, optional): The seed for the random number generator used
+                to generate the random matrices. If None is given, no seed is set.
+                Defaults to None.
+        """
+        super().__init__(ttnss,
+                         ttnos=ttnos,
+                         id_trafos_ttns=id_trafos_ttns,
+                         id_trafos_ttnos=id_trafos_ttnos,
+                         svd_params=svd_params)
+        if desired_dimension is None:
+            desired_dimension = svd_params.max_bond_dim
+        self._desired_dimension = desired_dimension
+        self._seed = seed
+        self._rand_ttns = TTNS()
+
+    def build_full_subtree_caches(self) -> list[PartialTreeCachDict]:
+        # Notably we can reuse the random TTNS for all terms.
+        self._rand_ttns = generate_random_matrices(self.get_base_ttns(),
+                                                    self._desired_dimension,
+                                                    seed=self._seed)
+        return super().build_full_subtree_caches()
+
+    def build_full_subtree_cache(self,
+                                 index: int
+                                 ) -> PartialTreeCachDict:
+        """
+        Build the full subtree cache for the given index.
+        """
+        ttns = self._ttnss[index]
+        # Note that the random TTNS has the same identifiers as the base TTNs.
+        trafo_to_random = self.get_ttns_base_id_map(index)
+        if self.ttno_applied(index):
+            ttno = self._ttnos[index]
+            id_trafo = self.get_id_trafos_ttns_ttno(index)
+            cache = build_full_subtree_cache(ttns,
+                                             ttno,
+                                             self._rand_ttns,
+                                             id_trafo=id_trafo,
+                                             id_trafo_to_random=trafo_to_random)
+        else:
+            cache = build_full_subtree_cache_state_only(ttns,
+                                                        self._rand_ttns,
+                                                        id_trafo_to_random=trafo_to_random)
+        return cache
 
 def src_ttns_ttno_application(ttns: TTNS,
                               ttno: TTNO,
@@ -48,21 +139,99 @@ def src_ttns_ttno_application(ttns: TTNS,
     Returns:
         TTNS: The resulting TTNS after applying the TTNO.
     """
-    if id_trafo is None:
-        id_trafo = identity_mapping
-    random_ttns = generate_random_matrices(ttns,
-                                           desired_dimension,
-                                           seed=seed)
-    subtree_cache = build_full_subtree_cache(ttns,
-                                             ttno,
-                                             random_ttns,
-                                             id_trafo)
-    new_tensors = find_new_tensors(ttns,
-                                   ttno,
-                                   subtree_cache,
-                                   id_trafo)
-    new_ttns = TTNS.from_tensors(ttns, new_tensors)
-    return new_ttns
+    appl_obj = SRCTTNOApplication(ttns,
+                                  ttnos=ttno,
+                                  desired_dimension=desired_dimension,
+                                  id_trafos_ttnos=id_trafo if id_trafo is not None else identity_mapping,
+                                  seed=seed
+                                  )
+    return appl_obj()
+
+def src_linear_combination(ttnss: list[TTNS],
+                          ttnos: list[TTNO | None],
+                          id_trafos_ttns: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
+                          id_trafos_ttnos: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
+                          svd_params: SVDParameters = SVDParameters(),
+                          desired_dimension: int | None = None,
+                          seed: int | None = None
+                            ) -> TTNS:
+    """
+    Computes a linear combination of the given TTNSs with the given TTNOs via the
+    half density matrix based algorithm.
+
+    Args:
+        ttnss (list[TTNS]): The TTNSs to combine.
+        ttnos (list[TTNO]): The TTNOs to apply to the TTNSs. The i-th TTNO is
+            applied to the i-th TTNS.
+        id_trafos_ttns (list[Callable[[str],str]] | Callable[[str],str], optional):
+            The identifier transformation functions for the TTNSs. The i-th
+            function transforms the node identifiers of the 0-th TTNS to the node
+            identifiers of the i-th TTNS. If a single function is given, it is
+            treated as a list of length one, and applied to all TTNSs in ttnss.
+            Defaults to identity_mapping.
+        id_trafos_ttnos (list[Callable[[str],str]] | Callable[[str],str], optional):
+            The identifier transformation functions for the TTNOs. The i-th
+            function transforms the node identifiers of the 0-th TTNS to the node
+            identifiers of the i-th TTNO. If a single function is given, it is
+            treated as a list of length one, and applied to all TTNOs in ttnos.
+            Defaults to identity_mapping.
+        svd_params (SVDParameters, optional): The parameters for the
+            decomposition. Defaults to SVDParameters().
+        desired_dimension (int | None, optional): The desired dimension of the
+            resulting TTNS. If None is given, the dimension in svd_params is used.
+            Defaults to None.
+        seed (int | None, optional): Seed for the random number generator used to
+            generate the random matrices. Defaults to None.
+        
+    Returns:
+        TTNS: The result of the linear combination.
+    """
+    appl_obj = SRCTTNOApplication(ttnss,
+                                  ttnos=ttnos,
+                                  id_trafos_ttns=id_trafos_ttns,
+                                  id_trafos_ttnos=id_trafos_ttnos,
+                                  svd_params=svd_params,
+                                  desired_dimension=desired_dimension,
+                                  seed=seed
+                                  )
+    return appl_obj()
+
+def src_addition(ttnss: list[TTNS],
+                 id_trafos_ttns: list[Callable[[str],str]] | Callable = identity_mapping,
+                 svd_params: SVDParameters = SVDParameters(),
+                 desired_dimension: int | None = None,
+                 seed: int | None = None
+                 ) -> TTNS:
+    """
+    Computes the sum of the given TTNSs via the succesive randomized compression
+    algorithm.
+
+    Args:
+        ttnss (list[TTNS]): The TTNSs to add.
+        id_trafos_ttns (list[Callable[[str],str]] | Callable, optional):
+            The identifier transformation functions for the TTNSs. The i-th
+            function transforms the node identifiers of the 0-th TTNS to the node
+            identifiers of the i-th TTNS. If a single function is given, it is
+            treated as a list of length one, and applied to all TTNSs in ttnss.
+            Defaults to identity_mapping.
+        svd_params (SVDParameters, optional): The parameters for the
+            decomposition. Defaults to SVDParameters().
+        desired_dimension (int | None, optional): The desired dimension of the
+            resulting TTNS. If None is given, the dimension in svd_params is used.
+            Defaults to None.
+        seed (int | None, optional): Seed for the random number generator used to
+            generate the random matrices. Defaults to None.
+    
+    Returns:
+        TTNS: The sum of the input TTNSs.
+    """
+    appl_obj = SRCTTNOApplication(ttnss,
+                                  id_trafos_ttns=id_trafos_ttns,
+                                  svd_params=svd_params,
+                                  desired_dimension=desired_dimension,
+                                  seed=seed
+                                  )
+    return appl_obj()
 
 def generate_random_matrices(ttns: TTNS,
                              desired_dimension: int,
@@ -94,9 +263,10 @@ def generate_random_matrices(ttns: TTNS,
     return rand_ttns
 
 def build_full_subtree_cache(ttns: TTNS,
-                             ttno: TTNO,
+                             ttno: TTNO | None,
                              random_ttns: TTNS,
-                             id_trafo: Callable
+                             id_trafo: Callable,
+                             id_trafo_to_random: Callable = identity_mapping
                              ) -> PartialTreeCachDict:
     """
     Builds a full subtree cache for the given TTNS and TTNO with random
@@ -104,26 +274,37 @@ def build_full_subtree_cache(ttns: TTNS,
 
     Args:
         ttns (TTNS): The TTNS to build the cache for.
-        ttno (TTNO): The TTNO to use for the contractions.
+        ttno (TTNO | None): The TTNO to use for the contractions.
+            If None is given, only the state is considered in the creation.
         random_ttns (TTNS): The TTNS with random tensors.
         id_trafo (Callable): A function to transform node identifiers.
+        id_trafo_to_random (Callable): A function to transform node
+            that transforms the TTNS`s node identifiers to the random TTNS`s
+            node identifiers. Defaults to identity_mapping.
 
     Returns:
         PartialTreeCachDict: The full subtree cache.
     """
+    use_ttno = ttno is not None
     cache = PartialTreeCachDict()
     # Get envs upward
     lin_order = ttns.linearise()[:-1] # Exclude root
-    id_trafos = [identity_mapping, id_trafo, identity_mapping]
+    if use_ttno:
+        id_trafos = [identity_mapping, id_trafo, id_trafo_to_random]
+    else:
+        id_trafos = [identity_mapping, id_trafo_to_random]
     for node_id in lin_order:
+        node_tensors = []
         ket_node_tensor = ttns[node_id]
-        bra_node_tensor = random_ttns[node_id]
-        op_node_tensor = ttno[id_trafo(node_id)]
+        node_tensors.append(ket_node_tensor)
+        if use_ttno:
+            op_node_tensor = ttno[id_trafo(node_id)]
+            node_tensors.append(op_node_tensor)
+        bra_node_tensor = random_ttns[id_trafo_to_random(node_id)]
+        node_tensors.append(bra_node_tensor)
         ignored_leg = ket_node_tensor[0].parent
         assert ignored_leg is not None
-        local_contr = LocalContraction([ket_node_tensor,
-                                        op_node_tensor,
-                                        bra_node_tensor],
+        local_contr = LocalContraction(node_tensors,
                                         cache,
                                         ignored_leg=ignored_leg,
                                         id_trafos=id_trafos)
@@ -135,176 +316,40 @@ def build_full_subtree_cache(ttns: TTNS,
     for node_id in lin_order:
         ket_node_tensor = ttns[node_id]
         if not ket_node_tensor[0].is_leaf():
-            bra_node_tensor = random_ttns[node_id]
-            op_node_tensor = ttno[id_trafo(node_id)]
+            node_tensors = [ket_node_tensor]
+            if use_ttno:
+                op_node_tensor = ttno[id_trafo(node_id)]
+                node_tensors.append(op_node_tensor)
+            bra_node_tensor = random_ttns[id_trafo_to_random(node_id)]
+            node_tensors.append(bra_node_tensor)
             for child_id in ket_node_tensor[0].children:
-                local_contr = LocalContraction([ket_node_tensor,
-                                                op_node_tensor,
-                                                bra_node_tensor],
+                local_contr = LocalContraction(node_tensors,
                                                 cache,
                                                 ignored_leg=child_id,
                                                 id_trafos=id_trafos)
                 local_contr.contract_into_cache()
     return cache
 
-def find_new_tensors(ttns: TTNS,
-                     ttno: TTNO,
-                     subtree_cache: PartialTreeCachDict,
-                     id_trafo: Callable
-                     ) -> dict[str, np.ndarray]:
+def build_full_subtree_cache_state_only(ttns: TTNS,
+                                       random_ttns: TTNS,
+                                       id_trafo_to_random: Callable = identity_mapping
+                                       ) -> PartialTreeCachDict:
     """
-    Finds new tensors for the TTNS using the subtree cache.
+    Builds a full subtree cache for the given TTNS with random tensors, only
+    considering the state.
 
     Args:
-        ttns (TTNS): The TTNS to find new tensors for.
-        ttno (TTNO): The TTNO to use for the contractions.
-        subtree_cache (PartialTreeCachDict): The subtree cache.
-        id_trafo (Callable): A function to transform node identifiers.
-    
-    Returns:
-        dict[str, np.ndarray]: A dictionary mapping node identifiers to
-            their new tensors.
-    """
-    new_tensors = {}
-    order = ttns.linearise()
-    half_subtree_cache = PartialTreeCachDict()
-    for node_id in order[:-1]: # Exclude root
-        ket_node_tensor = ttns[node_id]
-        op_node_tensor = ttno[id_trafo(node_id)]
-        parent_id = ket_node_tensor[0].parent
-        assert parent_id is not None
-        parent_subtree = subtree_cache.get_entry(parent_id,
-                                                 node_id)
-        new_tensor, half_subtree = _node_evaluation(ket_node_tensor,
-                                                    op_node_tensor,
-                                                    parent_subtree,
-                                                    half_subtree_cache,
-                                                    id_trafo)
-        new_tensors[node_id] = new_tensor
-        half_subtree_cache.add_entry(node_id,
-                                     parent_id,
-                                     half_subtree)
-    # Finally the root
-    root_id = ttns.root_id
-    assert root_id is not None and root_id == order[-1]
-    ket_node_tensor = ttns[root_id]
-    op_node_tensor = ttno[id_trafo(root_id)]
-    new_tensor = _root_evaluation(ket_node_tensor,
-                                  op_node_tensor,
-                                  half_subtree_cache,
-                                  id_trafo)
-    new_tensors[root_id] = new_tensor
-    return new_tensors
-
-def _root_evaluation(ket_node_tensor: tuple[Node, npt.NDArray],
-                        op_node_tensor: tuple[Node, npt.NDArray],
-                        half_subtree_cache: PartialTreeCachDict,
-                        id_trafo: Callable
-                     ) -> npt.NDArray:
-    """
-    Evaluates the new root node.
-
-    Args:
-        ket_node_tensor (tuple[Node, npt.NDArray]): The ket node-tensor pair.
-        op_node_tensor (tuple[Node, npt.NDArray]): The operator node-tensor
-            pair.
-        half_subtree_cache (PartialTreeCachDict): A cache containing the
-            contractions of all subtrees below this node.
-        id_trafo (Callable): A function that transforms the TTNS`s
-            node identifiers to the TTNO`s node identifiers.
-    
-    Returns:
-        npt.NDArray: The new root tensor. Corresponds to eta^(1) in the
-            paper.
-    """
-    # Now we contract a half environment to every neighbour
-    local_contr = LocalContraction([ket_node_tensor,
-                                    op_node_tensor],
-                                   half_subtree_cache,
-                                   id_trafos=[identity_mapping, id_trafo])
-    # Due to the final transpose in the local contraction. The legs will all
-    # be at the right position, i.e. the subtree of a neighbour has one open
-    # leg. This open legs will be a the same position as the neighbour.
-    return local_contr.contract_all()
-
-def _node_evaluation(ket_node_tensor: tuple[Node,npt.NDArray],
-                     op_node_tensor: tuple[Node,npt.NDArray],
-                     subtree_tensor: npt.NDArray,
-                     half_subtree_cache: PartialTreeCachDict,
-                     id_trafo: Callable
-                     ) -> tuple[npt.NDArray, npt.NDArray]:
-    """
-    Evaluates the optimisation of a node.
-
-    Args:
-        ket_node_tensor (tuple[Node, npt.NDArray]): The ket node-tensor pair.
-        op_node_tensor (tuple[Node, npt.NDArray]): The operator node-tensor
-            pair.
-        subtree_tensor (npt.NDArray): The subtree tensor to contract with.
-        half_subtree_cache (PartialTreeCachDict): A cache containing the
-            contractions of all subtrees below this node.
-        id_trafo (Callable): A function that transforms the TTNS`s
-            node identifiers to the TTNO`s node identifiers.
-        svd_params (SVDParameters): The parameters for the decomposition.
-    
-    Returns:
-        tuple[npt.NDArray, npt.NDArray]: The first tensor is the tensor in the
-            new TTNS, and the second tensor is the subtree tensor of the lower
-            half of the contraction (only ket and op). This corresponds to
-            eta^(i) and the pink tensor in the paper.
-    """
-    ket_node = ket_node_tensor[0]
-    parent_id = ket_node.parent
-    assert parent_id is not None
-    half_subtree_cache.add_entry(parent_id,
-                                    ket_node.identifier,
-                                    subtree_tensor)
-    loc_contr = LocalContraction([ket_node_tensor,
-                                    op_node_tensor],
-                                    half_subtree_cache,
-                                    id_trafos=[identity_mapping, id_trafo])
-    effective_tensor = loc_contr()
-    # TODO: We could in principle delete some things now.
-    r_legs = (ket_node_tensor[0].parent_leg, )
-    q_legs = tuple([leg for leg in range(ket_node_tensor[0].nlegs())
-                if leg != r_legs[0]])
-    q, _ = tensor_qr_decomposition(effective_tensor,
-                                    q_legs,
-                                    r_legs)
-    new_tensor = _adjust_new_ttns_tensor(q, ket_node_tensor[0])
-    ignored_leg = ket_node_tensor[0].parent
-    assert ignored_leg is not None
-    nodes_tensors = [ket_node_tensor,
-                        op_node_tensor,
-                        (ket_node_tensor[0], new_tensor.conj())] # Note the conjugate
-    id_trafos_2 = [identity_mapping, id_trafo, identity_mapping]
-    loc_contr = LocalContraction(nodes_tensors,
-                                half_subtree_cache,
-                                ignored_leg=ignored_leg,
-                                id_trafos=id_trafos_2)
-    half_subtree = loc_contr()
-    return new_tensor, half_subtree
-
-def _adjust_new_ttns_tensor(ttns_tensor: npt.NDArray,
-                            ttns_node: Node
-                            ) -> npt.NDArray:
-    """
-    Adjusts the new TTNS tensor to be in the correct shape in the TTNS.
-
-    Args:
-        ttns_tensor (npt.NDArray): The new TTNS tensor.
-        ttns_node (Node): The TTNS node corresponding to the tensor.
+        ttns (TTNS): The TTNS to build the cache for.
+        random_ttns (TTNS): The TTNS with random tensors.
+        id_trafo_to_random (Callable): A function to transform node
+            that transforms the TTNS`s node identifiers to the random TTNS`s
+            node identifiers. Defaults to identity_mapping.
 
     Returns:
-        npt.NDArray: The adjusted TTNS tensor.
+        PartialTreeCachDict: The full subtree cache.
     """
-    # The new tensor has the shape (neighs, phys, new_bond)
-    # The new bond is the original parent bond and must be moved to the
-    # correct position.
-    new_leg = ttns_tensor.ndim - 1
-    parent_leg = ttns_node.parent_leg
-    if parent_leg == new_leg:
-        return ttns_tensor
-    perm = list(range(new_leg))
-    perm.insert(parent_leg, new_leg)
-    return ttns_tensor.transpose(perm)
+    return build_full_subtree_cache(ttns,
+                                    None,
+                                    random_ttns,
+                                    id_trafo=identity_mapping,
+                                    id_trafo_to_random=id_trafo_to_random)
