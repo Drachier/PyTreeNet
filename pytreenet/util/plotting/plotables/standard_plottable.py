@@ -253,17 +253,26 @@ class StandardPlottable(Plottable):
         return self.y[-1] - self.y[0]
 
     def plot_on_axis(self,
-                     ax: Axes | None = None):
+                     ax: Axes | None = None,
+                     set_label: bool = True):
         """
         Plot the reference results on the given axes.
 
         Args:
             ax (Axes | None): The matplotlib Axes object to plot on.
                 If None, the current axes will be used.
+            set_label (bool): Whether to set the label for the line based on
+                the line configuration. Defaults to True.
+                This can be used to avoid creating a legend entry for this
+                plottable.
         """
         if ax is None:
             ax = plt.gca()
-        ax.plot(self.x, self.y, **self.line_config.to_kwargs())
+        if set_label:
+            kwargs = self.line_config.to_kwargs()
+        else:
+            kwargs = self.line_config.to_kwargs(exclude={"label"})
+        ax.plot(self.x, self.y, **kwargs)
 
     def apply_numpy_to_y(self,
                          func: Callable[[npt.NDArray[np.floating]],
