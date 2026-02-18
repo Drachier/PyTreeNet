@@ -253,3 +253,32 @@ def power_of_ttno(ttns: TTNS,
     for _ in range(power):
         result = apply_ttno_to_ttns(result, ttno, app_method, *args, **kwargs)
     return result
+
+def compute_power_series(ttns: TTNS,
+                         ttno: TTNO,
+                         max_power: int,
+                         app_method: ApplicationMethod,
+                         *args,
+                         **kwargs) -> list[TTNS]:
+    """
+    Compute the power series of a TTNO applied to a TTNS.
+
+    Args:
+        ttns (TTNS): The tree tensor network state to which the TTNO is
+            applied.
+        ttno (TTNO): The tree tensor network operator to be applied.
+        max_power (int): The maximum power to compute.
+        app_method (ApplicationMethod): The method to use for the application.
+        *args: Additional positional arguments for the application function.
+        **kwargs: Additional keyword arguments for the application function.
+
+    Returns:
+        list[TTNS]: A list of tree tensor network states corresponding to the
+            power series of the TTNO applied to the TTNS.
+    """
+    series = [ttns]
+    current = ttns
+    for _ in range(max_power + 1):
+        series.append(current)
+        current = apply_ttno_to_ttns(current, ttno, app_method, *args, **kwargs)
+    return series
