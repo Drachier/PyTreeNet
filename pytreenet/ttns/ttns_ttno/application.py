@@ -278,7 +278,7 @@ def compute_power_series(ttns: TTNS,
     """
     series = [ttns]
     current = ttns
-    for _ in range(max_power + 1):
+    for _ in range(1, max_power + 1):
         series.append(current)
         current = apply_ttno_to_ttns(current, ttno, app_method, *args, **kwargs)
     return series

@@ -5,14 +5,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Self
 from copy import copy
 
-from ...ttns.ttns_ttno.application import (ApplicationMethod,
-                                           apply_ttno_to_ttns)
+from ...ttns.ttns_ttno.application import ApplicationMethod
 from .addition import (AdditionMethod,
                        add_ttns)
-
-if TYPE_CHECKING:
-    from ...ttns import TTNS
-    from ...ttno import TTNO
+from ...ttns import TTNS
+from ...ttno import TTNO
 
 class LinCombParams:
     """
@@ -240,20 +237,20 @@ class LinearCombination:
             if coeff is not None:
                 res_ttns.append(ttns_i.scale(coeff))
         if addition_method.lin_comb_possible():
-            ttnos = []
+            ttnos_add = []
             for ttnos_i in ttnos:
                 if len(ttnos_i) > 1:
                     errstr = "Something went wrong!"
                     raise ValueError(errstr)
                 if len(ttnos_i) > 0:
-                    ttnos.append(ttnos_i[0])
+                    ttnos_add.append(ttnos_i[0])
                 else:
-                    ttnos.append(None)
+                    ttnos_add.append(None)
             lc_function = addition_method.lin_comb_function()
             return lc_function(res_ttns,
-                               ttnos,
+                               ttnos_add,
                                *args_add,
-                               **kwargs_add)  
+                               **kwargs_add)
         ttn =  add_ttns(res_ttns,
                         addition_method,
                         *args_add,
