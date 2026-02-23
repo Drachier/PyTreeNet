@@ -324,7 +324,7 @@ def contract_node_with_environment_2(node_id: str,
                                                                    dictionary)
 
     _, ket_legs = get_equivalent_legs(op_node, ket_node)
-    ket_legs.append(ket_node.open_legs)
+    ket_legs.extend(ket_node.open_legs)
     nopen_op = op_node.nopen_legs()
     block_legs = list(range(nopen_op,2*op_node.nneighbours()+nopen_op,2))
     block_contr_open_legs = list(range(nopen_op // 2))
@@ -668,6 +668,12 @@ def contract_subtrees_using_dictionary(ignored_node_id: str,
                                                       ket_node,
                                                       ignored_node_id,
                                                       id_trafo=id_trafo_op)
+        environment_block = contract_bra_tensor_ignore_one_leg(bra_tensor,
+                                                                bra_node,
+                                                                tensor,
+                                                                op_node,
+                                                                ignored_node_id,
+                                                                id_trafo=id_trafo_bra)
     else:
         tensor = contract_all_but_one_neighbour_block_to_ket(ket_tensor,
                                                          ket_node,
@@ -679,12 +685,12 @@ def contract_subtrees_using_dictionary(ignored_node_id: str,
                                                        op_node,
                                                        ignored_node_id,
                                                        id_trafo=id_trafo_op)
-    environment_block = contract_bra_tensor_ignore_one_leg(bra_tensor,
-                                                            bra_node,
-                                                            tensor,
-                                                            ket_node,
-                                                            ignored_node_id,
-                                                            id_trafo=id_trafo_bra)
+        environment_block = contract_bra_tensor_ignore_one_leg(bra_tensor,
+                                                                bra_node,
+                                                                tensor,
+                                                                ket_node,
+                                                                ignored_node_id,
+                                                                id_trafo=id_trafo_bra)
     return environment_block
 
 
