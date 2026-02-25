@@ -31,7 +31,8 @@ class HalfDMTTNOApplication(AbtractLCwithTempTensors):
                  ttnos: list[TTNO | None] | TTNO | None = None,
                  id_trafos_ttns: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
                  id_trafos_ttnos: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
-                 svd_params: SVDParameters | None = None
+                 svd_params: SVDParameters | None = None,
+                 cache_svd_params: SVDParameters | None = None
                  ) -> None:
         """
         Initialises the HalfDMTTNOApplication.
@@ -59,12 +60,18 @@ class HalfDMTTNOApplication(AbtractLCwithTempTensors):
             svd_params (SVDParameters | None, optional): The parameters for the
                 decomposition. If None is given, the default parameters are used.
                 Defaults to None.
+            cache_svd_params (SVDParameters | None, optional): The parameters for the
+                SVD truncation in the cache building. If None is given, the same
+                parameters as for the main decomposition are used. Defaults to None.
         """
         super().__init__(ttnss,
                          ttnos=ttnos,
                          id_trafos_ttns=id_trafos_ttns,
                          id_trafos_ttnos=id_trafos_ttnos,
                          svd_params=svd_params)
+        if cache_svd_params is None:
+            cache_svd_params = self._svd_params
+        self._cache_svd_params = cache_svd_params
 
     def build_full_subtree_cache(self,
                                  index: int
@@ -79,10 +86,10 @@ class HalfDMTTNOApplication(AbtractLCwithTempTensors):
             cache = build_full_subtree_cache(ttns,
                                              ttno,
                                              id_trafo,
-                                             self._svd_params)
+                                             self._cache_svd_params)
         else:
             cache = build_full_subtree_cache_state_only(ttns,
-                                                        self._svd_params)
+                                                        self._cache_svd_params)
         return cache
 
 def half_dm_ttns_ttno_application(ttns: TTNS,
