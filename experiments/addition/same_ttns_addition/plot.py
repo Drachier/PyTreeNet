@@ -194,7 +194,8 @@ def load_data(md_filter: MetadataFilter,
             for bond dimension vs. error, bond dimension vs. runtime, and runtime vs. error.
     """
     params_results = md_filter.load_valid_results_and_parameters(directory_path,
-                                                                 parameter_class=AdditionComparisonParams)
+                                                                 parameter_class=AdditionComparisonParams,
+                                                                 allow_non_exist=True)
     out: dict[tuple[str, int],
               tuple[list[StandardPlottable],
                     list[StandardPlottable],
@@ -325,7 +326,7 @@ if __name__ == "__main__":
     # Define the structures and corresponding system sizes
     structures = [TTNStructure.MPS, TTNStructure.FTPS,
                   TTNStructure.BINARY, TTNStructure.TSTAR]
-    sys_sizes = {"mps": 10, "ftps": 3, "binary": 2, "tstar": 5}
+    sys_sizes = {"mps": 100, "ftps": 10, "binary": 6, "tstar": 33}
 
     # Create plots directory if it doesn't exist
     plots_dir = os.path.join(data_dir, "plots")

@@ -21,6 +21,7 @@ from pytreenet.time_evolution.results import Results
 from pytreenet.ttns.ttns import TreeTensorNetworkState
 from pytreenet.util.tensor_splitting import SVDParameters
 
+
 @dataclass
 class AdditionComparisonParams(SimulationParameters):
     """
@@ -39,7 +40,9 @@ class AdditionComparisonParams(SimulationParameters):
     distr_low: float = -1.0
     distr_high: float = 1.0
 
+
 RES_IDS = ("bond_dim", "error", "run_time")
+
 
 def bond_dim_range(params: AdditionComparisonParams) -> range:
     """
@@ -54,6 +57,7 @@ def bond_dim_range(params: AdditionComparisonParams) -> range:
     return range(params.min_bond_dim,
                  params.max_bond_dim + 1,
                  params.step_bond_dim)
+
 
 def init_results(params: AdditionComparisonParams) -> Results:
     """
@@ -73,6 +77,7 @@ def init_results(params: AdditionComparisonParams) -> Results:
                        num_res,
                        with_time=False)
     return results
+
 
 def set_result_values(results: Results,
                       index: int,
@@ -94,6 +99,7 @@ def set_result_values(results: Results,
     for res_id, res_value in zip(RES_IDS, res_values):
         results.set_element(res_id, index, res_value)
 
+
 def run_addition_comparison(params: AdditionComparisonParams) -> Results:
     """
     Runs the addition comparison simulation.
@@ -105,14 +111,14 @@ def run_addition_comparison(params: AdditionComparisonParams) -> Results:
 
     Args:
         params (AdditionComparisonParams): The parameters for the simulation.
-    
+
     Returns:
         Results: The results of the simulation. It contains the
             bond dimension, error, and time taken to perform the
             additions for each bond dimension.
     """
     results = init_results(params)
-    
+
     # Create random TTNS once with initial bond dimension (outside loop)
     ttns = random_ttns(params.structure,
                        params.sys_size,
@@ -123,19 +129,19 @@ def run_addition_comparison(params: AdditionComparisonParams) -> Results:
                        low=params.distr_low,
                        high=params.distr_high
                        )
-    
+
     # Loop over bond dimensions
     for index, bond_dim in enumerate(bond_dim_range(params)):
         # Create the reference by scaling
         reference_ttns = deepcopy(ttns)
         reference_ttns.scale(params.num_additions, inplace=True)
-        
+
         # Perform the addition N times
         ttns_list = [deepcopy(ttns) for _ in range(params.num_additions)]
-        
+
         # Time the addition operation
         start_time = time()
-        
+
         # Add all TTNS in the list
         add_func = params.addition_method.get_function()
         svd_params = SVDParameters(max_bond_dim=bond_dim)
@@ -144,24 +150,25 @@ def run_addition_comparison(params: AdditionComparisonParams) -> Results:
             result_ttns = add_func(ttns_list, TruncationMethod.SVD,
                                    *(svd_params,))
         elif params.addition_method in [AdditionMethod.DENSITY_MATRIX,
-                                         AdditionMethod.HALF_DENSITY_MATRIX,
-                                         AdditionMethod.SRC]:
+                                        AdditionMethod.HALF_DENSITY_MATRIX,
+                                        AdditionMethod.SRC]:
             # DM, Half-DM, and SRC methods accept svd_params
             result_ttns = add_func(ttns_list, svd_params=svd_params)
         else:
             result_ttns = add_func(ttns_list)
-        
+
         end_time = time()
-        
+
         # Compute error
         temp_ttns = TreeTensorNetworkState.from_ttn(result_ttns)
         error = temp_ttns.distance(reference_ttns, normalise=True)
-        
+
         # Store results
         set_result_values(results, index,
                           bond_dim, error, end_time - start_time)
-    
+
     return results
+
 
 def run_simulation(params: AdditionComparisonParams,
                    save_directory: str
@@ -175,6 +182,7 @@ def run_simulation(params: AdditionComparisonParams,
     with File(filepath, "w") as f:
         results.save_to_h5(f)
         params.save_to_h5(f)
+
 
 if __name__ == "__main__":
     script_main(run_simulation,
