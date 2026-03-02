@@ -34,7 +34,7 @@ class Plottable2D(Plottable):
                 which will be visualized using color.
             assoc_params (dict[str, Any] | None): Optional dictionary of associated parameters
                 that may be relevant for the plottable.
-    
+
         """
         super().__init__(line_config=None, assoc_params=assoc_params)
         self.coords = point_coords
@@ -87,7 +87,11 @@ class Plottable2D(Plottable):
         xticks = ax.get_xticks()
         x_points = self.find_x_points()
         y_points = self.find_y_points()
+        if len(x_points) < len(xticks):
+            xticks = [i for i in range(len(x_points))]
         ax.set_xticks(xticks, [str(x_points[int(i)]) for i in xticks])
+        if len(y_points) < len(yticks):
+            yticks = [i for i in range(len(y_points))]
         ax.set_yticks(yticks, [str(y_points[int(i)]) for i in yticks])
 
     def add_point(self, x: int, y: int, val: float) -> None:
@@ -107,7 +111,8 @@ class Plottable2D(Plottable):
     def from_simulation_result(cls,
                                result: Results,
                                sim_params: SimulationParameters,
-                               extraction_function: Callable[[Results, SimulationParameters], tuple[list[int], list[int], list[float]]]
+                               extraction_function: Callable[[
+                                   Results, SimulationParameters], tuple[list[int], list[int], list[float]]]
                                ) -> Self:
         """
         Creates a Plottable2D object from simulation results.
@@ -119,7 +124,7 @@ class Plottable2D(Plottable):
             extraction_function (Callable[[Results, SimulationParameters], tuple[list[int], list[int], list[float]]]):
                 A function that takes the results and simulation parameters and
                 returns a tuple of three lists (x_coords, y_coords, vals).
-        
+
         Returns:
             Self: A new instance of Plottable2D containing the extracted
                 (x, y, val) data from the simulation results.
@@ -130,12 +135,13 @@ class Plottable2D(Plottable):
         return cls(point_coords=point_coords,
                    vals=vals_array,
                    assoc_params=sim_params.to_json_dict())
-    
+
     def x_limits(self) -> tuple[float, float]:
         return (min(coord[0] for coord in self.coords), max(coord[0] for coord in self.coords))
-    
+
     def y_limits(self) -> tuple[float, float]:
         return (min(coord[1] for coord in self.coords), max(coord[1] for coord in self.coords))
+
 
 def average(plottables: list[Plottable2D]) -> Plottable2D:
     """
@@ -149,9 +155,9 @@ def average(plottables: list[Plottable2D]) -> Plottable2D:
     """
     if not plottables:
         raise ValueError("The list of plottables cannot be empty!")
-    
+
     # Assume all plottables have the same coordinates
-    vals_matrix = np.array([plottable.vals for plottable in plottables])
+    vals_matrix = np.array([plottable.get_value_matrix() for plottable in plottables])
     avg_vals = np.mean(vals_matrix, axis=0)
     x_coords = plottables[0].find_x_points()
     y_coords = plottables[0].find_y_points()
