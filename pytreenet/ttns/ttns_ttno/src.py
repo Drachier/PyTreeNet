@@ -81,7 +81,7 @@ class SRCTTNOApplication(AbtractLCwithTempTensors):
                          id_trafos_ttnos=id_trafos_ttnos,
                          svd_params=svd_params)
         if desired_dimension is None:
-            desired_dimension = svd_params.max_bond_dim
+            desired_dimension = self._svd_params.max_bond_dim
         self._desired_dimension = desired_dimension
         self._seed = seed
         self._rand_ttns = TTNS()

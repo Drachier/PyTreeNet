@@ -133,6 +133,9 @@ def run_simulation(params: ApplicationParams) -> Results:
             kwargs = {"desired_dimension": bond_dim}
         elif params.appl_method == ApplicationMethod.DIRECT_TRUNCATE:
             kwargs = {"params": svd_params}
+        elif params.appl_method == ApplicationMethod.DIRECT_TRUNCATE_RANDOM:
+            svd_params.random = True
+            kwargs = {"params": svd_params}
         else:
             kwargs = {"svd_params": svd_params}
         func = params.appl_method.get_function()

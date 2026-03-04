@@ -16,6 +16,9 @@ from pytreenet.core.addition.addition import AdditionMethod
 from pytreenet.time_evolution.results import Results
 from pytreenet.util.plotting.line_config import LineConfig, StyleMapping, StyleOption
 from pytreenet.special_ttn.special_states import TTNStructure
+from pytreenet.util.plotting.configuration import (DocumentStyle,
+                                                   set_size,
+                                                   config_matplotlib_to_latex)
 
 from sim_script import (AdditionComparisonParams,
                         RES_IDS)
@@ -123,6 +126,7 @@ def build_lineconfig(params: AdditionComparisonParams) -> LineConfig:
     lc.label = f"{method_name(params)} (N={params.num_additions})"
     lc.marker = method_marker(params)
     lc.linestyle = num_additions_linestyle(params.num_additions)
+    lc.marker_size = 3
     return lc
 
 
@@ -194,7 +198,8 @@ def load_data(md_filter: MetadataFilter,
             for bond dimension vs. error, bond dimension vs. runtime, and runtime vs. error.
     """
     params_results = md_filter.load_valid_results_and_parameters(directory_path,
-                                                                 parameter_class=AdditionComparisonParams)
+                                                                 parameter_class=AdditionComparisonParams,
+                                                                 allow_non_exist=True)
     out: dict[tuple[str, int],
               tuple[list[StandardPlottable],
                     list[StandardPlottable],
@@ -280,8 +285,10 @@ def plot_all(md_filter: MetadataFilter,
             the plots will be displayed instead of being saved. Defaults to None.
     """
     data = load_data(md_filter, directory_path)
+    config_matplotlib_to_latex(style=DocumentStyle.THESIS)
+    size = set_size(width=DocumentStyle.THESIS, subplots=(2, 2))
 
-    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+    fig, axs = plt.subplots(2, 2, figsize=size)
     x_labels = ("Bond Dimension", "Bond Dimension", "Runtime [s]")
     y_labels = ("Error", "Runtime [s]", "Error")
     xlog = (False, False, True)
@@ -289,11 +296,11 @@ def plot_all(md_filter: MetadataFilter,
 
     # Plot all data
     for (method, n_add), (bd_vs_err, bd_vs_runtime, runtime_vs_err) in data.items():
-        bd_vs_err.plot_on_axis(axs[0],set_label=False)
-        bd_vs_runtime.plot_on_axis(axs[1],set_label=False)
-        runtime_vs_err.plot_on_axis(axs[2],set_label=False)
+        bd_vs_err.plot_on_axis(axs[0,0],set_label=False)
+        bd_vs_runtime.plot_on_axis(axs[0,1],set_label=False)
+        runtime_vs_err.plot_on_axis(axs[1,0],set_label=False)
 
-    for ax, x_label, y_label, x_log, y_log in zip(axs, x_labels, y_labels, xlog, ylog):
+    for ax, x_label, y_label, x_log, y_log in zip(axs.flat[:-1], x_labels, y_labels, xlog, ylog):
         ax.set_xlabel(x_label)
         ax.set_ylabel(y_label)
         if x_log:
@@ -303,8 +310,9 @@ def plot_all(md_filter: MetadataFilter,
 
     # Build and apply custom legend using StyleMapping from MetadataFilter
     style_mapping = build_style_mapping(md_filter)
-    style_mapping.apply_legend(axs[0])
-    axs[0].legend()
+    axs[1,1].axis('off')  # Hide the last subplot for the legend
+    style_mapping.apply_legend(axs[1,1])
+    axs[1,1].legend(loc='center left')
 
     fig.tight_layout()
 
@@ -325,7 +333,7 @@ if __name__ == "__main__":
     # Define the structures and corresponding system sizes
     structures = [TTNStructure.MPS, TTNStructure.FTPS,
                   TTNStructure.BINARY, TTNStructure.TSTAR]
-    sys_sizes = {"mps": 10, "ftps": 3, "binary": 2, "tstar": 5}
+    sys_sizes = {"mps": 100, "ftps": 10, "binary": 6, "tstar": 33}
 
     # Create plots directory if it doesn't exist
     plots_dir = os.path.join(data_dir, "plots")

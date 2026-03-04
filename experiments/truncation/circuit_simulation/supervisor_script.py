@@ -3,6 +3,7 @@ This script is used to supervise the truncation comparison experiments.
 """
 import os
 from itertools import product
+from copy import copy
 
 from pytreenet.util.experiment_util.supervisor import (Supervisor,
                                                        SIMSCRIPT_STANDARD_NAME)
@@ -24,11 +25,12 @@ def generate_parameter_set() -> list[CircuitSimParams]:
                   TTNStructure.BINARY)
     methods = (ApplicationMethod.DENSITY_MATRIX,
                ApplicationMethod.HALF_DENSITY_MATRIX,
+               ApplicationMethod.DIRECT_TRUNCATE_RANDOM,
                ApplicationMethod.SRC,
                ApplicationMethod.ZIPUP,
                ApplicationMethod.DIRECT_TRUNCATE,
             )
-    seeds = (1234, 4321, 1549, 6846, 56)
+    seeds = (1234, 4321, 1549, 6846, 56, 27384, 90867)
     min_bd = 5
     max_bd = 200
     circ_reps = [3,1]
@@ -44,6 +46,12 @@ def generate_parameter_set() -> list[CircuitSimParams]:
             num_circuit_repeats=circ_rep
         )
         param_set.append(params)
+        param_set.append(params)
+        if structure is TTNStructure.MPS and method == ApplicationMethod.ZIPUP:
+            # For MPS and zipup, we also want to test the canonical zipup.
+            params_canonical = copy(params)
+            params_canonical.appl_method = ApplicationMethod.ZIPUP_CANONICAL
+            param_set.append(params_canonical)
     return param_set
 
 def main():

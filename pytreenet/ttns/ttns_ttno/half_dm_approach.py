@@ -31,7 +31,8 @@ class HalfDMTTNOApplication(AbtractLCwithTempTensors):
                  ttnos: list[TTNO | None] | TTNO | None = None,
                  id_trafos_ttns: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
                  id_trafos_ttnos: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
-                 svd_params: SVDParameters | None = None
+                 svd_params: SVDParameters | None = None,
+                 cache_svd_params: SVDParameters | None = None
                  ) -> None:
         """
         Initialises the HalfDMTTNOApplication.
@@ -59,12 +60,18 @@ class HalfDMTTNOApplication(AbtractLCwithTempTensors):
             svd_params (SVDParameters | None, optional): The parameters for the
                 decomposition. If None is given, the default parameters are used.
                 Defaults to None.
+            cache_svd_params (SVDParameters | None, optional): The parameters for the
+                SVD truncation in the cache building. If None is given, the same
+                parameters as for the main decomposition are used. Defaults to None.
         """
         super().__init__(ttnss,
                          ttnos=ttnos,
                          id_trafos_ttns=id_trafos_ttns,
                          id_trafos_ttnos=id_trafos_ttnos,
                          svd_params=svd_params)
+        if cache_svd_params is None:
+            cache_svd_params = self._svd_params
+        self._cache_svd_params = cache_svd_params
 
     def build_full_subtree_cache(self,
                                  index: int
@@ -79,10 +86,10 @@ class HalfDMTTNOApplication(AbtractLCwithTempTensors):
             cache = build_full_subtree_cache(ttns,
                                              ttno,
                                              id_trafo,
-                                             self._svd_params)
+                                             self._cache_svd_params)
         else:
             cache = build_full_subtree_cache_state_only(ttns,
-                                                        self._svd_params)
+                                                        self._cache_svd_params)
         return cache
 
 def half_dm_ttns_ttno_application(ttns: TTNS,
@@ -116,7 +123,8 @@ def half_dm_linear_combination(ttnss: list[TTNS],
                           ttnos: list[TTNO | None],
                           id_trafos_ttns: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
                           id_trafos_ttnos: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
-                          svd_params: SVDParameters = SVDParameters()
+                          svd_params: SVDParameters = SVDParameters(),
+                            cache_svd_params: SVDParameters | None = None
                             ) -> TTNS:
     """
     Computes a linear combination of the given TTNSs with the given TTNOs via the
@@ -140,6 +148,9 @@ def half_dm_linear_combination(ttnss: list[TTNS],
             Defaults to identity_mapping.
         svd_params (SVDParameters, optional): The parameters for the
             decomposition. Defaults to SVDParameters().
+        cache_svd_params (SVDParameters | None, optional): The parameters for the
+            SVD truncation in the cache building. If None is given, the same
+            parameters as for the main decomposition are used. Defaults to None.
         
     Returns:
         TTNS: The result of the linear combination.
@@ -148,13 +159,15 @@ def half_dm_linear_combination(ttnss: list[TTNS],
                                      ttnos=ttnos,
                                      id_trafos_ttns=id_trafos_ttns,
                                      id_trafos_ttnos=id_trafos_ttnos,
-                                     svd_params=svd_params)
+                                     svd_params=svd_params,
+                                     cache_svd_params=cache_svd_params)
     new_ttns = appl_obj()
     return new_ttns
 
 def half_dm_addition(ttnss: list[TTNS],
                 id_trafos_ttns: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
-                svd_params: SVDParameters = SVDParameters()
+                svd_params: SVDParameters = SVDParameters(),
+                cache_svd_params: SVDParameters | None = None
                 ) -> TTNS:
     """
     Computes the sum of the given TTNSs via the half density matrix based algorithm.
@@ -169,13 +182,17 @@ def half_dm_addition(ttnss: list[TTNS],
             Defaults to identity_mapping.
         svd_params (SVDParameters, optional): The parameters for the
             decomposition. Defaults to SVDParameters().
+        cache_svd_params (SVDParameters | None, optional): The parameters for the
+            SVD truncation in the cache building. If None is given, the same
+            parameters as for the main decomposition are used. Defaults to None.
     
     Returns:
         TTNS: The sum of the TTNSs.
     """
     appl_obj = HalfDMTTNOApplication(ttnss,
                                      id_trafos_ttns=id_trafos_ttns,
-                                     svd_params=svd_params)
+                                     svd_params=svd_params,
+                                     cache_svd_params=cache_svd_params)
     new_ttns = appl_obj()
     return new_ttns
 
