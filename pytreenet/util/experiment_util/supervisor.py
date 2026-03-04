@@ -15,6 +15,7 @@ import sys
 from .sim_params import SimulationParameters
 from .metadata_file import METADATAFILE_STANDARD_NAME
 from .status_enum import Status
+from .message import send_sim_finished_message
 
 LOGFILE_STANDARD_NAME = "log.txt"
 CURRENTPARAMFILE_STANDARD_NAME = "current_parameters.json"
@@ -64,7 +65,8 @@ class Supervisor:
                  timeout: int = 3600,
                  python_executable: str = "python",
                  logfile_name: str = LOGFILE_STANDARD_NAME,
-                 metadatafile_name: str = METADATAFILE_STANDARD_NAME
+                 metadatafile_name: str = METADATAFILE_STANDARD_NAME,
+                 notify_on_finish: bool = False
                  ) -> None:
         """
         Initialises a Supervisor object.
@@ -87,6 +89,8 @@ class Supervisor:
                 Defaults to `"log.txt"`.
             metadatafile_name (str): The filename of the metadata
                 `json` file. Defaults to `"metadata.json"`.
+            notify_on_finish (bool): If True, a message will be sent to the
+                user when all simulations have finished. Defaults to `False`.
         """
         if not isinstance(sim_parameters, list):
             sim_parameters = [sim_parameters]
@@ -100,6 +104,7 @@ class Supervisor:
         self.logfile_name = handle_file_name(logfile_name, ".txt")
         self.metadatafile_name = handle_file_name(metadatafile_name, ".json")
         self.python_executable = python_executable
+        self.notify_on_finish = notify_on_finish
 
     @classmethod
     def from_commandline(cls,
@@ -136,6 +141,10 @@ class Supervisor:
                             action="store_true",
                             default=False,
                             help="Skip timed out results.")
+        parser.add_argument("--send",
+                            action="store_true",
+                            default=False,
+                            help="Send a message when all simulations have finished.")
         python_executable = sys.executable
         args = parser.parse_args()
         if args.skip_timeout:
@@ -150,7 +159,8 @@ class Supervisor:
                    args.save_directory,
                    simulation_script_path,
                    skip_existing=skip_existing,
-                   python_executable=python_executable)
+                   python_executable=python_executable,
+                   notify_on_finish=args.send)
 
     def create_metadata_file_path(self) -> str:
         """
@@ -218,7 +228,9 @@ class Supervisor:
                                            skip_existing=self.skip_existing,
                                            python_executable=self.python_executable)
             runner.run(metadata_index)
-        self.save_metadata_index(metadata_index)   
+        self.save_metadata_index(metadata_index)
+        if self.notify_on_finish:
+            send_sim_finished_message()
 
 class SingleParameterRunner:
     """
