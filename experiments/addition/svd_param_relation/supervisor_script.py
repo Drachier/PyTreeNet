@@ -25,10 +25,10 @@ def generate_parameter_set() -> list[AdditionComparisonParams]:
     # Define structures and their corresponding system sizes and bond dimension ranges
     structure_configs = [
         # structure, sys_size, min_bd, max_bd, step_bd
-        (TTNStructure.MPS, 100, 5, 10, 5),
-        (TTNStructure.FTPS, 10, 5, 100, 5),
-        (TTNStructure.BINARY, 6, 5, 100, 5),
-        (TTNStructure.TSTAR, 33, 5, 100, 5)
+        (TTNStructure.MPS, 100, 5, 100, 5),
+        (TTNStructure.FTPS, 10, 5, 50, 5),
+        (TTNStructure.BINARY, 6, 5, 50, 5),
+        (TTNStructure.TSTAR, 33, 5, 50, 5)
     ]
 
     # Define addition methods to compare
@@ -38,7 +38,7 @@ def generate_parameter_set() -> list[AdditionComparisonParams]:
     ]
 
     # Number of times to add the TTNS to itself
-    num_additions_list = [2, 5
+    num_additions_list = [2, 5, 10
                           ]
 
     # Multiple seeds for statistical confidence
@@ -47,7 +47,7 @@ def generate_parameter_set() -> list[AdditionComparisonParams]:
              ]
 
     # Physical dimension
-    phys_dim = 4
+    phys_dim = 2
 
     param_set = []
 
