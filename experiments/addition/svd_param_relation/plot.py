@@ -16,7 +16,8 @@ from pytreenet.core.addition.addition import AdditionMethod
 from pytreenet.time_evolution.results import Results
 from pytreenet.special_ttn.special_states import TTNStructure
 from pytreenet.util.plotting.plotables.plottable_2d import (Plottable2D,
-                                                            average)
+                                                            average,
+                                                            NormalisationMethod)
 
 from sim_script import (AdditionComparisonParams,
                         RES_IDS)
@@ -53,7 +54,7 @@ def extract_bd_vs_runtime(result: Results
     """
     cache_bds = result.operator_result(RES_IDS[0])
     add_bds = result.operator_result(RES_IDS[1])
-    runtimes = result.operator_result(RES_IDS[2])
+    runtimes = result.operator_result(RES_IDS[3])
     return cache_bds, add_bds, runtimes
 
 
@@ -110,7 +111,7 @@ def plot(md_filter: MetadataFilter,
     fig, axes = plt.subplots(1, 2, figsize=size)
     for ind, axdat in enumerate(zip(axes, data)):
         ax, dat = axdat
-        dat.plot_on_axis(ax)
+        dat.plot_on_axis(ax, norm_method=NormalisationMethod.LOG)
         ax.set_xlabel(r"$\chi_{\mathcal{S}}$")
         ax.set_ylabel(r"$\chi_{\text{add}}$")
         if ind == 0:
@@ -132,12 +133,12 @@ if __name__ == "__main__":
     data_dir = sys.argv[1]
 
     # Define the structures and corresponding system sizes
-    structures = [TTNStructure.MPS,
-                  # TTNStructure.FTPS,
-                  # TTNStructure.BINARY,
-                  # TTNStructure.TSTAR
+    structures = [#TTNStructure.MPS,
+                  #TTNStructure.FTPS,
+                  TTNStructure.BINARY,
+                  TTNStructure.TSTAR
                   ]
-    sys_sizes = {"mps": 8, "ftps": 10, "binary": 6, "tstar": 33}
+    sys_sizes = {"mps": 100, "ftps": 10, "binary": 6, "tstar": 33}
 
     # Create plots directory if it doesn't exist
     plots_dir = os.path.join(data_dir, "plots")
@@ -148,10 +149,10 @@ if __name__ == "__main__":
         md_filter = MetadataFilter()
         md_filter.add_to_criterium("addition_method", [AdditionMethod.HALF_DENSITY_MATRIX.value,
                                                        AdditionMethod.SRC.value])
-        md_filter.add_to_criterium("num_additions", [2, 5])
+        md_filter.add_to_criterium("num_additions", [5])
         md_filter.add_to_criterium("structure", structure.value)
         md_filter.add_to_criterium("sys_size", sys_sizes[structure.value])
-
+        md_filter.add_to_criterium("phys_dim", 4)  # Assuming phys_dim is fixed at 2 for all experiments
         save_path = os.path.join(plots_dir,
                                  f"addition_comparison_{structure.value}.pdf")
         plot(md_filter, data_dir, save_path=save_path)
