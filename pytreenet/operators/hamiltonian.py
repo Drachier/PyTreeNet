@@ -99,6 +99,53 @@ class Hamiltonian():
                 return False
         return True
 
+    def is_empty(self) -> bool:
+        """
+        Returns whether the Hamiltonian is empty, i.e. has no terms.
+        """
+        return len(self.terms) == 0
+
+    def scalar_multiply(self,
+                        scalar: Fraction | str | tuple[Fraction, str],
+                        coeff_map: Dict[str, complex] | None = None
+                        ) -> Hamiltonian:
+        """
+        Multiplies the entire Hamiltonian with a scalar factor.
+
+        Args:
+            scalar (Fraction | str | tuple[Fraction, str]): The scalar factor
+                to multiply with.
+            coeff_map (dict[str, complex] | None): Allows to update the
+                coefficients mapping with new coefficients that might be
+                introduced by the scalar multiplication. Defaults to None.
+        
+        Returns:
+            Hamiltonian: A new Hamiltonian.
+        """
+        if isinstance(scalar, Fraction):
+            scalar = (scalar, ONE_SYMBOL)
+        elif isinstance(scalar, str):
+            scalar = (Fraction(1), scalar)
+        new_terms = []
+        for frac, coeff, term in self.terms:
+            new_frac = frac * scalar[0]
+            if coeff == ONE_SYMBOL and scalar[1] == ONE_SYMBOL:
+                new_coeff = ONE_SYMBOL
+            elif coeff == ONE_SYMBOL:
+                new_coeff = scalar[1]
+            elif scalar[1] == ONE_SYMBOL:
+                new_coeff = coeff
+            else:
+                new_coeff = f"{coeff}*{scalar[1]}"
+            new_terms.append((new_frac, new_coeff, term))
+        new_coeffs_mapping = self.coeffs_mapping.copy()
+        if coeff_map is not None:
+            new_coeffs_mapping.update(coeff_map)
+        new_conv_dict = self.conversion_dictionary.copy()
+        return Hamiltonian(new_terms,
+                           conversion_dictionary=new_conv_dict,
+                           coeffs_mapping=new_coeffs_mapping)
+
     def compare_conversion_dict(self,
                                 other_hamiltonian: Hamiltonian
                                 ) -> bool:
