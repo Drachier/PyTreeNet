@@ -3,18 +3,37 @@ A 2D plottable class for visualizing the relationship between two parameters.
 """
 from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Self, Callable
+from enum import Enum
 
 import numpy as np
+from matplotlib.colors import LogNorm
 
 if TYPE_CHECKING:
     import numpy.typing as npt
 
-    from ..line_config import LineConfig
     from ...experiment_util.sim_params import SimulationParameters
     from ....time_evolution.results import Results
 
 
 from .standard_plottable import Plottable
+
+class NormalisationMethod(Enum):
+    """
+    Enumeration for different methods of normalizing the values in a Plottable2D.
+    """
+    NONE = 0
+    LOG = 1
+
+    def keyword_val(self):
+        """
+        Returns the corresponding normalization function or method based on the enum value.
+        """
+        if self == NormalisationMethod.NONE:
+            return None
+        elif self == NormalisationMethod.LOG:
+            return LogNorm()
+        else:
+            raise ValueError(f"Unsupported normalization method: {self}")
 
 
 class Plottable2D(Plottable):
@@ -75,24 +94,32 @@ class Plottable2D(Plottable):
             value_matrix[x_index, y_index] = val
         return value_matrix
 
-    def plot_on_axis(self, ax):
+    def plot_on_axis(self,
+                     ax,
+                     norm_method: NormalisationMethod = NormalisationMethod.NONE) -> None:
         """
         Plots the 2D plottable on the given axis.
 
         Args:
             ax: The matplotlib axis to plot on.
         """
-        ax.imshow(self.get_value_matrix(), origin='lower')
+        ax.imshow(self.get_value_matrix(),
+                  origin='lower',
+                  norm=norm_method.keyword_val())
         yticks = ax.get_yticks()
         xticks = ax.get_xticks()
         x_points = self.find_x_points()
         y_points = self.find_y_points()
         if len(x_points) < len(xticks):
             xticks = [i for i in range(len(x_points))]
-        ax.set_xticks(xticks, [str(x_points[int(i)]) for i in xticks])
+        xticks = [int(i) for i in xticks
+                   if i >= 0 and i < len(x_points)]
+        ax.set_xticks(xticks, [str(x_points[i]) for i in xticks])
         if len(y_points) < len(yticks):
             yticks = [i for i in range(len(y_points))]
-        ax.set_yticks(yticks, [str(y_points[int(i)]) for i in yticks])
+        yticks = [int(i) for i in yticks
+                   if i >= 0 and i < len(y_points)]
+        ax.set_yticks(yticks, [str(y_points[i]) for i in yticks])
 
     def add_point(self, x: int, y: int, val: float) -> None:
         """
