@@ -13,11 +13,14 @@ from copy import copy
 from numpy import ndarray
 
 from ..util import copy_object
+from ..core import Node
 
 __all__ = ['completely_contract_tree']
 
 def completely_contract_tree(ttn: TreeTensorNetwork,
-                             to_copy: bool=False) -> Tuple[ndarray, List[str]]:
+                             to_copy: bool=False,
+                             order: List[str] | None = None
+                             ) -> Tuple[ndarray, List[str]]:
     """
     Completely contracts the given tree tensor network by contracting
     (WARNING: Can get very costly very fast. Only use for debugging.)
@@ -26,6 +29,9 @@ def completely_contract_tree(ttn: TreeTensorNetwork,
         ttn (TreeTensorNetwork): The TTN to be contracted.
         to_copy (bool): Wether or not the contraction should be perfomed on a
             deep copy. Default is False.
+        order (List[str] | None): The order in which the nodes should be contracted.
+            If None, the order is determined by the structure of the tree.
+            Default is None.
 
     Returns:
         Tuple[np.ndarray, List[str]]: The contracted TTN and the list of the
@@ -33,10 +39,20 @@ def completely_contract_tree(ttn: TreeTensorNetwork,
             contracted. The latter is very useful for debugging.
     """
     work_ttn = copy_object(ttn, deep=to_copy)
+    nodes = copy(work_ttn.nodes) # For final transpose
     contraction_oder = []
     root_id = work_ttn.root_id
     _completely_contract_tree_rec(work_ttn, root_id, contraction_oder)
-    return work_ttn.tensors[work_ttn.root_id], contraction_oder
+    final_tensor = work_ttn.tensors[work_ttn.root_id]
+    if order is not None:
+        if set(order) != set(contraction_oder):
+            raise ValueError("The order is inconsistent with the structure of the tree!")
+        final_tensor = final_transpose(final_tensor,
+                                       nodes,
+                                       order,
+                                       contraction_oder)
+        contraction_oder = order
+    return final_tensor, contraction_oder
 
 def _completely_contract_tree_rec(work_ttn: TreeTensorNetwork,
                                   current_node_id: str,
@@ -57,4 +73,37 @@ def _completely_contract_tree_rec(work_ttn: TreeTensorNetwork,
         _completely_contract_tree_rec(work_ttn, child_id,
                                       contraction_order)
         work_ttn.contract_nodes(current_node_id, child_id,
-                                new_identifier=current_node_id)
+                                new_identifier=current_node_id)#
+    
+def final_transpose(final_tensor: ndarray,
+                    nodes: dict[str, Node],
+                    actual_order: List[str],
+                    contraction_order: List[str]
+                    ) -> ndarray:
+    """
+    Transposes the final tensor according to the given order.
+
+    Args:
+        final_tensor (ndarray): The final tensor after contraction.
+        nodes (Dict[str, Node]): The nodes of the original tree. Needed to
+            determine the original order of the legs.
+        actual_order (List[str]): The order of the legs in the final tensor.
+        contraction_order (List[str]): The order in which the nodes were
+            contracted. This is the order of the legs in the final tensor.
+
+    Returns:
+        ndarray: The final tensor with the legs in the order of the original
+            tree.
+    """
+    indices: dict[str, list[int]] = {}
+    current = 0
+    for node_id in actual_order:
+        node = nodes[node_id]
+        num_open = node.nopen_legs()
+        indices[node_id] = list(range(current, current + num_open))
+        current += num_open
+    # Now we can determine the permutation.
+    perm = []
+    for node_id in contraction_order:
+        perm.extend(indices[node_id])
+    return final_tensor.transpose(perm)

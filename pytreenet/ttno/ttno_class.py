@@ -40,13 +40,15 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
     of dimension 1, but have the same dimension.
     """
 
-    def as_matrix(self) -> Tuple[np.ndarray, List[str]]:
+    def as_matrix(self,
+                  order: List[str] | None = None
+                  ) -> Tuple[np.ndarray, List[str]]:
         """
         Contracts the matrix equivalent to the TTNO.
 
         The new order of the dimension is also returned.
         """
-        tensor, order = self.completely_contract_tree(to_copy=True)
+        tensor, order = self.completely_contract_tree(to_copy=True, order=order)
         permutation = list(range(0,tensor.ndim,2)) + list(range(1,tensor.ndim,2))
         tensor = np.transpose(tensor, permutation)
         dim = np.prod(tensor.shape[:int(tensor.ndim/2)])

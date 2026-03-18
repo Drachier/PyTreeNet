@@ -1510,7 +1510,9 @@ class TreeTensorNetwork(TreeStructure):
         self.canonical_form(orthogonality_center_id, mode=mode)
 
     def completely_contract_tree(self,
-                                 to_copy: bool=False) -> Tuple[np.ndarray, List[str]]:
+                                 to_copy: bool=False,
+                                 order: List[str] | None = None
+                                 ) -> Tuple[np.ndarray, List[str]]:
         """
         Completely contracts the given TTN by combining all nodes.
 
@@ -1520,13 +1522,16 @@ class TreeTensorNetwork(TreeStructure):
             ttn (TreeTensorNetwork): The TTN to be contracted.
             to_copy (bool): Wether or not the contraction should be perfomed on
                 a deep copy. Default is False.
+            order (List[str]): The order in which the nodes should be contracted.
+                If None, the order is determined by the structure of the tree.
+                Default is None.
 
         Returns:
             Tuple[np.ndarray, List[str]]: The contracted TTN and the list of
                 the identifiers of the contracted nodes in the order they were
                 contracted. The latter is very useful for debugging.
         """
-        return completely_contract_tree(self, to_copy=to_copy)
+        return completely_contract_tree(self, to_copy=to_copy, order=order)
 
     def transpose_all_tensors(self):
         """
