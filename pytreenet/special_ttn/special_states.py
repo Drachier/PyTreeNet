@@ -239,7 +239,6 @@ def generate_constant_product_state(value: int,
     errstr += "Cannot generate constant product state!"
     raise ValueError(errstr)
 
-
 def generate_zero_state(system_size: int,
                         structure: TTNStructure,
                         phys_dim: int = 2,

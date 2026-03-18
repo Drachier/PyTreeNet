@@ -3,6 +3,7 @@ Plots the results from the addition comparison experiments.
 """
 import sys
 import os
+from itertools import product
 
 from numpy.typing import NDArray
 import numpy as np
@@ -133,27 +134,28 @@ if __name__ == "__main__":
     data_dir = sys.argv[1]
 
     # Define the structures and corresponding system sizes
-    structures = [#TTNStructure.MPS,
-                  #TTNStructure.FTPS,
+    structures = [TTNStructure.MPS,
+                  TTNStructure.FTPS,
                   TTNStructure.BINARY,
                   TTNStructure.TSTAR
                   ]
     sys_sizes = {"mps": 100, "ftps": 10, "binary": 6, "tstar": 33}
+    num_ads = [2,5]
+    methods = [AdditionMethod.HALF_DENSITY_MATRIX, AdditionMethod.SRC]
 
     # Create plots directory if it doesn't exist
     plots_dir = os.path.join(data_dir, "plots")
     os.makedirs(plots_dir, exist_ok=True)
 
     # Create one plot per structure showing all methods and N values
-    for structure in structures:
+    for method, nads, structure in product(methods, num_ads, structures):
         md_filter = MetadataFilter()
-        md_filter.add_to_criterium("addition_method", [AdditionMethod.HALF_DENSITY_MATRIX.value,
-                                                       AdditionMethod.SRC.value])
-        md_filter.add_to_criterium("num_additions", [5])
+        md_filter.add_to_criterium("addition_method", [method.value])
+        md_filter.add_to_criterium("num_additions", [nads])
         md_filter.add_to_criterium("structure", structure.value)
         md_filter.add_to_criterium("sys_size", sys_sizes[structure.value])
-        md_filter.add_to_criterium("phys_dim", 4)  # Assuming phys_dim is fixed at 2 for all experiments
+        md_filter.add_to_criterium("phys_dim", 2)  # Assuming phys_dim is fixed at 2 for all experiments
         save_path = os.path.join(plots_dir,
-                                 f"addition_comparison_{structure.value}.pdf")
+                                 f"addition_comparison_{method.value}_{structure.value}_{nads}.pdf")
         plot(md_filter, data_dir, save_path=save_path)
         print(f"Created plot: {save_path}")

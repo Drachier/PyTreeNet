@@ -23,10 +23,10 @@ def generate_parameter_set() -> list[RandomAdditionParams]:
 
     # Define structures and their corresponding system sizes and bond dimension ranges
     structure_configs = [
-        (TTNStructure.MPS, 10, 4, 40, 4),      # structure, sys_size, min_bd, max_bd, step_bd
-        (TTNStructure.FTPS, 3, 4, 40, 4),
-        (TTNStructure.BINARY, 2, 4, 40, 4),
-        (TTNStructure.TSTAR, 5, 4, 40, 4)
+        (TTNStructure.MPS, 100, 5, 100, 5),      # structure, sys_size, min_bd, max_bd, step_bd
+        (TTNStructure.FTPS, 10, 5, 50, 5),
+        (TTNStructure.BINARY, 6, 5, 50, 5),
+        (TTNStructure.TSTAR, 33, 5, 50, 5)
     ]
 
     # Define addition methods to compare
@@ -46,9 +46,6 @@ def generate_parameter_set() -> list[RandomAdditionParams]:
     # Physical dimension
     phys_dim = 2
 
-    # Initial bond dimension for the random TTNS
-    init_bond_dim = 4
-
     param_set = []
 
     for (structure, sys_size, min_bd, max_bd, step_bd), method, num_ttns, seed in product(
@@ -58,7 +55,7 @@ def generate_parameter_set() -> list[RandomAdditionParams]:
             structure=structure,
             sys_size=sys_size,
             phys_dim=phys_dim,
-            init_bond_dim=init_bond_dim,
+            init_bond_dim=max_bd,
             max_bond_dim=max_bd,
             min_bond_dim=min_bd,
             step_bond_dim=step_bd,
