@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 import os
+import time
 
 from h5py import File
 
@@ -52,7 +53,7 @@ STRUCT_TO_TOP_MAP = {TTNStructure.MPS: Topology.CHAIN,
                      TTNStructure.TSTAR: Topology.TTOPOLOGY,
                      TTNStructure.FTPS: Topology.SQUARE}
 
-def run_simulation(params: SimParams1TDVP) -> Results:
+def run_simulation(params: SimParams1TDVP) -> tuple[Results, float]:
     """
     Runs a simulation of the Ising Model with the given parameters.
     """
@@ -73,7 +74,6 @@ def run_simulation(params: SimParams1TDVP) -> Results:
     ops = local_magnetisation_from_topology(top,
                                             params.system_size,
                                             site_prefix=STANDARD_NODE_PREFIX)
-    ops = list(ops.values())
     cls = params.order.get_class()
     time_evo = cls(init_state,
                    ttno,
@@ -82,8 +82,10 @@ def run_simulation(params: SimParams1TDVP) -> Results:
                    ops,
                    solver_options={"rtol": 1e-10,
                                    "atol": 1e-10})
-    time_evo.run()
-    return time_evo.results
+    start = time.time()
+    time_evo.run(pgbar=False)
+    end = time.time()
+    return time_evo.results, end - start
 
 def run_reference(params: SimParams1TDVP) -> Results:
     """
@@ -115,21 +117,21 @@ def run_reference(params: SimParams1TDVP) -> Results:
                                    params.time_step_size,
                                    1,
                                    ops)
-    exact_evo.run()
+    exact_evo.run(pgbar=False)
     return exact_evo.results
 
 def compare_results(res: Results, ref: Results) -> Results:
     """
     Compares the results of the TDVP simulation with the reference simulation.
     """
-    ref_magn = ref.average_results(STANDARD_NODE_PREFIX, realise=True)
+    ref_magn = ref.average_results(STANDARD_NODE_PREFIX + "_", realise=True)
     res_magn = res.average_results(STANDARD_NODE_PREFIX, realise=True)
     err_res = Results()
     ops = {"ref_magn": float,
            "res_magn": float,
            "error": float}
     err_res.initialize(ops,
-                       res.results_length())
+                       res.results_length() - 1)
     for i, time in enumerate(res.times()):
         err_res.set_time(i, time)
         err_res.set_element("ref_magn", i, ref_magn[i])
@@ -142,7 +144,7 @@ def main(params: SimParams1TDVP,
     """
     The main function for the simulation script.
     """
-    res = run_simulation(params)
+    res, res_time = run_simulation(params)
     ref = run_reference(params)
     err_res = compare_results(res, ref)
     filename = params.get_hash() + ".h5"
@@ -150,6 +152,7 @@ def main(params: SimParams1TDVP,
     with File(filepath, "w") as f:
         err_res.save_to_h5(f)
         params.save_to_h5(f)
+        f.attrs["simulation_time"] = res_time
 
 if __name__ == "__main__":
     script_main(main,

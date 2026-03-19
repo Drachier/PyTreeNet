@@ -41,7 +41,7 @@ def generate_parameter_set() -> list[RandomAdditionParams]:
     num_ttns_list = [2, 5, 10]
 
     # Multiple seeds for statistical confidence
-    seeds = [1234, 4321, 5678, 8765, 9012]
+    seeds = [1234, 4321, 5678, 8765, 9012, 29394, 2934, 1292934, 292935]
 
     # Physical dimension
     phys_dim = 2

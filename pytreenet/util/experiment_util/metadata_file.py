@@ -313,6 +313,36 @@ class MetadataFilter(UserDict):
                 results.append(result)
         return results
 
+    def load_valid_attributes(self,
+                            directory: str,
+                            desired_keys: list[str] | None = None,
+                            ) -> list[dict[str, Any]]:
+        """
+        Loads the attributes from the metadata file in the given directory.
+
+        Args:
+            directory (str): The directory where the metadata file is located.
+            desired_keys (list[str] | None): A list of keys to include in the
+                output dictionaries. If None, all keys are included. Defaults to
+                None.
+
+        Returns:
+            list[dict[str, Any]]: A list of dictionaries containing the attributes.
+        """
+        hashes = self.filter_hashes(directory)
+        attributes = []
+        for hash_val in hashes:
+            file_name = standard_result_file_name(hash_val)
+            file_path = os.path.join(directory, file_name)
+            with File(file_path, 'r') as file:
+                if desired_keys is not None:
+                    attr_dict = {key: file.attrs[key]
+                                 for key in desired_keys}
+                    attributes.append(attr_dict)
+                else:
+                    attributes.append(dict(file.attrs))
+        return attributes
+
     def load_unique_results(self,
                            directory: str,
                            results_class = Results,

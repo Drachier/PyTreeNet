@@ -174,6 +174,30 @@ class StandardPlottable(Plottable):
         self.x = x
         self.y = y
 
+    @classmethod
+    def create_empty(cls,
+                     line_config: LineConfig | None = None,
+                     assoc_params: dict[str, Any] | None = None
+                     ) -> Self:
+        """
+        Create an empty StandardPlottable with the given line configuration and
+        associated parameters.
+
+        Args:
+            line_config (LineConfig | None): The line configuration for the
+                plottable. Defaults to None.
+            assoc_params (dict[str, Any] | None): Associated parameters for
+                the plottable. Defaults to None.
+        
+        Returns:
+            StandardPlottable: An empty StandardPlottable instance.
+        """
+        return cls(x=np.array([], dtype=float),
+                     y=np.array([], dtype=float),
+                     line_config=line_config,
+                     assoc_params=assoc_params
+                     )
+
     def add_point(self,
                   x: float,
                   y: float) -> None:
@@ -358,7 +382,7 @@ class StandardPlottable(Plottable):
         Returns:
             StandardPlottable: An empty clone of this StandardPlottable.
         """
-        return StandardPlottable(x=np.array([], dtype=float),
+        return self.__class__(x=np.array([], dtype=float),
                                  y=np.array([], dtype=float),
                                  line_config=deepcopy(self.line_config),
                                  assoc_params=copy(self.assoc_params)
@@ -389,11 +413,11 @@ class StandardPlottable(Plottable):
         """
         newx = self.x[:new_length]
         newy = self.y[:new_length]
-        return StandardPlottable(x=newx,
-                                 y=newy,
-                                 line_config=deepcopy(self.line_config),
-                                 assoc_params=copy(self.assoc_params)
-                                 )
+        return self.__class__(x=newx,
+                              y=newy,
+                              line_config=deepcopy(self.line_config),
+                              assoc_params=copy(self.assoc_params)
+                              )
 
     def save_to_h5(self, file: str | File):
         """
