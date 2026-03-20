@@ -878,13 +878,12 @@ class MultiControlledGate(QuantumGate):
             else:
                 ham = ham.otimes(temp_ham)
         # Add 1/2*(I+z) per opposite control
-        pauliX = QGate.PAULI_X.value
         if len(self.opposite_qubit_ids) > 0:
-            conv_dict[pauliZ] = pauli_matrices()[0]
+            conv_dict[pauliZ] = pauli_matrices()[2]
         for opposite_qubit in self.opposite_qubit_ids:
             temp_ham = Hamiltonian()
             # Add 1/2*Z
-            tp = TensorProduct({opposite_qubit: pauliX})
+            tp = TensorProduct({opposite_qubit: pauliZ})
             term = (std_fraction,ONE_SYMBOL,tp)
             temp_ham.add_term(term)
             # Add 1/2*I
@@ -898,10 +897,14 @@ class MultiControlledGate(QuantumGate):
         # Add the target operation
         if self.operation == QGate.PAULI_Y:
             conv_dict[self.operation.value] = pauli_matrices()[1]
-        temp_ham = Hamiltonian()
+        elif self.operation == QGate.PAULI_X:
+            conv_dict[self.operation.value] = pauli_matrices()[0]
+        coeff_map = {ONE_SYMBOL: 1.0+0.0j,
+                     PI_SYMBOL: complex(np.pi)}
+        temp_ham = Hamiltonian(coeffs_mapping=coeff_map)
         # Add -1/2*operation
         tp = TensorProduct({self.target_qubit_id: self.operation.value})
-        term = (-1*std_fraction,ONE_SYMBOL,tp)
+        term = (-1*std_fraction,PI_SYMBOL,tp)
         temp_ham.add_term(term)
         # Add 1/2*I
         tp = TensorProduct({self.target_qubit_id: "I2"})
@@ -911,8 +914,6 @@ class MultiControlledGate(QuantumGate):
             ham = temp_ham
         else:
             ham = ham.otimes(temp_ham)
-        coeff_map = {ONE_SYMBOL: 1.0+0.0j,
-                     PI_SYMBOL: complex(np.pi)}
         ham.update_mappings(conversion_dict=conv_dict,
                             coeffs_mapping=coeff_map)
         return ham
@@ -940,14 +941,14 @@ class MultiControlledGate(QuantumGate):
         t2 = np.kron(t2, np.eye(2, dtype=complex))
         return t1 + t2
 
-    def inverse(self) -> Self:
+    def invert(self) -> Self:
         """
         Returns the inverse of this gate.
         """
         # in the considered cases, the gate is self-inverse.
         return self
 
-    def as_sum_of_product(self) -> Hamiltonian:
+    def as_sum_of_products(self) -> Hamiltonian:
         """
         Returns this gate as a sum of tensor product.
         """
