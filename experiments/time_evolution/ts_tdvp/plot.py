@@ -1,5 +1,5 @@
 """
-Script to plot the 2TDVP simulation results.
+Script to plot the integrator comparison simulation results.
 """
 import os
 import sys
@@ -16,9 +16,11 @@ from pytreenet.util.plotting.configuration import (DocumentStyle,
                                                    set_size,
                                                    config_matplotlib_to_latex)
 from pytreenet.special_ttn.special_states import TTNStructure
-from pytreenet.util.plotting.line_config import LineConfig
+from pytreenet.util.plotting.line_config import (LineConfig,
+                                                 StyleMapping,
+                                                 StyleOption)
 
-from sim_script import SimParams2TDVP
+from sim_script import SimParams2TDVP, Integrator
 
 def extract_data_and_time(res: Results,
                           params: SimParams2TDVP
@@ -30,34 +32,30 @@ def extract_data_and_time(res: Results,
     times = res.times()
     return times, errs
 
-def create_line_config_bond_dim(bond_dim: int) -> LineConfig:
-    """
-    Creates a line config for the given bond dimension.
-    """
-    colors = {5: "blue", 10: "green", 15: "orange", 20: "red", 
-              25: "purple", 30: "brown", 50: "pink", 100: "gray"}
-    color = colors.get(bond_dim, "blue")
-    return LineConfig(label=f"bd={bond_dim}", color=color, linestyle="-")
+def _integrator_label(integrator: Integrator) -> str:
+    if integrator is Integrator.TWO_SITE_TDVP:
+        return "2TDVP"
+    return "BUG"
 
-def create_line_config_rtol(rtol: float) -> LineConfig:
-    """
-    Creates a line config for the given rtol value.
-    """
-    colors = {1e-6: "blue", 1e-8: "orange", 1e-10: "red"}
-    linestyles = {1e-6: "-", 1e-8: "--", 1e-10: "-."}
-    color = colors.get(rtol, "blue")
-    linestyle = linestyles.get(rtol, "-")
-    return LineConfig(label=f"rtol={rtol:.0e}", color=color, linestyle=linestyle)
+def _integrator_linestyle(integrator: Integrator) -> str:
+    if integrator is Integrator.TWO_SITE_TDVP:
+        return "-"
+    return "--"
 
-def create_line_config_atol(atol: float) -> LineConfig:
-    """
-    Creates a line config for the given atol value.
-    """
-    colors = {1e-6: "blue", 1e-8: "orange", 1e-10: "red"}
-    linestyles = {1e-6: "-", 1e-8: "--", 1e-10: "-."}
-    color = colors.get(atol, "blue")
-    linestyle = linestyles.get(atol, "-")
-    return LineConfig(label=f"atol={atol:.0e}", color=color, linestyle=linestyle)
+def _integrator_color(integrator: Integrator) -> str:
+    if integrator is Integrator.TWO_SITE_TDVP:
+        return "blue"
+    return "orange"
+
+def gen_style_mapping() -> StyleMapping:
+    sm = StyleMapping()
+    sm.add_mapping("integrator", StyleOption.COLOR,
+                   {integ: _integrator_color(integ) for integ in Integrator})
+    sm.add_mapping("integrator", StyleOption.LINESTYLE,
+                   {integ: _integrator_linestyle(integ) for integ in Integrator})
+    sm.set_label("integrator", Integrator.TWO_SITE_TDVP, "2TDVP")
+    sm.set_label("integrator", Integrator.BUG, "BUG")
+    return sm
 
 def load_data_err_t_bond_dim(md_filter: MetadataFilter,
                              directory_path: str
@@ -65,10 +63,12 @@ def load_data_err_t_bond_dim(md_filter: MetadataFilter,
     """
     Loads the data for the err vs. t plottables varying bond dimensions.
     """
+    md_filter = md_filter.copy()  # Avoid modifying the original filter
+    md_filter.change_criterium("rel_tol", 1e-10)
+    md_filter.change_criterium("total_tol", 1e-10)
     out = []
-    bond_dims = [5, 10, 15, 20, 25, 30, 50, 100]
-    for bd in bond_dims:
-        md_filter.change_criterium("bond_dim", bd)
+    for integrator in Integrator:
+        md_filter.change_criterium("integrator", integrator.value)
         params_res = md_filter.load_valid_results_and_parameters(directory_path,
                                                                  SimParams2TDVP)
         bd_std_pltbs: list[StandardPlottable] = []
@@ -79,8 +79,11 @@ def load_data_err_t_bond_dim(md_filter: MetadataFilter,
             bd_std_pltbs.append(pltb)
         if bd_std_pltbs:  # Only if there are results
             conv_pltb = ConvergingPlottable.from_multiple_standards(bd_std_pltbs,
-                                                                    conv_param=None)
-            conv_pltb.line_config = create_line_config_bond_dim(bd)
+                                                                    conv_param="max_bond_dim")
+            line_cfg = LineConfig(label=_integrator_label(integrator),
+                                  linestyle=_integrator_linestyle(integrator),
+                                  color=_integrator_color(integrator))
+            conv_pltb.line_config = line_cfg
             out.append(conv_pltb)
     return out
 
@@ -90,10 +93,12 @@ def load_data_err_t_rtol(md_filter: MetadataFilter,
     """
     Loads the data for the err vs. t plottables varying rtol values.
     """
+    md_filter = md_filter.copy()  # Avoid modifying the original filter
+    md_filter.change_criterium("max_bond_dim", 100)
+    md_filter.change_criterium("total_tol", 1e-10)
     out = []
-    rtol_values = [1e-6, 1e-8, 1e-10]
-    for rtol in rtol_values:
-        md_filter.change_criterium("rtol", rtol)
+    for integrator in Integrator:
+        md_filter.change_criterium("integrator", integrator.value)
         params_res = md_filter.load_valid_results_and_parameters(directory_path,
                                                                  SimParams2TDVP)
         rtol_std_pltbs: list[StandardPlottable] = []
@@ -104,8 +109,11 @@ def load_data_err_t_rtol(md_filter: MetadataFilter,
             rtol_std_pltbs.append(pltb)
         if rtol_std_pltbs:  # Only if there are results
             conv_pltb = ConvergingPlottable.from_multiple_standards(rtol_std_pltbs,
-                                                                    conv_param=None)
-            conv_pltb.line_config = create_line_config_rtol(rtol)
+                                                                    conv_param="rel_tol")
+            line_cfg = LineConfig(label=_integrator_label(integrator),
+                                  linestyle=_integrator_linestyle(integrator),
+                                  color=_integrator_color(integrator))
+            conv_pltb.line_config = line_cfg
             out.append(conv_pltb)
     return out
 
@@ -115,10 +123,12 @@ def load_data_err_t_atol(md_filter: MetadataFilter,
     """
     Loads the data for the err vs. t plottables varying atol values.
     """
+    md_filter = md_filter.copy()  # Avoid modifying the original filter
+    md_filter.change_criterium("max_bond_dim", 100)
+    md_filter.change_criterium("rel_tol", 1e-10)
     out = []
-    atol_values = [1e-6, 1e-8, 1e-10]
-    for atol in atol_values:
-        md_filter.change_criterium("atol", atol)
+    for integrator in Integrator:
+        md_filter.change_criterium("integrator", integrator.value)
         params_res = md_filter.load_valid_results_and_parameters(directory_path,
                                                                  SimParams2TDVP)
         atol_std_pltbs: list[StandardPlottable] = []
@@ -129,8 +139,11 @@ def load_data_err_t_atol(md_filter: MetadataFilter,
             atol_std_pltbs.append(pltb)
         if atol_std_pltbs:  # Only if there are results
             conv_pltb = ConvergingPlottable.from_multiple_standards(atol_std_pltbs,
-                                                                    conv_param=None)
-            conv_pltb.line_config = create_line_config_atol(atol)
+                                                                    conv_param="total_tol")
+            line_cfg = LineConfig(label=_integrator_label(integrator),
+                                  linestyle=_integrator_linestyle(integrator),
+                                  color=_integrator_color(integrator))
+            conv_pltb.line_config = line_cfg
             out.append(conv_pltb)
     return out
 
@@ -144,13 +157,15 @@ def plot_err_t_bond_dim(md_filter: MetadataFilter,
     config_matplotlib_to_latex(doc_style)
     size = set_size(doc_style)
     conv_pltbs = load_data_err_t_bond_dim(md_filter, directory_path)
-    
+
     fig, ax = plt.subplots(figsize=size)
     for conv_pltb in conv_pltbs:
         conv_pltb.plot_on_axis(ax)
     ax.set_xlabel(r"$t$")
     ax.set_ylabel("Error")
     ax.set_xscale("log")
+    sm = gen_style_mapping()
+    sm.apply_legend(ax)
     ax.legend()
 
     save_path = os.path.join(directory_path, "plots")
@@ -169,13 +184,15 @@ def plot_err_t_rtol(md_filter: MetadataFilter,
     config_matplotlib_to_latex(doc_style)
     size = set_size(doc_style)
     conv_pltbs = load_data_err_t_rtol(md_filter, directory_path)
-    
+
     fig, ax = plt.subplots(figsize=size)
     for conv_pltb in conv_pltbs:
         conv_pltb.plot_on_axis(ax)
     ax.set_xlabel(r"$t$")
     ax.set_ylabel("Error")
     ax.set_xscale("log")
+    sm = gen_style_mapping()
+    sm.apply_legend(ax)
     ax.legend()
 
     save_path = os.path.join(directory_path, "plots")
@@ -194,13 +211,15 @@ def plot_err_t_atol(md_filter: MetadataFilter,
     config_matplotlib_to_latex(doc_style)
     size = set_size(doc_style)
     conv_pltbs = load_data_err_t_atol(md_filter, directory_path)
-    
+
     fig, ax = plt.subplots(figsize=size)
     for conv_pltb in conv_pltbs:
         conv_pltb.plot_on_axis(ax)
     ax.set_xlabel(r"$t$")
     ax.set_ylabel("Error")
     ax.set_xscale("log")
+    sm = gen_style_mapping()
+    sm.apply_legend(ax)
     ax.legend()
 
     save_path = os.path.join(directory_path, "plots")
@@ -211,18 +230,24 @@ def plot_err_t_atol(md_filter: MetadataFilter,
 
 def load_bd_vs_rt(md_filter: MetadataFilter,
                   directory_path: str
-                  ) -> StandardPlottable:
+                  ) -> list[StandardPlottable]:
     """
     Loads the data for the bond dimension vs. runtime plottable.
     """
-    desired = ["bond_dim", "simulation_time"]
-    attrs = md_filter.load_valid_attributes(directory_path,
-                                            desired_keys=desired)
-    std_pltb = StandardPlottable.create_empty(line_config=LineConfig(label="2TDVP"))
-    for attr in attrs:
-        std_pltb.add_point(attr[desired[0]], attr[desired[1]])
-    std_pltb.sort_by_x()
-    return std_pltb
+    out = []
+    desired = ["max_bond_dim", "simulation_time"]
+    for integrator in Integrator:
+        md_filter.change_criterium("integrator", integrator.value)
+        attrs = md_filter.load_valid_attributes(directory_path,
+                                                desired_keys=desired)
+        line_cfg = LineConfig(label=_integrator_label(integrator),
+                              linestyle=_integrator_linestyle(integrator))
+        std_pltb = StandardPlottable.create_empty(line_config=line_cfg)
+        for attr in attrs:
+            std_pltb.add_point(attr[desired[0]], attr[desired[1]])
+        std_pltb.sort_by_x()
+        out.append(std_pltb)
+    return out
 
 def plot_bd_vs_rt(md_filter: MetadataFilter,
                   directory_path: str
@@ -233,10 +258,11 @@ def plot_bd_vs_rt(md_filter: MetadataFilter,
     doc_style = DocumentStyle.THESIS
     config_matplotlib_to_latex(doc_style)
     size = set_size(doc_style)
-    std_pltb = load_bd_vs_rt(md_filter, directory_path)
+    std_pltbs = load_bd_vs_rt(md_filter, directory_path)
     
     fig, ax = plt.subplots(figsize=size)
-    std_pltb.plot_on_axis(ax)
+    for std_pltb in std_pltbs:
+        std_pltb.plot_on_axis(ax)
     ax.set_xlabel("Bond Dimension")
     ax.set_ylabel("Runtime (s)")
     ax.set_yscale("log")
@@ -257,9 +283,9 @@ if __name__ == "__main__":
     
     md_filter = MetadataFilter()
     md_filter.change_criterium("structure", TTNStructure.MPS.value)
-    md_filter.change_criterium("system_size", 14)
-    md_filter.change_criterium("ext_magn", 0.5)
-    md_filter.change_criterium("time_step_size", 0.1)
+    md_filter.change_criterium("system_size", 5)
+    md_filter.change_criterium("ext_magn", 0)
+    md_filter.change_criterium("time_step_size", 0.01)
     
     print("Plotting bond dimension dependence...")
     plot_err_t_bond_dim(md_filter, data_dir)

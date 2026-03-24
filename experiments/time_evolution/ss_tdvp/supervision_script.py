@@ -24,10 +24,10 @@ def generate_parameter_set() -> list[SimParams1TDVP]:
 
     # Define structures and their corresponding system sizes and bond dimension ranges
     structure_configs = [
-        (TTNStructure.MPS, 14, 5, 100, 5),      # structure, sys_size, min_bd, max_bd, step_bd
-        (TTNStructure.FTPS, 4, 5, 50, 5),
-        (TTNStructure.BINARY, 3, 5, 50, 5),
-        (TTNStructure.TSTAR, 4, 5, 50, 5)
+        (TTNStructure.MPS, 5, 5, 100, 5),      # structure, sys_size, min_bd, max_bd, step_bd
+        #(TTNStructure.FTPS, 4, 5, 50, 5),
+        #(TTNStructure.BINARY, 3, 5, 50, 5),
+        #(TTNStructure.TSTAR, 4, 5, 50, 5)
     ]
 
     # The two orders
@@ -35,17 +35,17 @@ def generate_parameter_set() -> list[SimParams1TDVP]:
 
     param_set = []
 
-    for struct_congif, order in product(structure_configs, orders):
-        for bond_dim in range(struct_congif[2], struct_congif[3] + 1, struct_congif[4]):
-            params = SimParams1TDVP(
-                structure=struct_congif[0],
-                system_size=struct_congif[1],
-                ext_magn=0.5,
-                time_step_size=0.1,
-                bond_dim=bond_dim,
-                order=order
-            )
-            param_set.append(params)
+    # for struct_congif, order in product(structure_configs, orders):
+    #     for bond_dim in range(struct_congif[2], struct_congif[3] + 1, struct_congif[4]):
+    #         params = SimParams1TDVP(
+    #             structure=struct_congif[0],
+    #             system_size=struct_congif[1],
+    #             ext_magn=0.5,
+    #             time_step_size=0.1,
+    #             bond_dim=bond_dim,
+    #             order=order
+    #         )
+    #         param_set.append(params)
 
     # Parameters for the time step dependence
     time_steps = [10**(-1*i) for i in range(1, 10)]  # 0.1, 0.01, 0.001, 0.0001
