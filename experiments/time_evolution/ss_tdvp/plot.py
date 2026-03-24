@@ -139,7 +139,7 @@ if __name__ == "__main__":
     
     md_filter = MetadataFilter()
     md_filter.change_criterium("structure", TTNStructure.MPS.value)
-    md_filter.change_criterium("system_size", 5)
+    md_filter.change_criterium("system_size", 14)
     md_filter.change_criterium("ext_magn", 0.5)
     md_filter.change_criterium("time_step_size", 0.1)
     plot_err_t(md_filter, data_dir)
