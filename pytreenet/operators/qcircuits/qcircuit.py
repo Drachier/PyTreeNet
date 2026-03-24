@@ -20,7 +20,8 @@ from .qgate import (QuantumGate,
                     SWAPGate,
                     ToffoliGate,
                     PhaseGate,
-                    Reset)
+                    Reset,
+                    MultiControlledGate)
 from ..measurment import Measurement
 
 
@@ -818,6 +819,72 @@ class QCircuit(AbstractQCircuit):
         projection = Reset(qubit_id)
         self._add_projection(projection, level_index)
 
+    def add_mx(self,
+               control_ids: list[str],
+               inverse_controls: list[str],
+               target_id: str,
+               level_index: int = -1):
+        """
+        Add a multi-controlled X gate to the circuit.
+
+        Args:
+            control_ids (list[str]): The IDs of the control qubits.
+            inverse_controls (list[str]): The IDs of the inverse control qubits.
+            target_id (str): The ID of the target qubit.
+            level_index (int): The index of the level to add the gate to.
+                Defaults to -1 (last level).
+        """
+        gate = MultiControlledGate(control_ids,
+                                   inverse_controls,
+                                   target_id,
+                                   QGate.PAULI_X,
+                                   "MCX")
+        self.add_gate(gate, level_index)
+
+    def add_mz(self,
+               control_ids: list[str],
+               inverse_controls: list[str],
+               target_id: str,
+               level_index: int = -1):
+        """
+        Add a multi-controlled Z gate to the circuit.
+
+        Args:
+            control_ids (list[str]): The IDs of the control qubits.
+            inverse_controls (list[str]): The IDs of the inverse control qubits.
+            target_id (str): The ID of the target qubit.
+            level_index (int): The index of the level to add the gate to.
+                Defaults to -1 (last level).
+        """
+        gate = MultiControlledGate(control_ids,
+                                   inverse_controls,
+                                   target_id,
+                                   QGate.PAULI_Z,
+                                   "MCZ")
+        self.add_gate(gate, level_index)
+
+    def add_my(self,
+               control_ids: list[str],
+               inverse_controls: list[str],
+               target_id: str,
+               level_index: int = -1):
+        """
+        Add a multi-controlled Y gate to the circuit.
+
+        Args:
+            control_ids (list[str]): The IDs of the control qubits.
+            inverse_controls (list[str]): The IDs of the inverse control qubits.
+            target_id (str): The ID of the target qubit.
+            level_index (int): The index of the level to add the gate to.
+                Defaults to -1 (last level).
+        """
+        gate = MultiControlledGate(control_ids,
+                                   inverse_controls,
+                                   target_id,
+                                   QGate.PAULI_Y,
+                                   "MCY")
+        self.add_gate(gate, level_index)
+
 class CompiledQuantumCircuit(AbstractQCircuit):
     """
     Class representing a compiled quantum circuit.
@@ -912,7 +979,7 @@ class CompiledQuantumCircuit(AbstractQCircuit):
             else:
                 errstr = f"Level {level_index} is not a Hamiltonian!"
                 raise TypeError(errstr)
-   
+
     def add_measurement(self,
                         measurement: Measurement,
                         level_index: int = -1):

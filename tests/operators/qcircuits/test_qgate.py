@@ -14,7 +14,8 @@ from pytreenet.operators.qcircuits.qgate import (QGate,
                                                  CNOTGate,
                                                  SWAPGate,
                                                  ToffoliGate,
-                                                 HaarRandomSingleQubitGate)
+                                                 HaarRandomSingleQubitGate,
+                                                 MultiControlledGate)
 
 def close(a, b):
     """
@@ -206,6 +207,41 @@ class TestTwoQubitGates(unittest.TestCase):
         expected_matrix = swap_gate.matrix()
         close(evolved_matrix, expected_matrix)
 
+    def test_cnot_from_multi_controlled_gate(self):
+        """
+        Test that the CNOT gate can be obtained as a special case of the
+        MultiControlledGate.
+        """
+        cnot_gate = MultiControlledGate([self.qubit_ids[0]],
+                                        [],
+                                        self.qubit_ids[1],
+                                        QGate.PAULI_X,
+                                        "cnot")
+        generator = cnot_gate.get_generator()
+        matrix = generator.to_matrix(self.ttns)
+        evolved_matrix = expm(-1j * matrix.operator)
+        expected_matrix = np.eye(4, dtype=np.complex64)
+        expected_matrix[2:, 2:] = np.array([[0, 1], [1, 0]],
+                               dtype=np.complex64)
+        close(evolved_matrix, expected_matrix)
+
+    def test_invc_not(self):
+        """
+        Test the CNOT, with inverse control requirement.
+        """
+        invc_cnot_gate = MultiControlledGate([],
+                                             [self.qubit_ids[0]],
+                                             self.qubit_ids[1],
+                                             QGate.PAULI_X,
+                                             "invc_cnot")
+        generator = invc_cnot_gate.get_generator()
+        matrix = generator.to_matrix(self.ttns)
+        evolved_matrix = expm(-1j * matrix.operator)
+        expected_matrix = np.eye(4, dtype=np.complex64)
+        expected_matrix[:2, :2] = np.array([[0, 1], [1, 0]],
+                               dtype=np.complex64)
+        close(evolved_matrix, expected_matrix)
+
 class TestThreeQubitGates(unittest.TestCase):
     """
     Unit tests for three-qubit quantum gates.
@@ -242,6 +278,138 @@ class TestThreeQubitGates(unittest.TestCase):
         evolved_matrix = expm(-1j * matrix.operator)
         expected_matrix = toffoli_gate.matrix()
         close(evolved_matrix, expected_matrix)
+
+    def test_toffoli_from_multi_controlled_gate(self):
+        """
+        Test that the Toffoli gate can be obtained as a special case of the
+        MultiControlledGate.
+        """
+        toffoli_gate = MultiControlledGate([self.qubit_ids[0], self.qubit_ids[1]],
+                                          [],
+                                          self.qubit_ids[2],
+                                          QGate.PAULI_X,
+                                          "toffoli")
+        generator = toffoli_gate.get_generator()
+        matrix = generator.to_matrix(self.ttns)
+        evolved_matrix = expm(-1j * matrix.operator)
+        expected_matrix = np.eye(8, dtype=np.complex64)
+        expected_matrix[6:, 6:] = np.array([[0, 1], [1, 0]],
+                               dtype=np.complex64)
+        close(evolved_matrix, expected_matrix)
+
+    def test_ii_not(self):
+        """
+        Test the Toffoli gate, with inverse control requirements.
+        """
+        ii_not_gate = MultiControlledGate([],
+                                         [self.qubit_ids[0], self.qubit_ids[1]],
+                                         self.qubit_ids[2],
+                                         QGate.PAULI_X,
+                                         "ii_not")
+        generator = ii_not_gate.get_generator()
+        matrix = generator.to_matrix(self.ttns)
+        evolved_matrix = expm(-1j * matrix.operator)
+        expected_matrix = np.eye(8, dtype=np.complex64)
+        expected_matrix[:2, :2] = np.array([[0, 1], [1, 0]], dtype=np.complex64)
+        close(evolved_matrix, expected_matrix)
+
+    def test_ci_not(self):
+        """
+        Test the Toffoli gate, with one inverse control requirement.
+        """
+        ci_not_gate = MultiControlledGate([self.qubit_ids[0]],
+                                         [self.qubit_ids[1]],
+                                         self.qubit_ids[2],
+                                         QGate.PAULI_X,
+                                         "ci_not")
+        generator = ci_not_gate.get_generator()
+        matrix = generator.to_matrix(self.ttns)
+        evolved_matrix = expm(-1j * matrix.operator)
+        expected_matrix = np.eye(8, dtype=np.complex64)
+        expected_matrix[4:6, 4:6] = np.array([[0, 1], [1, 0]], dtype=np.complex64)
+        close(evolved_matrix, expected_matrix)
+
+    def test_ic_not(self):
+        """
+        Test the Toffoli gate, with one inverse control requirement.
+        """
+        ic_not_gate = MultiControlledGate([self.qubit_ids[1]],
+                                         [self.qubit_ids[0]],
+                                         self.qubit_ids[2],
+                                         QGate.PAULI_X,
+                                         "ic_not")
+        generator = ic_not_gate.get_generator()
+        matrix = generator.to_matrix(self.ttns)
+        evolved_matrix = expm(-1j * matrix.operator)
+        expected_matrix = np.eye(8, dtype=np.complex64)
+        expected_matrix[2:4, 2:4] = np.array([[0, 1], [1, 0]], dtype=np.complex64)
+        close(evolved_matrix, expected_matrix)
+
+class TestFourQubitGates(unittest.TestCase):
+    """
+    Unit tests for four-qubit quantum gates.
+    """
+
+    def setUp(self) -> None:
+        self.ttns = TreeTensorNetwork()
+        self.qubit_ids = ["q0", "q1", "q2", "q3"]
+        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[0])
+        self.ttns.add_root(node, tensor)
+        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[1])
+        self.ttns.add_child_to_parent(node, tensor, 0, self.qubit_ids[0], 0)
+        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[2])
+        self.ttns.add_child_to_parent(node, tensor, 0, self.qubit_ids[1], 1)
+        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[3])
+        self.ttns.add_child_to_parent(node, tensor, 0, self.qubit_ids[2], 1)
+
+    def test_ccc_not(self):
+        """
+        Test the CCC-NOT gate.
+        """
+        ccc_not_gate = MultiControlledGate([self.qubit_ids[0], self.qubit_ids[1], self.qubit_ids[2]],
+                                            [],
+                                            self.qubit_ids[3],
+                                            QGate.PAULI_X,
+                                            "cccc_not")
+        generator = ccc_not_gate.get_generator()
+        matrix = generator.to_matrix(self.ttns)
+        evolved_matrix = expm(-1j * matrix.operator)
+        expected_matrix = np.eye(16, dtype=np.complex64)
+        expected_matrix[14:, 14:] = np.array([[0, 1], [1, 0]], dtype=np.complex64)
+        close(evolved_matrix, expected_matrix)
+
+    def test_cci_not(self):
+        """
+        Test the CCC-NOT gate, with one inverse control requirement.
+        """
+        cci_not_gate = MultiControlledGate([self.qubit_ids[0], self.qubit_ids[1]],
+                                            [self.qubit_ids[2]],
+                                            self.qubit_ids[3],
+                                            QGate.PAULI_X,
+                                            "ccci_not")
+        generator = cci_not_gate.get_generator()
+        matrix = generator.to_matrix(self.ttns)
+        evolved_matrix = expm(-1j * matrix.operator)
+        expected_matrix = np.eye(16, dtype=np.complex64)
+        expected_matrix[12:14, 12:14] = np.array([[0, 1], [1, 0]], dtype=np.complex64)
+        close(evolved_matrix, expected_matrix)
+
+    def test_cic_not(self):
+        """
+        Test the CCC-NOT gate, with one inverse control requirement.
+        """
+        cic_not_gate = MultiControlledGate([self.qubit_ids[0], self.qubit_ids[2]],
+                                            [self.qubit_ids[1]],
+                                            self.qubit_ids[3],
+                                            QGate.PAULI_X,
+                                            "cic_not")
+        generator = cic_not_gate.get_generator()
+        matrix = generator.to_matrix(self.ttns)
+        evolved_matrix = expm(-1j * matrix.operator)
+        expected_matrix = np.eye(16, dtype=np.complex64)
+        expected_matrix[10:12, 10:12] = np.array([[0, 1], [1, 0]], dtype=np.complex64)
+        close(evolved_matrix, expected_matrix)
+
 
 class TestInversion(unittest.TestCase):
     """
