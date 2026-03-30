@@ -299,9 +299,7 @@ class SVDParameters:
         The relative tolerance has to be positive or -infinity.
         The total tolerance has to be positive or -infinity.
         """
-        max_bond_dim = self.max_bond_dim
-        if (not isinstance(max_bond_dim,int)) and (max_bond_dim != float("inf")):
-            raise TypeError(f"'max_bond_dim' has to be int not {type(max_bond_dim)}!")
+        max_bond_dim = int(self.max_bond_dim)
         positivity_check(max_bond_dim, "max_bond_dim")
         rel_tol = self.rel_tol
         if (rel_tol < 0) and (rel_tol != float("-inf")):

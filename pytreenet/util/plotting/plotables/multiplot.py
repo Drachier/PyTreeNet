@@ -470,20 +470,24 @@ class ConvergingPlottable(Plottable):
                 **self.line_config.to_kwargs(exclude={'label'}))
 
     def plot_on_axis(self,
-                     ax: Axes | None = None):
+                     ax: Axes | None = None,
+                     legend: bool = False):
         """
         Plot all convergence results on the given axes.
 
         Args:
             ax (Axes | None): The matplotlib Axes object to plot on.
                 If None, the current axes will be used. Defaults to None.
+            legend (bool, optional): Whether to plot the legend.
+                Defaults to False.
         """
         if ax is None:
             ax = plt.gca()
         alphas = self.compute_alphas()
         for index, alpha in enumerate(alphas):
             self.plot_one_on_axis(index=index, alpha=alpha, ax=ax)
-        self.line_config.plot_legend(ax=ax)
+        if legend:
+            self.line_config.plot_legend(ax=ax)
 
     @classmethod
     def from_multiple_standards(cls,

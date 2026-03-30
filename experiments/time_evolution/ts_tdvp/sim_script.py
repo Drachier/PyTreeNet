@@ -1,8 +1,9 @@
 """
-The simulation script comparing the two-site TDVP's performance.
+The simulation script comparing integrator performance.
 """
 from __future__ import annotations
 from dataclasses import dataclass
+from enum import Enum
 import os
 import time
 
@@ -14,25 +15,36 @@ from pytreenet.special_ttn.special_states import (generate_zero_state,
                                                   TTNStructure,
                                                   STANDARD_NODE_PREFIX,
                                                   Topology)
-from pytreenet.time_evolution.tdvp_algorithms.secondordertwosite import SecondOrderTwoSiteTDVP
+from pytreenet.time_evolution.tdvp_algorithms.secondordertwosite import (SecondOrderTwoSiteTDVP,
+                                                                         TwoSiteTDVPConfig)
+from pytreenet.time_evolution.bug import BUG, BUGConfig
 from pytreenet.ttno.ttno_class import TTNO
 from pytreenet.operators.models.eval_ops import (local_magnetisation_from_topology)
 from pytreenet.time_evolution.results import Results
 from pytreenet.time_evolution.exact_time_evolution import (ExactTimeEvolution)
 from pytreenet.util.experiment_util.script_util import script_main
 from pytreenet.operators.exact_operators import exact_local_magnetisation
+from pytreenet.util.tensor_splitting import SVDParameters
+
+
+class Integrator(Enum):
+    """
+    Supported integrators for the simulation.
+    """
+    TWO_SITE_TDVP = "2tdvp"
+    BUG = "bug"
 
 @dataclass
-class SimParams2TDVP(IsingParameters):
+class SimParams2TDVP(IsingParameters, SVDParameters):
     """
     Parameters for two-site TDVP simulations.
     """
-    bond_dim: int = 1
     rtol: float = 1e-10
     atol: float = 1e-10
     time_step_size: float = 0.01
     system_size: int = 5
     structure: TTNStructure = TTNStructure.MPS
+    integrator: Integrator = Integrator.TWO_SITE_TDVP
 
 STRUCT_TO_TOP_MAP = {TTNStructure.MPS: Topology.CHAIN,
                      TTNStructure.BINARY: Topology.CHAIN,
@@ -47,7 +59,7 @@ def run_simulation(params: SimParams2TDVP) -> tuple[Results, float]:
     init_state = generate_zero_state(params.system_size,
                                      params.structure,
                                      node_prefix=STANDARD_NODE_PREFIX,
-                                     bond_dim=params.bond_dim,
+                                     bond_dim=2,
                                      topology=top
                                      )
     model = IsingModel(params.interaction_range,
@@ -60,13 +72,32 @@ def run_simulation(params: SimParams2TDVP) -> tuple[Results, float]:
     ops = local_magnetisation_from_topology(top,
                                             params.system_size,
                                             site_prefix=STANDARD_NODE_PREFIX)
-    time_evo = SecondOrderTwoSiteTDVP(init_state,
-                                      ttno,
-                                      params.time_step_size,
-                                      1,
-                                      ops,
-                                      solver_options={"rtol": params.rtol,
-                                                      "atol": params.atol})
+    if params.integrator is Integrator.TWO_SITE_TDVP:
+        cnfg = TwoSiteTDVPConfig(max_bond_dim=params.max_bond_dim,
+                                 rel_tol=params.rel_tol,
+                                 total_tol=params.total_tol)
+        time_evo = SecondOrderTwoSiteTDVP(init_state,
+                                          ttno,
+                                          params.time_step_size,
+                                          1,
+                                          ops,
+                                          config=cnfg,
+                                          solver_options={"rtol": params.rtol,
+                                                          "atol": params.atol})
+    elif params.integrator is Integrator.BUG:
+        cnfg = BUGConfig(max_bond_dim=params.max_bond_dim,
+                         rel_tol=params.rel_tol,
+                         total_tol=params.total_tol)
+        time_evo = BUG(init_state,
+                       ttno,
+                       params.time_step_size,
+                       1,
+                       ops,
+                       config=cnfg,
+                       solver_options={"rtol": params.rtol,
+                                       "atol": params.atol})
+    else:
+        raise ValueError(f"Unknown integrator {params.integrator}.")
     start = time.time()
     time_evo.run(pgbar=False)
     end = time.time()
@@ -80,7 +111,7 @@ def run_reference(params: SimParams2TDVP) -> Results:
     init_state = generate_zero_state(params.system_size,
                                      params.structure,
                                      node_prefix=STANDARD_NODE_PREFIX,
-                                     bond_dim=params.bond_dim,
+                                     bond_dim=2,
                                      topology=top
                                      )
     model = IsingModel(params.interaction_range,
@@ -90,8 +121,8 @@ def run_reference(params: SimParams2TDVP) -> Results:
                                      params.system_size,
                                      site_id_prefix=STANDARD_NODE_PREFIX)
     ttno = TTNO.from_hamiltonian(ham, init_state)
-    init_vec, ord = init_state.completely_contract_tree()
-    ham_mat, _ = ttno.as_matrix(order=ord)
+    init_vec, contraction_order = init_state.completely_contract_tree()
+    ham_mat, _ = ttno.as_matrix(order=contraction_order)
     node_ids = [f"{STANDARD_NODE_PREFIX}_{i}"
                 for i in range(init_vec.ndim)
                 if init_vec.shape[i] > 1]
@@ -117,8 +148,8 @@ def compare_results(res: Results, ref: Results) -> Results:
            "error": float}
     err_res.initialize(ops,
                        res.results_length() - 1)
-    for i, time in enumerate(res.times()):
-        err_res.set_time(i, time)
+    for i, t in enumerate(res.times()):
+        err_res.set_time(i, t)
         err_res.set_element("ref_magn", i, ref_magn[i])
         err_res.set_element("res_magn", i, res_magn[i])
         err_res.set_element("error", i, abs(ref_magn[i] - res_magn[i]))

@@ -114,8 +114,8 @@ def plot(md_filter: MetadataFilter,
         ax, dat = axdat
         print(save_path, dat.vals)
         dat.plot_on_axis(ax, norm_method=NormalisationMethod.LOG)
-        ax.set_xlabel(r"$\chi_{\mathcal{S}}$")
-        ax.set_ylabel(r"$\chi_{\text{add}}$")
+        ax.set_xlabel(r"$\chi_{\text{add}}$")
+        ax.set_ylabel(r"$\chi_{\mathcal{S}}$")
         if ind == 0:
             fig.colorbar(ax.images[-1], ax=ax, label="Error")
         else:

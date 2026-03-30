@@ -1,5 +1,5 @@
 """
-This script is used to supervise the 2TDVP simulations.
+This script is used to supervise the integrator comparison simulations.
 """
 import os
 from itertools import product
@@ -8,11 +8,11 @@ from pytreenet.util.experiment_util.supervisor import (Supervisor,
                                                        SIMSCRIPT_STANDARD_NAME)
 from pytreenet.special_ttn.special_states import TTNStructure
 
-from sim_script import SimParams2TDVP
+from sim_script import SimParams2TDVP, Integrator
 
 def generate_parameter_set() -> list[SimParams2TDVP]:
     """
-    Generates a set of parameters for two-site TDVP experiments.
+    Generates a set of parameters for integrator comparison experiments.
 
     Returns:
         list[SimParams2TDVP]: A list of parameters for the simulations.
@@ -20,79 +20,66 @@ def generate_parameter_set() -> list[SimParams2TDVP]:
 
     # Define structures and their corresponding system sizes and bond dimension ranges
     structure_configs = [
-        (TTNStructure.MPS, 14, 5, 100, 5),      # structure, sys_size, min_bd, max_bd, step_bd
-        (TTNStructure.FTPS, 4, 5, 50, 5),
-        (TTNStructure.BINARY, 3, 5, 50, 5),
-        (TTNStructure.TSTAR, 4, 5, 50, 5)
+        (TTNStructure.MPS, 5, 5, 100, 5),      # structure, sys_size, min_bd, max_bd, step_bd
+        #(TTNStructure.FTPS, 4, 5, 50, 5),
+        #(TTNStructure.BINARY, 3, 5, 50, 5),
+        #(TTNStructure.TSTAR, 4, 5, 50, 5)
     ]
 
     # Tolerance values to test
-    rtol_values = [1e-6, 1e-8, 1e-10]
-    atol_values = [1e-6, 1e-8, 1e-10]
+    rel_tols = [10**(-i) for i in range(9, 11)]
+    total_tols = [10**(-i) for i in range(9, 11)]
+    integrators = [Integrator.TWO_SITE_TDVP, Integrator.BUG]
 
+    ext_magn = 0.5
+    
     param_set = []
+    # Parameters for varying bond dimension
+    for integrator, (structure, sys_size, min_bd, max_bd, step_bd) in product(integrators,
+                                                                              structure_configs):
+        for bond_dim in range(min_bd, max_bd + 1, step_bd):
+            param_set.append(SimParams2TDVP(
+                system_size=sys_size,
+                structure=structure,
+                max_bond_dim=bond_dim,
+                rel_tol=1e-10,
+                total_tol=1e-10,
+                integrator=integrator,
+                ext_magn=ext_magn
+            ))
 
-    # Parameters for bond dimension dependence with fixed tolerances
-    for struct_congif in structure_configs:
-        for bond_dim in range(struct_congif[2], struct_congif[3] + 1, struct_congif[4]):
-            params = SimParams2TDVP(
-                structure=struct_congif[0],
-                system_size=struct_congif[1],
-                ext_magn=0.5,
-                time_step_size=0.1,
-                bond_dim=bond_dim,
-                rtol=1e-10,
-                atol=1e-10
-            )
-            param_set.append(params)
-
-    # Parameters for rtol dependence (with fixed atol and bond_dim)
-    for struct_congif in structure_configs:
-        for rtol in rtol_values:
-            params = SimParams2TDVP(
-                structure=struct_congif[0],
-                system_size=struct_congif[1],
-                ext_magn=0.5,
-                time_step_size=0.1,
-                bond_dim=struct_congif[3],  # Max bond dimension
-                rtol=rtol,
-                atol=1e-10
-            )
-            param_set.append(params)
-
-    # Parameters for atol dependence (with fixed rtol and bond_dim)
-    for struct_congif in structure_configs:
-        for atol in atol_values:
-            params = SimParams2TDVP(
-                structure=struct_congif[0],
-                system_size=struct_congif[1],
-                ext_magn=0.5,
-                time_step_size=0.1,
-                bond_dim=struct_congif[3],  # Max bond dimension
-                rtol=1e-10,
-                atol=atol
-            )
-            param_set.append(params)
-
-    # Parameters for combined tolerance dependence
-    for struct_congif in structure_configs:
-        for rtol, atol in product(rtol_values, atol_values):
-            params = SimParams2TDVP(
-                structure=struct_congif[0],
-                system_size=struct_congif[1],
-                ext_magn=0.5,
-                time_step_size=0.1,
-                bond_dim=struct_congif[3],  # Max bond dimension
-                rtol=rtol,
-                atol=atol
-            )
-            param_set.append(params)
-
+    # Parameters for varying relative tolerance
+    for integrator, (structure, sys_size, _, max_bd, _) in product(integrators,
+                                                                    structure_configs):
+        for rel_tol in rel_tols:
+            param_set.append(SimParams2TDVP(
+                system_size=sys_size,
+                structure=structure,
+                max_bond_dim=max_bd,
+                rel_tol=rel_tol,
+                total_tol=1e-10,
+                integrator=integrator,
+                ext_magn=ext_magn
+            ))
+    
+    # Parameters for varying total tolerance
+    for integrator, (structure, sys_size, _, max_bd, _) in product(integrators,
+                                                                    structure_configs):
+        for total_tol in total_tols:
+            param_set.append(SimParams2TDVP(
+                system_size=sys_size,
+                structure=structure,
+                max_bond_dim=max_bd,
+                rel_tol=1e-10,
+                total_tol=total_tol,
+                integrator=integrator,
+                ext_magn=ext_magn
+            ))
     return param_set
 
 def main():
     """
-    Main function to set up and run the supervisor for two-site TDVP experiments.
+    Main function to set up and run the supervisor for integrator experiments.
     """
     param_set = generate_parameter_set()
 
