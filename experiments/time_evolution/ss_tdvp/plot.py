@@ -27,8 +27,8 @@ def extract_data_and_time(res: Results,
     """
     Extracts the data and time from the simulation results.
     """
-    errs = res.operator_result("error", realise=True)
-    times = res.times()
+    errs = res.operator_result("error", realise=True)[1:]
+    times = res.times()[1:]
     return times, errs
 
 def cretae_line_config(order: Order) -> LineConfig:
@@ -50,7 +50,8 @@ def load_data_err_t(md_filter: MetadataFilter,
     for order in Order:
         md_filter.change_criterium("order", order.value)
         params_res = md_filter.load_valid_results_and_parameters(directory_path,
-                                                                 SimParams1TDVP)
+                                                                 SimParams1TDVP,
+                                                                 allow_non_exist=True)
         ord_std_pltbs: list[StandardPlottable] = []
         for params, res in params_res:
             pltb = StandardPlottable.from_simulation_result(res,
@@ -79,7 +80,7 @@ def plot_err_t(md_filter: MetadataFilter,
         conv_pltb.plot_on_axis(ax)
     ax.set_xlabel(r"$t$")
     ax.set_ylabel("Error")
-    ax.set_xscale("log")
+    ax.set_yscale("log")
     ax.legend()
 
     save_path = os.path.join(directory_path, "plots")
@@ -139,7 +140,7 @@ if __name__ == "__main__":
     
     md_filter = MetadataFilter()
     md_filter.change_criterium("structure", TTNStructure.MPS.value)
-    md_filter.change_criterium("system_size", 14)
+    md_filter.change_criterium("system_size", 12)
     md_filter.change_criterium("ext_magn", 0.5)
     md_filter.change_criterium("time_step_size", 0.1)
     plot_err_t(md_filter, data_dir)

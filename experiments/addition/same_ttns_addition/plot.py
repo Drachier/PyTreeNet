@@ -61,13 +61,13 @@ def method_colour(params: AdditionComparisonParams | AdditionMethod) -> str:
     else:
         method = params
     if method is AdditionMethod.DIRECT_TRUNCATE:
-        return "tab:orange"
+        return "tab:blue"
     if method is AdditionMethod.DENSITY_MATRIX:
-        return "tab:green"
+        return "tab:orange"
     if method is AdditionMethod.HALF_DENSITY_MATRIX:
-        return "tab:red"
+        return "tab:green"
     if method is AdditionMethod.SRC:
-        return "tab:purple"
+        return "tab:red"
     return "tab:gray"
 
 

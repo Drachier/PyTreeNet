@@ -112,6 +112,7 @@ def plot(md_filter: MetadataFilter,
     fig, axes = plt.subplots(1, 2, figsize=size)
     for ind, axdat in enumerate(zip(axes, data)):
         ax, dat = axdat
+        print(save_path, dat.vals)
         dat.plot_on_axis(ax, norm_method=NormalisationMethod.LOG)
         ax.set_xlabel(r"$\chi_{\mathcal{S}}$")
         ax.set_ylabel(r"$\chi_{\text{add}}$")
@@ -140,7 +141,7 @@ if __name__ == "__main__":
                   TTNStructure.TSTAR
                   ]
     sys_sizes = {"mps": 100, "ftps": 10, "binary": 6, "tstar": 33}
-    num_ads = [2,5]
+    num_ads = [2]
     methods = [AdditionMethod.HALF_DENSITY_MATRIX, AdditionMethod.SRC]
 
     # Create plots directory if it doesn't exist

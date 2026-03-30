@@ -24,10 +24,10 @@ def generate_parameter_set() -> list[SimParams1TDVP]:
 
     # Define structures and their corresponding system sizes and bond dimension ranges
     structure_configs = [
-        (TTNStructure.MPS, 14, 5, 100, 5),      # structure, sys_size, min_bd, max_bd, step_bd
-        (TTNStructure.FTPS, 4, 5, 50, 5),
+        (TTNStructure.MPS, 12, 5, 100, 5),      # structure, sys_size, min_bd, max_bd, step_bd
+        (TTNStructure.FTPS, 3, 5, 50, 5),
         (TTNStructure.BINARY, 3, 5, 50, 5),
-        (TTNStructure.TSTAR, 4, 5, 50, 5)
+        (TTNStructure.TSTAR, 3, 5, 50, 5)
     ]
 
     # The two orders
@@ -41,7 +41,7 @@ def generate_parameter_set() -> list[SimParams1TDVP]:
                 structure=struct_congif[0],
                 system_size=struct_congif[1],
                 ext_magn=0.5,
-                time_step_size=0.1,
+                time_step_size=0.01,
                 bond_dim=bond_dim,
                 order=order
             )
