@@ -142,6 +142,6 @@ if __name__ == "__main__":
     md_filter.change_criterium("structure", TTNStructure.MPS.value)
     md_filter.change_criterium("system_size", 12)
     md_filter.change_criterium("ext_magn", 0.5)
-    md_filter.change_criterium("time_step_size", 0.1)
+    md_filter.change_criterium("time_step_size", 0.01)
     plot_err_t(md_filter, data_dir)
     plot_bd_vs_rt(md_filter, data_dir)

@@ -7,6 +7,7 @@ import os
 from numpy.typing import NDArray
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import AutoMinorLocator
 
 from pytreenet.util.plotting.plotables.standard_plottable import (StandardPlottable,
                                                                   combine_equivalent_standard_plottables)
@@ -37,7 +38,7 @@ def method_name(params: ApplicationParams) -> str:
     if params.appl_method is ApplicationMethod.DENSITY_MATRIX:
         return "DM"
     if params.appl_method is ApplicationMethod.HALF_DENSITY_MATRIX:
-        return "CBC"
+        return "SDC"
     if params.appl_method is ApplicationMethod.SRC:
         return "SRC"
     if params.appl_method is ApplicationMethod.ZIPUP:
@@ -267,8 +268,15 @@ def only_plot_err_vs_rt(md_filter: MetadataFilter,
     ax.set_yscale("log")
     if legend:
         ax.legend(loc="upper right")
-    fig.tight_layout()
     plt.grid(True)
+    ax.tick_params(
+        axis='x',
+        which='minor',
+        labelsize=0,      # Hide labels
+        length=3,         # Tick length
+        width=0.5           # Tick width
+    )
+    fig.tight_layout()
     if save_path is not None:
         fig.savefig(save_path, format="pdf")
         plt.close(fig)
@@ -284,23 +292,47 @@ if __name__ == "__main__":
     sys_sizes = (50, 20, 6, 8)
     bond_dims = (40, 10, 10, 10)
     for structure, sys_size, bond_dim in zip(structures, sys_sizes, bond_dims):
-        print(f"Plotting for structure: {structure.value}")
+        print(f"Plotting for structure: {structure.value} with smaller TTNO bond dimension")
         md_filter = MetadataFilter()
         md_filter.add_to_criterium("phys_dim", 3)
         md_filter.add_to_criterium("structure", structure.value)
         md_filter.add_to_criterium("sys_size", sys_size)
         md_filter.add_to_criterium("bond_dim", bond_dim)
+        md_filter.add_to_criterium("bond_dim_ttno", [bond_dim // 2])
         md_filter.add_to_criterium("appl_method", [ApplicationMethod.DENSITY_MATRIX.value,
                                                    ApplicationMethod.SRC.value,
                                                    ApplicationMethod.ZIPUP.value,
                                                    ApplicationMethod.DIRECT_TRUNCATE.value,
                                                    ApplicationMethod.HALF_DENSITY_MATRIX.value
                                                    ])
-        save_path = os.path.join(data_dir, "plots")
-        save_path = os.path.join(save_path, f"truncation_comparison_{structure.value}.pdf")
-        plot_all(md_filter, data_dir, save_path=save_path)
+        # save_path = os.path.join(data_dir, "plots")
+        # save_path = os.path.join(save_path, f"truncation_comparison_{structure.value}.pdf")
+        # plot_all(md_filter, data_dir, save_path=save_path)
         rt_save_path = os.path.join(data_dir, "plots")
-        rt_save_path = os.path.join(rt_save_path, f"truncation_comparison_err_vs_rt_{structure.value}.pdf")
+        rt_save_path = os.path.join(rt_save_path, f"diff_bd_ttnosmall_{structure.value}.pdf")
+        plt_legend = True if structure is structures[-1] else False
+        only_plot_err_vs_rt(md_filter, data_dir,
+                            save_path=rt_save_path,
+                            legend=plt_legend)
+    for structure, sys_size, bond_dim in zip(structures, sys_sizes, bond_dims):
+        print(f"Plotting for structure: {structure.value} with larger TTNO bond dimension")
+        md_filter = MetadataFilter()
+        md_filter.add_to_criterium("phys_dim", 3)
+        md_filter.add_to_criterium("structure", structure.value)
+        md_filter.add_to_criterium("sys_size", sys_size)
+        md_filter.add_to_criterium("bond_dim", bond_dim // 2)
+        md_filter.add_to_criterium("bond_dim_ttno", bond_dim)
+        md_filter.add_to_criterium("appl_method", [ApplicationMethod.DENSITY_MATRIX.value,
+                                                   ApplicationMethod.SRC.value,
+                                                   ApplicationMethod.ZIPUP.value,
+                                                   ApplicationMethod.DIRECT_TRUNCATE.value,
+                                                   ApplicationMethod.HALF_DENSITY_MATRIX.value
+                                                   ])
+        # save_path = os.path.join(data_dir, "plots")
+        # save_path = os.path.join(save_path, f"truncation_comparison_{structure.value}.pdf")
+        # plot_all(md_filter, data_dir, save_path=save_path)
+        rt_save_path = os.path.join(data_dir, "plots")
+        rt_save_path = os.path.join(rt_save_path, f"diff_bd_ttnolarge_{structure.value}.pdf")
         plt_legend = True if structure is structures[-1] else False
         only_plot_err_vs_rt(md_filter, data_dir,
                             save_path=rt_save_path,

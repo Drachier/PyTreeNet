@@ -17,6 +17,8 @@ from pytreenet.special_ttn.special_states import (generate_zero_state,
                                                   Topology)
 from pytreenet.time_evolution.tdvp_algorithms.firstorderonesite import (FirstOrderOneSiteTDVP, OneSiteTDVP)
 from pytreenet.time_evolution.tdvp_algorithms.secondorderonesite import (SecondOrderOneSiteTDVP)
+from pytreenet.time_evolution.tdvp_algorithms.tdvp_algorithm import TDVPConfig
+from pytreenet.time_evolution.time_evolution import TimeEvoMode
 from pytreenet.ttno.ttno_class import TTNO
 from pytreenet.operators.models.eval_ops import (local_magnetisation_from_topology)
 from pytreenet.time_evolution.results import Results
@@ -74,6 +76,7 @@ def run_simulation(params: SimParams1TDVP) -> tuple[Results, float]:
     ops = local_magnetisation_from_topology(top,
                                             params.system_size,
                                             site_prefix=STANDARD_NODE_PREFIX)
+    cnfg = TDVPConfig(time_evo_mode=TimeEvoMode.RK45)
     cls = params.order.get_class()
     time_evo = cls(init_state,
                    ttno,

@@ -19,6 +19,7 @@ from pytreenet.time_evolution.tdvp_algorithms.secondordertwosite import (SecondO
                                                                          TwoSiteTDVPConfig)
 from pytreenet.time_evolution.bug import BUG, BUGConfig
 from pytreenet.ttno.ttno_class import TTNO
+from pytreenet.time_evolution.time_evolution import TimeEvoMode
 from pytreenet.operators.models.eval_ops import (local_magnetisation_from_topology)
 from pytreenet.time_evolution.results import Results
 from pytreenet.time_evolution.exact_time_evolution import (ExactTimeEvolution)
@@ -75,7 +76,8 @@ def run_simulation(params: SimParams2TDVP) -> tuple[Results, float]:
     if params.integrator is Integrator.TWO_SITE_TDVP:
         cnfg = TwoSiteTDVPConfig(max_bond_dim=params.max_bond_dim,
                                  rel_tol=params.rel_tol,
-                                 total_tol=params.total_tol)
+                                 total_tol=params.total_tol,
+                                 time_evo_mode=TimeEvoMode.RK45)
         time_evo = SecondOrderTwoSiteTDVP(init_state,
                                           ttno,
                                           params.time_step_size,
@@ -87,7 +89,8 @@ def run_simulation(params: SimParams2TDVP) -> tuple[Results, float]:
     elif params.integrator is Integrator.BUG:
         cnfg = BUGConfig(max_bond_dim=params.max_bond_dim,
                          rel_tol=params.rel_tol,
-                         total_tol=params.total_tol)
+                         total_tol=params.total_tol,
+                         time_evo_mode=TimeEvoMode.RK45)
         time_evo = BUG(init_state,
                        ttno,
                        params.time_step_size,
