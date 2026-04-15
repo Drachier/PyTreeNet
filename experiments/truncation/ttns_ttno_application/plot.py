@@ -37,7 +37,7 @@ def method_name(params: ApplicationParams) -> str:
     if params.appl_method is ApplicationMethod.DENSITY_MATRIX:
         return "DM"
     if params.appl_method is ApplicationMethod.HALF_DENSITY_MATRIX:
-        return "CBC"
+        return "SDC"
     if params.appl_method is ApplicationMethod.SRC:
         return "SRC"
     if params.appl_method is ApplicationMethod.ZIPUP:
@@ -256,8 +256,8 @@ def only_plot_err_vs_rt(md_filter: MetadataFilter,
         legend (bool, optional): Whether to display the legend. Defaults to True.
     """
     data = load_data(md_filter, directory_path)
-    fig_size = set_size(DocumentStyle.THESIS, fraction=1 / 2)
-    config_matplotlib_to_latex(style=DocumentStyle.THESIS)
+    fig_size = set_size(DocumentStyle.PRONE_COLUMN, fraction=1 / 2)
+    config_matplotlib_to_latex(style=DocumentStyle.PRONE_COLUMN)
     fig, ax = plt.subplots(1, 1, figsize=(fig_size[0], fig_size[0] * 0.75))
     for method, (_, _, runtime_vs_err) in data.items():
         runtime_vs_err.plot_on_axis(ax)
@@ -268,7 +268,6 @@ def only_plot_err_vs_rt(md_filter: MetadataFilter,
     if legend:
         ax.legend(loc="upper right")
     fig.tight_layout()
-    plt.grid(True)
     if save_path is not None:
         fig.savefig(save_path, format="pdf")
         plt.close(fig)
