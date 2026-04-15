@@ -316,6 +316,7 @@ class MetadataFilter(UserDict):
     def load_valid_attributes(self,
                             directory: str,
                             desired_keys: list[str] | None = None,
+                            allow_non_exist: bool = False
                             ) -> list[dict[str, Any]]:
         """
         Loads the attributes from the metadata file in the given directory.
@@ -334,14 +335,55 @@ class MetadataFilter(UserDict):
         for hash_val in hashes:
             file_name = standard_result_file_name(hash_val)
             file_path = os.path.join(directory, file_name)
+            if not os.path.exists(file_path):
+                if allow_non_exist:
+                    warn(f"File {file_path} does not exist! Skipping...")
+                    continue
+                raise FileNotFoundError(f"File {file_path} does not exist!")
             with File(file_path, 'r') as file:
                 if desired_keys is not None:
                     attr_dict = {key: file.attrs[key]
-                                 for key in desired_keys}
+                                for key in desired_keys}
                     attributes.append(attr_dict)
                 else:
                     attributes.append(dict(file.attrs))
         return attributes
+
+    def load_custom(self,
+                    directory: str,
+                    evaluate_file_function: Callable[[File], Any],
+                    allow_non_exist: bool = False
+                    ) -> list[Any]:
+        """
+        Loads data from the metadata file in the given directory using a custom
+        function to evaluate the files.
+
+        Args:
+            directory (str): The directory where the metadata file and the
+                simulation results files are located.
+            evaluate_file_function (Callable[[File], Any]): A function that takes
+                an open h5py File object and returns the desired data.
+            allow_non_exist (bool): Whether to allow non-existing files.
+                If True, missing files will be skipped with a warning.
+                Otherwise, a FileNotFoundError will be raised.
+                Defaults to False.
+        Returns:
+            list[Any]: A list of data objects returned by the evaluate_file_function.
+        """
+        hashes = self.filter_hashes(directory)
+        data = []
+        for hash_val in hashes:
+            file_name = standard_result_file_name(hash_val)
+            file_path = os.path.join(directory, file_name)
+            if not os.path.exists(file_path):
+                if allow_non_exist:
+                    warn(f"File {file_path} does not exist! Skipping...")
+                    continue
+                raise FileNotFoundError(f"File {file_path} does not exist!")
+            with File(file_path, 'r') as file:
+                output = evaluate_file_function(file)
+                data.append(output)
+        return data
 
     def load_unique_results(self,
                            directory: str,
