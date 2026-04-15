@@ -1,10 +1,6 @@
 """
 This script is used to supervise the 1TDVP simulations.
 """
-
-"""
-This script is used to supervise the random addition comparison experiments.
-"""
 import os
 from itertools import product
 
@@ -24,10 +20,10 @@ def generate_parameter_set() -> list[SimParams1TDVP]:
 
     # Define structures and their corresponding system sizes and bond dimension ranges
     structure_configs = [
-        (TTNStructure.MPS, 12, 5, 100, 5),      # structure, sys_size, min_bd, max_bd, step_bd
-        (TTNStructure.FTPS, 3, 5, 50, 5),
-        (TTNStructure.BINARY, 3, 5, 50, 5),
-        (TTNStructure.TSTAR, 3, 5, 50, 5)
+        (TTNStructure.MPS, 12, 5, 64, 5),      # structure, sys_size, min_bd, max_bd, step_bd
+        (TTNStructure.FTPS, 3, 5, 8, 5),
+        (TTNStructure.BINARY, 3, 5, 8, 5),
+        (TTNStructure.TSTAR, 3, 5, 8, 5)
     ]
 
     # The two orders
@@ -35,11 +31,11 @@ def generate_parameter_set() -> list[SimParams1TDVP]:
 
     param_set = []
 
-    for struct_congif, order in product(structure_configs, orders):
-        for bond_dim in range(struct_congif[2], struct_congif[3] + 1, struct_congif[4]):
+    for struct_config, order in product(structure_configs, orders):
+        for bond_dim in range(struct_config[2], struct_config[3] + 1, struct_config[4]):
             params = SimParams1TDVP(
-                structure=struct_congif[0],
-                system_size=struct_congif[1],
+                structure=struct_config[0],
+                system_size=struct_config[1],
                 ext_magn=0.5,
                 time_step_size=0.01,
                 bond_dim=bond_dim,
@@ -50,16 +46,16 @@ def generate_parameter_set() -> list[SimParams1TDVP]:
     # Parameters for the time step dependence
     time_steps = [10**(-1*i) for i in range(1, 10)]  # 0.1, 0.01, 0.001, 0.0001
     for time_step in time_steps:
-        for struct_congif, order in product(structure_configs, orders):
+        for struct_config, order in product(structure_configs, orders):
             params = SimParams1TDVP(
-                structure=struct_congif[0],
-                system_size=struct_congif[1],
+                structure=struct_config[0],
+                system_size=struct_config[1],
                 ext_magn=0.5,
                 time_step_size=time_step,
-                bond_dim=struct_congif[3],  # Max bond dimension for time step dependence
+                bond_dim=struct_config[3],  # Max bond dimension for time step dependence
                 order=order
             )
-            param_set.append(params)        
+            param_set.append(params)
 
     return param_set
 
