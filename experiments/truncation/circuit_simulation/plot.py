@@ -114,7 +114,7 @@ def build_style_mapping() -> StyleMapping:
     #                   TTNStructure.MPS.value: "dashed",
     #                   TTNStructure.BINARY.value: "dotted"})
     labels_method = {ApplicationMethod.DENSITY_MATRIX.value: "DM",
-                     ApplicationMethod.HALF_DENSITY_MATRIX.value: "CBC",
+                     ApplicationMethod.HALF_DENSITY_MATRIX.value: "SDC",
                      ApplicationMethod.SRC.value: "SRC",
                      ApplicationMethod.ZIPUP.value: "ZipUp",
                      ApplicationMethod.DIRECT_TRUNCATE.value: "Direct"}
