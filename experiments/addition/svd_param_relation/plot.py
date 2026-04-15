@@ -112,7 +112,6 @@ def plot(md_filter: MetadataFilter,
     fig, axes = plt.subplots(1, 2, figsize=size)
     for ind, axdat in enumerate(zip(axes, data)):
         ax, dat = axdat
-        print(save_path, dat.vals)
         dat.plot_on_axis(ax, norm_method=NormalisationMethod.LOG)
         ax.set_xlabel(r"$\chi_{\text{add}}$")
         ax.set_ylabel(r"$\chi_{\mathcal{S}}$")
