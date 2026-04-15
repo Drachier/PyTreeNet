@@ -82,6 +82,9 @@ class TwoSiteTDVP(TDVPAlgorithm):
                          config=config,
                          solver_options=solver_options)
         self.config: TwoSiteTDVPConfig
+        if self.state.num_nodes() < 2:
+            errstr = "Two-site TDVP cannot be used for systems with less than 2 sites!"
+            raise ValueError(errstr)
 
     def _update_two_site_nodes(self,
                                target_node_id: str,
