@@ -17,6 +17,7 @@ from pytreenet.special_ttn.special_states import (generate_zero_state,
                                                   Topology)
 from pytreenet.time_evolution.tdvp_algorithms.secondordertwosite import (SecondOrderTwoSiteTDVP,
                                                                          TwoSiteTDVPConfig)
+from pytreenet.time_evolution.tdvp_algorithms.firstordertwosite import FirstOrderTwoSiteTDVP
 from pytreenet.time_evolution.bug import BUG, BUGConfig
 from pytreenet.ttno.ttno_class import TTNO
 from pytreenet.time_evolution.time_evolution import TimeEvoMode
@@ -32,6 +33,7 @@ class Integrator(Enum):
     """
     Supported integrators for the simulation.
     """
+    FO_TWO_SITE_TDVP = "fo_2tdvp"
     TWO_SITE_TDVP = "2tdvp"
     BUG = "bug"
 
@@ -79,6 +81,19 @@ def run_simulation(params: SimParams2TDVP) -> tuple[Results, float]:
                                  total_tol=params.total_tol,
                                  time_evo_mode=TimeEvoMode.RK45)
         time_evo = SecondOrderTwoSiteTDVP(init_state,
+                                          ttno,
+                                          params.time_step_size,
+                                          1,
+                                          ops,
+                                          config=cnfg,
+                                          solver_options={"rtol": params.rtol,
+                                                          "atol": params.atol})
+    elif params.integrator is Integrator.FO_TWO_SITE_TDVP:
+        cnfg = TwoSiteTDVPConfig(max_bond_dim=params.max_bond_dim,
+                                 rel_tol=params.rel_tol,
+                                 total_tol=params.total_tol,
+                                 time_evo_mode=TimeEvoMode.RK45)
+        time_evo = FirstOrderTwoSiteTDVP(init_state,
                                           ttno,
                                           params.time_step_size,
                                           1,

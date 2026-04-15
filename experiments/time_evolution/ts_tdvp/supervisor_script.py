@@ -20,16 +20,16 @@ def generate_parameter_set() -> list[SimParams2TDVP]:
 
     # Define structures and their corresponding system sizes and bond dimension ranges
     structure_configs = [
-        (TTNStructure.MPS, 5, 5, 100, 5),      # structure, sys_size, min_bd, max_bd, step_bd
+        (TTNStructure.MPS, 12, 2, 64, 2),      # structure, sys_size, min_bd, max_bd, step_bd
         #(TTNStructure.FTPS, 4, 5, 50, 5),
         #(TTNStructure.BINARY, 3, 5, 50, 5),
-        #(TTNStructure.TSTAR, 4, 5, 50, 5)
+        (TTNStructure.TSTAR, 4, 2, 16, 2)
     ]
 
     # Tolerance values to test
     rel_tols = [10**(-i) for i in range(9, 11)]
     total_tols = [10**(-i) for i in range(9, 11)]
-    integrators = [Integrator.TWO_SITE_TDVP, Integrator.BUG]
+    integrators = [Integrator.TWO_SITE_TDVP, Integrator.FO_TWO_SITE_TDVP, Integrator.BUG]
 
     ext_magn = 0.5
     
@@ -74,6 +74,22 @@ def generate_parameter_set() -> list[SimParams2TDVP]:
                 total_tol=total_tol,
                 integrator=integrator,
                 ext_magn=ext_magn
+            ))
+
+    # Parameters for varying time step size
+    time_steps = [10**(-1*i) for i in range(1, 10)]
+    for integrator, (structure, sys_size, _, max_bd, _) in product(integrators,
+                                                                    structure_configs):
+        for time_step in time_steps:
+            param_set.append(SimParams2TDVP(
+                system_size=sys_size,
+                structure=structure,
+                max_bond_dim=max_bd,
+                rel_tol=1e-10,
+                total_tol=1e-10,
+                integrator=integrator,
+                ext_magn=ext_magn,
+                time_step_size=time_step
             ))
     return param_set
 
