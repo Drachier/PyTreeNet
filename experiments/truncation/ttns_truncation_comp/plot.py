@@ -226,6 +226,10 @@ if __name__ == "__main__":
         md_filter.add_to_criterium("structure", structure.value)
         md_filter.add_to_criterium("sys_size", sys_size)
         md_filter.add_to_criterium("bond_dim", 80)
+        md_filter.add_to_criterium("trunc_method", [TruncationMethod.SVD.value,
+                                                    TruncationMethod.RECURSIVE.value,
+                                                    TruncationMethod.SVD2SITE.value,
+                                                    TruncationMethod.DENSITYMATRIX.value])
         save_path = os.path.join(data_dir, "plots")
         save_path = os.path.join(save_path, f"truncation_comparison_{structure.value}.pdf")
         plot_all(md_filter, data_dir, save_path=save_path)

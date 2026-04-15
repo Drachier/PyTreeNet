@@ -33,19 +33,19 @@ def generate_parameter_set() -> list[TruncationParams]:
     param_set = []
     for structure, method, bond_dim, seed in product(structures, methods, bond_dims, seeds):
         if structure is TTNStructure.MPS:
-            sys_size = 100
+            sys_size = 50
         elif structure is TTNStructure.BINARY:
-            sys_size = 8
+            sys_size = 7
         elif structure is TTNStructure.FTPS:
-            sys_size = 10
+            sys_size = 8
         elif structure is TTNStructure.TSTAR:
-            sys_size = 30
+            sys_size = 20
         else:
             raise ValueError(f"Unknown structure: {structure}")
         params = TruncationParams(
             structure=structure,
             sys_size=sys_size,
-            phys_dim=5,
+            phys_dim=3,
             bond_dim=bond_dim,
             trunc_method=method,
             random_trunc=False,
