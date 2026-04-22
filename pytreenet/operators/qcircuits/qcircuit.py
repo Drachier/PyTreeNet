@@ -21,7 +21,8 @@ from .qgate import (QuantumGate,
                     ToffoliGate,
                     PhaseGate,
                     Reset,
-                    MultiControlledGate)
+                    MultiControlledGate,
+                    RotationGate)
 from ..measurment import Measurement
 
 
@@ -883,6 +884,60 @@ class QCircuit(AbstractQCircuit):
                                    target_ids,
                                    QGate.PAULI_Y,
                                    "MCY")
+        self.add_gate(gate, level_index)
+
+    def add_rx(self,
+               qubit_id: str,
+               angle: float,
+               level_index: int = -1):
+        """
+        Add a rotation around the X axis to the circuit.
+
+        Args:
+            qubit_id (str): The ID of the qubit to apply the gate to.
+            angle (float): The angle to rotate by.
+            level_index (int): The index of the level to add the gate to.
+                Defaults to -1 (last level).
+        """
+        gate = RotationGate(qubit_id,
+                            QGate.PAULI_X,
+                            angle)
+        self.add_gate(gate, level_index)
+
+    def add_ry(self,
+               qubit_id: str,
+               angle: float,
+               level_index: int = -1):
+        """
+        Add a rotation around the Y axis to the circuit.
+
+        Args:
+            qubit_id (str): The ID of the qubit to apply the gate to.
+            angle (float): The angle to rotate by.
+            level_index (int): The index of the level to add the gate to.
+                Defaults to -1 (last level).
+        """
+        gate = RotationGate(qubit_id,
+                            QGate.PAULI_Y,
+                            angle)
+        self.add_gate(gate, level_index)
+
+    def add_rz(self,
+               qubit_id: str,
+               angle: float,
+               level_index: int = -1):
+        """
+        Add a rotation around the Z axis to the circuit.
+
+        Args:
+            qubit_id (str): The ID of the qubit to apply the gate to.
+            angle (float): The angle to rotate by.
+            level_index (int): The index of the level to add the gate to.
+                Defaults to -1 (last level).
+        """
+        gate = RotationGate(qubit_id,
+                            QGate.PAULI_Z,
+                            angle)
         self.add_gate(gate, level_index)
 
 class CompiledQuantumCircuit(AbstractQCircuit):
