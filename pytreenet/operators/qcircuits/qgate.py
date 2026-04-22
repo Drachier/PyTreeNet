@@ -917,9 +917,27 @@ class MultiControlledGate(QuantumGate):
         self.opposite_qubit_ids = opposite_qubit_ids
         self.target_qubit_ids = target_qubit_ids
         self.operation = operation
-        if operation not in {QGate.PAULI_X, QGate.PAULI_Y, QGate.PAULI_Z}:
+        if operation not in {QGate.PAULI_X, QGate.PAULI_Y, QGate.PAULI_Z, QGate.HADAMARD}:
             errstr = f"Invalid operation for MultiControlledGate: {operation}!"
             raise ValueError(errstr)
+    
+    def local_target_gate_value(self) -> npt.NDArray[np.complex64]:
+        """
+        Get the matrix representation of the local target gate.
+
+        Returns:
+            np.ndarray: The matrix representation of the local target gate.
+        """
+        if self.operation is QGate.PAULI_X:
+            return pauli_matrices()[0]
+        elif self.operation is QGate.PAULI_Y:
+            return pauli_matrices()[1]
+        elif self.operation is QGate.PAULI_Z:
+            return pauli_matrices()[2]
+        elif self.operation is QGate.HADAMARD:
+            return hadamard()
+        else:
+            raise ValueError(f"Invalid operation for MultiControlledGate: {self.operation}!")
 
     def get_generator(self) -> Hamiltonian:
         """
@@ -968,10 +986,7 @@ class MultiControlledGate(QuantumGate):
             else:
                 ham = ham.otimes(temp_ham)
         # Add the target operation
-        if self.operation == QGate.PAULI_Y:
-            conv_dict[self.operation.value] = pauli_matrices()[1]
-        elif self.operation == QGate.PAULI_X:
-            conv_dict[self.operation.value] = pauli_matrices()[0]
+        conv_dict[self.operation.value] = self.local_target_gate_value()
         coeff_map = {ONE_SYMBOL: 1.0+0.0j,
                      PI_SYMBOL: complex(np.pi)}
         temp_ham = Hamiltonian(coeffs_mapping=coeff_map)
@@ -1007,12 +1022,7 @@ class MultiControlledGate(QuantumGate):
             t1 = np.kron(t1, proj0)
             t2 = np.kron(t2, proj1)
         for _ in self.target_qubit_ids:
-            if self.operation == QGate.PAULI_X:
-                t1 = np.kron(t1, pauli_matrices()[0])
-            elif self.operation == QGate.PAULI_Y:
-                t1 = np.kron(t1, pauli_matrices()[1])
-            elif self.operation == QGate.PAULI_Z:
-                t1 = np.kron(t1, pauli_matrices()[2])
+            t1 = np.kron(t1, self.local_target_gate_value())
             t2 = np.kron(t2, np.eye(2, dtype=complex))
         return t1 + t2
 
@@ -1047,7 +1057,7 @@ class MultiControlledGate(QuantumGate):
         conv_dict = {"I2": np.eye(2, dtype=complex),
                      proj_symbols[0]: projector(2,0),
                      proj_symbols[1]: projector(2,1),
-                     self.operation.value: pauli_matrices()[{"X": 0, "Y": 1, "Z": 2}[self.operation.value]]}
+                     self.operation.value: self.local_target_gate_value()}
         coeffs_map = {ONE_SYMBOL: 1.0+0.0j}
         ham.update_mappings(conv_dict, coeffs_map)
         return ham

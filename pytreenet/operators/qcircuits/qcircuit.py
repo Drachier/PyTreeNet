@@ -740,6 +740,26 @@ class QCircuit(AbstractQCircuit):
         gate = CNOTGate(control_id, target_id)
         self.add_gate(gate, level_index)
 
+    def add_ch(self,
+               control_id: str,
+               target_id: str,
+               level_index: int = -1):
+        """
+        Add a controlled Hadamard gate to the circuit.
+
+        Args:
+            control_id (str): The ID of the control qubit.
+            target_id (str): The ID of the target qubit.
+            level_index (int): The index of the level to add the gate to.
+                Defaults to -1 (last level).
+        """
+        gate = MultiControlledGate([control_id],
+                                   [],
+                                   [target_id],
+                                   QGate.HADAMARD,
+                                   "CH")
+        self.add_gate(gate, level_index)
+
     def add_swap(self,
                  qubit_id1: str,
                  qubit_id2: str,
