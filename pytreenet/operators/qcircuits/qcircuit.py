@@ -822,7 +822,7 @@ class QCircuit(AbstractQCircuit):
     def add_mx(self,
                control_ids: list[str],
                inverse_controls: list[str],
-               target_id: str,
+               target_ids: str | list[str],
                level_index: int = -1):
         """
         Add a multi-controlled X gate to the circuit.
@@ -830,13 +830,13 @@ class QCircuit(AbstractQCircuit):
         Args:
             control_ids (list[str]): The IDs of the control qubits.
             inverse_controls (list[str]): The IDs of the inverse control qubits.
-            target_id (str): The ID of the target qubit.
+            target_id (str | list[str]): The ID(s) of the target qubit(s).
             level_index (int): The index of the level to add the gate to.
                 Defaults to -1 (last level).
         """
         gate = MultiControlledGate(control_ids,
                                    inverse_controls,
-                                   target_id,
+                                   target_ids,
                                    QGate.PAULI_X,
                                    "MCX")
         self.add_gate(gate, level_index)
@@ -844,7 +844,7 @@ class QCircuit(AbstractQCircuit):
     def add_mz(self,
                control_ids: list[str],
                inverse_controls: list[str],
-               target_id: str,
+               target_ids: str | list[str],
                level_index: int = -1):
         """
         Add a multi-controlled Z gate to the circuit.
@@ -852,13 +852,13 @@ class QCircuit(AbstractQCircuit):
         Args:
             control_ids (list[str]): The IDs of the control qubits.
             inverse_controls (list[str]): The IDs of the inverse control qubits.
-            target_id (str): The ID of the target qubit.
+            target_ids (str | list[str]): The ID(s) of the target qubit(s).
             level_index (int): The index of the level to add the gate to.
                 Defaults to -1 (last level).
         """
         gate = MultiControlledGate(control_ids,
                                    inverse_controls,
-                                   target_id,
+                                   target_ids,
                                    QGate.PAULI_Z,
                                    "MCZ")
         self.add_gate(gate, level_index)
@@ -866,7 +866,7 @@ class QCircuit(AbstractQCircuit):
     def add_my(self,
                control_ids: list[str],
                inverse_controls: list[str],
-               target_id: str,
+               target_ids: str | list[str],
                level_index: int = -1):
         """
         Add a multi-controlled Y gate to the circuit.
@@ -874,13 +874,13 @@ class QCircuit(AbstractQCircuit):
         Args:
             control_ids (list[str]): The IDs of the control qubits.
             inverse_controls (list[str]): The IDs of the inverse control qubits.
-            target_id (str): The ID of the target qubit.
+            target_ids (str | list[str]): The ID(s) of the target qubit(s).
             level_index (int): The index of the level to add the gate to.
                 Defaults to -1 (last level).
         """
         gate = MultiControlledGate(control_ids,
                                    inverse_controls,
-                                   target_id,
+                                   target_ids,
                                    QGate.PAULI_Y,
                                    "MCY")
         self.add_gate(gate, level_index)
