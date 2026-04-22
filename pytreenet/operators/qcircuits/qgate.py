@@ -834,15 +834,17 @@ class MultiControlledGate(QuantumGate):
     def __init__(self,
                  control_qubit_ids: list[str],
                  opposite_qubit_ids: list[str],
-                 target_qubit_id: str,
+                 target_qubit_ids: str | list[str],
                  operation: QGate,
                  symbol: str
                  ) -> None:
-        total_qubits = control_qubit_ids + opposite_qubit_ids + [target_qubit_id]
+        if isinstance(target_qubit_ids, str):
+            target_qubit_ids = [target_qubit_ids]
+        total_qubits = control_qubit_ids + opposite_qubit_ids + target_qubit_ids
         super().__init__(symbol, total_qubits)
         self.control_qubit_ids = control_qubit_ids
         self.opposite_qubit_ids = opposite_qubit_ids
-        self.target_qubit_id = target_qubit_id
+        self.target_qubit_ids = target_qubit_ids
         self.operation = operation
         if operation not in {QGate.PAULI_X, QGate.PAULI_Y, QGate.PAULI_Z}:
             errstr = f"Invalid operation for MultiControlledGate: {operation}!"
@@ -902,18 +904,19 @@ class MultiControlledGate(QuantumGate):
         coeff_map = {ONE_SYMBOL: 1.0+0.0j,
                      PI_SYMBOL: complex(np.pi)}
         temp_ham = Hamiltonian(coeffs_mapping=coeff_map)
-        # Add -1/2*operation
-        tp = TensorProduct({self.target_qubit_id: self.operation.value})
-        term = (-1*std_fraction,PI_SYMBOL,tp)
-        temp_ham.add_term(term)
-        # Add 1/2*I
-        tp = TensorProduct({self.target_qubit_id: "I2"})
-        term = (std_fraction,PI_SYMBOL,tp)
-        temp_ham.add_term(term)
-        if ham.is_empty():
-            ham = temp_ham
-        else:
-            ham = ham.otimes(temp_ham)
+        for target_qubit in self.target_qubit_ids:
+            # Add -1/2*operation
+            tp = TensorProduct({target_qubit: self.operation.value})
+            term = (-1*std_fraction,PI_SYMBOL,tp)
+            temp_ham.add_term(term)
+            # Add 1/2*I
+            tp = TensorProduct({target_qubit: "I2"})
+            term = (std_fraction,PI_SYMBOL,tp)
+            temp_ham.add_term(term)
+            if ham.is_empty():
+                ham = temp_ham
+            else:
+                ham = ham.otimes(temp_ham)
         ham.update_mappings(conversion_dict=conv_dict,
                             coeffs_mapping=coeff_map)
         return ham
@@ -932,13 +935,14 @@ class MultiControlledGate(QuantumGate):
         for _ in self.opposite_qubit_ids:
             t1 = np.kron(t1, proj0)
             t2 = np.kron(t2, proj1)
-        if self.operation == QGate.PAULI_X:
-            t1 = np.kron(t1, pauli_matrices()[0])
-        elif self.operation == QGate.PAULI_Y:
-            t1 = np.kron(t1, pauli_matrices()[1])
-        elif self.operation == QGate.PAULI_Z:
-            t1 = np.kron(t1, pauli_matrices()[2])
-        t2 = np.kron(t2, np.eye(2, dtype=complex))
+        for _ in self.target_qubit_ids:
+            if self.operation == QGate.PAULI_X:
+                t1 = np.kron(t1, pauli_matrices()[0])
+            elif self.operation == QGate.PAULI_Y:
+                t1 = np.kron(t1, pauli_matrices()[1])
+            elif self.operation == QGate.PAULI_Z:
+                t1 = np.kron(t1, pauli_matrices()[2])
+            t2 = np.kron(t2, np.eye(2, dtype=complex))
         return t1 + t2
 
     def invert(self) -> Self:
@@ -961,10 +965,11 @@ class MultiControlledGate(QuantumGate):
         for qubit_id in self.opposite_qubit_ids:
             t1.add_operator(qubit_id, proj_symbols[1])
             t2.add_operator(qubit_id, proj_symbols[0])
-        t1.add_operator(self.target_qubit_id,
-                        self.operation.value)
-        t2.add_operator(self.target_qubit_id,
-                        "I2")
+        for target_qubit_id in self.target_qubit_ids:
+            t1.add_operator(target_qubit_id,
+                            self.operation.value)
+            t2.add_operator(target_qubit_id,
+                            "I2")
         ham = Hamiltonian()
         ham.add_term((Fraction(1), ONE_SYMBOL, t1))
         ham.add_term((Fraction(1), ONE_SYMBOL, t2))
