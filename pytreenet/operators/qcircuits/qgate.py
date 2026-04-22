@@ -378,6 +378,77 @@ class PhaseGate(SingleQubitGate):
         """
         return self.__class__(-self.phase, self.qubit_id)
 
+class RotationGate(SingleQubitGate):
+    """
+    Represents the different rotation gates (Rx, Ry, Rz).
+    """
+
+    def __init__(self,
+                 qubit_id: str,
+                 axis: QGate,
+                 angle: float
+                 ) -> None:
+        """
+        Initialises a rotation gate.
+
+        Args:
+            qubit_id (str): The ID of the qubit the gate acts on.
+            axis (QGate): The axis of rotation, can be
+                QGate.PAULI_X, QGate.PAULI_Y or QGate.PAULI_Z.
+            angle (float): The angle of rotation in radians in multiples of pi.
+        """
+        super().__init__(f"R{axis.value}({angle})", qubit_id)
+        if axis not in {QGate.PAULI_X, QGate.PAULI_Y, QGate.PAULI_Z}:
+            errstr = f"Invalid axis for RotationGate: {axis}!"
+            raise ValueError(errstr)
+        self.axis = axis
+        self.angle = angle
+
+    def get_generator(self) -> Hamiltonian:
+        """
+        Get the generator of the Rotation gate.
+
+        Returns:
+            Hamiltonian: The generator of the Rotation gate.
+        """
+        ham = Hamiltonian()
+        pmatrix_val = pauli_matrices()[{"X": 0, "Y": 1, "Z": 2}[self.axis.value]]
+        ham.conversion_dictionary[self.axis.value] = pmatrix_val
+        coeff_symb = f"{PI_SYMBOL}*ang{self.angle}"
+        ham.coeffs_mapping[coeff_symb] = complex(np.pi * self.angle)
+        tp = TensorProduct({self.qubit_id: self.axis.value})
+        ham.add_term((Fraction(1), coeff_symb, tp))
+        return ham
+
+    def matrix(self) -> npt.NDArray[np.complex64]:
+        """
+        Get the matrix representation of the Rotation gate.
+
+        Returns:
+            npt.NDArray[np.complex64]: The matrix representation of the
+                Rotation gate.
+        """
+        angle = np.pi * self.angle / 2
+        if self.axis is QGate.PAULI_X:
+            return np.asarray([[np.cos(angle), -1j * np.sin(angle)],
+                               [-1j * np.sin(angle), np.cos(angle)]], dtype=np.complex64)
+        if self.axis is QGate.PAULI_Y:
+            return np.asarray([[np.cos(angle), -np.sin(angle)],
+                                 [np.sin(angle), np.cos(angle)]], dtype=np.complex64)
+        if self.axis is QGate.PAULI_Z:
+            return np.asarray([[np.exp(-1j * angle), 0],
+                               [0, np.exp(1j * angle)]], dtype=np.complex64)
+        raise ValueError(f"Invalid axis for RotationGate: {self.axis}!")
+
+    def invert(self) -> Self:
+        """
+        Get the inverse of the Rotation gate.
+
+        Returns:
+            RotationGate: The inverse of the Rotation gate.
+        """
+        return self.__class__(self.qubit_id, self.axis, -1*self.angle)
+
 class HaarRandomSingleQubitGate(SingleQubitGate):
     """
     A class representing a Haar-random single-qubit gate.
