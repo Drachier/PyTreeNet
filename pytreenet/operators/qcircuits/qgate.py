@@ -417,7 +417,7 @@ class RotationGate(SingleQubitGate):
         coeff_symb = f"{PI_SYMBOL}*ang{self.angle}"
         ham.coeffs_mapping[coeff_symb] = complex(np.pi * self.angle)
         tp = TensorProduct({self.qubit_id: self.axis.value})
-        ham.add_term((Fraction(1), coeff_symb, tp))
+        ham.add_term((Fraction(1,2), coeff_symb, tp))
         return ham
 
     def matrix(self) -> npt.NDArray[np.complex64]:
@@ -920,7 +920,7 @@ class MultiControlledGate(QuantumGate):
         if operation not in {QGate.PAULI_X, QGate.PAULI_Y, QGate.PAULI_Z, QGate.HADAMARD}:
             errstr = f"Invalid operation for MultiControlledGate: {operation}!"
             raise ValueError(errstr)
-    
+
     def local_target_gate_value(self) -> npt.NDArray[np.complex64]:
         """
         Get the matrix representation of the local target gate.
@@ -989,8 +989,8 @@ class MultiControlledGate(QuantumGate):
         conv_dict[self.operation.value] = self.local_target_gate_value()
         coeff_map = {ONE_SYMBOL: 1.0+0.0j,
                      PI_SYMBOL: complex(np.pi)}
-        temp_ham = Hamiltonian(coeffs_mapping=coeff_map)
         for target_qubit in self.target_qubit_ids:
+            temp_ham = Hamiltonian(coeffs_mapping=coeff_map)
             # Add -1/2*operation
             tp = TensorProduct({target_qubit: self.operation.value})
             term = (-1*std_fraction,PI_SYMBOL,tp)

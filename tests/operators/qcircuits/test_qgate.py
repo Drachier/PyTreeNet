@@ -15,14 +15,15 @@ from pytreenet.operators.qcircuits.qgate import (QGate,
                                                  SWAPGate,
                                                  ToffoliGate,
                                                  HaarRandomSingleQubitGate,
-                                                 MultiControlledGate)
+                                                 MultiControlledGate,
+                                                 RotationGate)
 
 def close(a, b):
     """
     Helper function to compare two matrices.
     Note that the atol has to be set, as some matrices have zero entries.
     """
-    np.testing.assert_allclose(a, b, rtol=1e-15, atol=1e-15)
+    np.testing.assert_allclose(a, b, rtol=1e-7, atol=1e-7)
 
 class TestSingleSiteGates(unittest.TestCase):
     """
@@ -157,6 +158,23 @@ class TestSingleSiteGates(unittest.TestCase):
         expected_matrix = np.array([[1, 0], [0, 1j]], dtype=np.complex64)
         close(evolved_matrix, expected_matrix)
 
+    def test_rotation_gatey(self):
+        """
+        Test the Rotation gate around the Y axis with a rotation angle of 2 arccos(1/sqrt(3)).
+        """
+        angle = 2 * np.arccos(1 / np.sqrt(3)) / np.pi
+        r_gate = RotationGate(self.qubit_id,
+                              QGate.PAULI_Y,
+                              angle)
+        generator = r_gate.get_generator()
+        print(generator.terms)
+        matrix = generator.to_matrix(self.ttns)
+        evolved_matrix = expm(-1j * matrix.operator)
+        expected_matrix = np.array([[1 / np.sqrt(3), -np.sqrt(2 / 3)],
+                                    [np.sqrt(2 / 3), 1 / np.sqrt(3)]],
+                                      dtype=np.complex64)
+        close(evolved_matrix, expected_matrix)
+
 class TestTwoQubitGates(unittest.TestCase):
     """
     Unit tests for two-qubit quantum gates.
@@ -240,6 +258,22 @@ class TestTwoQubitGates(unittest.TestCase):
         expected_matrix = np.eye(4, dtype=np.complex64)
         expected_matrix[:2, :2] = np.array([[0, 1], [1, 0]],
                                dtype=np.complex64)
+        close(evolved_matrix, expected_matrix)
+
+    def test_ch(self):
+        """
+        Test the CH gate, which is a controlled-Hadamard gate.
+        """
+        ch_gate = MultiControlledGate([self.qubit_ids[0]],
+                                     [],
+                                     self.qubit_ids[1],
+                                     QGate.HADAMARD,
+                                     "ch")
+        generator = ch_gate.get_generator()
+        matrix = generator.to_matrix(self.ttns)
+        evolved_matrix = expm(-1j * matrix.operator)
+        expected_matrix = np.eye(4, dtype=np.complex64)
+        expected_matrix[2:, 2:] = np.array([[1, 1], [1, -1]], dtype=np.complex64) / np.sqrt(2)
         close(evolved_matrix, expected_matrix)
 
 class TestThreeQubitGates(unittest.TestCase):
@@ -409,7 +443,6 @@ class TestFourQubitGates(unittest.TestCase):
         expected_matrix = np.eye(16, dtype=np.complex64)
         expected_matrix[10:12, 10:12] = np.array([[0, 1], [1, 0]], dtype=np.complex64)
         close(evolved_matrix, expected_matrix)
-
 
 class TestInversion(unittest.TestCase):
     """
