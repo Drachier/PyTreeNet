@@ -174,6 +174,25 @@ def superposition(rel_phase: float = 0) -> np.ndarray:
     """
     return np.array([1, np.exp(1j*rel_phase * np.pi)], dtype=complex) / np.sqrt(2)
 
+def multi_ket_i(values: Tuple[int], dimension: int) -> np.ndarray:
+    """
+    Generates the computational basis state for a system of a given dimension
+    and multiple sites.
+
+    Args:
+        values (Tuple[int]): The indices of the states for each site.
+        dimension (int): The dimension of each site.
+
+    Returns:
+        np.ndarray: The computational basis state for the multi-site system.
+
+    """
+    out = np.asarray([1], dtype=complex)
+    for value in values:
+        local_state = ket_i(value, dimension)
+        out = np.kron(out, local_state)
+    return out
+
 def copy_tensor(degree: int,
                 dim: int
                 ) -> np.ndarray:
