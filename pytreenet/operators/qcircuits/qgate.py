@@ -946,7 +946,7 @@ class MultiControlledGate(QuantumGate):
         Returns:
             Hamiltonian: The generator of the Multi-Control Gate.
         """
-        ham = Hamiltonian()
+        control_ham = Hamiltonian()
         std_fraction = Fraction(1,2)
         # Add 1/2*(I-Z) per control
         pauliZ = QGate.PAULI_Z.value
@@ -964,10 +964,10 @@ class MultiControlledGate(QuantumGate):
             tp = TensorProduct({control_qubit: "I2"})
             term = (std_fraction,ONE_SYMBOL,tp)
             temp_ham.add_term(term)
-            if ham.is_empty():
-                ham = temp_ham
+            if control_ham.is_empty():
+                control_ham = temp_ham
             else:
-                ham = ham.otimes(temp_ham)
+                control_ham = control_ham.otimes(temp_ham)
         # Add 1/2*(I+z) per opposite control
         if len(self.opposite_qubit_ids) > 0:
             conv_dict[pauliZ] = pauli_matrices()[2]
@@ -981,16 +981,18 @@ class MultiControlledGate(QuantumGate):
             tp = TensorProduct({opposite_qubit: "I2"})
             term = (std_fraction,ONE_SYMBOL,tp)
             temp_ham.add_term(term)
-            if ham.is_empty():
-                ham = temp_ham
+            if control_ham.is_empty():
+                control_ham = temp_ham
             else:
-                ham = ham.otimes(temp_ham)
+                control_ham = control_ham.otimes(temp_ham)
         # Add the target operation
+        total_ham = Hamiltonian()
         conv_dict[self.operation.value] = self.local_target_gate_value()
         coeff_map = {ONE_SYMBOL: 1.0+0.0j,
                      PI_SYMBOL: complex(np.pi)}
         for target_qubit in self.target_qubit_ids:
-            temp_ham = Hamiltonian(coeffs_mapping=coeff_map)
+            temp_ham = Hamiltonian(coeffs_mapping=coeff_map,
+                                   conversion_dictionary=conv_dict)
             # Add -1/2*operation
             tp = TensorProduct({target_qubit: self.operation.value})
             term = (-1*std_fraction,PI_SYMBOL,tp)
@@ -999,13 +1001,9 @@ class MultiControlledGate(QuantumGate):
             tp = TensorProduct({target_qubit: "I2"})
             term = (std_fraction,PI_SYMBOL,tp)
             temp_ham.add_term(term)
-            if ham.is_empty():
-                ham = temp_ham
-            else:
-                ham = ham.otimes(temp_ham)
-        ham.update_mappings(conversion_dict=conv_dict,
-                            coeffs_mapping=coeff_map)
-        return ham
+            temp_ham = control_ham.otimes(temp_ham)
+            total_ham.add_hamiltonian(temp_ham)
+        return total_ham
 
     def matrix(self) -> npt.NDArray[np.complex64]:
         """

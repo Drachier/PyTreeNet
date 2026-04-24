@@ -167,7 +167,6 @@ class TestSingleSiteGates(unittest.TestCase):
                               QGate.PAULI_Y,
                               angle)
         generator = r_gate.get_generator()
-        print(generator.terms)
         matrix = generator.to_matrix(self.ttns)
         evolved_matrix = expm(-1j * matrix.operator)
         expected_matrix = np.array([[1 / np.sqrt(3), -np.sqrt(2 / 3)],
@@ -377,6 +376,26 @@ class TestThreeQubitGates(unittest.TestCase):
         evolved_matrix = expm(-1j * matrix.operator)
         expected_matrix = np.eye(8, dtype=np.complex64)
         expected_matrix[2:4, 2:4] = np.array([[0, 1], [1, 0]], dtype=np.complex64)
+        close(evolved_matrix, expected_matrix)
+
+    def test_cnotnot(self):
+        """
+        Test a multi target gate that applies a controlled-NOT on the last two
+        qubits.
+        """
+        cnotnot_gate = MultiControlledGate([self.qubit_ids[0]],
+                                         [],
+                                         [self.qubit_ids[1], self.qubit_ids[2]],
+                                         QGate.PAULI_X,
+                                         "cnotnot")
+        generator = cnotnot_gate.get_generator()
+        matrix = generator.to_matrix(self.ttns)
+        evolved_matrix = expm(-1j * matrix.operator)
+        expected_matrix = np.eye(8, dtype=np.complex64)
+        expected_matrix[4:, 4:] = np.array([[0, 0, 0, 1],
+                                            [0, 0, 1, 0],
+                                            [0, 1, 0, 0],
+                                            [1, 0, 0, 0]], dtype=np.complex64)
         close(evolved_matrix, expected_matrix)
 
 class TestFourQubitGates(unittest.TestCase):
