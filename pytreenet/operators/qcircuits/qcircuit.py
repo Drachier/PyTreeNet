@@ -1117,6 +1117,7 @@ class CompiledQuantumCircuit(AbstractQCircuit):
         for level in self.levels:
             if isinstance(level, Hamiltonian):
                 level.include_identities()
+                level.combine_equivalent_identities()
                 ttno = TreeTensorNetworkOperator.from_hamiltonian(level,
                                                                   ref_tree,
                                                                   method=method)

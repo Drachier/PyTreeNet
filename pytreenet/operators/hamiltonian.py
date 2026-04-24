@@ -209,6 +209,31 @@ class Hamiltonian():
             node_ids.update(list(term.keys()))
         return node_ids
 
+    def combine_equivalent_identities(self):
+        """
+        Combines equivalent identities in the Hamiltonian.
+
+        If there are multiple identities that are equivalent, they can be
+        combined into one identity.
+        """
+        identities: dict[str, list[tuple[Fraction, TensorProduct]]] = {}
+        found_indices = []
+        for index, (frac, coeff, term) in enumerate(self.terms):
+            if all(op.startswith("I") for op in term.values()):
+                found_indices.append(index)
+                if coeff in identities:
+                    identities[coeff].append((frac, term))
+                else:
+                    identities[coeff] = [(frac, term)]
+        # Remove identity terms from term_list
+        for index in sorted(found_indices, reverse=True):
+            self.terms.pop(index)
+        # Combine equivalent identities
+        for coeff, idents in identities.items():
+            combined_frac = sum(frac for frac, _ in idents)
+            combined_term = idents[0][1]
+            self.add_term((combined_frac, coeff, combined_term))
+
     def system_size(self) -> int:
         """
         Returns the number of nodes on which this Hamiltonian acts.
