@@ -443,14 +443,17 @@ class TreeTensorNetwork(TreeStructure):
             errstr += f" leg {old_leg} of {old_node.identifier}"
             raise NotCompatibleException(errstr)
 
-    def add_root(self, node: Node, tensor: np.ndarray):
+    def add_root(self, node: Node | str, tensor: np.ndarray):
         """
         Adds a root tensor node to the TTN.
 
         Args:
-            node (Node): The root node to be added.
+            node (Node | str): The root node to be added. If it is a string,
+                a new Node with the given string as identifier is created.
             tensor (np.ndarray): The tensor associated with the root node.
         """
+        if isinstance(node, str):
+            node = Node(identifier=node)
         node.link_tensor(tensor)
         super().add_root(node)
         self.tensors[node.identifier] = tensor
