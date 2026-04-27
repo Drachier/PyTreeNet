@@ -458,7 +458,7 @@ class TreeTensorNetwork(TreeStructure):
         super().add_root(node)
         self.tensors[node.identifier] = tensor
 
-    def add_child_to_parent(self, child: Node, tensor: np.ndarray,
+    def add_child_to_parent(self, child: Node | str, tensor: np.ndarray,
                             child_leg: int, parent_id: str, parent_leg: int):
         """
         Adds a child node to a parent node in the TTN.
@@ -467,7 +467,8 @@ class TreeTensorNetwork(TreeStructure):
         convention (parent_leg,children_legs,open_legs)
 
         Args:
-            child (Node): The child node to be added.
+            child (Node | str): The child node to be added. If it is a string,
+                a new Node with the given string as identifier is created.
             tensor (np.ndarray): The tensor associated with the child node.
             child_leg (int): The leg of the child tensor to be connected to the
                 parent tensor.
@@ -479,6 +480,8 @@ class TreeTensorNetwork(TreeStructure):
             NotCompatibleException: If the dimensions of the legs of the child
                 and parent are not the same.
         """
+        if isinstance(child, str):
+            child = Node(identifier=child)
         self.ensure_existence(parent_id)
         parent_node = self._nodes[parent_id]
         child_id = child.identifier
