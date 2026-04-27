@@ -516,6 +516,47 @@ class TreeTensorNetwork(TreeStructure):
         self._root_id = new_root_id
         self.tensors[new_root_id] = tensor
 
+    def add_chain_to_parent(self,
+                            identifiers: list[str],
+                            tensors: list[np.ndarray],
+                            parent_id: str,
+                            parent_leg: int):
+        """
+        Adds a chain of tensors to a parent node in the TTN.
+        
+        The nodes in the chain will be attached with their 0th leg to their
+        respective parent and their 1st leg to their respective child. The
+        first node in the chain will be attached to the given parent node.
+
+        Args:
+            identifiers (list[str]): A list of identifiers for the nodes in the
+                chain. The first identifier in the list will be used for the node
+                attached to the given parent node.
+            tensors (list[np.ndarray]): A list of tensors for the nodes in the
+                chain. The first tensor in the list will be used for the node
+                attached to the given parent node.
+            parent_id (str): The identifier of the parent node to which the chain
+                should be attached.
+            parent_leg (int): The leg of the parent tensor to which the chain
+                should be attached.
+        """
+        if len(identifiers) != len(tensors):
+            errstr = "The number of identifiers and the number of tensors have to be the same!\n"
+            errstr += f" Got {len(identifiers)} identifiers and {len(tensors)} tensors."
+            raise ValueError(errstr)
+        current_parent_id = parent_id
+        for identifier, tensor in zip(identifiers, tensors):
+            new_node = Node(identifier=identifier)
+            self.add_child_to_parent(new_node,
+                                     tensor,
+                                     0,
+                                     current_parent_id,
+                                     parent_leg)
+            current_parent_id = identifier
+            # After the first iteration, the leg is set to one,
+            # allowing a custom initial parent leg.
+            parent_leg = 1
+
     @classmethod
     def from_tensors(cls,
                      tree_structure: TreeStructure,
