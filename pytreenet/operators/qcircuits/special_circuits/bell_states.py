@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Self
 from enum import Enum
 
-from .qcircuit import QCircuit
-from .qgate import QGate
+from ..qcircuit import QCircuit
+from ..qgate import QGate
 
 class BellState(Enum):
     """
