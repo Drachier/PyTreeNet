@@ -57,6 +57,9 @@ class QuantumOperation(ABC):
                 on.
         """
         self.symbol = symbol
+        if len(qubit_ids) == 0:
+            errstr = "QuantumOperation must act on at least one qubit!"
+            raise ValueError(errstr)
         self.qubit_ids = qubit_ids
 
     def acts_on(self, qubit_ids: str | list[str]) -> bool:
@@ -74,6 +77,20 @@ class QuantumOperation(ABC):
         if isinstance(qubit_ids, str):
             return qubit_ids in self.qubit_ids
         return all(qid in self.qubit_ids for qid in qubit_ids)
+
+    def __str__(self) -> str:
+        """
+        Get the string representation of the quantum operation.
+
+        Returns:
+            str: The string representation of the quantum operation.
+        """
+        out = self.symbol
+        if len(self.qubit_ids) == 1:
+            out += f"_{self.qubit_ids[0]}"
+        else:
+            out += f"_({','.join(self.qubit_ids)})"
+        return out
 
 class QuantumGate(QuantumOperation):
     """
@@ -518,6 +535,17 @@ class CNOTGate(QuantumGate):
         return (self.control_qubit_id == other.control_qubit_id and
                 self.target_qubit_id == other.target_qubit_id and
                 super().__eq__(other))
+    
+    def __str__(self) -> str:
+        """
+        Get the string representation of the CNOT gate.
+
+        Returns:
+            str: The string representation of the CNOT gate.
+        """
+        out = f"C_{self.control_qubit_id}"
+        out += f"NOT_{self.target_qubit_id}"
+        return out
 
     def get_generator(self) -> Hamiltonian:
         """
@@ -796,6 +824,17 @@ class ToffoliGate(QuantumGate):
                 self.target_qubit_id == other.target_qubit_id and
                 super().__eq__(other))
 
+    def __str__(self) -> str:
+        """
+        Get the string representation of the Toffoli gate.
+
+        Returns:
+            str: The string representation of the Toffoli gate.
+        """
+        out = f"C_({self.control_qubit_id1},{self.control_qubit_id2})"
+        out += f"NOT_{self.target_qubit_id}"
+        return out
+
     def get_generator(self) -> Hamiltonian:
         """
         Get the generator of the Toffoli gate.
@@ -911,6 +950,9 @@ class MultiControlledGate(QuantumGate):
                  ) -> None:
         if isinstance(target_qubit_ids, str):
             target_qubit_ids = [target_qubit_ids]
+        if len(target_qubit_ids) < 1:
+            errstr = "MultiControlledGate must have at least one target qubit!"
+            raise ValueError(errstr)
         total_qubits = control_qubit_ids + opposite_qubit_ids + target_qubit_ids
         super().__init__(symbol, total_qubits)
         self.control_qubit_ids = control_qubit_ids
@@ -920,6 +962,23 @@ class MultiControlledGate(QuantumGate):
         if operation not in {QGate.PAULI_X, QGate.PAULI_Y, QGate.PAULI_Z, QGate.HADAMARD}:
             errstr = f"Invalid operation for MultiControlledGate: {operation}!"
             raise ValueError(errstr)
+
+    def __str__(self) -> str:
+        out = ""
+        if len(self.control_qubit_ids) == 1:
+            out += f"C_{self.control_qubit_ids[0]}"
+        elif len(self.control_qubit_ids) > 1:
+            out += f"C_({','.join(self.control_qubit_ids)})"
+        if len(self.opposite_qubit_ids) == 1:
+            out += f"~C_{self.opposite_qubit_ids[0]}"
+        elif len(self.opposite_qubit_ids) > 1:
+            out += f"~C_({','.join(self.opposite_qubit_ids)})"
+        out += f"{self.operation.value}_"
+        if len(self.target_qubit_ids) == 1:
+            out += f"{self.target_qubit_ids[0]}"
+        else:
+            out += f"({','.join(self.target_qubit_ids)})"
+        return out
 
     def local_target_gate_value(self) -> npt.NDArray[np.complex64]:
         """

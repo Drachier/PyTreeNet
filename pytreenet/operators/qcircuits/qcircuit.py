@@ -9,7 +9,7 @@ from copy import copy
 from ...core.ttn import TreeTensorNetwork
 from ...ttno.ttno_class import TreeTensorNetworkOperator
 from ...ttno.time_dep_ttno import DiscreetTimeTTNO
-from ...ttno.state_diagram import StateDiagram, TTNOFinder
+from ...ttno.state_diagram import TTNOFinder
 from ..hamiltonian import Hamiltonian
 from .qgate import (QuantumGate,
                     QuantumOperation,
@@ -44,8 +44,7 @@ class AbstractLevel(ABC):
         """
         Return a string representation of the abstract level.
         """
-        ops = {tuple(op.qubit_ids): op.symbol for op in self.operations}
-        return str(ops)
+        return ", ".join([str(op) for op in self.operations])
 
     def num_operations(self) -> int:
         """
@@ -463,6 +462,13 @@ class QCircuit(AbstractQCircuit):
         """
         super().__init__()
         self.levels: list[AbstractLevel]
+
+    def __str__(self) -> str:
+        """
+        Return a string representation of the quantum circuit.
+        """
+        return "\n".join([f"Level {i}: {str(level)}"
+                          for i, level in enumerate(self.levels)])
 
     def width(self) -> int:
         """
