@@ -1098,11 +1098,11 @@ class MultiControlledGate(QuantumGate):
         t2 = TensorProduct()
         proj_symbols = ["Proj0", "Proj1"]
         for qubit_id in self.control_qubit_ids:
-            t1.add_operator(qubit_id, proj_symbols[0])
-            t2.add_operator(qubit_id, proj_symbols[1])
-        for qubit_id in self.opposite_qubit_ids:
             t1.add_operator(qubit_id, proj_symbols[1])
             t2.add_operator(qubit_id, proj_symbols[0])
+        for qubit_id in self.opposite_qubit_ids:
+            t1.add_operator(qubit_id, proj_symbols[0])
+            t2.add_operator(qubit_id, proj_symbols[1])
         for target_qubit_id in self.target_qubit_ids:
             t1.add_operator(target_qubit_id,
                             self.operation.value)
