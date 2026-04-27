@@ -398,6 +398,24 @@ class TestThreeQubitGates(unittest.TestCase):
                                             [1, 0, 0, 0]], dtype=np.complex64)
         close(evolved_matrix, expected_matrix)
 
+    def test_cnotcnot_matrix(self):
+        """
+        Test a multi target gate that applies a controlled-NOT on the last two
+        qubits, with one inverse control requirement.
+        """
+        cnotcnot_gate = MultiControlledGate([self.qubit_ids[0]],
+                                         [self.qubit_ids[1]],
+                                         [self.qubit_ids[2]],
+                                         QGate.PAULI_X,
+                                         "cnotcnot")
+        found_matrix = cnotcnot_gate.matrix()
+        expected_matrix = np.eye(8, dtype=np.complex64)
+        expected_matrix[4:, 4:] = np.array([[0, 0, 0, 1],
+                                            [0, 0, 1, 0],
+                                            [0, 1, 0, 0],
+                                            [1, 0, 0, 0]], dtype=np.complex64)
+        close(found_matrix, expected_matrix)
+
 class TestFourQubitGates(unittest.TestCase):
     """
     Unit tests for four-qubit quantum gates.
