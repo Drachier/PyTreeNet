@@ -1062,6 +1062,8 @@ class MultiControlledGate(QuantumGate):
             temp_ham.add_term(term)
             temp_ham = control_ham.otimes(temp_ham)
             total_ham.add_hamiltonian(temp_ham)
+        # Prefactor -1 to ensure exp(-i H) generates the correct gate.
+        total_ham.scalar_multiply(Fraction(-1))
         return total_ham
 
     def matrix(self) -> npt.NDArray[np.complex64]:
@@ -1070,18 +1072,21 @@ class MultiControlledGate(QuantumGate):
         """
         t1 = np.asarray(1, dtype=np.complex64)
         t2 = np.asarray(1, dtype=np.complex64)
+        identity = np.eye(2, dtype=np.complex64)
         proj1 = projector(2, 1)
         proj0 = projector(2, 0)
         for _ in self.control_qubit_ids:
             t1 = np.kron(t1, proj1)
-            t2 = np.kron(t2, proj0)
+            t2 = np.kron(t2, identity)
         for _ in self.opposite_qubit_ids:
             t1 = np.kron(t1, proj0)
-            t2 = np.kron(t2, proj1)
+            t2 = np.kron(t2, identity)
+        t3 = t1.copy()
         for _ in self.target_qubit_ids:
             t1 = np.kron(t1, self.local_target_gate_value())
-            t2 = np.kron(t2, np.eye(2, dtype=complex))
-        return t1 + t2
+            t2 = np.kron(t2, identity)
+            t3 = np.kron(t3, identity)
+        return t1 + t2 - t3
 
     def invert(self) -> Self:
         """
