@@ -197,10 +197,11 @@ class DiscreetTimeTTNO(AbstractTimeDepTTNO):
                 state.measurement_projection(measurement,
                                              renorm_threshold=self.measurement_renorm_threshold)
         if self._ts_update is TimeStepUpdateBool.AT_FINAL_MEASUREMENT:
-            measurement = self.measurements[-1]
-            if not measurement.is_empty():
-                state.measurement_projection(measurement,
-                                             renorm_threshold=self.measurement_renorm_threshold)
+            if len(self.measurements) > 0:
+                measurement = self.measurements[-1]
+                if not measurement.is_empty():
+                    state.measurement_projection(measurement,
+                                                renorm_threshold=self.measurement_renorm_threshold)
 
     def reset(self):
         """
