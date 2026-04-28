@@ -63,7 +63,7 @@ class Structures(Enum):
             ## Shape is three virtual and one trivial physical leg
             center_tensor = np.asarray([1], dtype=complex).reshape((1,1,1,1))
             one_chain_tensor: list[np.ndarray] = [ket_i(0,2).reshape((1,1,2))
-                                                for _ in range(NUM_QUB_IN_LOG)]
+                                                for _ in range(TOT_NUM_QUB_PER_LOG)]
             # The last one only connected to one other tensor
             one_chain_tensor[-1] = ket_i(0,2).reshape(1,2)
             chain_tensors = [[deepcopy(tensor) for tensor in one_chain_tensor]
@@ -551,6 +551,12 @@ class QubitIDContainer:
         Get the IDs of all main qubits.
         """
         return [self.main_qubit(i) for i in range(self.num_log_qubits)]
+    
+    def non_main_logical_qubits(self, index: int) -> list[str]:
+        """
+        Get the IDs of the non-main logical qubits for logical qubit number `index`.
+        """
+        return self.logical_qubits(index)[1:]
 
     def logical_qubits(self, index: int) -> list[str]:
         """
