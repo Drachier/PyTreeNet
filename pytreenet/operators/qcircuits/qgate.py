@@ -1182,3 +1182,13 @@ class Reset(ProjectionOperation):
             qubit_id (str): The ID of the qubit to reset.
         """
         super().__init__("RESET", qubit_id, 0)
+
+    def to_measurement(self) -> Measurement:
+        """
+        Convert the projection operation to a Measurement instance.
+
+        Returns:
+            Measurement: The corresponding Measurement instance.
+        """
+        measures = {self.qubit_id: self.outcome}
+        return Measurement(measures, reset=True)

@@ -12,10 +12,28 @@ class Measurement(UserDict):
 
     def __init__(self,
                  measures: dict[str,int] | None = None,
-                 renormalize: bool = True
+                 renormalize: bool = True,
+                 reset: bool = False
                  ) -> None:
+        """
+        Initializes a Measurement instance.
+
+        Args:
+            measures (dict[str,int], optional): A dictionary specifying the
+                measurements. The keys are node IDs and the values are the
+                measurement outcomes (0 or 1). Defaults to None, which creates
+                an empty Measurement.
+            renormalize (bool, optional): Whether to renormalize the state after
+                applying the measurement. Defaults to True.
+            reset (bool, optional): Wether to force a reset on the desired
+                measurement outcome. This means, if the state does not have any
+                overlap with the desired measurement outcome, the next higher
+                operation will be applied, followed by an appropriate manipulation
+                of the state to cause the reset.
+        """
         super().__init__(measures or {})
         self.renormalize = renormalize
+        self.reset = reset
 
     def node_ids(self) -> list[str]:
         """
@@ -41,7 +59,7 @@ class Measurement(UserDict):
             Self: The reset measurement.
         """
         measures = {node_id: 0 for node_id in nodes}
-        return cls(measures)
+        return cls(measures, reset=True)
 
     @classmethod
     def from_dict(cls,

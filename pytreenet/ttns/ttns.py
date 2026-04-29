@@ -339,7 +339,6 @@ class TreeTensorNetworkState(TreeTensorNetwork):
 
     def measurement_projection(self,
                                measurements: Measurement,
-                               renorm: bool = True,
                                renorm_threshold: float = 1e-13
                                ) -> float:
         """
@@ -348,8 +347,6 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         Args:
             measurements (Measurement): A dictionary mapping node IDs to
                 measurement outcomes (indices).
-            renorm (bool, optional): Whether to renormalise the TTNS after
-                projection. Defaults to True.
             renorm_threshold (float, optional): The threshold below which
                 renormalisation is not performed, as the norm is considered
                 to be zero. Defaults to 1e-13.
@@ -366,8 +363,12 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             ZeroDivisionError: If renormalization is requested, but the norm
                 after projection is below the renorm_threshold.
         """
+        if measurements.reset:
+            # In this case we modify the measurements object.
+            measurements = measurements.copy()
         for node_id, outcome in measurements.items():
-            node, tensor = self[node_id]
+            node, old_tensor = self[node_id]
+            tensor = old_tensor.copy()
             if node.nopen_legs() != 1:
                 errstr = (f"Node {node_id} has {node.nopen_legs()} open legs, "
                           "projection is only implemented for single-site nodes!")
@@ -376,7 +377,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
                 errstr = (f"Measurement outcome {outcome} is out of bounds "
                           f"for node {node_id} with phys. dim. {node.open_dimension()}!")
                 raise ValueError(errstr)
-            # Seetting all entries to zero except the measurement outcome
+            # Setting all entries to zero except the measurement outcome
             slice_low = [slice(None) for _ in range(node.nneighbours())]
             slice_low.append(slice(None, outcome))
             slice_low = tuple(slice_low)
@@ -385,7 +386,19 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             slice_high = tuple(slice_high)
             tensor[slice_low] = 0
             tensor[slice_high] = 0
-        if renorm:
+            self.tensors[node_id] = tensor
+            if measurements.reset:
+                # In this case, we must check, that the TTNS is not zero now.
+                # If it were, the measurement outcome would be impossible, thus
+                # we must reset.
+                norm = self.norm()
+                if norm < renorm_threshold:
+                    self.tensors[node_id] = old_tensor
+                    measurements[node_id] += 1
+                    return self.measurement_projection(measurements, 
+                                                       renorm_threshold=renorm_threshold)
+                del measurements[node_id]
+        if measurements.renormalize:
             norm = self.norm()
             if norm < renorm_threshold:
                 errstr = f"Cannot renormalise TTNS after measurement, norm is zero ({norm})!"
