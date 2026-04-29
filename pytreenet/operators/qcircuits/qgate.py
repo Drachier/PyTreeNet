@@ -1101,22 +1101,29 @@ class MultiControlledGate(QuantumGate):
         """
         t1 = TensorProduct()
         t2 = TensorProduct()
+        t3 = TensorProduct()
+        identity = "I2"
         proj_symbols = ["Proj0", "Proj1"]
         for qubit_id in self.control_qubit_ids:
             t1.add_operator(qubit_id, proj_symbols[1])
-            t2.add_operator(qubit_id, proj_symbols[0])
+            t2.add_operator(qubit_id, proj_symbols[1])
+            t3.add_operator(qubit_id, identity)
         for qubit_id in self.opposite_qubit_ids:
             t1.add_operator(qubit_id, proj_symbols[0])
-            t2.add_operator(qubit_id, proj_symbols[1])
+            t2.add_operator(qubit_id, proj_symbols[0])
+            t3.add_operator(qubit_id, identity)
         for target_qubit_id in self.target_qubit_ids:
             t1.add_operator(target_qubit_id,
                             self.operation.value)
             t2.add_operator(target_qubit_id,
                             "I2")
+            t3.add_operator(target_qubit_id,
+                            "I2")
         ham = Hamiltonian()
         ham.add_term((Fraction(1), ONE_SYMBOL, t1))
-        ham.add_term((Fraction(1), ONE_SYMBOL, t2))
-        conv_dict = {"I2": np.eye(2, dtype=complex),
+        ham.add_term((Fraction(-1), ONE_SYMBOL, t2))
+        ham.add_term((Fraction(1), ONE_SYMBOL, t3))
+        conv_dict = {identity: np.eye(2, dtype=complex),
                      proj_symbols[0]: projector(2,0),
                      proj_symbols[1]: projector(2,1),
                      self.operation.value: self.local_target_gate_value()}

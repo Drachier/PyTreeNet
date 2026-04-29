@@ -219,7 +219,8 @@ def apply_parallel_cnot(circuit: QCircuit,
         circuit.add_cnot(control,
                          target,
                          level_index=level_index)
-    return level_index + 1
+        level_index += 1
+    return level_index
 
 def apply_serial_cnot_control(circuit: QCircuit,
                               control_qubits: list[str],
@@ -662,7 +663,7 @@ def build_circuit(state: ThreeQubitState,
             # level index.
             encoder(circuit,
                     idcontainer.main_qubit(i),
-                    idcontainer.logical_qubits(i),
+                    idcontainer.non_main_logical_qubits(i),
                     level_index=level_index)
             level_index = x_block(circuit,
                                 idcontainer.logical_qubits(i),

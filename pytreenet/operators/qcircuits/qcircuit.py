@@ -351,8 +351,8 @@ class ProjectionLevel(AbstractLevel):
         Returns:
             Measurement: The compiled Measurement representing the level.
         """
-        measurement = Measurement.empty()
-        for projection in self.operations:
+        measurement = self.operations[0].to_measurement()
+        for projection in self.operations[1:]:
             measurement = measurement.otimes(projection.to_measurement())
         return measurement
 

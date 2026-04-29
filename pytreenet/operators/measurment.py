@@ -75,7 +75,7 @@ class Measurement(UserDict):
         Returns:
             Self: The created Measurement instance.
         """
-        return cls(measures)
+        return cls(measures, **kwargs)
 
     @classmethod
     def empty(cls,
@@ -86,7 +86,7 @@ class Measurement(UserDict):
         Returns:
             Self: An empty Measurement instance.
         """
-        return cls()
+        return cls(**kwargs)
 
     def is_empty(self) -> bool:
         """
@@ -120,7 +120,11 @@ class Measurement(UserDict):
         if self.renormalize != other.renormalize:
             errstr = "Cannot combine Measurements with different renormalization settings!"
             raise ValueError(errstr)
-        new = self.__class__(renormalize=self.renormalize)
+        if self.reset != other.reset:
+            errstr = "Cannot combine a reset Measurement with a non-reset Measurement!"
+            raise ValueError(errstr)
+        new = self.__class__(renormalize=self.renormalize,
+                             reset=self.reset)
         new.data = {**self.data, **other.data}
         return new
 
@@ -138,4 +142,4 @@ class Measurement(UserDict):
                ) -> bool:
         if not isinstance(other, Measurement):
             return False
-        return self.renormalize == other.renormalize and self.data == other.data
+        return self.renormalize == other.renormalize and self.reset == other.reset and self.data == other.data

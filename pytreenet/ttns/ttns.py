@@ -365,7 +365,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         """
         if measurements.reset:
             # In this case we modify the measurements object.
-            measurements = measurements.copy()
+            fall_back_measurements = measurements.copy()
         for node_id, outcome in measurements.items():
             node, old_tensor = self[node_id]
             tensor = old_tensor.copy()
@@ -394,11 +394,12 @@ class TreeTensorNetworkState(TreeTensorNetwork):
                 norm = self.norm()
                 if norm < renorm_threshold:
                     self.tensors[node_id] = old_tensor
-                    measurements[node_id] += 1
-                    return self.measurement_projection(measurements, 
+                    fall_back_measurements[node_id] += 1
+                    return self.measurement_projection(fall_back_measurements,
                                                        renorm_threshold=renorm_threshold)
-                del measurements[node_id]
-        if measurements.renormalize:
+                del fall_back_measurements[node_id]
+                self.normalise(norm)
+        if measurements.renormalize and not measurements.reset:
             norm = self.norm()
             if norm < renorm_threshold:
                 errstr = f"Cannot renormalise TTNS after measurement, norm is zero ({norm})!"
