@@ -3,11 +3,12 @@ This module implements the actual quantum circuit.
 """
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Any, Self
+from typing import Any, Self, Callable
 from copy import copy
 
 from ...core.ttn import TreeTensorNetwork
 from ...ttno.ttno_class import TreeTensorNetworkOperator
+from ...ttns.ttns import TreeTensorNetworkState
 from ...ttno.time_dep_ttno import DiscreetTimeTTNO
 from ...ttno.state_diagram import TTNOFinder
 from ..hamiltonian import Hamiltonian
@@ -285,7 +286,6 @@ class QCLevel(AbstractLevel):
             inverted_level.add_gate(inverted_gate)
         inverted_level.qubit_ids = copy(self.qubit_ids)
         return inverted_level
-
 
 class ProjectionLevel(AbstractLevel):
     """
@@ -668,6 +668,50 @@ class QCircuit(AbstractQCircuit):
             inverted_level = level.invert()
             inverted_circuit.add_level(inverted_level)
         return inverted_circuit
+
+    def apply_to_state(self,
+                       state: TreeTensorNetworkState,
+                       application_function: Callable[[TreeTensorNetworkState, TreeTensorNetworkOperator], TreeTensorNetworkState],
+                       inter_level_function: Callable[[int, TreeTensorNetworkState, TreeTensorNetworkOperator | Measurement]] | None = None,
+                       generation_method: TTNOFinder = TTNOFinder.SGE,
+                       measurement_kwargs: dict[str, Any] | None = None
+                       ) -> TreeTensorNetworkState:
+        """
+        Apply the quantum circuit to a given state.
+
+        Args:
+            state (TreeTensorNetworkState): The state to apply the circuit to.
+            application_function (Callable[[TreeTensorNetworkState, TreeTensorNetworkOperator], TreeTensorNetworkState]):
+                A function that takes a state and a TTNO and returns the state
+                after applying the TTNO to it.
+            inter_level_function (Callable[[int, TreeTensorNetworkState, TreeTensorNetworkOperator | Measurement]] | None):
+                An optional function that is called between levels. It takes the
+                level index, the current state, and the TTNO or measurement of
+                the level as arguments. Defaults to None.
+                May be used to record intermediate states or data such as bond
+                dimensions.
+            generation_method (TTNOFinder): The method to use for finding the
+                tree tensor network operators in the state diagrams. Defaults to
+                `TTNOFinder.SGE`.
+            measurement_kwargs (dict[str, Any] | None): Optional keyword arguments
+                to pass to the measurement projection function. Defaults to None.
+        
+        Returns:
+            TreeTensorNetworkState: The state after applying the quantum circuit.
+        """
+        current_state = state
+        ttnos_and_measurements = self.as_circuit_ttno(state,
+                                                      method=generation_method)
+        for i, operation in enumerate(ttnos_and_measurements):
+            if isinstance(operation, TreeTensorNetworkOperator):
+                current_state = application_function(current_state,
+                                                     operation)
+            else:
+                current_state.measurement_projection(operation,
+                                                     **(measurement_kwargs or {}))
+            if inter_level_function is not None:
+                inter_level_function(i, current_state, operation)
+        return current_state
 
     # Utility methods for adding gates
     def add_x(self, qubit_id: str, level_index: int = -1):
