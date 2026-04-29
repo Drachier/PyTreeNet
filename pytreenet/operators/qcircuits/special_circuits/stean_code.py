@@ -139,6 +139,7 @@ class STEANCodeParams(SimulationParameters):
     seed: int = 42
     structure: Structures = Structures.MPS
     considered_state: ThreeQubitState = ThreeQubitState.GHZ
+    repeats: int = 1 # How often the x and z block are repeated
 
 def gen_qubit_id(i: int) -> str:
     """
@@ -175,7 +176,7 @@ def apply_hadamards(circuit: QCircuit,
 def apply_resets(circuit: QCircuit,
                 qubits: list[str],
                 level_index: int
-                ) -> None:
+                ) -> int:
     """
     Adds reset operations to the specified qubits in the given quantum circuit.
 
@@ -187,10 +188,13 @@ def apply_resets(circuit: QCircuit,
         level_index (int): The index of the level in the circuit where the reset
             operations will be applied.
     
+    Returns:
+        int: The next level index after applying the reset operations.
     """
     for qubit in qubits:
         circuit.add_reset(qubit,
                         level_index=level_index)
+    return level_index + 1
 
 def apply_parallel_cnot(circuit: QCircuit,
                         control_qubits: list[str],
@@ -589,6 +593,26 @@ class QubitIDContainer:
         out.extend(self.logical_ancilla_qubits(index))
         out.extend(self.ancilla_qubits(index))
         return out
+    
+    def all_ancilla_qubits(self,
+                           index: int | None = None
+                           ) -> list[str]:
+        """
+        Returns the IDs of all ancilla qubits.
+
+        Args:
+            index (int | None, optional): If specified, only returns the
+                ancilla qubits for the logical qubit with the given index.
+                Defaults to None, which returns the ancilla qubits for all
+                logical qubits.
+        """
+        if index is not None:
+            return self.ancilla_qubits(index) + self.logical_ancilla_qubits(index)
+        out = []
+        for i in range(self.num_log_qubits):
+            out.extend(self.ancilla_qubits(i))
+            out.extend(self.logical_ancilla_qubits(i))
+        return out
 
     @classmethod
     def with_standard_gen_func(cls) -> Self:
@@ -600,7 +624,8 @@ class QubitIDContainer:
         return out
 
 def build_circuit(state: ThreeQubitState,
-                  idcontainer: QubitIDContainer | None = None
+                  idcontainer: QubitIDContainer | None = None,
+                  repeats: int = 1
                   ) -> QCircuit:
     """
     Builds the quantum circuit to store the given state in the measurement-free STEAN code.
@@ -611,6 +636,8 @@ def build_circuit(state: ThreeQubitState,
         idcontainer (QubitIDContainer | None, optional): A container for the
             qubit IDs to be used in the circuit. If None, a default container
             with standard qubit ID generation will be used. Defaults to None.
+        repeats (int, optional): How many times the X and Z blocks should be
+            repeated. Defaults to 1.
 
     Returns:
         QCircuit: The constructed quantum circuit for the measurement-free STEAN
@@ -626,27 +653,35 @@ def build_circuit(state: ThreeQubitState,
                                 idcontainer.main_qubits(),
                                 level_index)
     # Then we apply the X and Z blocks for each logical qubit
-    level_index_after_prep = level_index
-    for i in range(idcontainer.num_log_qubits):
-        # Since the x_block starts with an encoding of the + state on the
-        # copy/ancillary logical qubit, we can start it at the same time as the
-        # main encoder. Since it is slightly longer, it will yield the new
-        # level index.
-        encoder(circuit,
-                idcontainer.main_qubit(i),
-                idcontainer.logical_qubits(i),
-                level_index=level_index)
-        level_index = x_block(circuit,
-                              idcontainer.logical_qubits(i),
-                              idcontainer.logical_ancilla_qubits(i),
-                              idcontainer.ancilla_qubits(i),
-                              level_index=level_index)
-        level_index = z_block(circuit,
-                              idcontainer.logical_qubits(i),
-                              idcontainer.logical_ancilla_qubits(i),
-                              idcontainer.ancilla_qubits(i),
-                              level_index=level_index)
-        # The error correction on each qubit can happen in parallel
-        level_index = level_index_after_prep
+    block_starting_level_index = level_index
+    for _ in range(repeats):
+        for i in range(idcontainer.num_log_qubits):
+            # Since the x_block starts with an encoding of the + state on the
+            # copy/ancillary logical qubit, we can start it at the same time as the
+            # main encoder. Since it is slightly longer, it will yield the new
+            # level index.
+            encoder(circuit,
+                    idcontainer.main_qubit(i),
+                    idcontainer.logical_qubits(i),
+                    level_index=level_index)
+            level_index = x_block(circuit,
+                                idcontainer.logical_qubits(i),
+                                idcontainer.logical_ancilla_qubits(i),
+                                idcontainer.ancilla_qubits(i),
+                                level_index=level_index)
+            level_index = z_block(circuit,
+                                idcontainer.logical_qubits(i),
+                                idcontainer.logical_ancilla_qubits(i),
+                                idcontainer.ancilla_qubits(i),
+                                level_index=level_index)
+            # Now all ancilla_circuits must be resetted, as they are needed in the next block
+            level_index = apply_resets(circuit,
+                                       idcontainer.all_ancilla_qubits(i),
+                                       level_index)
+            # The error correction on each qubit can happen in parallel
+            final_level_index = level_index
+            level_index = block_starting_level_index
+        block_starting_level_index = final_level_index
+
     return circuit
 
