@@ -1007,20 +1007,14 @@ class MultiControlledGate(QuantumGate):
         """
         control_ham = Hamiltonian()
         std_fraction = Fraction(1,2)
+        identity_val = np.eye(2, dtype=complex)
+        conv_dict = {"I2": identity_val}
         # Add 1/2*(I-Z) per control
-        pauliZ = QGate.PAULI_Z.value
-        conv_dict = {}
-        conv_dict["I2"] = np.eye(2, dtype=complex)
         if len(self.control_qubit_ids) > 0:
-            conv_dict[pauliZ] = pauli_matrices()[2]
+            conv_dict["I2-"+QGate.PAULI_Z.value] = identity_val - pauli_matrices()[2]
         for control_qubit in self.control_qubit_ids:
             temp_ham = Hamiltonian()
-            # Add -1/2*Z
-            tp = TensorProduct({control_qubit: pauliZ})
-            term = (-1*std_fraction,ONE_SYMBOL,tp)
-            temp_ham.add_term(term)
-            # Add 1/2*I
-            tp = TensorProduct({control_qubit: "I2"})
+            tp = TensorProduct({control_qubit: "I2-"+QGate.PAULI_Z.value})
             term = (std_fraction,ONE_SYMBOL,tp)
             temp_ham.add_term(term)
             if control_ham.is_empty():
@@ -1029,15 +1023,10 @@ class MultiControlledGate(QuantumGate):
                 control_ham = control_ham.otimes(temp_ham)
         # Add 1/2*(I+z) per opposite control
         if len(self.opposite_qubit_ids) > 0:
-            conv_dict[pauliZ] = pauli_matrices()[2]
+            conv_dict["I2+"+QGate.PAULI_Z.value] = identity_val + pauli_matrices()[2]
         for opposite_qubit in self.opposite_qubit_ids:
             temp_ham = Hamiltonian()
-            # Add 1/2*Z
-            tp = TensorProduct({opposite_qubit: pauliZ})
-            term = (std_fraction,ONE_SYMBOL,tp)
-            temp_ham.add_term(term)
-            # Add 1/2*I
-            tp = TensorProduct({opposite_qubit: "I2"})
+            tp = TensorProduct({opposite_qubit: "I2+"+QGate.PAULI_Z.value})
             term = (std_fraction,ONE_SYMBOL,tp)
             temp_ham.add_term(term)
             if control_ham.is_empty():
@@ -1045,26 +1034,23 @@ class MultiControlledGate(QuantumGate):
             else:
                 control_ham = control_ham.otimes(temp_ham)
         # Add the target operation
-        total_ham = Hamiltonian()
-        conv_dict[self.operation.value] = self.local_target_gate_value()
+        conv_dict["I2-"+self.operation.value] = identity_val - self.local_target_gate_value()
         coeff_map = {ONE_SYMBOL: 1.0+0.0j,
                      PI_SYMBOL: complex(np.pi)}
+        total_ham = Hamiltonian(coeffs_mapping=coeff_map,
+                               conversion_dictionary=conv_dict)
         for target_qubit in self.target_qubit_ids:
             temp_ham = Hamiltonian(coeffs_mapping=coeff_map,
                                    conversion_dictionary=conv_dict)
-            # Add -1/2*operation
-            tp = TensorProduct({target_qubit: self.operation.value})
-            term = (-1*std_fraction,PI_SYMBOL,tp)
-            temp_ham.add_term(term)
-            # Add 1/2*I
-            tp = TensorProduct({target_qubit: "I2"})
+            tp = TensorProduct({target_qubit: "I2-"+self.operation.value})
             term = (std_fraction,PI_SYMBOL,tp)
             temp_ham.add_term(term)
-            temp_ham = control_ham.otimes(temp_ham)
+            temp_ham = temp_ham.otimes(control_ham)
             total_ham.add_hamiltonian(temp_ham)
         # Prefactor -1 to ensure exp(-i H) generates the correct gate.
         total_ham.scalar_multiply(Fraction(-1))
         return total_ham
+
 
     def matrix(self) -> npt.NDArray[np.complex64]:
         """

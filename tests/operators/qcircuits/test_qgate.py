@@ -17,6 +17,8 @@ from pytreenet.operators.qcircuits.qgate import (QGate,
                                                  HaarRandomSingleQubitGate,
                                                  MultiControlledGate,
                                                  RotationGate)
+from pytreenet.operators.hamiltonian import Hamiltonian
+from pytreenet.ttno.ttno_class import TTNO
 
 def close(a, b):
     """
@@ -240,6 +242,7 @@ class TestTwoQubitGates(unittest.TestCase):
         expected_matrix = np.eye(4, dtype=np.complex64)
         expected_matrix[2:, 2:] = np.array([[0, 1], [1, 0]],
                                dtype=np.complex64)
+        print(evolved_matrix)
         close(evolved_matrix, expected_matrix)
 
     def test_invc_not(self):
@@ -397,6 +400,48 @@ class TestThreeQubitGates(unittest.TestCase):
                                             [0, 1, 0, 0],
                                             [1, 0, 0, 0]], dtype=np.complex64)
         close(evolved_matrix, expected_matrix)
+        expected_matrix = np.eye(8, dtype=np.complex64)
+
+    def test_cnotnot_equivalent_generator_to_two_cnot(self):
+        """
+        Test that the generator of the cnotnot gate is equivalent to the sum of the
+        generators of two CNOT gates.
+        """
+        cnotnot_gate = MultiControlledGate([self.qubit_ids[0]],
+                                         [],
+                                         [self.qubit_ids[1], self.qubit_ids[2]],
+                                         QGate.PAULI_X,
+                                         "cnotnot")
+        generator = cnotnot_gate.get_generator()
+        generator_matrix = generator.to_matrix(self.ttns).operator
+        cnot1 = CNOTGate(self.qubit_ids[0], self.qubit_ids[1])
+        cnot2 = CNOTGate(self.qubit_ids[0], self.qubit_ids[2])
+        generator_cnot1 = cnot1.get_generator()
+        generator_cnot2 = cnot2.get_generator()
+        ham = Hamiltonian()
+        ham.add_hamiltonian(generator_cnot1)
+        ham.add_hamiltonian(generator_cnot2)
+        ham.pad_with_identities(self.ttns)
+        generator_matrix2 = ham.to_matrix(self.ttns).operator
+        close(generator_matrix, generator_matrix2)
+
+    def test_cnotnot_ttno_correct(self):
+        """
+        Tests that the generator obtained when transforming the cnotnot
+        gate to a TTNO is correct.
+        """
+        cnotnot_gate = MultiControlledGate([self.qubit_ids[0]],
+                                         [],
+                                         [self.qubit_ids[1], self.qubit_ids[2]],
+                                         QGate.PAULI_X,
+                                         "cnotnot")
+        generator = cnotnot_gate.get_generator()
+        generator.combine_equivalent_identities()
+        ttno = TTNO.from_hamiltonian(generator,
+                                     self.ttns)
+        ttno_matrix, order = ttno.as_matrix(order=self.qubit_ids)
+        expected_matrix = generator.to_matrix(self.ttns).operator
+        close(ttno_matrix, expected_matrix)
 
     def test_cnotcnot_matrix(self):
         """
@@ -404,8 +449,8 @@ class TestThreeQubitGates(unittest.TestCase):
         qubits, with one inverse control requirement.
         """
         cnotcnot_gate = MultiControlledGate([self.qubit_ids[0]],
-                                         [self.qubit_ids[1]],
-                                         [self.qubit_ids[2]],
+                                         [],
+                                         [self.qubit_ids[1],self.qubit_ids[2]],
                                          QGate.PAULI_X,
                                          "cnotcnot")
         found_matrix = cnotcnot_gate.matrix()

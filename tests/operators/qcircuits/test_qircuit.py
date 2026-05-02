@@ -463,10 +463,10 @@ def run_circuit(qc: QCircuit) -> np.ndarray:
         tensor = ket_i(0, 2)
         mps.add_root(Node(identifier=q_name(0)),
                       tensor)
-    elif num_qb == 2:
-        mps = MatrixProductState.constant_product_state(0,2,2,
+    elif num_qb > 1:
+        mps = MatrixProductState.constant_product_state(0,2,num_qb,
                                                     node_prefix="qubit",
-                                                    bond_dimensions=[2])
+                                                    bond_dimensions=[2 for _ in range(num_qb-1)])
     comp_qc = qc.compile()
     ttno = comp_qc.to_time_dep_ttno(mps)
     ttno.measurement_renorm_threshold = 1e-10
@@ -511,6 +511,19 @@ class TestCompiledQCircuitRunning(unittest.TestCase):
         correct = ket_i(0,2)
         np.testing.assert_allclose(found, correct,
                                    atol=1e-10)
+        
+    def test_three_parallel_x_gate(self):
+        """
+        Three parallel x-gates should yield the |111> state.
+        """
+        qc = QCircuit()
+        qc.add_x(q_name(0))
+        qc.add_x(q_name(1))
+        qc.add_x(q_name(2))
+        found = run_circuit(qc)
+        correct = ket_i(2**3-1,2**3)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-8)
 
     def test_hadamard_gate(self):
         """
@@ -589,7 +602,6 @@ class TestCompiledQCircuitRunning(unittest.TestCase):
         qc.add_hadamard(q_name(0))
         qc.add_projection(q_name(0), 0, level_index=1)
         found = run_circuit(qc)
-        print(np.linalg.norm(found))
         correct = ket_i(0,2)
         np.testing.assert_allclose(found, correct,
                                    atol=1e-10)
@@ -647,6 +659,124 @@ class TestCompiledQCircuitRunning(unittest.TestCase):
         correct = ket_i(3,4)
         np.testing.assert_allclose(found, correct,
                                    atol=1e-10)
+    
+    def test_cnotasmx_gate_control0_target0(self):
+        """
+        Test the circuit with a CNOT gate where the control is the first qubit
+        in state 0 and the target is the second qubit in state 0. This should
+        yield the |00> state.
+        """
+        qc = QCircuit()
+        qc.add_mx([q_name(0)], [], [q_name(1)])
+        found = run_circuit(qc)
+        correct = ket_i(0,2**2)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-10)
+        
+    def test_cnotasmx_gate_control1_target0(self):
+        """
+        Test the circuit with a CNOT gate where the control is the first qubit
+        in state 1 and the target is the second qubit in state 0. This should
+        yield the |11> state.
+        """
+        qc = QCircuit()
+        qc.add_x(q_name(0))
+        qc.add_mx([q_name(0)], [], [q_name(1)],
+                    level_index=1)
+        found = run_circuit(qc)
+        correct = ket_i(3,2**2)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-10)
+    
+    def test_ccnot_gate_control00_target0(self):
+        """
+        Test the circuit with a CCNOT gate where the controls are the first
+        and second qubits in state 0 and the target is the first qubit also in
+        state 0. This should yield the |000> state.
+        """
+        qc = QCircuit()
+        qc.add_mx([q_name(0), q_name(1)], [], [q_name(2)])
+        found = run_circuit(qc)
+        correct = ket_i(0,2**3)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-10)
+        
+    def test_ccnot_gate_control11_target0(self):
+        """
+        Test the circuit with a CCNOT gate where the controls are the first
+        and second qubits in state 1 and the target is the first qubit in
+        state 0. This should yield the |100> state.
+        """
+        qc = QCircuit()
+        qc.add_x(q_name(0))
+        qc.add_x(q_name(1))
+        qc.add_mx([q_name(0), q_name(1)], [], [q_name(2)],
+                    level_index=1)
+        found = run_circuit(qc)
+        correct = ket_i(2**3-1,2**3)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-9)
+
+    def test_cnotnot_control0_target00(self):
+        """
+        Test the circuit with a CNOTNOT gate where the control is the first
+        qubit in state 0 and the targets are the first and second qubits also
+        both in state 0. This should yield the |00> state.
+        """
+        qc = QCircuit()
+        qc.add_mx([q_name(0)], [], [q_name(1), q_name(2)])
+        found = run_circuit(qc)
+        correct = ket_i(0,2**3)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-10)
+
+    def test_cnotnot_control1_target00(self):
+        """
+        Test the circuit with a CNOTNOT gate where the control is the first
+        qubit in state 0 and the targets are the first and second qubits also
+        both in state 0. This should yield the |00> state.
+        """
+        qc = QCircuit()
+        qc.add_x(q_name(0))
+        qc.add_mx([q_name(0)], [], [q_name(1), q_name(2)],
+                    level_index=1)
+        found = run_circuit(qc)
+        correct = ket_i(2**3-1,2**3)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-6)
+        
+    def test_cnotnot_control1_target01(self):
+        """
+        Test the circuit with a CNOTNOT gate where the control is the first
+        qubit in state 1 and the targets are the first and second qubits in
+        state 0 and 1 respectively. This should yield the |011> state.
+        """
+        qc = QCircuit()
+        qc.add_x(q_name(0))
+        qc.add_x(q_name(2))
+        qc.add_mx([q_name(0)], [], [q_name(1), q_name(2)],
+                    level_index=1)
+        found = run_circuit(qc)
+        correct = ket_i(2**3-2,2**3)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-6)
+        
+    def test_cnotnot_control1_target11(self):
+        """
+        Test the circuit with a CNOTNOT gate where the control is the first
+        qubit in state 1 and the targets are the first and second qubits in
+        state 1 and 1 respectively. This should yield the |111> state.
+        """
+        qc = QCircuit()
+        qc.add_x(q_name(0))
+        qc.add_x(q_name(1))
+        qc.add_x(q_name(2))
+        qc.add_mx([q_name(0)], [], [q_name(1), q_name(2)],
+                    level_index=1)
+        found = run_circuit(qc)
+        correct = ket_i(4,2**3)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-8)
 
 class TestQCircuitTTNO(unittest.TestCase):
     """
