@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import Dict, Union, List, Tuple, Callable, Self
 from enum import Enum, auto
 from fractions import Fraction
+import re
 
 from numpy import asarray, isclose, ndarray, eye, allclose
 
@@ -218,8 +219,9 @@ class Hamiltonian():
         """
         identities: dict[str, list[tuple[Fraction, TensorProduct]]] = {}
         found_indices = []
+        identity_regex = r"^I\d+$"
         for index, (frac, coeff, term) in enumerate(self.terms):
-            if all(op.startswith("I") for op in term.values()):
+            if all(re.match(identity_regex, op) for op in term.values()):
                 found_indices.append(index)
                 if coeff in identities:
                     identities[coeff].append((frac, term))
