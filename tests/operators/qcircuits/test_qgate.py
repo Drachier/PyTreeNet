@@ -176,6 +176,22 @@ class TestSingleSiteGates(unittest.TestCase):
                                       dtype=np.complex64)
         close(evolved_matrix, expected_matrix)
 
+    def test_rotation_gatey_second_angle(self):
+        """
+        Test the Rotation gate around the Y axis with a rotation angle of 2 pi / 3
+        """
+        angle = 2 / 3
+        r_gate = RotationGate(self.qubit_id,
+                              QGate.PAULI_Y,
+                              angle)
+        generator = r_gate.get_generator()
+        matrix = generator.to_matrix(self.ttns)
+        evolved_matrix = expm(-1j * matrix.operator)
+        expected_matrix = np.array([[0.5, -np.sqrt(3) / 2],
+                                    [np.sqrt(3) / 2, 0.5]],
+                                      dtype=np.complex64)
+        close(evolved_matrix, expected_matrix)
+
 class TestTwoQubitGates(unittest.TestCase):
     """
     Unit tests for two-qubit quantum gates.

@@ -16,7 +16,8 @@ from pytreenet.time_evolution.bug import BUG, BUGConfig
 from pytreenet.time_evolution.time_evolution import TimeEvoMode
 from pytreenet.ttns.ttns import TreeTensorNetworkState
 from pytreenet.operators.common_operators import (ket_i,
-                                                  superposition)
+                                                  superposition,
+                                                  multi_ket_i)
 from pytreenet.core.node import Node
 from pytreenet.operators.models import (local_magnetisation_from_topology,
                                         Topology)
@@ -777,6 +778,52 @@ class TestCompiledQCircuitRunning(unittest.TestCase):
         correct = ket_i(4,2**3)
         np.testing.assert_allclose(found, correct,
                                    atol=1e-8)
+
+    def test_chadamard_control1_target0(self):
+        """
+        Test the circuit with a CHadamard gate where the control is the first
+        qubit in state 1 and the target is the second qubit in state 0. This
+        should yield the state (|10>+|11>) / sqrt(2).
+        """
+        qc = QCircuit()
+        qc.add_x(q_name(0))
+        qc.add_ch(q_name(0), q_name(1), level_index=1)
+        found = run_circuit(qc)
+        correct = multi_ket_i((1,0),2)
+        correct += multi_ket_i((1,1),2)
+        correct = correct / np.sqrt(2)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-10)
+        
+    def test_chadamard_control1_target1(self):
+        """
+        Test the circuit with a CHadamard gate where the control is the first
+        qubit in state 1 and the target is the second qubit in state 0. This
+        should yield the state (|10>-|11>) / sqrt(2).
+        """
+        qc = QCircuit()
+        qc.add_x(q_name(0))
+        qc.add_x(q_name(1))
+        qc.add_ch(q_name(0), q_name(1), level_index=1)
+        found = run_circuit(qc)
+        correct = multi_ket_i((1,0),2)
+        correct -= multi_ket_i((1,1),2)
+        correct = correct / np.sqrt(2)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-9)
+        
+    def test_ry_gate(self):
+        """
+        Test the circuit with a Ry gate. This should yield the state
+        cos(theta/2)|0> + sin(theta/2)|1>.
+        """
+        qc = QCircuit()
+        theta = 2 / 3
+        qc.add_ry(q_name(0), theta)
+        found = run_circuit(qc)
+        correct = np.array([0.5, np.sqrt(3)/2], dtype=complex)
+        np.testing.assert_allclose(found, correct,
+                                   atol=1e-10)
 
 class TestQCircuitTTNO(unittest.TestCase):
     """

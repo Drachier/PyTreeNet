@@ -8,6 +8,7 @@ from typing import Callable
 import numpy as np
 
 from ..qcircuit import QCircuit
+from ...common_operators import multi_ket_i
 
 class ThreeQubitState(Enum):
     """
@@ -31,6 +32,24 @@ class ThreeQubitState(Enum):
             return prepare_ghz
         if self == ThreeQubitState.W:
             return prepare_w
+        raise ValueError(f"Unknown three qubit state: {self}!")
+    
+    def vector(self) -> np.ndarray:
+        """
+        Returns the state vector of the corresponding three qubit state.
+
+        Returns:
+            np.ndarray: The state vector of the corresponding three qubit state.
+        """
+        if self == ThreeQubitState.GHZ:
+            state000 = multi_ket_i((0,0,0), 2)
+            state111 = multi_ket_i((1,1,1), 2)
+            return (state000 + state111) / np.sqrt(2)
+        if self == ThreeQubitState.W:
+            state001 = multi_ket_i((0,0,1), 2)
+            state010 = multi_ket_i((0,1,0), 2)
+            state100 = multi_ket_i((1,0,0), 2)
+            return (state001 + state010 + state100) / np.sqrt(3)
         raise ValueError(f"Unknown three qubit state: {self}!")
 
 def prepare_ghz(circuit: QCircuit,
@@ -62,13 +81,6 @@ def prepare_ghz(circuit: QCircuit,
     circuit.add_hadamard(qubits[0],
                          level_index=level_index)
     level_index += 1
-    # circuit.add_cnot(qubits[0],
-    #                     qubits[1],
-    #                     level_index=level_index)
-    # level_index += 1
-    # circuit.add_cnot(qubits[0],
-    #                     qubits[2],
-    #                     level_index=level_index)
     circuit.add_mx([qubits[0]], [],
                     qubits[1:],
                     level_index=level_index)
