@@ -39,6 +39,15 @@ class QGate(Enum):
     TOFFOLI = "TOFFOLI"
     PHASE = "PHASE"
 
+def pauli_gates() -> list[QGate]:
+    """
+    Get a list of the Pauli gates.
+
+    Returns:
+        list[QGate]: A list of the Pauli gates.
+    """
+    return [QGate.PAULI_X, QGate.PAULI_Y, QGate.PAULI_Z]
+
 class QuantumOperation(ABC):
     """
     Abstract base class for quantum operations.

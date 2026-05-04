@@ -6,6 +6,9 @@ from abc import ABC, abstractmethod
 from typing import Any, Self, Callable
 from copy import copy
 
+import numpy as np
+import numpy.random as npr
+
 from ...core.ttn import TreeTensorNetwork
 from ...ttno.ttno_class import TreeTensorNetworkOperator
 from ...ttns.ttns import TreeTensorNetworkState
@@ -23,7 +26,8 @@ from .qgate import (QuantumGate,
                     PhaseGate,
                     Reset,
                     MultiControlledGate,
-                    RotationGate)
+                    RotationGate,
+                    pauli_gates)
 from ..measurment import Measurement
 
 
@@ -470,6 +474,15 @@ class QCircuit(AbstractQCircuit):
         return "\n".join([f"Level {i}: {str(level)}"
                           for i, level in enumerate(self.levels)])
 
+    def support(self) -> set[str]:
+        """
+        Get the support of the quantum circuit, i.e. the set of qubits it acts on.
+
+        Returns:
+            set[str]: The set of qubits the quantum circuit acts on.
+        """
+        return self.qubit_ids()
+
     def width(self) -> int:
         """
         Get the width of the quantum circuit.
@@ -477,10 +490,7 @@ class QCircuit(AbstractQCircuit):
         Returns:
             int: The number of different qubits in the circuit.
         """
-        qubit_ids = set()
-        for level in self.levels:
-            qubit_ids.update(level.qubit_ids)
-        return len(qubit_ids)
+        return len(self.qubit_ids())
 
     def contains_gate(self,
                       gate: QuantumGate,
@@ -712,6 +722,52 @@ class QCircuit(AbstractQCircuit):
             if inter_level_function is not None:
                 inter_level_function(i, current_state, operation)
         return current_state
+
+    def add_pauli_error_gates(self,
+                              num_width: dict[int, float] | float,
+                              probs: dict[QGate, float] | None = None,
+                              levels: list[int] | None = None,
+                              seed: int | None | npr.Generator = None):
+        """
+        Add random Pauli error gates to the circuit.
+
+        Args:
+            num_width (dict[int, float] | float): A dictionary mapping
+                the number of qubits on which an error occurs to a probability.
+                If a single float is provided, it will be used as the
+                probability of a single error occuring.
+            probs (dict[QGate, float]): A dictionary mapping Pauli gates to
+                their probabilities of being added if an error occurs at all.
+                If None, all Pauli gates will have equal probability.
+                Defaults to None.
+            levels (list[int] | None): A list of level indices that an error
+                can be added to. If None, errors can be added to all levels.
+                Defaults to None.
+            seed (int | None | npr.Generator): An optional random seed or random
+                generator to use for reproducibility. Defaults to None.
+        """
+        rng = npr.default_rng(seed)
+        if isinstance(num_width, float) or isinstance(num_width, int):
+            num_width = {1: num_width}
+        if probs is None:
+            probs = {gate: 1/3
+                     for gate in pauli_gates()}
+        if levels is None:
+            levels = list(range(self.depth()))
+        num_width[0] = 1 - sum(num_width.values())
+        num_gates = rng.choice(list(num_width.keys()),
+                               p=list(num_width.values()))
+        gates = rng.choice(list(probs.keys()),
+                            p=list(probs.values()),
+                            size=num_gates)
+        qubit_ids = rng.choice(list(self.qubit_ids()),
+                                size=num_gates,
+                                replace=False)
+        level = rng.choice(levels)
+        self.levels.insert(level, QCLevel())
+        for gate, qubit_id in zip(gates, qubit_ids):
+            self.add_gate(InvolutarySingleSiteGate.from_enum(gate, qubit_id),
+                          level_index=level)
 
     # Utility methods for adding gates
     def add_x(self, qubit_id: str, level_index: int = -1):
