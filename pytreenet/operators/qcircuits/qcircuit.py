@@ -749,6 +749,8 @@ class QCircuit(AbstractQCircuit):
         rng = npr.default_rng(seed)
         if isinstance(num_width, float) or isinstance(num_width, int):
             num_width = {1: num_width}
+        elif len(num_width) == 0:
+            return
         if probs is None:
             probs = {gate: 1/3
                      for gate in pauli_gates()}
