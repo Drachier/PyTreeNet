@@ -32,7 +32,7 @@ class TruncationMethod(Enum):
             bool: True if the truncation method has a randomised version,
                 False otherwise.
         """
-        return self in {TruncationMethod.RECURSIVE, TruncationMethod.SVD}
+        return self in {TruncationMethod.RECURSIVE, TruncationMethod.SVD, TruncationMethod.SVD2SITE}
 
     def get_function(self) -> Callable:
         """

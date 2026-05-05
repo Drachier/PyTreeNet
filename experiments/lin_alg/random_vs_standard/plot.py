@@ -13,13 +13,16 @@ from pytreenet.util.plotting.plotables.standard_plottable import (StandardPlotta
 from pytreenet.util.plotting.plotables.multiplot import ConvergingPlottable
 from pytreenet.util.experiment_util.metadata_file import MetadataFilter
 from pytreenet.time_evolution.results import Results
-from pytreenet.util.plotting.line_config import LineConfig
+from pytreenet.util.plotting.line_config import LineConfig, StyleMapping, StyleOption
+from pytreenet.util.plotting.configuration import (DocumentStyle,
+                                                   set_size,
+                                                   config_matplotlib_to_latex)
 
-from sim_script import RandomVsStandardParams
+from sim_script import RandomVsStandardParams, SVDType
 
 RES_IDS = ("rank", "error", "runtime")
 
-def method_name(params: RandomVsStandardParams) -> str:
+def method_name(params: RandomVsStandardParams | SVDType ) -> str:
     """
     Generates a descriptive name for the SVD method used in the simulation.
 
@@ -29,13 +32,17 @@ def method_name(params: RandomVsStandardParams) -> str:
     Returns:
         str: A descriptive name for the SVD method.
     """
-    if params.svd_type == params.svd_type.STANDARD:
+    if isinstance(params, RandomVsStandardParams):
+        svd_type = params.svd_type
+    else:
+        svd_type = params
+    if svd_type == SVDType.STANDARD:
         return "Standard SVD"
-    if params.svd_type == params.svd_type.QB:
+    if svd_type == SVDType.QB:
         return "Randomized QB"
     return "Randomized SVD"
 
-def method_colour(params: RandomVsStandardParams) -> str:
+def method_colour(params: RandomVsStandardParams | SVDType ) -> str:
     """
     Assigns a color to the SVD method for plotting purposes.
 
@@ -45,9 +52,13 @@ def method_colour(params: RandomVsStandardParams) -> str:
     Returns:
         str: A color code for the SVD method.
     """
-    if params.svd_type == params.svd_type.STANDARD:
+    if isinstance(params, RandomVsStandardParams):
+        svd_type = params.svd_type
+    else:
+        svd_type = params
+    if svd_type == SVDType.STANDARD:
         return "tab:blue"
-    if params.svd_type == params.svd_type.QB:
+    if svd_type == SVDType.QB:
         return "tab:green"
     return "tab:orange"
 
@@ -65,7 +76,30 @@ def build_lineconfig(params: RandomVsStandardParams) -> LineConfig:
     lc.color = method_colour(params)
     lc.label = method_name(params)
     lc.marker = "."
+    lc.marker_size = 4
     return lc
+
+def build_style_mapping(md_filter: MetadataFilter) -> StyleMapping:
+    """
+    Build a StyleMapping for the legend based on the metadata filter.
+
+    Args:
+        md_filter (MetadataFilter): The metadata filter containing the parameter values.
+
+    Returns:
+        StyleMapping: The constructed StyleMapping for legend rendering.
+    """
+    style_mapping = StyleMapping()
+    types = md_filter.get_criterium("svd_type")
+    types = [SVDType(t) for t in types]
+    style_mapping.add_mapping("svd_type",
+                              StyleOption.COLOR,
+                              {t.value: method_colour(t) for t in types})
+    for t in types:
+        style_mapping.set_label("svd_type",
+                                  t.value,
+                                  method_name(t))
+    return style_mapping
 
 def extract_rank_vs_err(result: Results
                       ) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
@@ -181,25 +215,34 @@ def plot_all(md_filter: MetadataFilter,
             the plots will be displayed instead of being saved. Defaults to None.
     """
     data = load_data(md_filter, directory_path)
-    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+    config_matplotlib_to_latex(style=DocumentStyle.THESIS)
+    size = set_size(width=DocumentStyle.THESIS, subplots=(2, 2))
+    fig, axs = plt.subplots(2, 2, figsize=(size[0], size[1]*1.3))
     x_labels = ("Rank", "Rank", "Runtime [s]")
     y_labels = ("Error", "Runtime [s]", "Error")
     xlog = (False, False, True)
     ylog = (True, True, True)
+
+    # Plot the data
     for method, (bd_vs_err, bd_vs_runtime, runtime_vs_err) in data.items():
-        bd_vs_err.plot_on_axis(axs[0])
-        bd_vs_runtime.plot_on_axis(axs[1])
-        runtime_vs_err.plot_on_axis(axs[2])
-    for ax, x_label, y_label, x_log, y_log in zip(axs, x_labels, y_labels, xlog, ylog):
+        bd_vs_err.plot_on_axis(axs[0,0])
+        bd_vs_runtime.plot_on_axis(axs[0,1])
+        runtime_vs_err.plot_on_axis(axs[1,0])
+    for ax, x_label, y_label, x_log, y_log in zip(axs.flatten(), x_labels, y_labels, xlog, ylog):
         ax.set_xlabel(x_label)
         ax.set_ylabel(y_label)
         if x_log:
             ax.set_xscale("log")
         if y_log:
             ax.set_yscale("log")
-    axs[0].legend()
-    axs[0].set_ylim(bottom=1e-4)
-    axs[2].set_ylim(bottom=1e-4)
+    axs[0,0].set_ylim(bottom=1e-4)
+    axs[1,0].set_ylim(bottom=1e-4)
+
+    axs[1,1].axis('off')  # Hide the last subplot for the legend
+    style_mapping = build_style_mapping(md_filter)
+    style_mapping.apply_legend(axs[1,1])
+    axs[1,1].legend(loc='center left')
+
     fig.tight_layout()
     if save_path is not None:
         fig.savefig(save_path, format="pdf")
@@ -216,6 +259,9 @@ if __name__ == "__main__":
     for size in sizes:
         md_filter = MetadataFilter()
         md_filter.add_to_criterium("dimension", size)
+        md_filter.add_to_criterium("svd_type", [SVDType.STANDARD.value,
+                                                    SVDType.QB.value,
+                                                    SVDType.RANDOMIZED.value])
         save_path = os.path.join(data_dir, "plots")
         save_path = os.path.join(save_path, f"random_vs_standard_size_{int(size)}.pdf")
         plot_all(md_filter, data_dir, save_path=save_path)

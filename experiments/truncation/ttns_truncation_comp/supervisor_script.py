@@ -29,7 +29,7 @@ def generate_parameter_set() -> list[TruncationParams]:
                TruncationMethod.RECURSIVE,
                TruncationMethod.DENSITYMATRIX)
     seeds = (1234, 4321, 43954, 3923, 49384)
-    bond_dims = (25, 50, 100, 150, 200)
+    bond_dims = (50, )
     param_set = []
     for structure, method, bond_dim, seed in product(structures, methods, bond_dims, seeds):
         if structure is TTNStructure.MPS:
@@ -57,7 +57,7 @@ def generate_parameter_set() -> list[TruncationParams]:
             distr_high=high
         )
         param_set.append(params)
-        if method in {TruncationMethod.SVD, TruncationMethod.RECURSIVE}:
+        if method.randomisable():
             copy_params = copy(params)
             copy_params.random_trunc = True
             param_set.append(copy_params)
@@ -73,7 +73,7 @@ def main():
                                    SIMSCRIPT_STANDARD_NAME)
     supervisor = Supervisor.from_commandline(param_set,
                                              sim_script_path)
-    supervisor.timeout = 10 * 60 * 60  # 10 hours
+    supervisor.timeout = 1 * 60 * 60  # 1 hour
     supervisor.run_simulations()
 
 if __name__ == "__main__":
