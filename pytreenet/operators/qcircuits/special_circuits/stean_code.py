@@ -17,9 +17,11 @@ from ....special_ttn.mps import MatrixProductState
 from ....operators.common_operators import ket_i
 from ....util.experiment_util.sim_params import SimulationParameters
 from .three_qubit_circuits import ThreeQubitState
+from .qubit_id_container import QubitIDContainer, gen_qubit_id
 
 
 QUBIT_ID = "qubit"
+QUBIT_PREFIX = QUBIT_ID+"_"
 
 NUM_QUB_IN_LOG = 7
 NUM_QUB_ANCILLA = 3
@@ -35,13 +37,13 @@ class Structures(Enum):
     DOUBLETSTAR = "doubletstar"
 
     def zero_state(self,
-                   id_container: QubitIDContainer | None = None
+                   id_container: QubitIDContainerStean | None = None
                    ) -> TreeTensorNetworkState:
         """
         Returns the zero state of the corresponding structure for the Steane code.
 
         Args:
-            id_container (QubitIDContainer | None, optional): A container for the
+            id_container (QubitIDContainerStean | None, optional): A container for the
                 qubit IDs to be used in the state. If None, a default container with
                 standard qubit ID generation will be used. Defaults to None.
         
@@ -50,7 +52,7 @@ class Structures(Enum):
                 the Steane code.
         """
         if id_container is None:
-            id_container = QubitIDContainer.with_standard_gen_func()
+            id_container = QubitIDContainerStean.with_standard_gen_func()
         if self is Structures.MPS:
             return MatrixProductState.constant_product_state(0, 2,
                                                 id_container.tot_num_qubits,
@@ -140,18 +142,6 @@ class STEANCodeParams(SimulationParameters):
     structure: Structures = Structures.MPS
     considered_state: ThreeQubitState = ThreeQubitState.GHZ
     repeats: int = 1 # How often the x and z block are repeated
-
-def gen_qubit_id(i: int) -> str:
-    """
-    Generates a qubit ID string based on the given index.
-
-    Args:
-        i (int): The index of the qubit.
-
-    Returns:
-        str: The generated qubit ID string.
-    """
-    return f"{QUBIT_ID}_{i}"
 
 def apply_hadamards(circuit: QCircuit,
                     qubits: list[str],
@@ -498,7 +488,7 @@ def z_block(circuit: QCircuit,
                     level_index=level_index-1)
     return level_index
 
-class QubitIDContainer:
+class QubitIDContainerStean(QubitIDContainer):
     """
     A class to easily distuingish the different types of qubits in the circuit.
 
@@ -507,55 +497,12 @@ class QubitIDContainer:
     """
 
     def __init__(self,
-                 gen_qubit_id_func: Callable[[int], str]
+                 gen_qubit_id_func: Callable[[int], str],
+                 num_log_qubits: int = NUM_LOG_QUB
                  ) -> None:
-        self.num_log_qubits = NUM_LOG_QUB
-        self.tot_num_qubits = self.num_log_qubits*TOT_NUM_QUB_PER_LOG
-        self.qubit_ids = [gen_qubit_id_func(i) for i in range(self.tot_num_qubits)]
-        self._node_prefix: str | None = None
-
-    @property
-    def node_prefix(self) -> str:
-        """
-        Get the node prefix for the qubits. This is used for the TTN state generation.
-        """
-        if self._node_prefix is None:
-            errstr = "No node prefix is set for the QubitIDContainer!"
-            raise ValueError(errstr)
-        return self._node_prefix
-
-    def main_index_valid(self, index: int) -> bool:
-        """
-        Check if the given index is valid for the main qubits.
-        """
-        return index >= 0 and index < self.num_log_qubits
-
-    def _main_index_check(self, index: int) -> None:
-        """
-        Check if the given index is valid for the main qubits and raise an error if not.
-        """
-        if not self.main_index_valid(index):
-            errstr = f"Invalid index {index} for main qubits! Must be between 0 and {self.num_log_qubits-1}."
-            raise ValueError(errstr)
-
-    def _main_index_to_acutal_index(self, index: int) -> int:
-        """
-        Convert the given index for the main qubits to the actual index in the qubit ID list.
-        """
-        self._main_index_check(index)
-        return index*TOT_NUM_QUB_PER_LOG
-
-    def main_qubit(self, index: int) -> str:
-        """
-        Get the ID of the main qubit number `index`.
-        """
-        return self.qubit_ids[self._main_index_to_acutal_index(index)]
-
-    def main_qubits(self) -> list[str]:
-        """
-        Get the IDs of all main qubits.
-        """
-        return [self.main_qubit(i) for i in range(self.num_log_qubits)]
+        super().__init__(gen_qubit_id_func,
+                         TOT_NUM_QUB_PER_LOG,
+                         num_log_qubits=num_log_qubits)
     
     def non_main_logical_qubits(self, index: int) -> list[str]:
         """
@@ -569,31 +516,22 @@ class QubitIDContainer:
 
         Includes the corresponding main qubit as the first one.
         """
-        start = self._main_index_to_acutal_index(index)
+        start = self._main_index_to_actual_index(index)
         return self.qubit_ids[start:start+NUM_QUB_IN_LOG]
 
     def logical_ancilla_qubits(self, index: int) -> list[str]:
         """
         Get the IDs of the logical ancilla qubits for logical qubit number `index`.
         """
-        start = self._main_index_to_acutal_index(index)
+        start = self._main_index_to_actual_index(index)
         return self.qubit_ids[start+NUM_QUB_IN_LOG:start+2*NUM_QUB_IN_LOG]
 
     def ancilla_qubits(self, index: int) -> list[str]:
         """
         Get the IDs of the ancilla qubits for logical qubit number `index`.
         """
-        start = self._main_index_to_acutal_index(index)
+        start = self._main_index_to_actual_index(index)
         return self.qubit_ids[start+2*NUM_QUB_IN_LOG:start+TOT_NUM_QUB_PER_LOG]
-
-    def all_qubits_per_logical(self, index: int):
-        """
-        Get the IDs of all qubits (main, logical, acilla_logical, ancilla) for logical qubit number `index`.
-        """
-        out = self.logical_qubits(index)
-        out.extend(self.logical_ancilla_qubits(index))
-        out.extend(self.ancilla_qubits(index))
-        return out
     
     def all_ancilla_qubits(self,
                            index: int | None = None
@@ -616,16 +554,16 @@ class QubitIDContainer:
         return out
 
     @classmethod
-    def with_standard_gen_func(cls) -> Self:
+    def with_standard_gen_func(cls, num_log_qubits: int = NUM_LOG_QUB) -> Self:
         """
         Create a QubitIDContainer with the standard qubit ID generation function.
         """
-        out = cls(gen_qubit_id)
+        out = cls(gen_qubit_id, num_log_qubits=num_log_qubits)
         out._node_prefix = QUBIT_ID+"_"
         return out
 
 def build_circuit(state: ThreeQubitState,
-                  idcontainer: QubitIDContainer | None = None,
+                  idcontainer: QubitIDContainerStean | None = None,
                   repeats: int = 1
                   ) -> QCircuit:
     """
@@ -634,7 +572,7 @@ def build_circuit(state: ThreeQubitState,
     Args:
         state (ThreeQubitState): The state to be stored in the code. This
             determines the state preparation part of the circuit.
-        idcontainer (QubitIDContainer | None, optional): A container for the
+        idcontainer (QubitIDContainerStean | None, optional): A container for the
             qubit IDs to be used in the circuit. If None, a default container
             with standard qubit ID generation will be used. Defaults to None.
         repeats (int, optional): How many times the X and Z blocks should be
@@ -645,7 +583,7 @@ def build_circuit(state: ThreeQubitState,
             code.
     """
     if idcontainer is None:
-        idcontainer = QubitIDContainer.with_standard_gen_func()
+        idcontainer = QubitIDContainerStean.with_standard_gen_func()
     circuit = QCircuit()
     # First we generate the state on the main qubits
     level_index = 0
@@ -670,6 +608,10 @@ def build_circuit(state: ThreeQubitState,
                                 idcontainer.logical_ancilla_qubits(i),
                                 idcontainer.ancilla_qubits(i),
                                 level_index=level_index)
+            # We need to reset all ancillas, before moving to the next block.
+            level_index = apply_resets(circuit,
+                                       idcontainer.all_ancilla_qubits(i),
+                                       level_index)
             level_index = z_block(circuit,
                                 idcontainer.logical_qubits(i),
                                 idcontainer.logical_ancilla_qubits(i),
