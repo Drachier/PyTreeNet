@@ -366,6 +366,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         if measurements.reset:
             # In this case we modify the measurements object.
             fall_back_measurements = measurements.copy()
+        self.orthogonality_center_id = None
         for node_id, outcome in measurements.items():
             node, old_tensor = self[node_id]
             tensor = old_tensor.copy()
@@ -390,13 +391,25 @@ class TreeTensorNetworkState(TreeTensorNetwork):
             if measurements.reset:
                 # In this case, we must check, that the TTNS is not zero now.
                 # If it were, the measurement outcome would be impossible, thus
-                # we must reset.
+                # we must use another measurment for the reset.
                 norm = self.norm()
                 if norm < renorm_threshold:
                     self.tensors[node_id] = old_tensor
                     fall_back_measurements[node_id] += 1
-                    return self.measurement_projection(fall_back_measurements,
-                                                       renorm_threshold=renorm_threshold)
+                    new_measurement = fall_back_measurements[node_id]
+                    out = self.measurement_projection(fall_back_measurements,
+                                                      renorm_threshold=renorm_threshold)
+                    # To perform the desired reset, we must switch the axes of
+                    # the node, i.e. if we desired to reset to |0>, but instead 
+                    # had to reset to |1>, we must perform |0><1| on the node.
+                    ## Not the most efficient way, but it works for now.
+                    open_dim = node.open_dimension()
+                    matrix = np.eye(open_dim, dtype=tensor.dtype)
+                    matrix[outcome, outcome] = 0
+                    matrix[new_measurement, new_measurement] = 0
+                    matrix[new_measurement, outcome] = 1
+                    matrix[outcome, new_measurement] = 1
+                    self.absorb_into_open_legs(node_id, matrix)
                 del fall_back_measurements[node_id]
                 self.normalise(norm)
         if measurements.renormalize and not measurements.reset:
