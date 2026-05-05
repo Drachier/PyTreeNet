@@ -1133,20 +1133,20 @@ class ProjectionOperation(QuantumOperation):
 
     def __init__(self,
                  symbol: str,
-                 qubit_id: str,
-                 outcome: int
+                 qubit_ids: list[str],
+                 **kwargs
                  ) -> None:
         """
         Initialize a projection operation.
 
         Args:
             symbol (str): The symbol representing the projection operation.
-            qubit_id (str): The ID of the qubit the projection acts on.
-            outcome (int): The measurement outcome (0 or 1).
+            qubit_ids (list[str]): The IDs of the qubits the projection acts on.
+            **kwargs: Additional keyword arguments for the measurment
+                operation, passed to the Measurement constructor.
         """
-        super().__init__(symbol, [qubit_id])
-        self.qubit_id = qubit_id
-        self.outcome = outcome
+        QuantumOperation.__init__(self, symbol, qubit_ids)
+        self.meas = Measurement(qubit_ids, **kwargs)
 
     def matrix(self) -> npt.NDArray[np.complex64]:
         """
@@ -1156,8 +1156,7 @@ class ProjectionOperation(QuantumOperation):
             npt.NDArray[np.complex64]: The matrix representation of the
                 projection operation.
         """
-        proj_matrix = projector(2, self.outcome)
-        return proj_matrix
+        raise NotImplementedError("ProjectionOperation.matrix() is not implemented!")
 
     def to_measurement(self) -> Measurement:
         """
@@ -1166,31 +1165,4 @@ class ProjectionOperation(QuantumOperation):
         Returns:
             Measurement: The corresponding Measurement instance.
         """
-        measures = {self.qubit_id: self.outcome}
-        return Measurement(measures)
-
-class Reset(ProjectionOperation):
-    """
-    Class for the reset operation.
-    """
-
-    def __init__(self,
-                 qubit_id: str
-                 ) -> None:
-        """
-        Initialize a reset operation.
-
-        Args:
-            qubit_id (str): The ID of the qubit to reset.
-        """
-        super().__init__("RESET", qubit_id, 0)
-
-    def to_measurement(self) -> Measurement:
-        """
-        Convert the projection operation to a Measurement instance.
-
-        Returns:
-            Measurement: The corresponding Measurement instance.
-        """
-        measures = {self.qubit_id: self.outcome}
-        return Measurement(measures, reset=True)
+        return self.meas  # Return the Measurement instance associated with the projection operation

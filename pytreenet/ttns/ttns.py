@@ -2,7 +2,7 @@
 Provides a class representing tree tensor network states (TTNS)
 """
 from __future__ import annotations
-from typing import Self
+from typing import Self, Union
 from copy import deepcopy
 
 import numpy as np
@@ -11,7 +11,6 @@ from numpy import sqrt
 from ..core.ttn import TreeTensorNetwork
 from ..ttno import TTNO
 from ..operators.tensorproduct import TensorProduct
-from ..operators.measurment import Measurement
 from ..contractions.state_state_contraction import contract_two_ttns
 from ..contractions.state_operator_contraction import expectation_value
 from .ttns_util import multi_single_site_expectation_value
@@ -337,88 +336,88 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         for node_id, single_site_operator in operator.items():
             self.absorb_into_open_legs(node_id, single_site_operator)
 
-    def measurement_projection(self,
-                               measurements: Measurement,
-                               renorm_threshold: float = 1e-13
-                               ) -> float:
-        """
-        Projects the TTNS onto the measurement outcomes specified.
+    # def measurement_projection(self,
+    #                            measurements: Measurement,
+    #                            renorm_threshold: float = 1e-13
+    #                            ) -> float:
+    #     """
+    #     Projects the TTNS onto the measurement outcomes specified.
 
-        Args:
-            measurements (Measurement): A dictionary mapping node IDs to
-                measurement outcomes (indices).
-            renorm_threshold (float, optional): The threshold below which
-                renormalisation is not performed, as the norm is considered
-                to be zero. Defaults to 1e-13.
+    #     Args:
+    #         measurements (Measurement): A dictionary mapping node IDs to
+    #             measurement outcomes (indices).
+    #         renorm_threshold (float, optional): The threshold below which
+    #             renormalisation is not performed, as the norm is considered
+    #             to be zero. Defaults to 1e-13.
         
-        Returns:
-            float: The norm of the projected TTNS before renormalization. If no
-                renormalization is performed, NaN is returned.
+    #     Returns:
+    #         float: The norm of the projected TTNS before renormalization. If no
+    #             renormalization is performed, NaN is returned.
 
-        Raises:
-            NotImplementedError: If a node with more than one open leg is
-                measured.
-            ValueError: If a measurement outcome is out of bounds for the
-                corresponding physical dimension.
-            ZeroDivisionError: If renormalization is requested, but the norm
-                after projection is below the renorm_threshold.
-        """
-        if measurements.reset:
-            # In this case we modify the measurements object.
-            fall_back_measurements = measurements.copy()
-        self.orthogonality_center_id = None
-        for node_id, outcome in measurements.items():
-            node, old_tensor = self[node_id]
-            tensor = old_tensor.copy()
-            if node.nopen_legs() != 1:
-                errstr = (f"Node {node_id} has {node.nopen_legs()} open legs, "
-                          "projection is only implemented for single-site nodes!")
-                raise NotImplementedError(errstr)
-            if outcome < 0 or outcome >= node.open_dimension():
-                errstr = (f"Measurement outcome {outcome} is out of bounds "
-                          f"for node {node_id} with phys. dim. {node.open_dimension()}!")
-                raise ValueError(errstr)
-            # Setting all entries to zero except the measurement outcome
-            slice_low = [slice(None) for _ in range(node.nneighbours())]
-            slice_low.append(slice(None, outcome))
-            slice_low = tuple(slice_low)
-            slice_high = [slice(None) for _ in range(node.nneighbours())]
-            slice_high.append(slice(outcome+1, None))
-            slice_high = tuple(slice_high)
-            tensor[slice_low] = 0
-            tensor[slice_high] = 0
-            self.tensors[node_id] = tensor
-            if measurements.reset:
-                # In this case, we must check, that the TTNS is not zero now.
-                # If it were, the measurement outcome would be impossible, thus
-                # we must use another measurment for the reset.
-                norm = self.norm()
-                if norm < renorm_threshold:
-                    self.tensors[node_id] = old_tensor
-                    fall_back_measurements[node_id] += 1
-                    new_measurement = fall_back_measurements[node_id]
-                    out = self.measurement_projection(fall_back_measurements,
-                                                      renorm_threshold=renorm_threshold)
-                    # To perform the desired reset, we must switch the axes of
-                    # the node, i.e. if we desired to reset to |0>, but instead 
-                    # had to reset to |1>, we must perform |0><1| on the node.
-                    ## Not the most efficient way, but it works for now.
-                    open_dim = node.open_dimension()
-                    matrix = np.eye(open_dim, dtype=tensor.dtype)
-                    matrix[outcome, outcome] = 0
-                    matrix[new_measurement, new_measurement] = 0
-                    matrix[new_measurement, outcome] = 1
-                    matrix[outcome, new_measurement] = 1
-                    self.absorb_into_open_legs(node_id, matrix)
-                del fall_back_measurements[node_id]
-                self.normalise(norm)
-        if measurements.renormalize and not measurements.reset:
-            norm = self.norm()
-            if norm < renorm_threshold:
-                errstr = f"Cannot renormalise TTNS after measurement, norm is zero ({norm})!"
-                raise ZeroDivisionError(errstr)
-            self.normalise(norm)
-            return norm
-        return float("NaN")
+    #     Raises:
+    #         NotImplementedError: If a node with more than one open leg is
+    #             measured.
+    #         ValueError: If a measurement outcome is out of bounds for the
+    #             corresponding physical dimension.
+    #         ZeroDivisionError: If renormalization is requested, but the norm
+    #             after projection is below the renorm_threshold.
+    #     """
+    #     if measurements.reset:
+    #         # In this case we modify the measurements object.
+    #         fall_back_measurements = measurements.copy()
+    #     self.orthogonality_center_id = None
+    #     for node_id, outcome in measurements.items():
+    #         node, old_tensor = self[node_id]
+    #         tensor = old_tensor.copy()
+    #         if node.nopen_legs() != 1:
+    #             errstr = (f"Node {node_id} has {node.nopen_legs()} open legs, "
+    #                       "projection is only implemented for single-site nodes!")
+    #             raise NotImplementedError(errstr)
+    #         if outcome < 0 or outcome >= node.open_dimension():
+    #             errstr = (f"Measurement outcome {outcome} is out of bounds "
+    #                       f"for node {node_id} with phys. dim. {node.open_dimension()}!")
+    #             raise ValueError(errstr)
+    #         # Setting all entries to zero except the measurement outcome
+    #         slice_low = [slice(None) for _ in range(node.nneighbours())]
+    #         slice_low.append(slice(None, outcome))
+    #         slice_low = tuple(slice_low)
+    #         slice_high = [slice(None) for _ in range(node.nneighbours())]
+    #         slice_high.append(slice(outcome+1, None))
+    #         slice_high = tuple(slice_high)
+    #         tensor[slice_low] = 0
+    #         tensor[slice_high] = 0
+    #         self.tensors[node_id] = tensor
+    #         if measurements.reset:
+    #             # In this case, we must check, that the TTNS is not zero now.
+    #             # If it were, the measurement outcome would be impossible, thus
+    #             # we must use another measurment for the reset.
+    #             norm = self.norm()
+    #             if norm < renorm_threshold:
+    #                 self.tensors[node_id] = old_tensor
+    #                 fall_back_measurements[node_id] += 1
+    #                 new_measurement = fall_back_measurements[node_id]
+    #                 out = self.measurement_projection(fall_back_measurements,
+    #                                                   renorm_threshold=renorm_threshold)
+    #                 # To perform the desired reset, we must switch the axes of
+    #                 # the node, i.e. if we desired to reset to |0>, but instead 
+    #                 # had to reset to |1>, we must perform |0><1| on the node.
+    #                 ## Not the most efficient way, but it works for now.
+    #                 open_dim = node.open_dimension()
+    #                 matrix = np.eye(open_dim, dtype=tensor.dtype)
+    #                 matrix[outcome, outcome] = 0
+    #                 matrix[new_measurement, new_measurement] = 0
+    #                 matrix[new_measurement, outcome] = 1
+    #                 matrix[outcome, new_measurement] = 1
+    #                 self.absorb_into_open_legs(node_id, matrix)
+    #             del fall_back_measurements[node_id]
+    #             self.normalise(norm)
+    #     if measurements.renormalize and not measurements.reset:
+    #         norm = self.norm()
+    #         if norm < renorm_threshold:
+    #             errstr = f"Cannot renormalise TTNS after measurement, norm is zero ({norm})!"
+    #             raise ZeroDivisionError(errstr)
+    #         self.normalise(norm)
+    #         return norm
+    #     return float("NaN")
 
 TTNS = TreeTensorNetworkState

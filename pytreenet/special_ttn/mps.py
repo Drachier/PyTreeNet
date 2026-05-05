@@ -7,7 +7,7 @@ and MPO. These are also supplied combining the matrix product topology with the
 properties of a TTNS or TTNO.
 """
 from __future__ import annotations
-from typing import List, Union, Any, Callable
+from typing import List, Union, Any, Callable, Self
 from copy import deepcopy
 
 import numpy as np
@@ -206,7 +206,7 @@ class MatrixProductState(MatrixProductTree, TreeTensorNetworkState):
                                num_sites: int,
                                node_prefix: str = "site",
                                root_site: int = 0,
-                               bond_dimensions: Union[List[int],None] = None) -> Any:
+                               bond_dimensions: Union[List[int],None] = None) -> Self:
         """
         Generates an MPS that corresponds to a product state with the same
         value at every site.

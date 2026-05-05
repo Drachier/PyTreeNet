@@ -24,7 +24,6 @@ from .qgate import (QuantumGate,
                     SWAPGate,
                     ToffoliGate,
                     PhaseGate,
-                    Reset,
                     MultiControlledGate,
                     RotationGate,
                     pauli_gates)
@@ -717,8 +716,8 @@ class QCircuit(AbstractQCircuit):
                 current_state = application_function(current_state,
                                                      operation)
             else:
-                current_state.measurement_projection(operation,
-                                                     **(measurement_kwargs or {}))
+                operation.apply(current_state,
+                                **(measurement_kwargs or {}))
             if inter_level_function is not None:
                 inter_level_function(i, current_state, operation)
         return current_state
@@ -919,33 +918,21 @@ class QCircuit(AbstractQCircuit):
         self.add_gate(gate, level_index)
 
     def add_projection(self,
-                       qubit_id: str,
-                       outcome: int,
-                       level_index: int = -1):
+                       qubit_ids: str | list[str],
+                       level_index: int = -1,
+                       **kwargs):
         """
         Add a projection operation to the circuit.
 
         Args:
-            qubit_id (str): The ID of the qubit to project.
-            outcome (int): The outcome of the projection (0 or 1).
+            qubit_ids (str | list[str]): The ID(s) of the qubit(s) to project.
             level_index (int): The index of the level to add the projection to.
                 Defaults to -1 (last level).
+            **kwargs: Additional keyword arguments to pass to the measurement.
         """
-        projection = ProjectionOperation(f"M{outcome}", qubit_id, outcome)
-        self._add_projection(projection, level_index)
-
-    def add_reset(self,
-                  qubit_id: str,
-                  level_index: int = -1):
-        """
-        Add a reset operation to the circuit.
-
-        Args:
-            qubit_id (str): The ID of the qubit to reset.
-            level_index (int): The index of the level to add the reset to.
-                Defaults to -1 (last level).
-        """
-        projection = Reset(qubit_id)
+        if isinstance(qubit_ids, str):
+            qubit_ids = [qubit_ids]
+        projection = ProjectionOperation(f"M", qubit_ids, **kwargs)
         self._add_projection(projection, level_index)
 
     def add_mx(self,
@@ -1136,7 +1123,7 @@ class CompiledQuantumCircuit(AbstractQCircuit):
         if level is None:
             level = Hamiltonian()
         self.levels.append(level)
-        self.qubit_ids.update(level.node_ids())
+        self.qubit_ids.update(level.node_ids)
 
     def add_hamiltonian(self,
                         hamiltonian: Hamiltonian,
