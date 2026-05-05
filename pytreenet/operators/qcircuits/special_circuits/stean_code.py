@@ -17,11 +17,7 @@ from ....special_ttn.mps import MatrixProductState
 from ....operators.common_operators import ket_i
 from ....util.experiment_util.sim_params import SimulationParameters
 from .three_qubit_circuits import ThreeQubitState
-from .qubit_id_container import QubitIDContainer, gen_qubit_id
-
-
-QUBIT_ID = "qubit"
-QUBIT_PREFIX = QUBIT_ID+"_"
+from .qubit_id_container import QubitIDContainer, gen_qubit_id, QUBIT_PREFIX
 
 NUM_QUB_IN_LOG = 7
 NUM_QUB_ANCILLA = 3
@@ -559,7 +555,7 @@ class QubitIDContainerStean(QubitIDContainer):
         Create a QubitIDContainer with the standard qubit ID generation function.
         """
         out = cls(gen_qubit_id, num_log_qubits=num_log_qubits)
-        out._node_prefix = QUBIT_ID+"_"
+        out._node_prefix = QUBIT_PREFIX
         return out
 
 def build_circuit(state: ThreeQubitState,
