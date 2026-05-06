@@ -18,7 +18,10 @@ from ..common_operators import (pauli_matrices,
 from ..hamiltonian import Hamiltonian, ONE_SYMBOL
 from ..tensorproduct import TensorProduct
 from ...random.random_matrices import random_unitary_matrix
-from ..measurment import Measurement
+from ..measurment import (Measurement,
+                          MeasurementControlledUnitary,
+                          Outcome,
+                          TensorProduct)
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -1166,3 +1169,23 @@ class ProjectionOperation(QuantumOperation):
             Measurement: The corresponding Measurement instance.
         """
         return self.meas  # Return the Measurement instance associated with the projection operation
+
+class MeasurementControlledGate(ProjectionOperation):
+    """
+    Class for measurement-controlled gates, which are gates that apply a
+    certain operation to a target qubit conditioned on the outcome of a
+    measurement.
+    """
+
+    def __init__(self,
+                 symbol: str,
+                 qubit_ids: list[str],
+                 operation: dict[Outcome, TensorProduct],
+                 **kwargs
+                 ) -> None:
+        super().__init__(symbol, qubit_ids, **kwargs)
+        # Overwrite the Measurement instance with a MeasurementControlledUnitary
+        # instance that incorporates the operation.
+        self.meas = MeasurementControlledUnitary(qubit_ids,
+                                                 operation,
+                                                 **kwargs)
