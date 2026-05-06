@@ -199,7 +199,6 @@ class Measurement:
                 raise ValueError(errstr)
             prob = prob.real
             prob_passed += prob
-            print(f"Outcome: {outcome}, Probability: {prob}, Cumulative Probability: {prob_passed}, Threshold: {thresh}")
             if prob_passed > thresh:
                 # This is the outcome to be used!
                 state.apply_operator(tp)
@@ -257,13 +256,8 @@ class MeasurementControlledUnitary(Measurement):
         """
         outcome, prob = super().apply(state)
         unitary = self.unitaries.get(outcome)
-        if unitary is None and self.non_ex_is_identity:
-            root_id = state.root_id
-            assert root_id is not None, "State must have a root node to apply the identity unitary!"
-            root_node = state.root[0]
-            dim = root_node.open_dimension()
-            unitary = TensorProduct({root_id: np.eye(dim)})
-        elif unitary is None:
+        if unitary is not None:
+            state.apply_operator(unitary)
+        elif unitary is None and not self.non_ex_is_identity:
             raise ValueError(f"No unitary found for outcome: {outcome}!")
-        state.apply_operator(unitary)
         return outcome, prob
