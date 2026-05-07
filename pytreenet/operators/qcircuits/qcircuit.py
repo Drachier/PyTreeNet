@@ -53,6 +53,15 @@ class AbstractLevel(ABC):
         Return a string representation of the abstract level.
         """
         return ", ".join([str(op) for op in self.operations])
+    
+    def is_empty(self) -> bool:
+        """
+        Check if the level is empty, i.e. contains no operations.
+
+        Returns:
+            bool: True if the level is empty, False otherwise.
+        """
+        return len(self.operations) == 0
 
     def num_operations(self) -> int:
         """
