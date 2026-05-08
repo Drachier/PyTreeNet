@@ -193,6 +193,36 @@ def multi_ket_i(values: Tuple[int, ...], dimension: int) -> np.ndarray:
         out = np.kron(out, local_state)
     return out
 
+def ket_i_chain(value: int,
+                dimension: int,
+                length: int,
+                virt_legs_first_site: int = 2,
+                virt_legs_last_site: int = 2
+                ) -> list[np.ndarray]:
+    """
+    Generates a list of tensors representing the computational basis state for a
+    site each in a chain of a given length.
+
+    Args:
+        value (int): The index of the state for each site.
+        dimension (int): The dimension of each site.
+        length (int): The number of sites in the chain.
+        virt_legs_first_site (int, optional): The number of virtual legs for the
+            first site. Defaults to 2.
+        virt_legs_last_site (int, optional): The number of virtual legs for the
+            last site. Defaults to 2.
+    
+    Returns:
+        list[np.ndarray]: A list of tensors representing the computational basis
+            state for a site each in a chain of a given length.
+    """
+    out = [ket_i(value, dimension).reshape(1,1,2) for _ in range(length)]
+    shape_first = tuple([1]*virt_legs_first_site + [dimension])
+    shape_last = tuple([1]*virt_legs_last_site + [dimension])
+    out[0] = out[0].reshape(shape_first)
+    out[-1] = out[-1].reshape(shape_last)
+    return out
+
 def copy_tensor(degree: int,
                 dim: int
                 ) -> np.ndarray:
