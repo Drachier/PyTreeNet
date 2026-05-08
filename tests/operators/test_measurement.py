@@ -97,5 +97,29 @@ class TestMeasurementControlledUnitary(unittest.TestCase):
         ref[4] = 1.0
         npt.assert_almost_equal(vec, ref)
 
+    def test_otimes_mcus(self):
+        """
+        We test the kronecker product of two measurement controlled unitaries.
+        """
+        unitary_1 = {Outcome.from_iters([self._node_id(0)], [0]):
+                   TensorProduct({self._node_id(0):
+                    pauli_matrices()[0]})}
+        unitary_2 = {Outcome.from_iters([self._node_id(1)], [0]):
+                   TensorProduct({self._node_id(1):
+                    pauli_matrices()[0]})}
+        meas_1 = MeasurementControlledUnitary([self._node_id(0)],
+                                            unitary_1)
+        meas_2 = MeasurementControlledUnitary([self._node_id(1)],
+                                            unitary_2)
+        meas = meas_1.otimes(meas_2)
+        meas.apply(self.state)
+        # The state should have changed
+        vec = self.state.completely_contract_tree(order=[self._node_id(i)
+                                                         for i in range(self.num_nodes)])[0]
+        vec = vec.reshape(-1)
+        ref = np.zeros(2**self.num_nodes, dtype=complex)
+        ref[6] = 1.0
+        npt.assert_almost_equal(vec, ref)
+
 if __name__ == "__main__":
     unittest.main()

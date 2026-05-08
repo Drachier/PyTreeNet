@@ -45,9 +45,34 @@ class Outcome:
             Self: The created Outcome instance.
         """
         return cls(node_ids, state_vals)
+    
+    def otimes(self, other: Outcome) -> Self:
+        """
+        Kronecker product of two Outcomes.
+        """
+        this_node_ids = set(node_id for node_id, _ in self.data)
+        other_node_ids = set(node_id for node_id, _ in other.data)
+        overlapping_keys = this_node_ids.intersection(other_node_ids)
+        if overlapping_keys:
+            errstr = f"Cannot combine Outcomes with overlapping node IDs: {overlapping_keys}!"
+            raise ValueError(errstr)
+        new_data = self.data.union(other.data)
+        new = self.__class__([], [])
+        new.data = frozenset(new_data)
+        return new
 
     def as_dict(self):
         return dict(self.data)
+    
+    @classmethod
+    def empty(cls) -> Self:
+        """
+        Creates an empty Outcome.
+
+        Returns:
+            Self: An empty Outcome instance.
+        """
+        return cls.from_iters([], [])
     
     def __hash__(self) -> int:
         return hash(self.data)
@@ -212,8 +237,7 @@ class Measurement:
         errstr = f"Measurement probabilities do not sum up to 1! Total probability: {prob_passed}."
         raise ValueError(errstr)
 
-
-class MeasurementControlledUnitary(Measurement):
+class _SingleMCUnitary(Measurement):
     """
     A class to represent a measurement-controlled unitary operation on a Tree Tensor Network.
     """
@@ -260,4 +284,81 @@ class MeasurementControlledUnitary(Measurement):
             state.apply_operator(unitary)
         elif unitary is None and not self.non_ex_is_identity:
             raise ValueError(f"No unitary found for outcome: {outcome}!")
+        return outcome, prob
+
+class MeasurementControlledUnitary(Measurement):
+    """
+    A class to represent a measurement-controlled unitary operation on a Tree Tensor Network.
+    """
+    
+    def __init__(self,
+                 node_ids: list[str],
+                 unitaries: dict[Outcome, TensorProduct],
+                 non_ex_is_identity: bool = True,
+                 **kwargs
+                 ) -> None:
+        """
+        Initializes a MeasurementControlledUnitary instance.
+
+        Args:
+            node_ids (list[str]): A list of node IDs to be measured.
+            unitaries (dict[Outcome, TensorProduct]): A dictionary mapping
+                measurement outcomes to unitary operations.
+            non_ex_is_identity (bool, optional): Whether to treat outcomes not
+                explicitly in the unitaries dictionary as identity operations.
+                Defaults to True.
+            **kwargs: Additional keyword arguments for the Measurement
+                constructor.
+        """
+        super().__init__(node_ids, **kwargs)
+        # Doing it this way allows us to easier do otimes.
+        # If we stored all the controlled unitaries in a single dictionary
+        # we would have to otimes all tensor product for every combination
+        # of outcomes, which becomes cubersome.
+        # Since the measurement parts of the circuit that are otimesed
+        # together are independent, we can just store the unitaries for each
+        # measurement part separately and then combine them when we apply the
+        # operation.
+        self.parts = [_SingleMCUnitary(node_ids,
+                                        unitaries,
+                                        non_ex_is_identity,
+                                        **kwargs
+                                        )]
+
+    def otimes(self, other: MeasurementControlledUnitary) -> Self:
+        """
+        Kronecker product of two MeasurementControlledUnitary operations.
+        """
+        overlapping_keys = set(self.node_ids).intersection(set(other.node_ids))
+        if overlapping_keys:
+            errstr = f"Cannot combine MeasurementControlledUnitary with overlapping node IDs: {overlapping_keys}!"
+            raise ValueError(errstr)
+        if self.renormalize != other.renormalize:
+            errstr = "Cannot combine MeasurementControlledUnitary with different renormalization settings!"
+            raise ValueError(errstr)
+        new = self.__class__(self.node_ids + other.node_ids,
+                             {},
+                             renormalize=self.renormalize)
+        new.parts = self.parts + other.parts
+        return new
+
+    def apply(self,
+              state: TTNS
+              ) -> tuple[Outcome, float]:
+        """
+        Apply the measurement-controlled unitary operation to the given state.
+
+        Args:
+            state (TTNS): The state to which the operation should be applied.
+
+        Returns:
+            tuple[Outcome, float]: A tuple containing the measurement outcome
+                and the probability of that outcome.
+        """
+        outcomes_probs = [part.apply(state) for part in self.parts]
+        outcome = Outcome.empty()
+        prob = 1.0
+        for outcome_i, prob_i in outcomes_probs:
+            outcome = outcome.otimes(outcome_i)
+            prob *= prob_i
         return outcome, prob
