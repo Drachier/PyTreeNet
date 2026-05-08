@@ -90,7 +90,7 @@ class QubitIDContainer:
         """
         self._main_index_check(index)
         start_index = self._main_index_to_actual_index(index)
-        end_index = self._main_index_to_actual_index(index+1)
+        end_index = start_index + self.tot_num_qub_per_log
         return self.qubit_ids[start_index:end_index]
 
     @classmethod
