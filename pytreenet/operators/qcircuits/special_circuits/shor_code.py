@@ -30,6 +30,7 @@ class QubitIDContainerShor(QubitIDContainer):
                          num_log_qubits)
         self.qubits_per_logical_part = 3
         self.logical_parts = 3
+        self.num_meas_per_logical = 2
         
     @classmethod
     def with_standard_gen_func(cls,
