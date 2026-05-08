@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import os
 
 from h5py import File
+import numpy as np
 
 from pytreenet.time_evolution.application_based.taylor import Taylor
 from pytreenet.time_evolution.results import Results
@@ -25,6 +26,7 @@ from pytreenet.operators.models import local_magnetisation_from_topology
 from pytreenet.util.experiment_util.script_util import script_main
 from pytreenet.operators.exact_operators import (exact_local_magnetisation)
 from pytreenet.time_evolution.exact_time_evolution import (ExactTimeEvolution)
+from pytreenet.special_ttn.mps import MatrixProductState
 
 @dataclass
 class TaylorIsingParams(SVDParameters,
@@ -48,7 +50,8 @@ def run_Taylor(params: TaylorIsingParams) -> Results:
     # Generate the initial state
     init_state = generate_zero_state(params.system_size,
                                      params.ttn_structure,
-                                     topology=params.topology)
+                                     topology=params.topology,
+                                     bond_dim=2)
     # Generate the Hamiltonian
     hamiltonian = IsingModel.from_dataclass(params)
     hamiltonian = hamiltonian.generate_by_topology(params.topology,
@@ -63,15 +66,21 @@ def run_Taylor(params: TaylorIsingParams) -> Results:
     # Create parameters for the linear combination of states during the time evolution
     if params.application_method == ApplicationMethod.SRC:
         kwargs_ap = {"desired_dimension": params.max_bond_dim}
+        kwargs_add= {"svd_params": params}
     elif params.application_method in {ApplicationMethod.DENSITY_MATRIX,
-                                       ApplicationMethod.HALF_DENSITY_MATRIX}:
+                                       ApplicationMethod.HALF_DENSITY_MATRIX,
+                                       ApplicationMethod.DIRECT_TRUNCATE}:
         kwargs_ap = {"svd_params": params}
+        kwargs_add= {"svd_params": params}
+    elif params.application_method == ApplicationMethod.DIRECT:
+        kwargs_ap = {}
+        kwargs_add = {}
     else:
         errstr = f"Application method {params.application_method} not supported for linear combinations!"
         raise ValueError(errstr)
     lin_comb_params = LinCombParams(params.application_method,
                                     params.addition_method,
-                                    kwargs_add={"svd_params": params},
+                                    kwargs_add=kwargs_add,
                                     kwargs_ap=kwargs_ap)
     # Generate the time evolution class
     evo = Taylor(init_state,
@@ -134,21 +143,21 @@ class ExactParams(IsingParameters):
     final_time: float = 1.0
 
     @classmethod
-    def from_Taylor_params(cls, Taylor_params: TaylorIsingParams) -> ExactParams:
+    def from_Taylor_params(cls, taylor_params: TaylorIsingParams) -> ExactParams:
         """
         Creates an ExactParams instance from an TaylorIsingParams instance.
 
         Args:
-            Taylor_params (TaylorIsingParams): The TaylorIsingParams instance.
+            taylor_params (TaylorIsingParams): The TaylorIsingParams instance.
         
         Returns:
             ExactParams: The created ExactParams instance.
         """
         new = cls()
         for attr in vars(new).keys():
-            if not hasattr(Taylor_params, attr):
+            if not hasattr(taylor_params, attr):
                 raise ValueError(f"TaylorIsingParams does not have attribute {attr}!")
-            setattr(new, attr, getattr(Taylor_params, attr))
+            setattr(new, attr, getattr(taylor_params, attr))
         return new
 
 def exact_simulation(sim_params: ExactParams,
@@ -191,4 +200,14 @@ def exact_simulation(sim_params: ExactParams,
         sim_params.save_to_h5(file)
 
 if __name__ == "__main__":
-    script_main(run_and_save, TaylorIsingParams)
+    params = TaylorIsingParams(system_size=2,
+                                time_step_size=0.1,
+                                final_time=1,
+                                order=4,
+                                max_bond_dim=10,
+                                application_method=ApplicationMethod.DENSITY_MATRIX,
+                                addition_method=AdditionMethod.DENSITY_MATRIX)
+    savepath = r"C:\Users\richi\OneDrive\Dokumente\GitHub\PyTreeNet\experiments\time_evolution\taylor\ising\data"
+
+    run_and_save(params, savepath)
+    #script_main(run_and_save, TaylorIsingParams)
