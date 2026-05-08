@@ -103,3 +103,22 @@ class SimulationParameters:
         json_dict = self.to_json_dict()
         param_str = json.dumps(json_dict, sort_keys=True)
         return sha256(param_str.encode()).hexdigest()
+
+    @classmethod
+    def load_from_h5(cls, file: File) -> Self:
+        """
+        Loads the simulation parameters from an HDF5 file.
+
+        The parameters are expected to be stored as attributes of the file.
+
+        Args:
+            file (File): The HDF5 file to load the parameters from.
+        
+        Returns:
+            Self: An instance of the simulation parameters loaded from the
+                file.
+        """
+        param_dict = {}
+        for name in file.attrs:
+            param_dict[name] = file.attrs[name]
+        return cls.from_dict(param_dict)
