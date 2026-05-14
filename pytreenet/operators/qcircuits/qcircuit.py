@@ -26,8 +26,12 @@ from .qgate import (QuantumGate,
                     PhaseGate,
                     MultiControlledGate,
                     RotationGate,
+                    MeasurementControlledGate,
                     pauli_gates)
-from ..measurment import Measurement
+from ..measurment import (Measurement,
+                          MeasurementControlledUnitary,
+                          Outcome,
+                          TensorProduct)
 
 
 class AbstractLevel(ABC):
@@ -49,6 +53,15 @@ class AbstractLevel(ABC):
         Return a string representation of the abstract level.
         """
         return ", ".join([str(op) for op in self.operations])
+    
+    def is_empty(self) -> bool:
+        """
+        Check if the level is empty, i.e. contains no operations.
+
+        Returns:
+            bool: True if the level is empty, False otherwise.
+        """
+        return len(self.operations) == 0
 
     def num_operations(self) -> int:
         """
@@ -546,6 +559,25 @@ class QCircuit(AbstractQCircuit):
             level = level_kind()
         self.levels.append(level)
 
+    def add_quantum_operation(self,
+                              operation: QuantumOperation,
+                              level_index: int = -1):
+        """
+        Add a quantum operation to the circuit.
+
+        Args:
+            operation (QuantumOperation): The quantum operation to add.
+            level_index (int): The index of the level to add the operation to.
+                If -1, the operation will be added to the last level. If it is
+                one larger than the number of levels, a new level will be
+                created.
+        """
+        if isinstance(operation, QuantumGate):
+            self.add_gate(operation, level_index=level_index)
+        elif isinstance(operation, ProjectionOperation):
+            self._add_projection(operation, level_index=level_index)
+        raise TypeError("Operation must be a QuantumGate or ProjectionOperation!")
+
     def add_gate(self,
                  gate: QuantumGate,
                  level_index: int = -1):
@@ -933,6 +965,31 @@ class QCircuit(AbstractQCircuit):
         if isinstance(qubit_ids, str):
             qubit_ids = [qubit_ids]
         projection = ProjectionOperation(f"M", qubit_ids, **kwargs)
+        self._add_projection(projection, level_index)
+
+    def add_measurement_controlled_gate(self,
+                                        qubit_ids: str | list[str],
+                                        operation: dict[Outcome, TensorProduct],
+                                        level_index: int = -1,
+                                        **kwargs):
+        """
+        Add a measurement-controlled gate to the circuit.
+
+        Args:
+            qubit_ids (str | list[str]): The ID(s) of the qubit(s) to measure.
+            operation (dict[Outcome, TensorProduct]): A dictionary mapping
+                Outcomes to TensorProducts, representing the operation to apply
+                conditioned on the measurement outcome.
+            level_index (int): The index of the level to add the measurement and
+                controlled operation to. Defaults to -1 (last level).
+            **kwargs: Additional keyword arguments to pass to the measurement.
+        """
+        if isinstance(qubit_ids, str):
+            qubit_ids = [qubit_ids]
+        projection = MeasurementControlledGate("MC",
+                                               qubit_ids,
+                                               operation,
+                                               **kwargs)
         self._add_projection(projection, level_index)
 
     def add_mx(self,

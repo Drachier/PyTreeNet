@@ -18,7 +18,10 @@ from ..common_operators import (pauli_matrices,
 from ..hamiltonian import Hamiltonian, ONE_SYMBOL
 from ..tensorproduct import TensorProduct
 from ...random.random_matrices import random_unitary_matrix
-from ..measurment import Measurement
+from ..measurment import (Measurement,
+                          MeasurementControlledUnitary,
+                          Outcome,
+                          TensorProduct)
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -1166,3 +1169,63 @@ class ProjectionOperation(QuantumOperation):
             Measurement: The corresponding Measurement instance.
         """
         return self.meas  # Return the Measurement instance associated with the projection operation
+
+class MeasurementControlledGate(ProjectionOperation):
+    """
+    Class for measurement-controlled gates, which are gates that apply a
+    certain operation to a target qubit conditioned on the outcome of a
+    measurement.
+    """
+
+    def __init__(self,
+                 symbol: str,
+                 qubit_ids: list[str],
+                 operation: dict[Outcome, TensorProduct],
+                 **kwargs
+                 ) -> None:
+        super().__init__(symbol, qubit_ids, **kwargs)
+        # Overwrite the Measurement instance with a MeasurementControlledUnitary
+        # instance that incorporates the operation.
+        self.meas = MeasurementControlledUnitary(qubit_ids,
+                                                 operation,
+                                                 **kwargs)
+
+def error_generator(qubit_ids: list[str],
+                    error_probs: list[float],
+                    gate_probs: dict[QGate, float] | None = None,
+                    seed: int | None = None
+                    ) -> list[QuantumGate]:
+    """
+    Generate a random error operation based on the given probabilities.
+
+    Args:
+        qubit_ids: List of qubit IDs to which the error can be applied.
+        error_probs: List of probabilities for the number of error gates.
+            The 0th entry is the probability of one error gate, the 1st entry
+            is the probability of two error gates, etc.
+        gate_probs: Dictionary mapping each QGate to its probability of being
+            chosen as the error gate. If None, the three Pauli gates will be
+            chosen with equal probability.
+        seed: Random seed for reproducibility.
+    
+    Returns:
+        List of QuantumGate representing the error.
+    """
+    if gate_probs is None:
+        gate_probs = {
+            QGate.PAULI_X: 1/3,
+            QGate.PAULI_Y: 1/3,
+            QGate.PAULI_Z: 1/3
+        }
+    rng = np.random.default_rng(seed)
+    no_error_prob = 1.0 - sum(error_probs)
+    error_probs = [no_error_prob] + error_probs
+    num_errors = rng.choice(len(error_probs),
+                            p=error_probs)
+    errors = []
+    for _ in range(num_errors):
+        gate = rng.choice(list(gate_probs.keys()),
+                          p=list(gate_probs.values()))
+        qubit_id = rng.choice(qubit_ids)
+        errors.append(InvolutarySingleSiteGate.from_enum(gate, qubit_id))
+    return errors

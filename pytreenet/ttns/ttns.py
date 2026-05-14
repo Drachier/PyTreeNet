@@ -156,7 +156,7 @@ class TreeTensorNetworkState(TreeTensorNetwork):
         self_scal = self.scalar_product().real
         other_scal = other.scalar_product().real
         common_scal_prod = self.scalar_product(other)
-        dist = self_scal - 2*np.real(common_scal_prod) + other_scal
+        dist = self_scal - 2*np.abs(common_scal_prod) + other_scal
         if dist < 0:
             minimum = min(self_scal, other_scal)
             assert dist > -1e-8 * minimum, f"Distance is negative! {dist}"

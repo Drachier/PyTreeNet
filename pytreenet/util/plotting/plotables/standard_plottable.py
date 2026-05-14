@@ -43,7 +43,7 @@ class Plottable(ABC):
         self.assoc_params = assoc_params
 
     def assoc_subset(self,
-                     other: Plottable,
+                     other: Plottable | SimulationParameters,
                      ignored_keys: set[str] | None = None
                      ) -> bool:
         """
@@ -54,7 +54,8 @@ class Plottable(ABC):
         parameter set, ignoring other associated parameters.
 
         Args:
-            other (Plottable): The other plottable to compare against.
+            other (Plottable | SimulationParameters): The other plottable or
+                simulation parameters to compare against.
             ignored_keys (set[str] | None, optional): Keys to ignore in the
                 comparison. Defaults to None.
 
@@ -65,10 +66,14 @@ class Plottable(ABC):
         if ignored_keys is None:
             ignored_keys = set()
         keys_to_check = set(self.assoc_params.keys()) - ignored_keys
+        if isinstance(other, SimulationParameters):
+            other_params = other.to_json_dict()
+        else:
+            other_params = other.assoc_params
         for key in keys_to_check:
-            if key not in other.assoc_params:
+            if key not in other_params:
                 return False
-            if self.assoc_params[key] != other.assoc_params[key]:
+            if self.assoc_params[key] != other_params[key]:
                 return False
         return True
 

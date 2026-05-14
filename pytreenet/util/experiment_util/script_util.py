@@ -10,7 +10,7 @@ from typing import Callable
 from .supervisor import CURRENTPARAMFILE_STANDARD_NAME
 from .sim_params import SimulationParameters
 
-def script_main(runner_function: Callable,
+def script_main(runner_function: Callable[[SimulationParameters, str], float | None],
                 parameter_class: type[SimulationParameters],
                 current_param_name: str = CURRENTPARAMFILE_STANDARD_NAME):
     """
