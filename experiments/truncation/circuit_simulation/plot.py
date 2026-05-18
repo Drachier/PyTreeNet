@@ -165,8 +165,8 @@ def plot_truncation_results(data_path: str,
                                                              err_pltb)
                 ms_vs_err.append(new)
                 break
-    config_matplotlib_to_latex(style=DocumentStyle.PRTWO_COLUMN)
-    size = set_size(width=DocumentStyle.PRONE_COLUMN,
+    config_matplotlib_to_latex(style=DocumentStyle.THESIS)
+    size = set_size(width=DocumentStyle.THESIS,
                     subplots=(1, 2))
     fig, axs = plt.subplots(1, 2, figsize=(size[0], 1.2*size[1]))
     for pltb in rt_vs_err:

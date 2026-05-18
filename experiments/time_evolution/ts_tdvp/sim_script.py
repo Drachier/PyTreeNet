@@ -36,6 +36,7 @@ class Integrator(Enum):
     FO_TWO_SITE_TDVP = "fo_2tdvp"
     TWO_SITE_TDVP = "2tdvp"
     BUG = "bug"
+    ONEBD_BUG = "1bd_bug"
 
 @dataclass
 class SimParams2TDVP(IsingParameters, SVDParameters):
@@ -102,6 +103,25 @@ def run_simulation(params: SimParams2TDVP) -> tuple[Results, float]:
                                           solver_options={"rtol": params.rtol,
                                                           "atol": params.atol})
     elif params.integrator is Integrator.BUG:
+        cnfg = BUGConfig(max_bond_dim=params.max_bond_dim,
+                         rel_tol=params.rel_tol,
+                         total_tol=params.total_tol,
+                         time_evo_mode=TimeEvoMode.RK45)
+        time_evo = BUG(init_state,
+                       ttno,
+                       params.time_step_size,
+                       1,
+                       ops,
+                       config=cnfg,
+                       solver_options={"rtol": params.rtol,
+                                       "atol": params.atol})
+    if params.integrator is Integrator.ONEBD_BUG:
+        init_state = generate_zero_state(params.system_size,
+                                        params.structure,
+                                        node_prefix=STANDARD_NODE_PREFIX,
+                                        bond_dim=1,
+                                        topology=top
+                                        )
         cnfg = BUGConfig(max_bond_dim=params.max_bond_dim,
                          rel_tol=params.rel_tol,
                          total_tol=params.total_tol,

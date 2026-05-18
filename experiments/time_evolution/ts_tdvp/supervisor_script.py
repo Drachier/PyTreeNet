@@ -29,7 +29,10 @@ def generate_parameter_set() -> list[SimParams2TDVP]:
     # Tolerance values to test
     rel_tols = [10**(-i) for i in range(9, 11)]
     total_tols = [10**(-i) for i in range(9, 11)]
-    integrators = [Integrator.TWO_SITE_TDVP, Integrator.FO_TWO_SITE_TDVP, Integrator.BUG]
+    integrators = [Integrator.TWO_SITE_TDVP,
+                   Integrator.FO_TWO_SITE_TDVP,
+                   Integrator.BUG,
+                   Integrator.ONEBD_BUG]
 
     ext_magn = 0.5
     
@@ -74,22 +77,6 @@ def generate_parameter_set() -> list[SimParams2TDVP]:
                 total_tol=total_tol,
                 integrator=integrator,
                 ext_magn=ext_magn
-            ))
-
-    # Parameters for varying time step size
-    time_steps = [10**(-1*i) for i in range(1, 10)]
-    for integrator, (structure, sys_size, _, max_bd, _) in product(integrators,
-                                                                    structure_configs):
-        for time_step in time_steps:
-            param_set.append(SimParams2TDVP(
-                system_size=sys_size,
-                structure=structure,
-                max_bond_dim=max_bd,
-                rel_tol=1e-10,
-                total_tol=1e-10,
-                integrator=integrator,
-                ext_magn=ext_magn,
-                time_step_size=time_step
             ))
     return param_set
 
