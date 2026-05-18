@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from .ttn_time_evolution import TTNOBasedTimeEvolution
 from ..operators.tensorproduct import TensorProduct
-from ..core.truncation.recursive_truncation import recursive_truncation
+from ..core.truncation.svd_truncation import svd_truncation
 from ..ttns.ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TreeTensorNetworkOperator
 from ..util.tensor_splitting import SVDParameters
@@ -86,8 +86,9 @@ class BUG(TTNOBasedTimeEvolution):
         Truncates the tree after the time evolution.
 
         """
-        recursive_truncation(self.state,
-                             self.config)
+        svd_truncation(self.state,
+                        self.config)
+        self.state.move_orthogonalization_center(self.state.root_id)
 
     def recursive_update(self):
         """
