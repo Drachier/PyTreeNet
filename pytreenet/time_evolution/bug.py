@@ -7,7 +7,7 @@ from ..operators.tensorproduct import TensorProduct
 from ..core.truncation.svd_truncation import svd_truncation
 from ..ttns.ttns import TreeTensorNetworkState
 from ..ttno.ttno_class import TreeTensorNetworkOperator
-from ..util.tensor_splitting import SVDParameters
+from ..util.tensor_splitting import SVDParameters, SplitMode
 
 from .time_evo_util.common_bug import root_update, CommonBUGConfig
 
@@ -78,7 +78,7 @@ class BUG(TTNOBasedTimeEvolution):
                          solver_options=solver_options)
         self.hamiltonian = hamiltonian
         self.state : TreeTensorNetworkState
-        self.state.ensure_root_orth_center()
+        self.state.ensure_root_orth_center(mode=SplitMode.KEEP)
         self.config: BUGConfig
 
     def truncation(self):
@@ -88,7 +88,8 @@ class BUG(TTNOBasedTimeEvolution):
         """
         svd_truncation(self.state,
                         self.config)
-        self.state.move_orthogonalization_center(self.state.root_id)
+        self.state.move_orthogonalization_center(self.state.root_id,
+                                                 mode=SplitMode.KEEP)
 
     def recursive_update(self):
         """
