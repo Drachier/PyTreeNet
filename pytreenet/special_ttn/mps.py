@@ -53,7 +53,7 @@ class MatrixProductTree(TreeTensorNetwork):
     @classmethod
     def from_tensor_list(cls, tensor_list: List[np.ndarray],
                          node_prefix: str | list[str] = "site",
-                         root_site: int = 0) -> Any:
+                         root_site: int = 0) -> Self:
         """
         Generates a MatrixProductTree from a list of tensors.
         
