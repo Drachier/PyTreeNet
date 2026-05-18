@@ -234,6 +234,19 @@ class MetadataFilter(UserDict):
                     return False
         return True
 
+    @property
+    def md_dict(self) -> dict[str, Any]:
+        """
+        The metadata dictionary loaded from the metadata file.
+
+        Returns:
+            dict[str, Any]: The metadata dictionary.
+        """
+        if not self._md_dict:
+            errstr = "Metadata dictionary is not loaded! Please load a metadata file first!"
+            raise ValueError(errstr)
+        return self._md_dict
+
     def _load_metadata_file(self,
                           directory: str,
                           metadatafile_name: str = METADATAFILE_STANDARD_NAME
