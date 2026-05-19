@@ -462,7 +462,7 @@ class Hamiltonian():
         return len(dup) > 0
 
     def include_identities(self,
-                           dims: Union[int,list[int]|None] = None,
+                           dims: Union[int,list[int]|TreeTensorNetwork|None] = None,
                            ident_creation: Callable = lambda d: eye(d,dtype=complex)):
         """
         Adds the given dimensional identities to the conversion dictionary.
@@ -476,12 +476,19 @@ class Hamiltonian():
                 identity. Defaults to numpy's eye function.
         """
         if dims is None:
-            dims = set()
+            dims_set = set()
             for operator in self.conversion_dictionary.values():
                 shape = operator.shape
-                dims.add(shape[0])
-            dims.add(1)
-            dims = list(dims)
+                dims_set.add(shape[0])
+            dims_set.add(1)
+            dims = list(dims_set)
+        elif isinstance(dims, TreeTensorNetwork):
+            dims_set = set()
+            for node in dims.nodes.values():
+                dim = node.open_dimension()
+                dims_set.add(dim)
+            dims_set.add(1)
+            dims = list(dims_set)
         if isinstance(dims,int):
             self.conversion_dictionary[f"I{dims}"] = ident_creation(dims)
         elif isinstance(dims,list):

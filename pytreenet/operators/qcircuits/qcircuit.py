@@ -284,7 +284,7 @@ class QCLevel(AbstractLevel):
         ham = Hamiltonian()
         for gate in self.gates:
             ham = ham.otimes(gate.as_sum_of_products())
-        ham.include_identities()
+        ham.include_identities(ref_tree)
         return TreeTensorNetworkOperator.from_hamiltonian(ham,
                                                           ref_tree,
                                                           method=method)
