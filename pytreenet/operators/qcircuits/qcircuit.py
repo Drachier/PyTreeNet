@@ -1180,7 +1180,11 @@ class CompiledQuantumCircuit(AbstractQCircuit):
         if level is None:
             level = Hamiltonian()
         self.levels.append(level)
-        self.qubit_ids.update(level.node_ids)
+        if isinstance(level, Measurement):
+            node_ids = set(level.node_ids)
+        else:
+            node_ids = level.node_ids()
+        self.qubit_ids.update(node_ids)
 
     def add_hamiltonian(self,
                         hamiltonian: Hamiltonian,
