@@ -188,6 +188,18 @@ class QubitIDContainerShor(QubitIDContainer):
         for log_index in range(self.logical_parts):
             out.extend(self.logical_qubits_of_part(main_index, log_index))
         return out
+    
+    def all_but_measurement_qubits(self) -> list[str]:
+        """
+        Return the IDs of all qubits except for the measurement qubits.
+
+        Returns:
+            list[str]: The IDs of all qubits except for the measurement qubits.
+        """
+        out = []
+        for main_index in range(self.num_log_qubits):
+            out.extend(self.all_but_measurement_qubits_of_part(main_index))
+        return out
 
     def measurement_qubits(self,
                           main_index: int
