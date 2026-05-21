@@ -52,9 +52,11 @@ class SimulationParameters:
             File: The HDF5 file with the saved parameters.
         """
         for name, value in self.__dict__.items():
+            print(name, value)
             if isinstance(value, Enum):
                 value = value.value
-            file.attrs[name] = value
+            if value is not None:
+                file.attrs[name] = value
         return file
 
     @classmethod
