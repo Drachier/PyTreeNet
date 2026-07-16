@@ -96,6 +96,18 @@ class Magnus(TTNTimeEvolution):
         # These are time-independent and can be computed once at the beginning
         self._magnus_expansion_ops = self._magnus_expansion_operators()
 
+    def _integration_limits(self) -> tuple[float, float]:
+        """
+        Compute the integration limits for the current time step.
+
+        Returns:
+            tuple[float, float]: A tuple containing the lower and upper limits
+                of integration for the current time step.
+        """
+        lower_limit = self._current_time_step * self.time_step_size
+        upper_limit = lower_limit + self.time_step_size
+        return lower_limit, upper_limit
+
     def _compute_control_function_integrals(self) -> list[complex]:
         """
         Compute the integrals of the control function needed for the Magnus expansion.
@@ -106,8 +118,7 @@ class Magnus(TTNTimeEvolution):
         Returns:
             list[complex]: A list of the computed integrals of the control function. 
         """ 
-        lower_limit = self._current_time_step * self.time_step_size
-        upper_limit = lower_limit + self.time_step_size
+        lower_limit, upper_limit = self._integration_limits()
         integrals = []
         # The 0th order integral is just proportional to the time step size
         integrals.append(-1j*self.time_step_size)
