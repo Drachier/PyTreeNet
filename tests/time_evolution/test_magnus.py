@@ -136,5 +136,80 @@ class TestMagnus(unittest.TestCase):
         print(np.linalg.norm(reference_state))
         npt.assert_allclose(magnus_state, reference_state)
 
+class TestChebyshevMagnus(unittest.TestCase):
+    """
+    Tests the helper class ChebyshevMagnus, which is used to compute the
+    Chebyshev expansion of the Magnus expansion.
+    """
+
+    def test_invalid_init(self):
+        """
+        An invalid initialization of the ChebyshevMagnus class should raise a
+        ValueError.
+        """
+        self.assertRaises(ValueError, ChebyshevMagnus, order=-1, prefactors=[1.0])
+        self.assertRaises(ValueError, ChebyshevMagnus, order=0, prefactors=[])
+
+    def test_0th_order(self):
+        """
+        Test the zeroth order Chebyshev expansion of the Magnus expansion.
+        """
+        correct = ChebyshevMagnus(order=0, prefactors=[1.0])
+        found = ChebyshevMagnus.zeroth_order()
+        self.assertEqual(correct, found)
+
+    def test_1st_order(self):
+        """
+        Test the first order Chebyshev expansion of the Magnus expansion.
+        """
+        correct = ChebyshevMagnus(order=1, prefactors=[0.0, 1.0])
+        found = ChebyshevMagnus.first_order()
+        self.assertEqual(correct, found)
+
+    def test_next_order_2nd(self):
+        """
+        Test the second order Chebyshev expansion of the Magnus expansion.
+        """
+        zeroth_order = ChebyshevMagnus.zeroth_order()
+        first_order = ChebyshevMagnus.first_order()
+        correct = ChebyshevMagnus(order=2, prefactors=[1.0, 0.0, 2.0])
+        found = ChebyshevMagnus.next_order(first_order, zeroth_order)
+        self.assertEqual(correct, found)
+
+    def test_next_order_3rd(self):
+        """
+        Test the third order Chebyshev expansion of the Magnus expansion.
+        """
+        zeroth_order = ChebyshevMagnus.zeroth_order()
+        first_order = ChebyshevMagnus.first_order()
+        second_order = ChebyshevMagnus.next_order(first_order, zeroth_order)
+        correct = ChebyshevMagnus(order=3, prefactors=[0.0, 3.0, 0.0, 4.0])
+        found = ChebyshevMagnus.next_order(second_order, first_order)
+        self.assertEqual(correct, found)
+
+    def test_next_order_4th(self):
+        """
+        Test the fourth order Chebyshev expansion of the Magnus expansion.
+        """
+        zeroth_order = ChebyshevMagnus.zeroth_order()
+        first_order = ChebyshevMagnus.first_order()
+        second_order = ChebyshevMagnus.next_order(first_order, zeroth_order)
+        third_order = ChebyshevMagnus.next_order(second_order, first_order)
+        correct = ChebyshevMagnus(order=4, prefactors=[1.0, 0.0, 8.0, 0.0, 8.0])
+        found = ChebyshevMagnus.next_order(third_order, second_order)
+        self.assertEqual(correct, found)
+
+    def test_next_order_non_follow(self):
+        """
+        Test the next order Chebyshev expansion of the Magnus expansion
+        with non-following orders.
+        """
+        zeroth_order = ChebyshevMagnus.zeroth_order()
+        first_order = ChebyshevMagnus.first_order()
+        second_order = ChebyshevMagnus.next_order(first_order, zeroth_order)
+        self.assertRaises(ValueError,
+                          ChebyshevMagnus.next_order,
+                          second_order, zeroth_order)
+
 if __name__ == "__main__":
     unittest.main()

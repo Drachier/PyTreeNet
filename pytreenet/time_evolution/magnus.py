@@ -341,8 +341,18 @@ class ChebyshevMagnus:
             errstr = f"The number of prefactors must be equal to the order + 1!\n"
             errstr += "Got {len(prefactors)} prefactors for order {order}."
             raise ValueError(errstr)
+        if order < 0:
+            errstr = f"The order of the Chebyshev expansion must be non-negative!\n"
+            errstr += f"Got order {order}."
+            raise ValueError(errstr)
         self.order = order
         self.prefactors = prefactors
+
+    def __eq__(self, other: object) -> bool:
+        if self.order != other.order:
+            return False
+        prefactors_eq = np.allclose(self.prefactors, other.prefactors)
+        return prefactors_eq
 
     @classmethod
     def zeroth_order(cls):
