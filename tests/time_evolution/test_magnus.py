@@ -10,7 +10,11 @@ import numpy.testing as npt
 
 from pytreenet.time_evolution.magnus import (Magnus,
                                              ChebyshevMagnus,
-                                             MagnusConfig)
+                                             MagnusConfig,
+                                             _magnus_integrand_order1,
+                                             _magnus_integrand_order2,
+                                             _magnus_integrand_order3_1,
+                                             _magnus_integrand_order3_2)
 from pytreenet.special_ttn.mps import MatrixProductState
 from pytreenet.operators.models.two_site_model import IsingModel
 from pytreenet.ttno.ttno_class import TTNO
@@ -210,6 +214,64 @@ class TestChebyshevMagnus(unittest.TestCase):
         self.assertRaises(ValueError,
                           ChebyshevMagnus.next_order,
                           second_order, zeroth_order)
+        
+class TestMagnusIntegrandOrderFunctions(unittest.TestCase):
+    """
+    Tests the functions that compute the order of the Magnus integrand.
+    """
+
+    def setUp(self):
+        self.cf1 = lambda t: t
+        self.cf2 = lambda t: t**2+3
+        self.cf3 = lambda t: np.sin(t)
+        self.cfs = [self.cf1, self.cf2, self.cf3]
+
+    def test_order1(self):
+        """
+        Test the first order Magnus integrand function.
+        """
+        for cf in self.cfs:
+            vals = np.arange(0, 10, 0.1)
+            found_vals = [_magnus_integrand_order1(v, cf) for v in vals]
+            correct_vals = np.array([cf(v) for v in vals])
+            npt.assert_array_almost_equal(correct_vals, found_vals)
+
+    def test_order2(self):
+        """
+        Test the second order Magnus integrand function.
+        """
+        for cf in self.cfs:
+            vals = np.arange(0, 10, 0.1)
+            found_vals = [_magnus_integrand_order2(v1, v2, cf)
+                          for v1, v2 in zip(vals, vals)]
+            correct_vals = np.array([cf(v1) - cf(v2)
+                                     for v1, v2 in zip(vals, vals)])
+            npt.assert_array_almost_equal(correct_vals, found_vals)
+
+    def test_order3_1(self):
+        """
+        Test the third order Magnus integrand function (first variant).
+        """
+        for cf in self.cfs:
+            vals = np.arange(0, 10, 0.1)
+            found_vals = [_magnus_integrand_order3_1(v1, v2, v3, cf)
+                          for v1, v2, v3 in zip(vals, vals, vals)]
+            correct_vals = np.array([cf(v1) - 2*cf(v2) + cf(v3)
+                                     for v1, v2, v3 in zip(vals, vals, vals)])
+            npt.assert_array_almost_equal(correct_vals, found_vals)
+
+    def test_order3_2(self):
+        """
+        Test the third order Magnus integrand function (second variant).
+        """
+        for cf in self.cfs:
+            vals = np.arange(0, 10, 0.1)
+            found_vals = [_magnus_integrand_order3_2(v1, v2, v3, cf)
+                          for v1, v2, v3 in zip(vals, vals, vals)]
+            correct_vals = np.array([2*cf(v1)*cf(v3) - cf(v1)*cf(v2) - cf(v2)*cf(v3)
+                                     for v1, v2, v3 in zip(vals, vals, vals)])
+            npt.assert_array_almost_equal(correct_vals, found_vals)
+
 
 if __name__ == "__main__":
     unittest.main()
