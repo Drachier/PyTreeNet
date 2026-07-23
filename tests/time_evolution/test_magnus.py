@@ -234,11 +234,24 @@ class TestControlFunctionIntegrals(unittest.TestCase):
         """
         Test the third order integral of the control function (first variant).
         """
+        x = self.time_step_size
         correct_integrals = [0,
-                             1j / 240 * self.time_step_size**5]
+                             1j / 240 * x**5]
         for magnus, correct_integral in zip(self.magnusses[0:2], correct_integrals[0:2]):
             integral = magnus._compute_control_function_integrals()
             self.assertAlmostEqual(integral[3], correct_integral)
+
+    def test_3_2_integral(self):
+        """
+        Test the third order integral of the control function (second variant).
+        """
+        x = self.time_step_size
+        correct_integrals = [1j / 6 * (-1 / 40 * x**5),
+                             1j / 6 * (-5 / (36 *7) * x**7 + 1 / 20 * x**5)]
+        for magnus, correct_integral in zip(self.magnusses[0:2], correct_integrals[0:2]):
+            print(f"Testing control function: {magnus.control_function}")
+            integral = magnus._compute_control_function_integrals()
+            self.assertAlmostEqual(integral[4], correct_integral)
 
 class TestChebyshevMagnus(unittest.TestCase):
     """
