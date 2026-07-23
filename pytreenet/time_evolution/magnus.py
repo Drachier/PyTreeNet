@@ -191,38 +191,30 @@ class Magnus(TTNTimeEvolution):
                 where each term is represented as a list of TTNOs to be multiplied
                 together.
         """
-        out = []
+        # Prep for readability
+        ti = "ti"
+        td = "td"
+        hams = {ti: self.time_independent_hamiltonian,
+                td: self.time_dependent_hamiltonian}
+        temp = []
         # First order
-        out.append([self.time_independent_hamiltonian])
-        out.append([self.time_dependent_hamiltonian])
+        temp.append([ti])
+        temp.append([td])
         # Second order
         if self.config.m_order >= 2:
-            out.append([self.time_dependent_hamiltonian,
-                        self.time_independent_hamiltonian])
-            out.append([self.time_independent_hamiltonian,
-                        self.time_dependent_hamiltonian])
+            temp.append([td, ti])
+            temp.append([ti, td])
         # Third order
         if self.config.m_order >= 3:
-            out.append([self.time_dependent_hamiltonian,
-                        self.time_independent_hamiltonian,
-                        self.time_independent_hamiltonian])
-            out.append([self.time_independent_hamiltonian,
-                        self.time_dependent_hamiltonian,
-                        self.time_independent_hamiltonian])
-            out.append([self.time_independent_hamiltonian,
-                        self.time_independent_hamiltonian,
-                        self.time_dependent_hamiltonian])
-            out.append([self.time_dependent_hamiltonian,
-                        self.time_independent_hamiltonian,
-                        self.time_dependent_hamiltonian])
-            out.append([self.time_dependent_hamiltonian,
-                        self.time_dependent_hamiltonian,
-                        self.time_independent_hamiltonian])
-            out.append([self.time_independent_hamiltonian,
-                        self.time_dependent_hamiltonian,
-                        self.time_dependent_hamiltonian])
+            temp.append([td, ti, ti])
+            temp.append([ti, td, ti])
+            temp.append([ti, ti, td])
+            temp.append([td, ti, td])
+            temp.append([td, td, ti])
+            temp.append([ti, td, td])
+        out = [[hams[op] for op in term] for term in temp]
         return out
-    
+
     def _magnus_expansion_coefficients(self,
                                        integrals: list[complex]
                                        ) -> list[complex]:
