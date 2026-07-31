@@ -176,7 +176,7 @@ def fast_exp_action(exponent: np.ndarray,
     errstr = mode + " is not a possible mode for exponent action!"
     raise NotImplementedError(errstr)
 
-def postivise_range(rng: range, size: int) -> range:
+def positivise_range(rng: range, size: int) -> range:
     """
     Postivise a range object. i.e. convert negative indices to
     positive indices with respect to the given size.
