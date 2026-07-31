@@ -127,7 +127,7 @@ def int_to_slice(index: int) -> slice:
         index (int): The index to convert.
 
     Returns:
-        slice: The slice object.
+        slice: The slice object running over the one number.
     """
     return slice(index, index+1)
 
