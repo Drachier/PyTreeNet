@@ -5,14 +5,17 @@ from typing import Callable, List, Union, Tuple
 from .als import AlternatingLeastSquares
 from .variational_fitting import VariationalFitting
 
-from ..util.misc_functions import linear_combination, add, orthogonalise_gram_schmidt, orthogonalise_to, scale
+from ..core.addition.orthogonalisation import (linear_combination,
+                                                               orthogonalise_gram_schmidt,
+                                                               orthogonalise_to)
 from ..util.tensor_splitting import SVDParameters
 
 from ..ttns.ttns_ttno.zipup import zipup 
 from ..contractions.state_operator_contraction import get_matrix_element
 from ..ttno.ttno_class import TTNO
 from ..ttns import TreeTensorNetworkState
-from ..operators.hamiltonian import Hamiltonian
+from ..core.addition.addition import (AdditionMethod,
+                                      add_two_ttns)
 
 def precond_lobpcg(shifted_ttno: TTNO, state: TreeTensorNetworkState, svd_params: SVDParameters, num_sweeps: int=2, max_iter: int=10) -> TreeTensorNetworkState:
     als = AlternatingLeastSquares(shifted_ttno, state_x = deepcopy(state), state_b = deepcopy(state), num_sweeps=num_sweeps, max_iter=max_iter, svd_params=svd_params, site='one-site', residual_rank=0)
@@ -35,7 +38,7 @@ def lobpcg_single(ttno:TTNO, state_x: TreeTensorNetworkState,precond_func: Calla
         varfit = VariationalFitting([ttno], [deepcopy(state_x)], state_new.conjugate(), num_sweeps, 100, svd_params, "one-site", [1.])
         varfit.run()
         state_r = varfit.y.conjugate()
-        state_r = add(state_x, state_r, -rayleigh, 1.)
+        state_r = _add(state_x, state_r, -rayleigh, 1.)
         state_r.canonical_form(state_r.root_id)
         # num_r = state_r.completely_contract_tree(True)[0].flatten()
         state_r = precond_func(state_r, svd_params)
@@ -66,7 +69,7 @@ def lobpcg_single(ttno:TTNO, state_x: TreeTensorNetworkState,precond_func: Calla
         state_x = linear_combination(xrp_list, ev[:,0].tolist(), int(svd_params.max_bond_dim), num_sweeps = num_sweeps)
         # print("state_x",state_x.bond_dims().values())
         if state_p is None:
-            state_p = scale(state_r, ev[1,0])
+            state_p = _scale(state_r, ev[1,0])
         else:
             state_p = linear_combination([state_r, state_p], [ev[1,0], ev[2,0]], svd_params.max_bond_dim, num_sweeps = num_sweeps)
         # xrp_list.append(state_p)
@@ -90,7 +93,7 @@ def lobpcg_block(ttno:TTNO, state_x_list: List[TreeTensorNetworkState],precond_f
             varfit = VariationalFitting([ttno], [deepcopy(state_x)], state_new.conjugate(), num_sweeps, 100, svd_params, "one-site", [1.])
             varfit.run()
             state_r = varfit.y.conjugate()
-            state_r = add(state_x, state_r, -rayleigh[ix], 1.)
+            state_r = _add(state_x, state_r, -rayleigh[ix], 1.)
             state_r.canonical_form(state_r.root_id)
             # num_r = state_r.completely_contract_tree(True)[0].flatten()
             state_r = precond_func(state_r, svd_params)
@@ -139,4 +142,46 @@ def lobpcg_block(ttno:TTNO, state_x_list: List[TreeTensorNetworkState],precond_f
         rayleigh = ew[:n_states].real 
         energies.append(rayleigh)
     return state_x_list, np.array(energies).T.tolist()
-   
+
+
+def _add(ttns1: TreeTensorNetworkState,
+       ttns2: TreeTensorNetworkState,
+       c1: Union[int, float, complex] = 1.0,
+       c2: Union[int, float, complex] = 1.0
+       ) -> TreeTensorNetworkState:
+    """
+    Adds two TreeTensorNetworkStates using the addition module.
+
+    Args:
+        ttns1 (TreeTensorNetworkState): The first TreeTensorNetworkState.
+        ttns2 (TreeTensorNetworkState): The second TreeTensorNetworkState.
+        c1 (Union[int, float, complex]): The scaling factor for the first
+            TreeTensorNetworkState.
+        c2 (Union[int, float, complex]): The scaling factor for the second
+            TreeTensorNetworkState.
+
+    Returns:
+        TreeTensorNetworkState: The resulting TreeTensorNetworkState.
+    """
+    # Scale the TTNS
+    ttns1_scaled = ttns1.scale(c1, inplace=False)
+    ttns2_scaled = ttns2.scale(c2, inplace=False)
+    
+    # Use direct addition from core.addition
+    result_ttn = add_two_ttns(
+        ttns1_scaled,
+        ttns2_scaled,
+        AdditionMethod.DIRECT
+    )
+    
+    # Convert back to TTNS
+    result = TreeTensorNetworkState.from_ttn(result_ttn)
+    result.orthogonality_center_id = None
+    
+    return result
+
+def _scale(ttns: TreeTensorNetworkState, c: Union[int, float, complex]) -> TreeTensorNetworkState:
+    """
+    Scales a TreeTensorNetworkState by a constant factor.
+    """
+    return ttns.scale(c, inplace=False)
