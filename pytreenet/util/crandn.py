@@ -66,15 +66,18 @@ def crandn(size: Union[Tuple[int,...],int],
     return (gen_func(size=size, **kwargs) +
             1j*gen_func(size=size, **kwargs)) / np.sqrt(2)
 
-def crandn_like(array: np.ndarray) -> np.ndarray:
+def crandn_like(array: np.ndarray, *args, **kwargs) -> np.ndarray:
     """
     Draw random samples from the standard complex normal (Gaussian)
       distribution with the same shape as the input array.
 
     Args:
         array (np.ndarray): The input array.
+        *args: Additional arguments for the random number generation.
+        **kwargs: Additional keyword arguments for the random number
+            generation.
 
     Returns:
         np.ndarray: The array of random complex numbers.
     """
-    return crandn(array.shape)
+    return crandn(array.shape, *args, **kwargs)
