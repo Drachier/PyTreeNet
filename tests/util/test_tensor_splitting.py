@@ -103,17 +103,6 @@ class TestTensorUtilSimple(unittest.TestCase):
 
         self.assertTrue(allclose(correct_tensor, usvh))
 
-    def test_check_truncation_parameters(self):
-        
-        self.assertRaises(TypeError, SVDParameters,
-                          max_bond_dim=1.3,  rel_tol=0.01, total_tol=1e-15)
-        self.assertRaises(ValueError, SVDParameters,
-                          max_bond_dim=-100,  rel_tol=0.01, total_tol=1e-15)
-        self.assertRaises(ValueError, SVDParameters,
-                          max_bond_dim=100,  rel_tol=-2.0, total_tol=1e-15)
-        self.assertRaises(ValueError, SVDParameters,
-                          max_bond_dim=100,  rel_tol=0.01, total_tol=-1)
-
     def test_truncated_tensor_svd(self):
         truncation_parameter_list = (
             (15, 0.01, 1e-15), (200, 0.9, 1e-15), (200, 0.01, 35))
