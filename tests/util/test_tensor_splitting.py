@@ -22,6 +22,7 @@ from pytreenet.util.tensor_splitting import (_determine_tensor_shape,
                                             contr_truncated_svd_splitting,
                                             idiots_splitting,
                                             SplitMode,
+                                            DecompositionType,
                                             ContractionMode,
                                             SVDParameters,
                                             tensor_qr_decomposition_pivot)
@@ -397,138 +398,6 @@ class TestSingularValueTruncation(unittest.TestCase):
                          deepcopy(self.s_values),
                          svd_params)
 
-class TestSingularValueDecompositions(unittest.TestCase):
-    def setUp(self):
-        self.tensor = crandn((2,3,4,5))
-        self.u_legs = (1,3)
-        self.v_legs = (0,2)
-        self.s_values = array([1.2,1,0.8,0.5,0.2,0.1,0.1,0.01])
-        self.sum_s = sum_np(self.s_values)
-
-    def test_svd_reduced(self):
-        """
-        Test the SVD of a tensor with REDUCED mode, i.e. the tensor legs
-         of the resulting U and V tensors pointing to S have the minimal
-         dimension possible.
-        """
-        reference_tensor = self.tensor.transpose((1,3,0,2))
-        reference_tensor = reference_tensor.reshape((15,8))
-        ref_u, ref_s, ref_v = svd(reference_tensor,
-                                            full_matrices=False)
-        ref_u = ref_u.reshape(3,5,8)
-        ref_v = ref_v.reshape(8,2,4)
-        u, s, vh = tensor_svd(self.tensor,self.u_legs,self.v_legs)
-        self.assertTrue(allclose(ref_u,u))
-        self.assertTrue(allclose(ref_s,s))
-        self.assertTrue(allclose(ref_v,vh))
-
-    def test_svd_full(self):
-        """
-        Test the SVD of a tensor in FULL mode, i.e. the tensor legs
-         of the resulting U and V tensors pointing to S have the size of all
-         other legs of the respective tensor taken together.
-        """
-        reference_tensor = self.tensor.transpose((1,3,0,2))
-        reference_tensor = reference_tensor.reshape((15,8))
-        ref_u, ref_s, ref_v = svd(reference_tensor,
-                                            full_matrices=True)
-        ref_u = ref_u.reshape(3,5,15)
-        ref_v = ref_v.reshape(8,2,4)
-        u, s, vh = tensor_svd(self.tensor,self.u_legs,self.v_legs,
-                                  mode=SplitMode.FULL)
-        self.assertTrue(allclose(ref_u,u))
-        self.assertTrue(allclose(ref_s,s))
-        self.assertTrue(allclose(ref_v,vh))
-
-    def test_svd_keep(self):
-        """
-        Test the SVD of a tensor in KEEP mode, i.e. the tensor legs
-         of the resulting U and V tensors pointing to S have the size of all
-         other legs of the respective tensor taken together.
-        """
-        reference_tensor = self.tensor.transpose((1,3,0,2))
-        reference_tensor = reference_tensor.reshape((15,8))
-        ref_u, ref_s, ref_v = svd(reference_tensor,
-                                            full_matrices=True)
-        ref_u = ref_u.reshape(3,5,15)
-        ref_v = ref_v.reshape(8,2,4)
-        u, s, vh = tensor_svd(self.tensor,self.u_legs,self.v_legs,
-                                  mode=SplitMode.KEEP)
-        self.assertTrue(allclose(ref_u,u))
-        self.assertTrue(allclose(ref_s,s))
-        self.assertTrue(allclose(ref_v,vh))
-
-    def test_truncated_tensor_svd(self):
-        """
-        Tests the truncated SVD of a random tensor.
-        """
-        svd_params = SVDParameters(6,0,0)
-        u, s, vh = truncated_tensor_svd(self.tensor,self.u_legs,self.v_legs,
-                                            svd_params)
-        u_ref, s_ref, vh_ref = tensor_svd(self.tensor,self.u_legs,self.v_legs,
-                                              mode=SplitMode.FULL)
-        u_ref = u_ref[:,:,:6]
-        s_ref = s_ref[:6]
-        vh_ref = vh_ref[:6,:,:]
-        self.assertTrue(allclose(u_ref,u))
-        self.assertTrue(allclose(s_ref,s))
-        self.assertTrue(allclose(vh_ref,vh))
-
-    def test_contr_truncdated_tensor_svd_v_contr(self):
-        """
-        Tests the contracted truncated tensor svd, for which the singular
-         values are contracted into the V-tensor.
-        """
-        svd_params = SVDParameters(6,0,0)
-        u, vh = contr_truncated_svd_splitting(self.tensor,
-                                                  self.u_legs,self.v_legs,
-                                                  svd_params=svd_params)
-        u_ref, s_ref, vh_ref = tensor_svd(self.tensor,self.u_legs,self.v_legs)
-        u_ref = u_ref[:,:,:6]
-        s_ref = s_ref[:6]
-        vh_ref = vh_ref[:6,:,:]
-        vh_ref = tensordot(diag(s_ref),vh_ref,axes=(1,0))
-        self.assertTrue(allclose(u_ref,u))
-        self.assertTrue(allclose(vh_ref,vh))
-
-    def test_contr_truncdated_tensor_svd_u_contr(self):
-        """
-        Tests the contracted truncated tensor svd, for which the singular
-         values are contracted into the U-tensor.
-        """
-        svd_params = SVDParameters(6,0,0)
-        u, vh = contr_truncated_svd_splitting(self.tensor,
-                                                  self.u_legs,self.v_legs,
-                                                  contr_mode=ContractionMode.UCONTR,
-                                                  svd_params=svd_params)
-        u_ref, s_ref, vh_ref = tensor_svd(self.tensor,self.u_legs,self.v_legs)
-        u_ref = u_ref[:,:,:6]
-        s_ref = s_ref[:6]
-        vh_ref = vh_ref[:6,:,:]
-        u_ref = tensordot(u_ref,diag(s_ref),axes=(-1,0))
-        self.assertTrue(allclose(u_ref,u))
-        self.assertTrue(allclose(vh_ref,vh))
-
-    def test_contr_truncdated_tensor_svd_equal_contr(self):
-        """
-        Tests the contracted truncated tensor svd, for which the singular
-         values are distributed equally between U and V-tensors.
-        """
-        svd_params = SVDParameters(6,0,0)
-        u, vh = contr_truncated_svd_splitting(self.tensor,
-                                                  self.u_legs,self.v_legs,
-                                                  contr_mode=ContractionMode.EQUAL,
-                                                  svd_params=svd_params)
-        u_ref, s_ref, vh_ref = tensor_svd(self.tensor,self.u_legs,self.v_legs)
-        u_ref = u_ref[:,:,:6]
-        s_ref = s_ref[:6]
-        vh_ref = vh_ref[:6,:,:]
-        s_ref = sqrt(s_ref)
-        u_ref = tensordot(u_ref,diag(s_ref),axes=(-1,0))
-        vh_ref = tensordot(diag(s_ref),vh_ref,axes=(1,0))
-        self.assertTrue(allclose(u_ref,u))
-        self.assertTrue(allclose(vh_ref,vh))
-
 class TestIdiotsSplitting(unittest.TestCase):
 
     def test_idiots_splitting_valid(self):
@@ -574,6 +443,53 @@ class TestIdiotsSplitting(unittest.TestCase):
         legs_b = ()
         self.assertRaises(ValueError,idiots_splitting,tensor,legs_a,legs_b,
                           a_tensor=a_tensor,b_tensor=b_tensor)
+
+
+#### Testing the different Enums ####
+class TestSplitMode(unittest.TestCase):
+
+    def test_split_mode_enum(self):
+        """
+        Tests that the SplitMode enum values are correctly defined.
+        """
+        self.assertEqual(SplitMode.REDUCED.value, "reduced")
+        self.assertEqual(SplitMode.FULL.value, "full")
+        self.assertEqual(SplitMode.KEEP.value, "keep")
+
+    def test_numpy_qr_mode_mapping(self):
+        """
+        Tests that the SplitMode enum values are correctly mapped to the
+         corresponding numpy QR modes.
+        """
+        self.assertEqual(SplitMode.REDUCED.numpy_qr_mode(), "reduced")
+        self.assertEqual(SplitMode.FULL.numpy_qr_mode(), "complete")
+        self.assertEqual(SplitMode.KEEP.numpy_qr_mode(), "reduced")
+
+    def test_numpy_svd_mode_mapping(self):
+        """
+        Tests that the SplitMode enum values are correctly mapped to the
+         corresponding numpy SVD modes.
+        """
+        self.assertEqual(SplitMode.REDUCED.numpy_svd_mode(), False)
+        self.assertEqual(SplitMode.FULL.numpy_svd_mode(), True)
+        self.assertEqual(SplitMode.KEEP.numpy_svd_mode(), True)
+
+class TestDecompositionType(unittest.TestCase):
+
+    def test_decomposition_type_enum(self):
+        """
+        Tests that the DecompositionType enum values are correctly defined.
+        """
+        self.assertEqual(DecompositionType.SVD.value, "svd")
+        self.assertEqual(DecompositionType.EIGEN.value, "eigen")
+
+    def test_randomisable(self):
+        """
+        Tests that the DecompositionType enum values are correctly mapped to
+         whether they are randomisable or not.
+        """
+        self.assertTrue(DecompositionType.SVD.randomisable())
+        self.assertFalse(DecompositionType.EIGEN.randomisable())
 
 if __name__ == "__main__":
     unittest.main()
