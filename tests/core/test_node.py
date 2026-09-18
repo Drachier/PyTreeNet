@@ -1,9 +1,11 @@
 import unittest
-
 from copy import deepcopy
 
+import numpy.testing as npt
+
 from pytreenet.core.node import Node, LegKind
-from pytreenet.util.ttn_exceptions import NotCompatibleException
+from pytreenet.util.ttn_exceptions import (NotCompatibleException,
+                                           NoConnectionException)
 from pytreenet.random import crandn, random_tensor_node
 
 class TestNodeInit(unittest.TestCase):
@@ -96,6 +98,58 @@ class TestNodeMethods(unittest.TestCase):
         node2.add_children(children_ids)
         self.nodes["root2c0"] = node0
         self.nodes["root2c2"] = node2
+
+    def test_parent_leg_property(self):
+        """
+        Tests the parent_leg property for nodes with and without parents.
+        """
+        # Node with a parent
+        node_with_parent = self.nodes["node1p1c0"]
+        self.assertEqual(node_with_parent.parent_leg, 0)
+
+        # Node without a parent
+        node_without_parent = self.nodes["root1c0"]
+        self.assertIsNone(node_without_parent.parent_leg)
+
+    def test_children_legs_property(self):
+        """
+        Tests the children_legs property for nodes with and without children.
+        """
+        correct = [[], [], [], [], [1], [1], [1, 2], [1, 2], [0], [0], [0, 1], [0, 1]]
+        for indx, ids in enumerate(self.ids):
+            node = self.nodes[ids]
+            self.assertEqual(correct[indx], node.children_legs)
+
+    def test_lowest_open_leg(self):
+        """
+        Tests the lowest_open_leg method for nodes with and without open legs.
+        """
+        correct = [None,0,None,1,None,2,None,3,None,1,None,2]
+        for indx, ids in enumerate(self.ids):
+            node = self.nodes[ids]
+            corr_val = correct[indx]
+            if corr_val is None:
+                self.assertRaises(ValueError, node.lowest_open_leg)
+            else:
+                self.assertEqual(corr_val, node.lowest_open_leg())
+
+    def test_link_tensor(self):
+        """
+        Test linking a tensor to a new Node.
+        """
+        node = Node(identifier="node")
+        tensor = crandn((2, 3, 4))
+        node.link_tensor(tensor)
+        self.assertEqual((2, 3, 4), node.shape)
+
+    def test_link_tensor_already_linked(self):
+        """
+        Test linking a tensor to a Node that is already linked to a tensor.
+        """
+        node = Node(crandn((2, 3)), identifier="node")
+        tensor = crandn((2, 3, 4))
+        self.assertRaises(NotCompatibleException,
+                          node.link_tensor, tensor)
 
     def test_open_leg_to_parent_no_open_leg(self):
         # Have no parent but no open leg
@@ -303,6 +357,35 @@ class TestNodeMethods(unittest.TestCase):
         self.assertEqual(children_ids, node.children)
         self.assertEqual((3,5,2,6,4),node.shape)
 
+    def test_open_legs_to_children_invalidopenlegs(self):
+        """
+        Test the case, when a leg is to be connected, that is not open.
+        """
+        tensor = crandn((2,3,4,5,6))
+
+        # Some open legs, but none of them is the one to be connected
+        node = Node(tensor=tensor, identifier="node")
+        node.open_leg_to_parent("Vader", 0)
+        node.open_leg_to_child("child", 1)
+        child_dict = {"id1":0, "id2":1}
+        self.assertRaises(NotCompatibleException,
+                            node.open_legs_to_children, child_dict)
+
+        # Some open legs, but some of the legs to be connected are not open
+        child_dict = {"id1":1, "id2":2}
+        self.assertRaises(NotCompatibleException,
+                            node.open_legs_to_children, child_dict)
+
+        # Open legs going beyond the tensor shape
+        child_dict = {"id1":3, "id2":4, "id3": 7}
+        self.assertRaises(IndexError,
+                            node.open_legs_to_children, child_dict)
+
+        # Negative open leg
+        child_dict = {"id1":3, "id2":4, "id3": -1}
+        self.assertRaises(IndexError,
+                            node.open_legs_to_children, child_dict)
+
     def test_parent_leg_to_open_leg(self):
         # Have a parent leg
         id_list = ["leaf0", "leaf2", "node1p1c0", "node1p1c2",
@@ -368,12 +451,41 @@ class TestNodeMethods(unittest.TestCase):
             self.assertEqual(value[ids]+1, node.leg_permutation[new_position[ids]+1])
             self.assertEqual(shape[ids],node.shape)
 
+    def test_transpose_tensor(self):
+        """
+        Test transposing a tensor of according to the permutation of a node.
+        """
+        node, tensor = random_tensor_node((2, 3, 4, 5), identifier="node")
+        ref_tensor = deepcopy(tensor)
+        # Could do this properly, but this is easier
+        node._leg_permutation = [3, 0, 2, 1]
+        transposed_tensor = node.transpose_tensor(tensor)
+        ref_tensor = ref_tensor.transpose(3, 0, 2, 1)
+        npt.assert_allclose(transposed_tensor, ref_tensor)
+
+    def test_tranpose_tensor_unlinkednode(self):
+        """
+        Test transposing a tensor of according to the permutation of a node that
+        is not linked to a tensor.
+        """
+        node = Node(identifier="node")
+        tensor = crandn((2, 3, 4, 5))
+        self.assertRaises(NotCompatibleException,
+                          node.transpose_tensor, tensor)
+
     def test_nlegs(self):
         correct_numbers = [0, 2, 1, 3, 2, 4, 3, 5, 1, 3, 2, 4]
         correct_numbers = dict(zip(self.ids, correct_numbers))
 
         for ids, node in self.nodes.items():
             self.assertEqual(correct_numbers[ids], node.nlegs())
+
+    def test_nlegs_unlinked(self):
+        """
+        Tests the nlegs method for an unlinked node, which should return 0.
+        """
+        node = Node(identifier="unlinked_node")
+        self.assertEqual(0, node.nlegs())
 
     def test_nchild_legs(self):
         correct_numbers = [0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 2, 2]
@@ -437,6 +549,58 @@ class TestNodeMethods(unittest.TestCase):
             node.swap_two_child_legs("child_id", "child2")
             self.assertEqual(leg_values[ids][0], node.leg_permutation[leg_values[ids][1]])
             self.assertEqual(leg_values[ids][1], node.leg_permutation[leg_values[ids][0]])
+            self.assertEqual(["child2", "child_id"], node.children)
+
+    def test_swap_two_child_legs_notexistingchild(self):
+        """
+        Tests the method that swaps two child legs, but one of the children
+        does not exist.
+        """
+        node = self.nodes["node1p2c0"]
+        self.assertRaises(ValueError, node.swap_two_child_legs,
+                          "child_id", "nonexisting_child")
+        self.assertRaises(ValueError, node.swap_two_child_legs,
+                          "nonexisting_child", "child2")
+
+    def test_swap_two_child_legs_samechild(self):
+        """
+        Tests the method that swaps two child legs, but both children are the
+        same. Then nothing should happen.
+        """
+        node = self.nodes["node1p2c0"]
+        ref = deepcopy(node)
+        node.swap_two_child_legs("child_id", "child_id")
+        self.assertEqual(["child_id", "child2"], node.children)
+        self.assertEqual(ref, node)
+
+    def test_swap_with_first_child(self):
+        """
+        Tests the method that swaps the second child leg with the first child leg.
+        """
+        # Have two children
+        id_list = ["node1p2c0", "node1p2c2", "root2c0", "root2c2"]
+        leg_value1 = [self.nodes[ids].neighbour_index("child_id")
+                      for ids in id_list]
+        leg_value2 = [self.nodes[ids].neighbour_index("child2")
+                      for ids in id_list]
+        leg_values = zip(leg_value1, leg_value2)
+        leg_values = dict(zip(id_list, leg_values))
+
+        for ids in id_list:
+            node = self.nodes[ids]
+            node.swap_with_first_child("child2")
+            self.assertEqual(leg_values[ids][0], node.leg_permutation[leg_values[ids][1]])
+            self.assertEqual(leg_values[ids][1], node.leg_permutation[leg_values[ids][0]])
+            self.assertEqual(["child2", "child_id"], node.children)
+
+    def test_swap_with_first_child_notexistingchild(self):
+        """
+        Tests the method that swaps the second child leg with the first child leg,
+        but the child does not exist.
+        """
+        node = self.nodes["node1p2c0"]
+        self.assertRaises(ValueError, node.swap_with_first_child,
+                          "nonexisting_child")
 
     def test_open_dimension(self):
         open_dimensions = [1,6,1,12,1,20,1,30,1,12,1,20]
@@ -445,7 +609,80 @@ class TestNodeMethods(unittest.TestCase):
             self.assertEqual(open_dimensions[ids],
                              self.nodes[ids].open_dimension())
 
+    def test_parent_leg_dim(self):
+        """
+        Test the whether the method correctly returns the dimension of the
+        parent leg for nodes with and without parents.
+        """
+        parent_dimensions = [None,None,2,2,2,2,2,2,None,None,None,None]
+        parent_dimensions = dict(zip(self.ids, parent_dimensions))
+        for ids in self.ids:
+            if parent_dimensions[ids] is None:
+                self.assertRaises(NotCompatibleException,
+                                  self.nodes[ids].parent_leg_dim)
+            else:
+                self.assertEqual(parent_dimensions[ids],
+                                 self.nodes[ids].parent_leg_dim())
+
+    def test_neighbour_dim_parentandchildren(self):
+        """
+        Tests wether the dimensions of the leg to a neighbour are correctly
+        returned for nodes with parents and children.
+        """
+        node = self.nodes["node1p2c2"]
+        self.assertEqual(2, node.neighbour_dim("parent_id"))
+        self.assertEqual(3, node.neighbour_dim("child_id"))
+        self.assertEqual(4, node.neighbour_dim("child2"))
+
+    def test_neighbour_dim_onlychildren(self):
+        """
+        Tests wether the dimensions of the leg to a neighbour are correctly
+        returned for nodes with only children.
+        """
+        node = self.nodes["root2c2"]
+        self.assertEqual(2, node.neighbour_dim("child_id"))
+        self.assertEqual(3, node.neighbour_dim("child2"))
+
+    def test_neighbour_dim_onlyparent(self):
+        """
+        Tests wether the dimensions of the leg to a neighbour are correctly
+        returned for nodes with only a parent.
+        """
+        node = self.nodes["leaf2"]
+        self.assertEqual(2, node.neighbour_dim("parent_id"))
+
+    def test_neighbour_dim_no_neighbours(self):
+        """
+        Tests wether the dimensions of the leg to a neighbour are correctly
+        returned for nodes with no neighbours.
+        """
+        node = self.nodes["empty2"]
+        self.assertRaises(NoConnectionException, node.neighbour_dim, "parent_id")
+        self.assertRaises(NoConnectionException, node.neighbour_dim, "child_id")
+
+    def test_neighbour_dims(self):
+        """
+        Test that all neighbour dimensions are correctly returned as a list.
+        """
+        correct = [[],[],[2],[2],[2,3],[2,3],[2,3,4],[2,3,4],[2],[2],[2,3],[2,3]]
+        for indx, ids in enumerate(self.ids):
+            node = self.nodes[ids]
+            self.assertEqual(correct[indx], node.neighbour_dims())
+
+    def test_virtual_dimension(self):
+        """
+        Test that the correct full virtual dimension of a node is returned.
+        """
+        correct = [1,1,2,2,6,6,24,24,2,2,6,6]
+        for indx, ids in enumerate(self.ids):
+            node = self.nodes[ids]
+            self.assertEqual(correct[indx], node.virtual_dimension())
+
     def test_eq_to_self(self):
+        """
+        Test that every node is equal to itself and not equal to any of the
+        other nodes.
+        """
         for ids, node in self.nodes.items():
             for ids2, node2 in self.nodes.items():
                 if ids == ids2:
@@ -589,7 +826,51 @@ class TestExchangeOpenLegRanges(unittest.TestCase):
         self.assertRaises(NotCompatibleException, node.exchange_open_leg_ranges,
                           range(1,2), range(0,1))
 
-class Test_replace_tensor(unittest.TestCase):
+class TestOperatorTranspose(unittest.TestCase):
+    """
+    Test the method that transposes the open legs as if the node was an operator.
+    """
+
+    def test_trivial(self):
+        """
+        Tests the method with a tensor with only an even number of open legs.
+        """
+        node, _ = random_tensor_node((2,2,2,2), identifier="id")
+        ref = deepcopy(node)
+        node.operator_transpose()
+        # Accordingly the leg permutation should have changed
+        self.assertNotEqual(ref.leg_permutation,
+                            node.leg_permutation)
+        self.assertEqual([2,3,0,1], node.leg_permutation)
+
+    def test_with_neighbours(self):
+        """
+        Test the method for a node with parent and children.
+        """
+        node, _ = random_tensor_node((2,3,4,5,6), identifier="id")
+        node.open_leg_to_parent("parent", 0)
+        node.open_leg_to_child("child1", 1)
+        node.open_leg_to_child("child2", 2)
+        # Two open legs remaining
+        ref = deepcopy(node)
+        node.operator_transpose()
+        # Accordingly the leg permutation should have changed
+        self.assertNotEqual(ref.leg_permutation,
+                            node.leg_permutation)
+        self.assertEqual([0,1,2,4,3], node.leg_permutation)
+
+    def test_with_odd_open_legs(self):
+        """
+        Tests the method with a tensor with an odd number of open legs.
+        """
+        node, _ = random_tensor_node((2,2,2), identifier="id")
+        self.assertRaises(NotCompatibleException, node.operator_transpose)
+        node, _ = random_tensor_node((2,2,2,2,2), identifier="id")
+        node.open_leg_to_parent("parent", 0)
+        node.open_leg_to_child("child", 1)
+        self.assertRaises(NotCompatibleException, node.operator_transpose)
+
+class TestReplaceTensor(unittest.TestCase):
 
     def test_trivial(self):
         """
