@@ -91,8 +91,7 @@ class DiscreetTimeTTNO(AbstractTimeDepTTNO):
     def __init__(self,
                  ttnos: list[TreeTensorNetworkOperator],
                  dt: float = 1.0,
-                 measurements: list[Measurement] | None= None,
-                 measurement_renorm_threshold: float = 1e-13
+                 measurements: list[Measurement] | None= None
                  ) -> None:
         """
         Initializes a DiscreetTimeTTNO object.
@@ -107,9 +106,6 @@ class DiscreetTimeTTNO(AbstractTimeDepTTNO):
                 specifications. Each measurement is a dictionary with keys
                 'node_id' and 'index' specifying where to measure.
                 Default is None.
-            measurement_renorm_threshold (float): The threshold below which
-                a renormalization after measurement is not performed to avoid
-                numerical instabilities. Default is 1e-13.
         """
         super().__init__(ttno=ttnos[0])
         self.ttnos = ttnos
@@ -125,7 +121,6 @@ class DiscreetTimeTTNO(AbstractTimeDepTTNO):
                 raise ValueError("The number of measurements must match the "
                                  "number of TTNOs!")
             self.measurements = measurements
-        self.measurement_renorm_threshold = measurement_renorm_threshold
         self._ts_update = TimeStepUpdateBool.NO_UPDATE
 
     def set_ttno_to_time_step(self, time_step: int):
@@ -194,14 +189,12 @@ class DiscreetTimeTTNO(AbstractTimeDepTTNO):
         if self._ts_update is TimeStepUpdateBool.UPDATE:
             measurement = self.measurements[self.current_time_step - 1]
             if not measurement.is_empty():
-                measurement.apply(state,
-                                  renorm_threshold=self.measurement_renorm_threshold)
+                measurement.apply(state)
         if self._ts_update is TimeStepUpdateBool.AT_FINAL_MEASUREMENT:
             if len(self.measurements) > 0:
                 measurement = self.measurements[-1]
                 if not measurement.is_empty():
-                    measurement.apply(state,
-                                  renorm_threshold=self.measurement_renorm_threshold)
+                    measurement.apply(state)
 
     def reset(self):
         """

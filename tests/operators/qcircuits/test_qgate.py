@@ -37,7 +37,7 @@ class TestSingleSiteGates(unittest.TestCase):
     def setUp(self) -> None:
         self.ttns = TreeTensorNetwork()
         self.qubit_id = "q0"
-        node, tensor = random_tensor_node((2, ), identifier=self.qubit_id)
+        node, tensor = random_tensor_node((2, ), identifier=self.qubit_id, link=False)
         self.ttns.add_root(node, tensor)
 
     def test_x_gate_abstract(self):
@@ -199,9 +199,9 @@ class TestTwoQubitGates(unittest.TestCase):
     def setUp(self) -> None:
         self.ttns = TreeTensorNetwork()
         self.qubit_ids = ["q0", "q1"]
-        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[0])
+        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[0], link=False)
         self.ttns.add_root(node, tensor)
-        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[1])
+        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[1], link=False)
         self.ttns.add_child_to_parent(node, tensor, 0, self.qubit_ids[0], 0)
 
     def test_cnot_gate_abstract(self):
@@ -301,11 +301,11 @@ class TestThreeQubitGates(unittest.TestCase):
     def setUp(self) -> None:
         self.ttns = TreeTensorNetwork()
         self.qubit_ids = ["q0", "q1", "q2"]
-        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[0])
+        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[0], link=False)
         self.ttns.add_root(node, tensor)
-        node, tensor = random_tensor_node((2, 2, 2), identifier=self.qubit_ids[1])
+        node, tensor = random_tensor_node((2, 2, 2), identifier=self.qubit_ids[1], link=False)
         self.ttns.add_child_to_parent(node, tensor, 0, self.qubit_ids[0], 0)
-        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[2])
+        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[2], link=False)
         self.ttns.add_child_to_parent(node, tensor, 0, self.qubit_ids[1], 1)
 
     def test_toffoli_gate_abstract(self):
@@ -485,13 +485,13 @@ class TestFourQubitGates(unittest.TestCase):
     def setUp(self) -> None:
         self.ttns = TreeTensorNetwork()
         self.qubit_ids = ["q0", "q1", "q2", "q3"]
-        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[0])
+        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[0], link=False)
         self.ttns.add_root(node, tensor)
-        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[1])
+        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[1], link=False)
         self.ttns.add_child_to_parent(node, tensor, 0, self.qubit_ids[0], 0)
-        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[2])
+        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[2], link=False)
         self.ttns.add_child_to_parent(node, tensor, 0, self.qubit_ids[1], 1)
-        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[3])
+        node, tensor = random_tensor_node((2, 2), identifier=self.qubit_ids[3], link=False)
         self.ttns.add_child_to_parent(node, tensor, 0, self.qubit_ids[2], 1)
 
     def test_ccc_not(self):

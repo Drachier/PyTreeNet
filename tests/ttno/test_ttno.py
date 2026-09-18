@@ -35,10 +35,14 @@ class TestTTNOBasics(unittest.TestCase):
         reference_tree = ptn.TreeTensorNetwork()
         d = 2
 
-        node1, tensor1 = random_tensor_node((d, d, d), identifier="id1")
-        node2, tensor2 = random_tensor_node((d, d), identifier="id2")
-        node3, tensor3 = random_tensor_node((d, d, d), identifier="id3")
-        node4, tensor4 = random_tensor_node((d, d), identifier="id4")
+        node1, tensor1 = random_tensor_node((d, d, d), identifier="id1",
+                                            link=False)
+        node2, tensor2 = random_tensor_node((d, d), identifier="id2",
+                                            link=False)
+        node3, tensor3 = random_tensor_node((d, d, d), identifier="id3",
+                                            link=False)
+        node4, tensor4 = random_tensor_node((d, d), identifier="id4",
+                                            link=False)
 
         reference_tree.add_root(node1, tensor1)
         reference_tree.add_child_to_parent(node2, tensor2, 1, "id1", 2)
@@ -67,11 +71,16 @@ class TestTTNOBasics(unittest.TestCase):
 
     def test_from_tensorB(self):
         reference_tree = ptn.TreeTensorNetwork()
-        node1, tensor1 = random_tensor_node((2, 3, 4, 5), identifier="id1")
-        node2, tensor2 = random_tensor_node((2, 3, 4, 5), identifier="id2")
-        node3, tensor3 = random_tensor_node((2, 3, 4, 5), identifier="id3")
-        node4, tensor4 = random_tensor_node((2, 3, 4, 5), identifier="id4")
-        node5, tensor5 = random_tensor_node((2, 3, 4, 5), identifier="id5")
+        node1, tensor1 = random_tensor_node((2, 3, 4, 5), identifier="id1",
+                                            link=False)
+        node2, tensor2 = random_tensor_node((2, 3, 4, 5), identifier="id2",
+                                            link=False)
+        node3, tensor3 = random_tensor_node((2, 3, 4, 5), identifier="id3",
+                                            link=False)
+        node4, tensor4 = random_tensor_node((2, 3, 4, 5), identifier="id4",
+                                            link=False)
+        node5, tensor5 = random_tensor_node((2, 3, 4, 5), identifier="id5",
+                                            link=False)
 
         reference_tree.add_root(node1, tensor1)
         reference_tree.add_child_to_parent(node2, tensor2, 0, "id1", 0)
@@ -97,16 +106,16 @@ class TestTTNOBasics(unittest.TestCase):
 
     def test_from_tensorC(self):
         reference_tree = ptn.TreeTensorNetwork()
-        node1, tensor1 = random_tensor_node((2, 3, 4, 5), identifier="id1")
-        node2, tensor2 = random_tensor_node((2, 3, 4, 5), identifier="id2")
-        node3, tensor3 = random_tensor_node((2, 3, 4, 5), identifier="id3")
-        node4, tensor4 = random_tensor_node((2, 3, 4, 5), identifier="id4")
-        node5, tensor5 = random_tensor_node((2, 3, 4, 5), identifier="id5")
-        node6, tensor6 = random_tensor_node((2, 3, 4, 5), identifier="id6")
-        node7, tensor7 = random_tensor_node((2, 3, 4, 5), identifier="id7")
-        node8, tensor8 = random_tensor_node((2, 3, 4, 5), identifier="id8")
-        node9, tensor9 = random_tensor_node((2, 3, 4, 5), identifier="id9")
-        node10, tensor10 = random_tensor_node((2, 3, 4, 5), identifier="id10")
+        node1, tensor1 = random_tensor_node((2, 3, 4, 5), identifier="id1", link=False)
+        node2, tensor2 = random_tensor_node((2, 3, 4, 5), identifier="id2", link=False)
+        node3, tensor3 = random_tensor_node((2, 3, 4, 5), identifier="id3", link=False)
+        node4, tensor4 = random_tensor_node((2, 3, 4, 5), identifier="id4", link=False)
+        node5, tensor5 = random_tensor_node((2, 3, 4, 5), identifier="id5", link=False)
+        node6, tensor6 = random_tensor_node((2, 3, 4, 5), identifier="id6", link=False)
+        node7, tensor7 = random_tensor_node((2, 3, 4, 5), identifier="id7", link=False)
+        node8, tensor8 = random_tensor_node((2, 3, 4, 5), identifier="id8", link=False)
+        node9, tensor9 = random_tensor_node((2, 3, 4, 5), identifier="id9", link=False)
+        node10, tensor10 = random_tensor_node((2, 3, 4, 5), identifier="id10", link=False)
 
         reference_tree.add_root(node1, tensor1)
         reference_tree.add_child_to_parent(node2, tensor2, 0, "id1", 0)
@@ -165,13 +174,13 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
     def setUp(self):
         self.ref_tree = ptn.TreeTensorNetwork()
 
-        node1, tensor1 = random_tensor_node((2, 2, 2), identifier="site1")
-        node2, tensor2 = random_tensor_node((2, 2, 2, 2), identifier="site2")
-        node5, tensor5 = random_tensor_node((2, 2, 2, 2), identifier="site5")
-        node3, tensor3 = random_tensor_node((2, 2), identifier="site3")
-        node4, tensor4 = random_tensor_node((2, 2), identifier="site4")
-        node6, tensor6 = random_tensor_node((2, 2), identifier="site6")
-        node7, tensor7 = random_tensor_node((2, 2), identifier="site7")
+        node1, tensor1 = random_tensor_node((2, 2, 2), identifier="site1", link=False)
+        node2, tensor2 = random_tensor_node((2, 2, 2, 2), identifier="site2", link=False)
+        node5, tensor5 = random_tensor_node((2, 2, 2, 2), identifier="site5", link=False)
+        node3, tensor3 = random_tensor_node((2, 2), identifier="site3", link=False)
+        node4, tensor4 = random_tensor_node((2, 2), identifier="site4", link=False)
+        node6, tensor6 = random_tensor_node((2, 2), identifier="site6", link=False)
+        node7, tensor7 = random_tensor_node((2, 2), identifier="site7", link=False)
 
         self.ref_tree.add_root(node1, tensor1)
         self.ref_tree.add_child_to_parent(node2, tensor2, 0, "site1", 0)
@@ -258,13 +267,13 @@ class TestTTNOfromHamiltonian(unittest.TestCase):
     def test_from_hamiltonian_one_term_different_phys_dim(self):
         ref_tree = ptn.TreeTensorNetwork()
 
-        node1, tensor1 = random_tensor_node((2, 2, 2), identifier="site1")
-        node2, tensor2 = random_tensor_node((2, 2, 2, 5), identifier="site2")
-        node5, tensor5 = random_tensor_node((2, 2, 2, 2), identifier="site5")
-        node3, tensor3 = random_tensor_node((2, 2), identifier="site3")
-        node4, tensor4 = random_tensor_node((2, 2), identifier="site4")
-        node6, tensor6 = random_tensor_node((2, 2), identifier="site6")
-        node7, tensor7 = random_tensor_node((2, 2), identifier="site7")
+        node1, tensor1 = random_tensor_node((2, 2, 2), identifier="site1", link=False)
+        node2, tensor2 = random_tensor_node((2, 2, 2, 5), identifier="site2", link=False)
+        node5, tensor5 = random_tensor_node((2, 2, 2, 2), identifier="site5", link=False)
+        node3, tensor3 = random_tensor_node((2, 2), identifier="site3", link=False)
+        node4, tensor4 = random_tensor_node((2, 2), identifier="site4", link=False)
+        node6, tensor6 = random_tensor_node((2, 2), identifier="site6", link=False)
+        node7, tensor7 = random_tensor_node((2, 2), identifier="site7", link=False)
 
         ref_tree.add_root(node1, tensor1)
         ref_tree.add_child_to_parent(node2, tensor2, 0, "site1", 0)

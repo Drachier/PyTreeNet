@@ -511,6 +511,7 @@ class TreeTensorNetwork(TreeStructure):
                 root tensor.
         """
         self.ensure_existence(self.root_id)
+        parent.link_tensor(tensor)
         former_root_node = self.root[0]
         new_root_id = parent.identifier
         self.ensure_shape_matching(tensor, parent_leg,
