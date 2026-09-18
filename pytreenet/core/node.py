@@ -1,3 +1,8 @@
+"""
+Module implementing the Node class, which is responsible for the control of the
+legs of a tensor network node. It keeps track of the leg order and shape.
+"""
+
 from __future__ import annotations
 from typing import List, Dict, Union, Tuple, Callable
 from functools import reduce
