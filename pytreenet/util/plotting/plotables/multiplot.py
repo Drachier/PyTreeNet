@@ -471,7 +471,8 @@ class ConvergingPlottable(Plottable):
 
     def plot_on_axis(self,
                      ax: Axes | None = None,
-                     legend: bool = False):
+                     legend: bool = False,
+                     inverse_alpha: bool = False):
         """
         Plot all convergence results on the given axes.
 
@@ -480,10 +481,14 @@ class ConvergingPlottable(Plottable):
                 If None, the current axes will be used. Defaults to None.
             legend (bool, optional): Whether to plot the legend.
                 Defaults to False.
+            inverse_alpha (bool, optional): Whether to invert the alpha values.
+                Defaults to False.
         """
         if ax is None:
             ax = plt.gca()
         alphas = self.compute_alphas()
+        if inverse_alpha:
+            alphas = reversed(alphas)
         for index, alpha in enumerate(alphas):
             self.plot_one_on_axis(index=index, alpha=alpha, ax=ax)
         if legend:

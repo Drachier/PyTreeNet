@@ -22,13 +22,13 @@ def generate_parameter_set() -> list[SimParams2TDVP]:
     structure_configs = [
         (TTNStructure.MPS, 12, 2, 64, 2),      # structure, sys_size, min_bd, max_bd, step_bd
         #(TTNStructure.FTPS, 4, 5, 50, 5),
-        #(TTNStructure.BINARY, 3, 5, 50, 5),
+        (TTNStructure.BINARY, 3, 5, 50, 5),
         (TTNStructure.TSTAR, 4, 2, 16, 2)
     ]
 
     # Tolerance values to test
-    rel_tols = [10**(-i) for i in range(9, 11)]
-    total_tols = [10**(-i) for i in range(9, 11)]
+    rel_tols = [10**(-i) for i in range(0, 11)]
+    total_tols = [10**(-i) for i in range(0, 11)]
     integrators = [Integrator.TWO_SITE_TDVP,
                    Integrator.FO_TWO_SITE_TDVP,
                    Integrator.BUG,
