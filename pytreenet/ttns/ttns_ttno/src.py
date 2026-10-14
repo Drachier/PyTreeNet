@@ -233,6 +233,29 @@ def src_addition(ttnss: list[TTNS],
                                   )
     return appl_obj()
 
+def _contract_copy_tensor(tensor: np.ndarray,
+                          degree: int,
+                          dim: int
+                          ) -> np.ndarray:
+    """
+    Contracts a copy tensor of given degree and dimension with tensor's first leg,
+    without materialising the copy tensor.
+
+    Args:
+        tensor (np.ndarray): Array whose first leg is contracted, of shape (dim, ...).
+        degree (int): The degree of the copy tensor, i.e. the number of legs.
+        dim (int): The dimension of each copy-tensor leg.
+
+    Returns:
+        np.ndarray: Array of shape (dim,) * (degree - 1) + tensor.shape[1:].
+    """
+    if degree <= 1:
+        return np.tensordot(copy_tensor(degree, dim), tensor, axes=(0, 0))
+    out = np.zeros((dim,) * (degree - 1) + tensor.shape[1:], dtype=tensor.dtype)
+    diagonal = np.arange(dim)
+    out[(diagonal,) * (degree - 1)] = tensor
+    return out
+
 def generate_random_matrices(ttns: TTNS,
                              desired_dimension: int,
                              seed: int | None = None
@@ -253,10 +276,9 @@ def generate_random_matrices(ttns: TTNS,
         input_dims = node.open_dimensions()
         desired_shape = [desired_dimension] + input_dims
         rand_tensor = crandn(tuple(desired_shape), seed=seed)
-        copy_t = copy_tensor(node.nlegs(), desired_dimension)
-        rand_tensor = np.tensordot(copy_t,
-                                   rand_tensor,
-                                   axes=(0,0))
+        rand_tensor = _contract_copy_tensor(rand_tensor,
+                                            node.nlegs(),
+                                            desired_dimension)
         tensors[node_id] = rand_tensor
         seed = None if seed is None else seed + 1
     rand_ttns = TTNS.from_tensors(ttns, tensors)
