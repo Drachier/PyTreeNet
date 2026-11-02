@@ -20,6 +20,23 @@ from .independent_operators import rewrite_over_independent_operators
 
 __all__ = ["Decomposition", "TTNO", "TreeTensorNetworkOperator"]
 
+
+def _bond_cost(state_diagram: StateDiagram) -> Tuple[int, int]:
+    """
+    Returns the total and the largest bond dimension of a state diagram.
+
+    Used to keep the better of two diagrams built from the same operator, the
+    total first and the largest as a tie break.
+
+    Args:
+        state_diagram (StateDiagram): The diagram to measure.
+
+    Returns:
+        Tuple[int, int]: The sum and the maximum of its bond dimensions.
+    """
+    bonds = state_diagram.bond_dimensions().values()
+    return (sum(bonds), max(bonds, default=0))
+
 class Decomposition(Enum):
     """
     An enumeration to choosing decomposition method used for TTNO construction.
@@ -74,23 +91,32 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
                 should respect.
             method (TTNOFinder): The construction method of the state diagram.
             dtype (np.dtype): The data type of the resulting tensors.
-            combine_dependent_operators (bool): Whether to rewrite the terms
-                over operators that are linearly independent on every node
-                before the state diagram is built. The elimination holds the
-                operators as symbols, so it reaches the operator-Schmidt rank
-                only once they are independent, which is what this ensures. A
-                Hamiltonian whose operators are already independent, such as
-                any sum of Pauli strings, is left untouched and so is the TTNO
-                built from it. Defaults to True.
+            combine_dependent_operators (bool): Whether to also build the
+                state diagram from terms rewritten over operators that are
+                linearly independent on every node. The elimination holds the
+                operators as symbols, so the smallest bond it can reach is the
+                operator-Schmidt rank only once they are independent, which is
+                what the rewrite establishes. Reaching that bound is left to
+                the elimination, which may do worse on the rewritten terms, so
+                both diagrams are built and the one with the smaller total bond
+                dimension is kept. A Hamiltonian whose operators are already
+                independent, such as any sum of Pauli strings, is left
+                untouched, only one diagram is built, and the TTNO is the one
+                this returned before. Defaults to True.
 
         Returns:
             TreeTensorNetworkOperator: The resulting TTNO.
         """
         hamiltonian = hamiltonian.pad_with_identities(reference_tree)
-        if combine_dependent_operators:
-            hamiltonian = rewrite_over_independent_operators(hamiltonian)
         state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
                                                       reference_tree, method)
+        if combine_dependent_operators:
+            rewritten = rewrite_over_independent_operators(hamiltonian)
+            if rewritten is not hamiltonian:
+                other = StateDiagram.from_hamiltonian(rewritten,
+                                                      reference_tree, method)
+                if _bond_cost(other) < _bond_cost(state_diagram):
+                    hamiltonian, state_diagram = rewritten, other
         return cls.from_state_diagram(state_diagram,
                                       hamiltonian.conversion_dictionary,
                                       hamiltonian.coeffs_mapping,

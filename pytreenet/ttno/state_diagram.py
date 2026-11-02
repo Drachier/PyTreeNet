@@ -98,6 +98,19 @@ class StateDiagram():
             all_vert.extend(vertex_coll.contained_vertices)
         return all_vert
 
+    def bond_dimensions(self) -> Dict[Tuple[str, str], int]:
+        """
+        Returns the bond dimension of every edge of the diagram.
+
+        The vertices on an edge are the bond states of the TTNO built from this
+        diagram, so their number is the bond dimension that edge will carry.
+
+        Returns:
+            Dict[Tuple[str, str], int]: The number of vertices, keyed by edge.
+        """
+        return {edge: vertex_coll.num_vertices()
+                for edge, vertex_coll in self.vertex_colls.items()}
+
     def get_all_hyperedges(self) -> List[HyperEdge]:
         """
         Returns all hyperedges from all collections in a list

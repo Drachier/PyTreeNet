@@ -14,11 +14,13 @@ import numpy as np
 
 from pytreenet.operators.hamiltonian import Hamiltonian
 from pytreenet.operators.tensorproduct import TensorProduct
+from pytreenet.operators.lindbladian import generate_lindbladian
 from pytreenet.random.random_special_ttns import random_mps
+from pytreenet.special_ttn.mps import MatrixProductState
 from pytreenet.special_ttn.pauli import (
     pauli_dense_lindbladian, pauli_lindbladian_ttno, pauli_product_mps, pauli_site_ids)
 from pytreenet.ttno.independent_operators import rewrite_over_independent_operators
-from pytreenet.ttno.state_diagram import TTNOFinder
+from pytreenet.ttno.state_diagram import StateDiagram, TTNOFinder
 from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator as TTNO
 
 IDENTITY = np.eye(2, dtype=complex)
@@ -372,3 +374,66 @@ class TestNearlyDependentOperators(unittest.TestCase):
                 ttno = pauli_lindbladian_ttno(state, *model)
                 dense = pauli_dense_lindbladian(num_qubits, *model)
                 np.testing.assert_allclose(ttno_dense(ttno, ids), dense, atol=1e-10)
+
+
+class TestTheBetterDiagramIsKept(unittest.TestCase):
+    """The rewrite makes the bound tight, the elimination still has to reach it."""
+
+    def symbolic_lindbladian(self, num_qubits):
+        """Returns the Lindbladian of a transverse field chain and its site order."""
+        qubits = [f"q{i}" for i in range(num_qubits)]
+        system = Hamiltonian()
+        for i in range(num_qubits - 1):
+            system.add_term((Fraction(1), "J",
+                             TensorProduct({qubits[i]: "Z", qubits[i + 1]: "Z"})))
+        for qubit in qubits:
+            for symbol in ("X", "Y"):
+                system.add_term((Fraction(1), "h", TensorProduct({qubit: symbol})))
+        system.update_mappings({"X": PAULI_X, "Y": PAULI_Y, "Z": PAULI_Z,
+                                "I2": IDENTITY},
+                               {"J": 1.0 + 0.0j, "h": 0.5 + 0.0j})
+        jumps = [(Fraction(1), "g", TensorProduct({qubit: "Lm"})) for qubit in qubits]
+        lindbladian = generate_lindbladian(system, jumps, {"Lm": SIGMA_MINUS},
+                                           {"g": 0.1 + 0.0j})
+        site_ids = [f"{qubit}{suffix}" for qubit in qubits
+                    for suffix in ("_ket", "_bra")]
+        return lindbladian, site_ids
+
+    def test_a_rewrite_that_costs_a_bond_is_discarded(self):
+        """On these terms the elimination does worse once they are rewritten.
+
+        The rewritten terms carry the tight bound, and the elimination reaches 6 on the
+        middle cut where the operator-Schmidt rank is 5, while the terms as given reach
+        5. The diagram with the smaller total bond must be the one that is kept.
+        """
+        lindbladian, site_ids = self.symbolic_lindbladian(3)
+        tensors = [np.ones((1, 1, 2), dtype=complex) for _ in site_ids]
+        tensors[0] = np.ones((1, 2), dtype=complex)
+        tensors[-1] = np.ones((1, 2), dtype=complex)
+        mps = MatrixProductState.from_tensor_list(tensors,
+                                                  node_prefix=list(site_ids),
+                                                  root_site=0)
+        padded = lindbladian.pad_with_identities(mps)
+        rewritten = rewrite_over_independent_operators(padded)
+        self.assertIsNot(rewritten, padded)  # the terms really are rewritten
+        plain = StateDiagram.from_hamiltonian(padded, mps, TTNOFinder.SGE)
+        other = StateDiagram.from_hamiltonian(rewritten, mps, TTNOFinder.SGE)
+        self.assertGreater(sum(other.bond_dimensions().values()),
+                           sum(plain.bond_dimensions().values()))
+        ttno = TTNO.from_hamiltonian(lindbladian, mps, method=TTNOFinder.SGE)
+        without = TTNO.from_hamiltonian(lindbladian, mps, method=TTNOFinder.SGE,
+                                        combine_dependent_operators=False)
+        self.assertEqual(chain_bonds(ttno, site_ids),
+                         chain_bonds(without, site_ids))
+        reference = dense_matrix(without, site_ids)
+        self.assertEqual(chain_bonds(ttno, site_ids),
+                         operator_schmidt_ranks(reference, len(site_ids)))
+        np.testing.assert_allclose(dense_matrix(ttno, site_ids), reference, atol=1e-12)
+
+    def test_a_rewrite_that_saves_a_bond_is_kept(self):
+        """The guard must not throw away the reduction it is there to protect."""
+        mps, site_ids = chain_reference(4)
+        hamiltonian = controlled_gate_hamiltonian(site_ids, {0: 1, 1: 1}, 3,
+                                                 np.exp(0.7j) * IDENTITY)
+        ttno = TTNO.from_hamiltonian(hamiltonian, mps, method=TTNOFinder.SGE)
+        self.assertEqual(chain_bonds(ttno, site_ids), [2, 1, 1])
