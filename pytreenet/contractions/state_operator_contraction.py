@@ -5,6 +5,7 @@ This module provides functions to contract a TTNS with a TTNO
 from __future__ import annotations
 from typing import Union, Callable, TYPE_CHECKING
 from enum import Enum
+from functools import lru_cache
 
 import numpy as np
 
@@ -233,6 +234,15 @@ def contract_ket_ham_with_envs(ket_node: Node,
     """
     Contract a state node and a Hamiltonian node with their environments.
 
+    Contracting a neighbour block into the ket tensor replaces the virtual leg
+    of dimension chi to that neighbour by the two legs of dimensions m and chi,
+    where m is the Hamiltonian bond dimension towards that neighbour. Doing so
+    for every neighbour before the Hamiltonian tensor is contracted would build
+    an intermediate carrying the product of all Hamiltonian bond dimensions. The
+    neighbours are therefore split into two groups, one contracted before and
+    one after the Hamiltonian tensor, such that only one of the two partial
+    products occurs at a time. The split is found by `_neighbours_before_ham`.
+
     Args:
         ket_node (Node): The ket node.
         ket_tensor (np.ndarray): The ket tensor.
@@ -242,7 +252,7 @@ def contract_ket_ham_with_envs(ket_node: Node,
             already contracted subtrees.
 
     Returns:
-        np.ndarray: The contracted tensor.
+        np.ndarray: The contracted tensor::
 
                  _____                   _____
                 |     |____        _____|     |
@@ -258,19 +268,128 @@ def contract_ket_ham_with_envs(ket_node: Node,
                 |     |    |      |     |     |
                 |     |____|  A   |_____|     |
                 |_____|    |______|     |_____|
-    
+
     """
-    ket_neigh_block = contract_all_neighbour_blocks_to_ket(ket_tensor,
-                                                           ket_node,
-                                                           dictionary)
-    _, ham_legs = get_equivalent_legs(ket_node, ham_node)
-    ham_legs.extend(_node_operator_input_leg(ham_node))
+    neighbour_ids = ket_node.neighbouring_nodes()
+    num_neighbours = len(neighbour_ids)
     nopen_ket = ket_node.nopen_legs()
-    block_legs = list(range(nopen_ket,2*ket_node.nneighbours() + nopen_ket,2))
-    block_legs.extend(list(range(nopen_ket)))
-    kethamblock = np.tensordot(ket_neigh_block, ham_tensor,
+    blocks = [dictionary.get_entry(neighbour_id, ket_node.identifier)
+              for neighbour_id in neighbour_ids]
+    ket_leg = env_tensor_ket_leg_index()
+    ham_leg = env_tensor_ham_leg_index()
+    before_ham = _neighbours_before_ham(tuple(block.shape[ham_leg]
+                                              for block in blocks))
+    after_ham = [index for index in range(num_neighbours)
+                 if index not in before_ham]
+    num_after = len(after_ham)
+    # Every contraction removes one leg and appends the two legs left by the
+    # block. As the neighbours to be contracted first are in ascending order,
+    # each of them lost one leg index per block contracted before it.
+    kethamblock = ket_tensor
+    for position, index in enumerate(before_ham):
+        kethamblock = np.tensordot(kethamblock, blocks[index],
+                                   axes=([index - position], [ket_leg]))
+    # The legs of the remaining neighbours are now in front, followed by the
+    # open legs and by the (hamiltonian, bra) leg pairs left by the blocks. The
+    # Hamiltonian legs of these pairs are contracted away here.
+    block_legs = [num_after + nopen_ket + 2*position
+                  for position in range(len(before_ham))]
+    block_legs.extend(range(num_after, num_after + nopen_ket))
+    ham_legs = [ham_node.neighbour_index(neighbour_ids[index])
+                for index in before_ham]
+    ham_legs.extend(_node_operator_input_leg(ham_node))
+    kethamblock = np.tensordot(kethamblock, ham_tensor,
                                axes=(block_legs, ham_legs))
-    return kethamblock
+    if num_after == 0:
+        # No neighbour was left, so the legs are in the order of the ket node.
+        return kethamblock
+    # The Hamiltonian legs of the remaining neighbours follow the leg order of
+    # the Hamiltonian node, which need not be the one of the ket node.
+    after_in_ham_order = sorted(after_ham,
+                                key=lambda index:
+                                ham_node.neighbour_index(neighbour_ids[index]))
+    ham_positions = {index: num_after + len(before_ham) + position
+                     for position, index in enumerate(after_in_ham_order)}
+    for index in after_ham:
+        removed = ham_positions.pop(index)
+        kethamblock = np.tensordot(kethamblock, blocks[index],
+                                   axes=([0, removed], [ket_leg, ham_leg]))
+        for other, position in ham_positions.items():
+            ham_positions[other] = position - 1 - (position > removed)
+    # Finally the legs are put into the order of the ket node, i.e. one leg per
+    # neighbour followed by the open legs.
+    nopen_ham = kethamblock.ndim - num_neighbours
+    positions = {index: position for position, index in enumerate(before_ham)}
+    positions.update({index: len(before_ham) + nopen_ham + position
+                      for position, index in enumerate(after_ham)})
+    permutation = [positions[index] for index in range(num_neighbours)]
+    permutation.extend(range(len(before_ham), len(before_ham) + nopen_ham))
+    return np.transpose(kethamblock, permutation)
+
+_MAX_EXACT_SPLIT_DEGREE = 12
+
+@lru_cache(maxsize=128)
+def _neighbours_before_ham(ham_dims: tuple[int, ...]) -> tuple[int, ...]:
+    """
+    Finds the neighbours to contract before the Hamiltonian tensor.
+
+    Contracting the environment block of a neighbour into the ket tensor
+    multiplies the size of the running tensor by the Hamiltonian bond dimension
+    towards that neighbour. The largest intermediate occurs either directly
+    before the Hamiltonian tensor is contracted, where it is the product of the
+    Hamiltonian bond dimensions of the neighbours contracted so far times the
+    size of the result, or directly after, where it is the product over the
+    remaining neighbours. The peak is thus minimised by balancing the two
+    products, which is a two-way partitioning problem. The open dimensions do
+    not appear, since the input and output dimensions of a Hamiltonian node
+    agree and therefore contribute the same factor to both products.
+
+    Contracting every block first is the order to improve upon, so it is kept
+    whenever the peak cannot be lowered. The result depends only on the
+    Hamiltonian bond dimensions, which are constant during a time evolution,
+    while this function is called once per application of the effective
+    Hamiltonian. It is therefore cached.
+
+    Args:
+        ham_dims (tuple[int, ...]): The Hamiltonian bond dimension of the
+            environment block of every neighbour, in the leg order of the ket
+            node.
+
+    Returns:
+        tuple[int, ...]: The indices of the neighbours whose environment blocks
+            are to be contracted before the Hamiltonian tensor, in ascending
+            order.
+    """
+    num_neighbours = len(ham_dims)
+    total = 1
+    for dim in ham_dims:
+        total *= dim
+    if num_neighbours > _MAX_EXACT_SPLIT_DEGREE:
+        # An exact split enumerates the subsets, so it costs time exponential in
+        # the number of neighbours. No tree or chain comes close to the cutoff,
+        # but a node may have arbitrarily many children. Above it the largest
+        # dimensions are taken until their product reaches the square root of
+        # the total.
+        before, chosen = 1, []
+        for index in sorted(range(num_neighbours),
+                            key=lambda index: ham_dims[index],
+                            reverse=True):
+            if before*before <= total:
+                before *= ham_dims[index]
+                chosen.append(index)
+        return tuple(sorted(chosen))
+    best_indices, best_peak = tuple(range(num_neighbours)), total
+    for subset in range(1 << num_neighbours):
+        before = 1
+        for index, dim in enumerate(ham_dims):
+            if subset >> index & 1:
+                before *= dim
+        peak = max(before, total // before)
+        if peak < best_peak:
+            best_peak = peak
+            best_indices = tuple(index for index in range(num_neighbours)
+                                 if subset >> index & 1)
+    return best_indices
 
 def contract_node_with_environment_2(node_id: str,
                                    state: TreeTensorNetworkState,
