@@ -1,5 +1,6 @@
 """
-This script is used to supervise the truncation comparison experiments.
+This script is used to supervise the truncation comparison experiments with
+uniformly distributed random elements.
 """
 import os
 from copy import copy
@@ -10,15 +11,15 @@ from pytreenet.util.experiment_util.supervisor import (Supervisor,
 from pytreenet.ttns.ttns_ttno.application import ApplicationMethod
 from pytreenet.special_ttn.special_states import TTNStructure
 
-from sim_script import ApplicationParams
+from sim_script import UniformApplicationParams
 
-def generate_parameter_set() -> list[ApplicationParams]:
+def generate_parameter_set() -> list[UniformApplicationParams]:
     """
     Generates a set of parameters for time evolution experiments.
-    
+
     Returns:
-        list[TruncationParams]: A list of tuples containing simulation and time
-        evolution parameters.
+        list[UniformApplicationParams]: A list of tuples containing simulation
+        and time evolution parameters.
     """
     low = -0.5
     high = 1.0
@@ -49,7 +50,7 @@ def generate_parameter_set() -> list[ApplicationParams]:
             sys_size = 20
         else:
             raise ValueError(f"Unknown structure: {structure}")
-        params = ApplicationParams(
+        params = UniformApplicationParams(
             structure=structure,
             sys_size=sys_size,
             phys_dim=phys_dim,
