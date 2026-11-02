@@ -1,29 +1,20 @@
-"""
-Tests the orthogonalisation functions.
-"""
-
 import unittest
+import numpy as np
 from copy import deepcopy
 
-import numpy as np
-import numpy.testing as npt
-
-from pytreenet.random.random_ttns import (random_small_ttns,
-                                          random_big_ttns)
-from pytreenet.core.addition.orthogonalisation import (linear_combination,
-                                                        orthogonalise_gram_schmidt,
-                                                        orthogonalise_cholesky)
+from pytreenet.random.random_ttns_and_ttno import (small_ttns_and_ttno,
+                                                   big_ttns_and_ttno)
+from pytreenet.util.misc_functions import (linear_combination,
+                                           add,
+                                           orthogonalise_gram_schmidt,
+                                           orthogonalise_cholesky)
 
 np.random.seed(44)
-class TestOrthogonalisationSmall(unittest.TestCase):
-    """
-    Tests on a small TTNS and TTNO.
-    """
-
+class TestMiscFunctionsSmall(unittest.TestCase):
     def setUp(self):
-        self.ttns_1 = random_small_ttns()
-        self.ttns_2 = random_small_ttns()
-        self.ttns_3 = random_small_ttns()
+        self.ttns_1, self.ttno_1 = small_ttns_and_ttno()
+        self.ttns_2, _ = small_ttns_and_ttno()
+        self.ttns_3, _ = small_ttns_and_ttno()
         self.ttns_1.canonical_form(self.ttns_1.root_id)
         self.ttns_2.canonical_form(self.ttns_2.root_id)
         self.ttns_3.canonical_form(self.ttns_3.root_id)
@@ -31,27 +22,37 @@ class TestOrthogonalisationSmall(unittest.TestCase):
         self.ttns_2.normalize()
         self.ttns_3.normalize()
 
-    def test_linear_combination(self):
-        """
-        Tests the addition of two TTNS to be the same as the vector addition of the two TTNS.
-        """
+    def test_add(self):
         c1 = 6.
         c2 = 7.
-        # Now perform c1*ttn1+ c2*ttn2
-        res = linear_combination(
-            [deepcopy(self.ttns_1), deepcopy(self.ttns_2)], [c1, c2], 10)
+        # Now perform 1*ttn1+ 2*ttn2
+        res = add(deepcopy(self.ttns_1), deepcopy(self.ttns_2), c1, c2)
         res.canonical_form(res.root_id)
         res.normalize()
-        contr_order = list(res.nodes.keys())
-        res_vec, _ = res.completely_contract_tree(order=contr_order)
 
-        vec1, _ = self.ttns_1.completely_contract_tree(order=contr_order)
-        vec2, _ = self.ttns_2.completely_contract_tree(order=contr_order)
-        ref = c1 * vec1 + c2 * vec2
-        npt.assert_allclose(res_vec, ref)
+        ovp = self.ttns_1.scalar_product(self.ttns_2)
+        exact_ratio = abs((c1+c2*ovp)/(c2 + c1*ovp))
+        result_ratio = abs(res.scalar_product(self.ttns_1)) / \
+            abs(res.scalar_product(self.ttns_2))
+        self.assertAlmostEqual(exact_ratio, result_ratio)
+
+    def test_linear_combination(self):
+        c1 = 6.
+        c2 = 7.
+        # Now perform 1*ttn1+ 2*ttn2
+        res = linear_combination(
+            [deepcopy(self.ttns_1), deepcopy(self.ttns_2)], [c1, c2], 10, dtype=np.complex128)
+        res.canonical_form(res.root_id)
+        res.normalize()
+
+        ovp = self.ttns_1.scalar_product(self.ttns_2)
+        exact_ratio = abs((c1+c2*ovp)/(c2 + c1*ovp))
+        result_ratio = abs(res.scalar_product(self.ttns_1)) / \
+            abs(res.scalar_product(self.ttns_2))
+        self.assertAlmostEqual(exact_ratio, result_ratio)
 
     def test_orthogonalise_gram_schmidt(self):
-        ttns_4 = random_small_ttns()
+        ttns_4, _ = small_ttns_and_ttno()
         ttns_4.canonical_form(ttns_4.root_id)
         ttns_4.normalize()
         state_list = [deepcopy(self.ttns_1), deepcopy(
@@ -64,7 +65,7 @@ class TestOrthogonalisationSmall(unittest.TestCase):
                 self.assertAlmostEqual(res[i].scalar_product(res[j]), 0., places=0)
                 
     def test_orthogonalise_cholesky(self):
-        ttns_4 = random_small_ttns()
+        ttns_4, _ = small_ttns_and_ttno()
         ttns_4.canonical_form(ttns_4.root_id)
         ttns_4.normalize()
         res = orthogonalise_cholesky([deepcopy(self.ttns_1), deepcopy(
@@ -76,11 +77,11 @@ class TestOrthogonalisationSmall(unittest.TestCase):
                 self.assertAlmostEqual(res[i].scalar_product(res[j]), 0.)
 
 
-class TestOrthogonalisationBig(unittest.TestCase):
+class TestMiscFunctionsBig(unittest.TestCase):
     def setUp(self):
-        self.ttns_1 = random_big_ttns()
-        self.ttns_2 = random_big_ttns()
-        self.ttns_3 = random_big_ttns()
+        self.ttns_1, self.ttno_1 = big_ttns_and_ttno()
+        self.ttns_2, _ = big_ttns_and_ttno()
+        self.ttns_3, _ = big_ttns_and_ttno()
 
         self.ttns_1.canonical_form(self.ttns_1.root_id)
         self.ttns_2.canonical_form(self.ttns_2.root_id)
@@ -124,7 +125,7 @@ class TestOrthogonalisationBig(unittest.TestCase):
         self.assertAlmostEqual(res.scalar_product(res_add), 1., places=0)
 
     def test_orthogonalise_gram_schmidt(self):
-        ttns_4 = random_big_ttns()
+        ttns_4, _ = big_ttns_and_ttno()
         ttns_4.canonical_form(ttns_4.root_id)
         ttns_4.normalize()
         state_list = [deepcopy(self.ttns_1), deepcopy(
