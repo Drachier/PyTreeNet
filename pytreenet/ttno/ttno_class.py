@@ -16,6 +16,7 @@ from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      truncated_tensor_svd,
                                      SVDParameters)
 from .state_diagram import StateDiagram, TTNOFinder
+from .independent_operators import rewrite_over_independent_operators
 
 __all__ = ["Decomposition", "TTNO", "TreeTensorNetworkOperator"]
 
@@ -60,7 +61,9 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
     def from_hamiltonian(cls,hamiltonian: Hamiltonian,
                              reference_tree: TreeStructure,
                              method: TTNOFinder = TTNOFinder.SGE,
-                             dtype: np.dtype = complex) -> TreeTensorNetworkOperator:
+                             dtype: np.dtype = complex,
+                             combine_dependent_operators: bool = True
+                             ) -> TreeTensorNetworkOperator:
         """
         Generates a TTNO from a Hamiltonian.
 
@@ -69,11 +72,23 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
                 should be equivalent.
             reference_tree (TreeStructure): The tree structure which the TTNO
                 should respect.
+            method (TTNOFinder): The construction method of the state diagram.
+            dtype (np.dtype): The data type of the resulting tensors.
+            combine_dependent_operators (bool): Whether to rewrite the terms
+                over operators that are linearly independent on every node
+                before the state diagram is built. The elimination holds the
+                operators as symbols, so it reaches the operator-Schmidt rank
+                only once they are independent, which is what this ensures. A
+                Hamiltonian whose operators are already independent, such as
+                any sum of Pauli strings, is left untouched and so is the TTNO
+                built from it. Defaults to True.
 
         Returns:
             TreeTensorNetworkOperator: The resulting TTNO.
         """
         hamiltonian = hamiltonian.pad_with_identities(reference_tree)
+        if combine_dependent_operators:
+            hamiltonian = rewrite_over_independent_operators(hamiltonian)
         state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
                                                       reference_tree, method)
         return cls.from_state_diagram(state_diagram,

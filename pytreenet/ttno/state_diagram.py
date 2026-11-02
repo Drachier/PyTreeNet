@@ -482,8 +482,19 @@ class StateDiagram():
     @classmethod
     def from_hamiltonian_modified(cls, hamiltonian, ref_tree,  method: TTNOFinder = TTNOFinder.SGE ) -> StateDiagram:
         """
-        Creates optimal state diagram equivalent to a given Hamiltonian.
+        Creates an optimal state diagram equivalent to a given Hamiltonian.
         Depending on the method, the state diagram is constructed using different methods as SGE or Bipartite Graph.
+
+        The elimination holds the operators of the Hamiltonian as symbols, so it is
+        optimal under the condition stated by Cakir, Milbradt and Mendl, that the
+        operators on each node be different and independent. Where two symbols name
+        matrices that are linearly dependent, such as the identity and a phase times the
+        identity on the target of a controlled phase gate, the bond is above the
+        operator-Schmidt rank. Pass the Hamiltonian through
+        :func:`pytreenet.ttno.independent_operators.rewrite_over_independent_operators`
+        first to establish the condition, which
+        :meth:`pytreenet.ttno.ttno_class.TreeTensorNetworkOperator.from_hamiltonian`
+        does by default.
 
         Args:
             hamiltonian (Hamiltonian): Hamiltonian for which the state
