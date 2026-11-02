@@ -63,9 +63,9 @@ class TestTTNOBasics(unittest.TestCase):
             found_shape = tensor.shape[-2:]
             self.assertEqual(correct_shape, found_shape)
 
-        contracted_tensor = ttno.completely_contract_tree(to_copy=True)[0]
+        contracted_tensor = ttno.completely_contract_tree()[0]
         # The shape is not retained throughout the entire procedure
-        correct_tensor = start_tensor.transpose((0, 4, 1, 5, 2, 6, 3, 7))
+        correct_tensor = start_tensor.transpose((0,4,2,6,3,7,1,5))
 
         self.assertTrue(np.allclose(correct_tensor, contracted_tensor))
 
@@ -147,7 +147,7 @@ class TestTTNOBasics(unittest.TestCase):
     def test_from_tensor_root_is_leaf(self):
         reference_tree = ptn.TreeTensorNetworkState()
         shapes = [(1,1,1,2),(1,1,1,2),(1,2),(1,2),(1,2),(1,1,2),(1,2)]
-        nodes = [random_tensor_node(shape, "node" +str(i))
+        nodes = [random_tensor_node(shape, "node" +str(i), link=False)
                  for i, shape in enumerate(shapes)]
         # Build tree
         reference_tree.add_root(nodes[4][0],nodes[4][1])
