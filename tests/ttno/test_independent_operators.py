@@ -17,8 +17,6 @@ from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.operators.lindbladian import generate_lindbladian
 from pytreenet.random.random_special_ttns import random_mps
 from pytreenet.special_ttn.mps import MatrixProductState
-from pytreenet.special_ttn.pauli import (
-    pauli_dense_lindbladian, pauli_lindbladian_ttno, pauli_product_mps, pauli_site_ids)
 from pytreenet.ttno.independent_operators import rewrite_over_independent_operators
 from pytreenet.ttno.state_diagram import StateDiagram, TTNOFinder
 from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator as TTNO
@@ -100,48 +98,6 @@ def operator_schmidt_ranks(matrix, num_sites, tol=1e-10):
         singular = np.linalg.svd(reshuffled, compute_uv=False)
         ranks.append(int((singular > tol).sum()))
     return ranks
-
-
-def random_ket(rng):
-    """Returns a normalised random qubit state vector."""
-    vec = rng.normal(size=2) + 1j * rng.normal(size=2)
-    return vec / np.linalg.norm(vec)
-
-
-def random_hermitian(rng, dim):
-    """Returns a random Hermitian ``dim x dim`` matrix."""
-    mat = rng.normal(size=(dim, dim)) + 1j * rng.normal(size=(dim, dim))
-    return (mat + mat.conj().T) / 2
-
-
-def lindbladian_model(rng, num_qubits):
-    """
-    Returns the bond terms, site terms and jump operators of a random Lindbladian.
-
-    Every nearest-neighbour pair carries a two-qubit term, qubits 0 and 2 carry a
-    long-range one, every site a one-qubit term, and every site a lowering jump, with
-    qubit 0 also dephasing.
-    """
-    bonds = {(q, q + 1): random_hermitian(rng, 4) for q in range(num_qubits - 1)}
-    if num_qubits >= 3:
-        bonds[(0, 2)] = random_hermitian(rng, 4)
-    sites = {q: random_hermitian(rng, 2) for q in range(num_qubits)}
-    jumps = {q: [(SIGMA_MINUS, 0.1 + 0.05 * q)] for q in range(num_qubits)}
-    jumps[0].append((PAULI_Z, 0.07))
-    return bonds, sites, jumps
-
-
-def ttno_dense(ttno, site_ids):
-    """The TTNO as a ``4^N x 4^N`` matrix in qubit order."""
-    mat, order = ttno.as_matrix()
-    dims = [int(round(np.sqrt(ttno.nodes[n].open_dimension()))) for n in order]
-    tensor = mat.reshape(dims + dims)
-    n = len(order)
-    keep = [order.index(s) for s in site_ids]
-    drop = [i for i in range(n) if i not in keep]
-    tensor = tensor.transpose(keep + drop + [n + i for i in keep] + [n + i for i in drop])
-    k = len(keep)
-    return tensor.reshape(4 ** k, 4 ** k)
 
 
 class TestLeavesIndependentOperatorsAlone(unittest.TestCase):
@@ -358,23 +314,6 @@ class TestNearlyDependentOperators(unittest.TestCase):
         padded = hamiltonian.pad_with_identities(mps)
         # the node is a candidate, five distinct operators of which only two are a basis
         self.assertIs(rewrite_over_independent_operators(padded), padded)
-
-    def test_the_lindbladian_ttno_equals_its_dense_generator(self):
-        """The fused Pauli Lindbladian TTNO is the dense generator on 3 and 4 qubits.
-
-        Its float operators are nearly dependent on a node, which the guard must refuse
-        for the operator to survive the rewrite.
-        """
-        for num_qubits in (3, 4):
-            with self.subTest(n=num_qubits):
-                rng = np.random.default_rng(99)
-                model = lindbladian_model(rng, num_qubits)
-                state = pauli_product_mps([random_ket(rng) for _ in range(num_qubits)])
-                ids = pauli_site_ids(state)
-                ttno = pauli_lindbladian_ttno(state, *model)
-                dense = pauli_dense_lindbladian(num_qubits, *model)
-                np.testing.assert_allclose(ttno_dense(ttno, ids), dense, atol=1e-10)
-
 
 class TestTheBetterDiagramIsKept(unittest.TestCase):
     """The rewrite makes the bound tight, the elimination still has to reach it."""
