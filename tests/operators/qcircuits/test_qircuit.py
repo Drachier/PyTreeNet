@@ -175,7 +175,7 @@ class TestProjectionLevel(unittest.TestCase):
         Test adding a projection operation.
         """
         plevel = ProjectionLevel()
-        projection = ProjectionOperation("A", self.q_ids[0], 1)
+        projection = ProjectionOperation("A", self.q_ids[0])
         plevel.add_projection(projection)
         self.assertEqual(1, plevel.num_operations())
         self.assertEqual(1, plevel.width())
@@ -185,10 +185,10 @@ class TestProjectionLevel(unittest.TestCase):
         Test otimes levels without overlap.
         """
         plevel1 = ProjectionLevel()
-        projection1 = ProjectionOperation("A", self.q_ids[0], 1)
+        projection1 = ProjectionOperation("A", self.q_ids[0])
         plevel1.add_projection(projection1)
         plevel2 = ProjectionLevel()
-        projection2 = ProjectionOperation("A", self.q_ids[1], 0)
+        projection2 = ProjectionOperation("A", self.q_ids[1])
         plevel2.add_projection(projection2)
         new_level = plevel1.otimes_level(plevel2)
         self.assertEqual(2, new_level.num_operations())
@@ -199,10 +199,10 @@ class TestProjectionLevel(unittest.TestCase):
         Test otimes levels with overlap.
         """
         plevel1 = ProjectionLevel()
-        projection1 = ProjectionOperation("A", self.q_ids[0], 1)
+        projection1 = ProjectionOperation("A", self.q_ids[0])
         plevel1.add_projection(projection1)
         plevel2 = ProjectionLevel()
-        projection2 = ProjectionOperation("A", self.q_ids[0], 0)
+        projection2 = ProjectionOperation("A", self.q_ids[0])
         plevel2.add_projection(projection2)
         self.assertRaises(ValueError, plevel1.otimes_level, plevel2)
 
@@ -211,13 +211,12 @@ class TestProjectionLevel(unittest.TestCase):
         Test compiling a level to a Measurement.
         """
         plevel = ProjectionLevel()
-        projection1 = ProjectionOperation("A", self.q_ids[0], 1)
+        projection1 = ProjectionOperation("A", self.q_ids[0])
         plevel.add_projection(projection1)
-        projection2 = ProjectionOperation("B", self.q_ids[1], 0)
+        projection2 = ProjectionOperation("B", self.q_ids[1])
         plevel.add_projection(projection2)
         measurement = plevel.compile()
-        correct = Measurement.from_dict({self.q_ids[0]: 1,
-                                         self.q_ids[1]: 0})
+        correct = Measurement.from_list(self.q_ids[0:2])
         self.assertEqual(measurement, correct)
 
 
@@ -391,15 +390,15 @@ class TestQCircuit(unittest.TestCase):
         """
         circuit1 = QCircuit()
         circuit1.add_x(self.q_ids[0])
-        circuit1.add_projection(self.q_ids[0], 1, level_index=1)
+        circuit1.add_projection(self.q_ids[0], level_index=1)
         circuit1.add_cnot(self.q_ids[0], self.q_ids[1], level_index=2)
         circuit1.add_y(self.q_ids[2], level_index=3)
-        circuit1.add_projection(self.q_ids[1], 0, level_index=4)
+        circuit1.add_projection(self.q_ids[1], level_index=4)
         gate1 = InvolutarySingleSiteGate.from_enum(QGate.PAULI_X, self.q_ids[0])
         gate2 = CNOTGate(self.q_ids[0], self.q_ids[1])
         gate3 = InvolutarySingleSiteGate.from_enum(QGate.PAULI_Y, self.q_ids[2])
-        meas1 = Measurement.from_dict({self.q_ids[0]: 1})
-        meas2 = Measurement.from_dict({self.q_ids[1]: 0})
+        meas1 = Measurement.from_list([self.q_ids[0]])
+        meas2 = Measurement.from_list([self.q_ids[1]])
         comp_circuit = circuit1.compile()
         correct_circuit = CompiledQuantumCircuit()
         correct_circuit.add_level(level=gate1.get_generator())
@@ -470,7 +469,6 @@ def run_circuit(qc: QCircuit) -> np.ndarray:
                                                     bond_dimensions=[2 for _ in range(num_qb-1)])
     comp_qc = qc.compile()
     ttno = comp_qc.to_time_dep_ttno(mps)
-    ttno.measurement_renorm_threshold = 1e-10
     ops = local_magnetisation_from_topology(Topology.CHAIN, num_qb,
                                             site_prefix="qubit")
     final_time = qc.gate_depth() * 1
@@ -593,20 +591,6 @@ class TestCompiledQCircuitRunning(unittest.TestCase):
         np.testing.assert_allclose(found, correct,
                                    atol=1e-10)
 
-    def test_hadamard_and_0_meas(self):
-        """
-        Test the circuit with a Hadamard gate followed by a measurement projecting
-        onto the 0 state.
-        This should yield the 0 state.
-        """
-        qc = QCircuit()
-        qc.add_hadamard(q_name(0))
-        qc.add_projection(q_name(0), 0, level_index=1)
-        found = run_circuit(qc)
-        correct = ket_i(0,2)
-        np.testing.assert_allclose(found, correct,
-                                   atol=1e-10)
-
     def test_hadamard_and_1_meas(self):
         """
         Test the circuit with a Hadamard gate followed by a measurement projecting
@@ -615,22 +599,11 @@ class TestCompiledQCircuitRunning(unittest.TestCase):
         """
         qc = QCircuit()
         qc.add_x(q_name(0))
-        qc.add_projection(q_name(0), 1, level_index=1)
+        qc.add_projection(q_name(0), level_index=1)
         found = run_circuit(qc)
         correct = ket_i(1,2)
         np.testing.assert_allclose(found, correct,
                                    atol=1e-10)
-
-    def test_x_and_0_meas(self):
-        """
-        Test the circuit with a X-gate followed by a measurement projecting
-        onto the 0 state.
-        This should yield the 0 state.
-        """
-        qc = QCircuit()
-        qc.add_x(q_name(0))
-        qc.add_projection(q_name(0), 0, level_index=1)
-        self.assertRaises(ZeroDivisionError, run_circuit, qc)
 
     def test_x_and_1_meas(self):
         """
@@ -640,24 +613,9 @@ class TestCompiledQCircuitRunning(unittest.TestCase):
         """
         qc = QCircuit()
         qc.add_x(q_name(0))
-        qc.add_projection(q_name(0), 1, level_index=1)
+        qc.add_projection(q_name(0), level_index=1)
         found = run_circuit(qc)
         correct = ket_i(1,2)
-        np.testing.assert_allclose(found, correct,
-                                   atol=1e-10)
-
-    def test_hadamard_cnot_and_meas_first_1(self):
-        """
-        Test the circuit with a Hadamard gate, a CNOT and a measurement
-        projecting the first qubit onto the 1 state.
-        This should yield the 1 state on both qubits.
-        """
-        qc = QCircuit()
-        qc.add_hadamard(q_name(0))
-        qc.add_cnot(q_name(0), q_name(1), level_index=1)
-        qc.add_projection(q_name(0), 1, level_index=2)
-        found = run_circuit(qc)
-        correct = ket_i(3,4)
         np.testing.assert_allclose(found, correct,
                                    atol=1e-10)
     

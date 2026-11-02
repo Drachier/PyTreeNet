@@ -22,13 +22,16 @@ class ControlTimeParameters:
     shutdown_start_time: float = 2.0
     end_time: float = 4.0
 
-    def __postinit__(self):
-        assert self.start_time <= self.start_end_time, \
-            "Start time must be less than or equal to start end time!"
-        assert self.start_end_time <= self.shutdown_start_time, \
-            "Start end time must be less than or equal to shutdown start time!"
-        assert self.shutdown_start_time <= self.end_time, \
-            "Shutdown start time must be less than or equal to end time!"
+    def __post_init__(self):
+        if self.start_time > self.start_end_time:
+            errstr = f"Start time ({self.start_time}) must be less than or equal to start end time ({self.start_end_time})!"
+            raise ValueError(errstr)
+        if self.start_end_time > self.shutdown_start_time:
+            errstr = f"Start end time ({self.start_end_time}) must be less than or equal to shutdown start time ({self.shutdown_start_time})!"
+            raise ValueError(errstr)
+        if self.shutdown_start_time > self.end_time:
+            errstr = f"Shutdown start time ({self.shutdown_start_time}) must be less than or equal to end time ({self.end_time})!"
+            raise ValueError(errstr)
 
     def startup_time_window(self) -> float:
         """
@@ -43,77 +46,76 @@ class ControlTimeParameters:
         return self.end_time - self.shutdown_start_time
 
     def linear_startup(self,
-                       end_value: Callable | float = 1.0
-                       ) -> Callable:
+                       end_value: Callable[[float], float] | float = 1.0
+                       ) -> Callable[[float], float]:
         """
         Returns a linear function for the startup phase of the control window.
 
         Parameters:
-            end_value (Callable | float): The end value of the linear function.
+            end_value (Callable[[float], float] | float): The end value of the linear function.
                 If a Callable is provided, it should take a float as input and
                 return a float. If a float is provided, it will be used as the
                 end value.
 
-        Retrurns:
-            Callable: A linear function that can be used as a startup function
+        Returns:
+            Callable[[float], float]: A linear function that can be used as a startup function
                     for the control window defined by this object.
         """
         def linear_startup(t: float) -> float:
             denominator = self.startup_time_window()
             if denominator == 0:
                 return 0.0
-            enumerator = t - self.start_time
+            shifted_time = t - self.start_time
             if isinstance(end_value, float):
-                factor = end_value
+                enumerator = end_value
             else:
-                factor = end_value(self.start_end_time)
-            return factor * enumerator / denominator
+                enumerator = end_value(self.start_end_time)
+            return shifted_time * enumerator / denominator
         return linear_startup
 
     def linear_shutdown(self,
-                        end_value: Callable | float = 1.0
-                        ) -> Self:
+                        initial_value: Callable[[float], float] | float = 1.0
+                        ) -> Callable[[float], float]:
         """
         Returns a linear function for the shutdown phase of the control window.
 
         Parameters:
-            end_value (Callable | float): The end value of the linear function.
+            initial_value (Callable[[float], float] | float): The initial value of the linear function.
                 If a Callable is provided, it should take a float as input and
                 return a float. If a float is provided, it will be used as the
-                end value.
-        
+                initial value.
+
         Returns:
-            Callable: A linear function that can be used as a shutdown function
+            Callable[[float], float]: A linear function that can be used as a shutdown function
                     for the control window defined by this object.
         """
         def linear_shutdown(t: float) -> float:
             denominator = self.shutdown_time_window()
             if denominator == 0:
                 return 0.0
-            enumerator = t - self.shutdown_start_time
-            if isinstance(end_value, float):
-                factor = end_value
+            shifted_time = t - self.shutdown_start_time
+            if isinstance(initial_value, float):
+                enumerator = initial_value
             else:
-                factor = end_value(self.start_end_time)
-            return factor * (1 - enumerator / denominator)
+                enumerator = initial_value(self.shutdown_start_time)
+            return shifted_time * (-1 * enumerator / denominator) + enumerator
         return linear_shutdown
 
     def trig_startup(self,
-                      end_value: Callable | float = 1.0
-                      ) -> Callable:
+                      end_value: Callable[[float], float] | float = 1.0
+                      ) -> Callable[[float], float]:
         """
         Returns a trigonometric function for the startup phase.
 
-        It increases from 0 to the end value in a sinusoidal manner.
+        It increases from 0 to the end value in a square sinusoidal manner.
 
         Parameters:
-            end_value (Callable | float): The end value of the trigonometric
-                function. If a Callable is provided, it should take a float as
-                input and return a float. If a float is provided, it will be
+            end_value (Callable[[float], float] | float): The end value of the trigonometric
+                function. If a float is provided, it will be
                 used as the end value.
             
         Returns:
-            Callable: A trigonometric function that can be used as a startup
+            Callable[[float], float]: A trigonometric function that can be used as a startup
                     function for the control window defined by this object.
         """
         def trig_startup(t: float) -> float:
@@ -128,29 +130,29 @@ class ControlTimeParameters:
         return trig_startup
 
     def trig_shutdown(self,
-                        end_value: Callable | float = 1.0
-                        ) -> Callable:
+                        initial_value: Callable[[float], float] | float = 1.0
+                        ) -> Callable[[float], float]:
         """
         Returns a trigonometric function for the shutdown phase.
 
+        It decreases from the initial value to 0 in a square sinusoidal manner.
+
         Parameters:
-            end_value (Callable | float): The end value of the trigonometric
-                function. If a Callable is provided, it should take a float as
-                input and return a float. If a float is provided, it will be
-                used as the end value.
+            initial_value (Callable[[float], float] | float): The initial value of the trigonometric
+                function. If a float is provided, it will be used as the initial value.
         
         Returns:
-            Callable: A trigonometric function that can be used as a shutdown
+            Callable[[float], float]: A trigonometric function that can be used as a shutdown
                     function for the control window defined by this object.
         """
         def trig_shutdown(t: float) -> float:
             tdiff = self.shutdown_time_window()
             if tdiff == 0:
                 return 0.0
-            if isinstance(end_value, float):
-                factor = end_value
+            if isinstance(initial_value, float):
+                factor = initial_value
             else:
-                factor = end_value(self.start_end_time)
+                factor = initial_value(self.shutdown_start_time)
             return factor * (cos(pi / 2 * (t - self.shutdown_start_time) / tdiff)) ** 2
         return trig_shutdown
 
@@ -165,25 +167,25 @@ class ControlWindowFunction:
     control window is turned off, i.e., the function returns 0.
 
     Attributes:
-        startup (Callable): The function for the startup phase.
-        middle (Callable): The function for the middle phase.
-        shutdown (Callable): The function for the shutdown phase.
+        startup (Callable[[float], float]): The function for the startup phase.
+        middle (Callable[[float], float]): The function for the middle phase.
+        shutdown (Callable[[float], float]): The function for the shutdown phase.
         control_times (ControlTimeParameters): The time intervals of the control
             window.
     """
 
     def __init__(self,
-                 startup: Callable,
-                 middle: Callable,
-                 shutdown: Callable,
+                 startup: Callable[[float], float],
+                 middle: Callable[[float], float],
+                 shutdown: Callable[[float], float],
                  control_times: ControlTimeParameters):
         """
         Initializes the ControlWindowFunction with the given parameters.
 
         Args:
-            startup (Callable): The function for the startup phase.
-            middle (Callable): The function for the middle phase.
-            shutdown (Callable): The function for the shutdown phase.
+            startup (Callable[[float], float]): The function for the startup phase.
+            middle (Callable[[float], float]): The function for the middle phase.
+            shutdown (Callable[[float], float]): The function for the shutdown phase.
             control_times (ControlTimeParameters): The time intervals of the control window.
         """
         self.startup = startup
@@ -211,13 +213,20 @@ class ControlWindowFunction:
 
     @classmethod
     def constant_middle(cls,
-                        startup: Callable,
-                        shutdown: Callable,
+                        startup: Callable[[float], float],
+                        shutdown: Callable[[float], float],
                         control_times: ControlTimeParameters,
                         strength: float = 1.0,
                         ) -> Self:
         """
         Generates a ControlWindowFunction with a constant middle phase.
+
+        Args:
+            startup (Callable[[float], float]): The function for the startup phase.
+            shutdown (Callable[[float], float]): The function for the shutdown phase.
+            control_times (ControlTimeParameters): The time intervals of the
+                control window.
+            strength (float): The constant value for the middle phase.
         """
         return cls(
             startup=startup,
@@ -228,12 +237,20 @@ class ControlWindowFunction:
 
     @classmethod
     def instant_on_off(cls,
-                        middle: Callable,
+                        middle: Callable[[float], float],
                         start_time: float = 0.0,
                         end_time: float = 1.0,
                         ) -> Self:
         """
         Generates a ControlWindowFunction with an instant on-off behavior.
+
+        This means the middle function is immediately fully activated a the
+        start time and immediately fully deactivated at the end time.
+
+        Args:
+            middle (Callable[[float], float]): The function for the middle phase.
+            start_time (float): The start time of the control window.
+            end_time (float): The end time of the control window.
         """
         timeparams = ControlTimeParameters(
             start_time=start_time,

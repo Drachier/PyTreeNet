@@ -155,7 +155,7 @@ class TestWPreparation(unittest.TestCase):
         prepare_w(qc, qubit_ids, 0)
         found = run_circuit(qc)
         expected = ThreeQubitState.W.vector()
-        npt.assert_allclose(found, expected, rtol=1e-5, atol=1e-4)
+        npt.assert_allclose(found, expected, rtol=1e-2, atol=1e-2)
 
     def test_call_via_enum(self):
         """

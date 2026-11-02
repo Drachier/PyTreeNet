@@ -16,7 +16,8 @@ def generate_single_site_ttno() -> TreeTensorNetworkOperator:
     ttno = TreeTensorNetworkOperator()
     root_id = "child_ly1"
     root_node, root_tensor = random_tensor_node((3,3),
-                                     identifier=root_id)
+                                     identifier=root_id,
+                                     link=False)
     ttno.add_root(root_node, root_tensor)
     return ttno
 
@@ -38,24 +39,29 @@ def generate_three_layer_ttno() -> TreeTensorNetworkOperator:
     ttno = TreeTensorNetworkOperator()
     root_id = "child_ly0"
     root_node, root_tensor = random_tensor_node((4,7,6,1,1),
-                                                identifier=root_id)
+                                                identifier=root_id,
+                                                link=False)
     ttno.add_root(root_node, root_tensor)
     child_ly1_ids = ["child_ly1" + str(i) for i in range(3)]
     node, tensor = random_tensor_node((4,2,2),
-                                      identifier=child_ly1_ids[2])
+                                      identifier=child_ly1_ids[2],
+                                      link=False)
     ttno.add_child_to_parent(node, tensor, 0,
                              root_id, 0)
     node, tensor = random_tensor_node((6,2,2),
-                                      identifier=child_ly1_ids[1])
+                                      identifier=child_ly1_ids[1],
+                                      link=False)
     ttno.add_child_to_parent(node, tensor, 0,
                              root_id, 2)
     node, tensor = random_tensor_node((7,4,5,5),
-                                      identifier=child_ly1_ids[0])
+                                      identifier=child_ly1_ids[0],
+                                      link=False)
     ttno.add_child_to_parent(node, tensor, 0,
                              root_id, 2)
     child_ly2_id = "child_ly2"
     node, tensor = random_tensor_node((4,2,2),
-                                      identifier=child_ly2_id)
+                                      identifier=child_ly2_id,
+                                      link=False)
     ttno.add_child_to_parent(node, tensor, 0,
                              child_ly1_ids[0], 1)
     return ttno
