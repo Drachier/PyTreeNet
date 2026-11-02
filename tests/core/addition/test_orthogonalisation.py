@@ -48,7 +48,6 @@ class TestOrthogonalisationSmall(unittest.TestCase):
         vec1, _ = self.ttns_1.completely_contract_tree(order=contr_order)
         vec2, _ = self.ttns_2.completely_contract_tree(order=contr_order)
         ref = c1 * vec1 + c2 * vec2
-        print(res_vec.shape, ref.shape)
         npt.assert_allclose(res_vec, ref)
 
     def test_orthogonalise_gram_schmidt(self):
