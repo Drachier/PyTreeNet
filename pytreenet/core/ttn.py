@@ -488,6 +488,45 @@ class TreeTensorNetwork(TreeStructure):
         super().add_root(node)
         self.tensors[node.identifier] = tensor
 
+    def move_root_to_neighbour(self,
+                               neighbour_id: str):
+        """
+        Moves the root of the TTN to a neighbouring node.
+
+        Args:
+            neighbour_id (str): The identifier of the neighbouring node to
+                which the root should be moved.
+        """
+        if self.root_id is None:
+            errstr = "There is no root to move!"
+            raise AssertionError(errstr)
+        if neighbour_id not in self._nodes:
+            errstr = f"Neighbour {neighbour_id} does not exist!"
+            raise KeyError(errstr)
+        cur_root_node = self.root_node()
+        cur_root_node.make_child_leg_parent_leg(neighbour_id)
+        new_root_node = self.nodes[neighbour_id]
+        new_root_node.make_parent_leg_child_leg()
+        self._root_id = neighbour_id
+
+    def move_root_to_node(self, new_root_id: str):
+        """
+        Moves the root of the TTN to a given node.
+
+        Args:
+            new_root_id (str): The identifier of the node to which the root
+                should be moved.
+        """
+        if self.root_id is None:
+            errstr = "There is no root to move!"
+            raise AssertionError(errstr)
+        if new_root_id not in self._nodes:
+            errstr = f"Node {new_root_id} does not exist!"
+            raise KeyError(errstr)
+        path = self.find_path_to_root(new_root_id)
+        for neigh in reversed(path[:-1]): # Root would be the first one
+            self.move_root_to_neighbour(neigh)
+
     def add_child_to_parent(self, child: Node | str, tensor: np.ndarray,
                             child_leg: int, parent_id: str, parent_leg: int):
         """

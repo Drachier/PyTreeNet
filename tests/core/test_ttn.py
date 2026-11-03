@@ -16,11 +16,11 @@ class TestTreeTensorNetworkBasics(unittest.TestCase):
 
     def setUp(self):
         self.tensortree = ptn.TreeTensorNetwork()
-        self.node1, self.tensor1 = random_tensor_node((2, 3, 4, 5), identifier="orig_root",
+        self.node1, self.tensor1 = random_tensor_node((5, 4, 3, 2), identifier="orig_root",
                                                       link=False)
         self.node2, self.tensor2 = random_tensor_node((2, 3), identifier="child1", link=False)
-        self.node3, self.tensor3 = random_tensor_node((2, 3, 4, 5), identifier="child2", link=False)
-        self.node4, self.tensor4 = random_tensor_node((2, 3, 4, 5), identifier="new_root", link=False)
+        self.node3, self.tensor3 = random_tensor_node((5, 4, 3, 2), identifier="child2", link=False)
+        self.node4, self.tensor4 = random_tensor_node((5, 4, 3, 2), identifier="new_root", link=False)
 
     def test_add_root(self):
         self.assertEqual(self.tensortree.root_id, None)
@@ -513,15 +513,15 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def setUp(self):
         self.ttn = ptn.TreeTensorNetwork()
 
-        node1, tensor1 = random_tensor_node((2, 3, 4, 5), identifier="id1", link=False)
-        node2, tensor2 = random_tensor_node((2, 3, 4, 5), identifier="id2", link=False)
-        node3, tensor3 = random_tensor_node((2, 3, 4, 5), identifier="id3", link=False)
-        node4, tensor4 = random_tensor_node((2, 3, 4, 5), identifier="id4", link=False)
-        node5, tensor5 = random_tensor_node((2, 3, 4, 5), identifier="id5", link=False)
-        node6, tensor6 = random_tensor_node((2, 3, 4, 5), identifier="id6", link=False)
-        node7, tensor7 = random_tensor_node((2, 3, 4, 5), identifier="id7", link=False)
-        node8, tensor8 = random_tensor_node((2, 3, 4, 5), identifier="id8", link=False)
-        node9, tensor9 = random_tensor_node((2, 3, 4, 5), identifier="id9", link=False)
+        node1, tensor1 = random_tensor_node((5, 4, 3, 2), identifier="id1", link=False)
+        node2, tensor2 = random_tensor_node((5, 4, 3, 2), identifier="id2", link=False)
+        node3, tensor3 = random_tensor_node((5, 4, 3, 2), identifier="id3", link=False)
+        node4, tensor4 = random_tensor_node((5, 4, 3, 2), identifier="id4", link=False)
+        node5, tensor5 = random_tensor_node((5, 4, 3, 2), identifier="id5", link=False)
+        node6, tensor6 = random_tensor_node((5, 4, 3, 2), identifier="id6", link=False)
+        node7, tensor7 = random_tensor_node((5, 4, 3, 2), identifier="id7", link=False)
+        node8, tensor8 = random_tensor_node((5, 4, 3, 2), identifier="id8", link=False)
+        node9, tensor9 = random_tensor_node((5, 4, 3, 2), identifier="id9", link=False)
 
         self.ttn.add_root(node1, tensor1)
         self.ttn.add_child_to_parent(node2, tensor2, 0, "id1", 0)
@@ -835,7 +835,7 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
         Replace every tensor with a reference tensor. Sometimes a permutation
         is required, sometimes not.
         """
-        ref_tensor = crandn((2, 3, 4, 5))
+        ref_tensor = crandn((5, 4, 3, 2))
         # Node 1
         new_tensor = deepcopy(ref_tensor)
         self.ttn.replace_tensor("id1", new_tensor)
@@ -1182,6 +1182,135 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
                                     self.ttn.tensors["abc"]))
         self.assertTrue(np.allclose(ref_ttn.tensors["def"],
                                     self.ttn.tensors["def"]))
+
+class TestMoveRootSimple(unittest.TestCase):
+    """
+    Tests the movement of the root to another node in the small three node
+    TTN structure also used by `TestTreeTensorNetworkSimple`.
+    """
+
+    def setUp(self):
+        self.ttn = random_small_ttns()
+        self.node_ids = list(self.ttn.nodes)
+        self.initial_root_id = self.ttn.root_id
+        # The contraction has to be performed on a copy, as it is destructive
+        self.ref_tensor = self.ttn.completely_contract_tree(to_copy=True,
+                                                            order=self.node_ids)[0]
+
+    def test_move_root_to_node(self):
+        """
+        The root can be moved to every node of the TTN. The root is correctly
+        moved and the contracted tensor network is unchanged.
+        """
+        node_id = "c1"
+        self.ttn.move_root_to_node(node_id)
+        self.assertEqual(node_id, self.ttn.root_id)
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True,
+                                                        order=self.node_ids)[0]
+        self.assertTrue(np.allclose(self.ref_tensor, found_tensor))
+        self.assertEqual(node_id, self.ttn.root_id)
+        # And from c1 to c2
+        node_id = "c2"
+        self.ttn.move_root_to_node(node_id)
+        self.assertEqual(node_id, self.ttn.root_id)
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True,
+                                                        order=self.node_ids)[0]
+        self.assertTrue(np.allclose(self.ref_tensor, found_tensor.transpose((2,0,1))))
+        self.assertEqual(node_id, self.ttn.root_id)
+
+    def test_move_root_to_neighbour(self):
+        """
+        The root can be moved to every neighbouring node. The root is
+        correctly moved and the contracted tensor network is unchanged.
+        """
+        node_id = "c1"
+        self.ttn.move_root_to_neighbour(node_id)
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True,
+                                                        order=self.node_ids)[0]
+        self.assertTrue(np.allclose(self.ref_tensor, found_tensor))
+        self.assertEqual(node_id, self.ttn.root_id)
+        # Back to orig root
+        node_id = "root"
+        self.ttn.move_root_to_neighbour(node_id)
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True,
+                                                        order=self.node_ids)[0]
+        self.assertTrue(np.allclose(self.ref_tensor, found_tensor))
+        self.assertEqual(node_id, self.ttn.root_id)
+        # To other node
+        node_id = "c2"
+        self.ttn.move_root_to_neighbour(node_id)
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True,
+                                                        order=self.node_ids)[0]
+        self.assertTrue(np.allclose(self.ref_tensor, found_tensor.transpose((2,0,1))))
+        self.assertEqual(node_id, self.ttn.root_id)
+
+    def test_move_root_to_neighbour_nonexisting_neighbour(self):
+        """
+        Moving the root to a neighbour which does not exist in the TTN
+        raises a KeyError.
+        """
+        self.assertRaises(KeyError, self.ttn.move_root_to_neighbour,
+                          "nonexistent_neighbour")
+
+    def test_move_root_to_node_nonexisting_node(self):
+        """
+        Moving the root to a node which does not exist in the TTN raises a
+        KeyError.
+        """
+        self.assertRaises(KeyError, self.ttn.move_root_to_node,
+                          "nonexistent_node")
+
+class TestMoveRootBigTree(unittest.TestCase):
+    """
+    Tests the movement of the root to another node in the nine node TTN
+    structure also used by `TestTreeTensorNetworkBigTree`.
+    """
+
+    def setUp(self):
+        self.ttn = ptn.TreeTensorNetwork()
+
+        node1, tensor1 = random_tensor_node((5, 4, 2), identifier="id1", link=False)
+        node2, tensor2 = random_tensor_node((5, 2, 3, 4), identifier="id2", link=False)
+        node3, tensor3 = random_tensor_node((5, 2, 3, 4), identifier="id3", link=False)
+        node4, tensor4 = random_tensor_node((5, 2), identifier="id4", link=False)
+        node5, tensor5 = random_tensor_node((5, 4, 3, 2), identifier="id5", link=False)
+        node6, tensor6 = random_tensor_node((5, 2), identifier="id6", link=False)
+        node7, tensor7 = random_tensor_node((2, 4), identifier="id7", link=False)
+        node8, tensor8 = random_tensor_node((2, 4, 5), identifier="id8", link=False)
+        node9, tensor9 = random_tensor_node((5, 2), identifier="id9", link=False)
+
+        self.ttn.add_root(node1, tensor1)
+        self.ttn.add_child_to_parent(node2, tensor2, 0, "id1", 0)
+        self.ttn.add_child_to_parent(node3, tensor3, 3, "id2", 3)
+        self.ttn.add_child_to_parent(node4, tensor4, 0, "id3", 1)
+        self.ttn.add_child_to_parent(node5, tensor5, 2, "id2", 3)
+        self.ttn.add_child_to_parent(node6, tensor6, 0, "id5", 1)
+        self.ttn.add_child_to_parent(node7, tensor7, 1, "id5", 2)
+        self.ttn.add_child_to_parent(node8, tensor8, 1, "id1", 1)
+        self.ttn.add_child_to_parent(node9, tensor9, 0, "id8", 2)
+
+        self.node_ids = list(self.ttn.nodes)
+        self.initial_root_id = self.ttn.root_id
+        # The contraction has to be performed on a copy, as it is destructive
+        self.ref_tensor = self.ttn.completely_contract_tree(to_copy=True,
+                                                            order=self.node_ids)[0]
+
+    def test_move_root_to_node(self):
+        """
+        The root can be moved to every node of the TTN. The root is correctly
+        moved and the contracted tensor network is unchanged.
+        """
+        node_id = "id9"
+        self.ttn.move_root_to_node(node_id)
+        found_tensor = self.ttn.completely_contract_tree(to_copy=True)[0]
+        self.assertTrue(np.allclose(self.ref_tensor, found_tensor))
+
+    def test_move_root_to_neighbour(self):
+        """
+        The root can be moved to every neighbouring node. The root is
+        correctly moved and the contracted tensor network is unchanged.
+        """
+        assert False
 
 if __name__ == "__main__":
     unittest.main()
