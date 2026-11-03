@@ -422,6 +422,53 @@ class Node(GraphNode):
         """
         self.swap_two_child_legs(child_id, self.children[0])
 
+    def make_parent_leg_child_leg(self):
+        """
+        Makes the parent leg of this node to be a child leg.
+
+        If no parent exists, nothing happens.
+        """
+        if not self.is_root():
+            parent_id = self.parent
+            self.parent_leg_to_open_leg()
+            self.open_leg_to_child(parent_id, self.nlegs() - 1)
+
+    def make_child_leg_parent_leg(self, child_id: str):
+        """
+        Makes the given child to the parent of this node.
+
+        If a parent exists, it will become a child of this node.
+        If no parent exists, this node gets the child as a parent.
+
+        Args:
+            child_id (str): The identifier of the child node to be made parent.
+
+        Raises:
+            NotCompatibleException: If the given child_id is not a child of this node.
+        """
+        self._check_child_existence(child_id)
+        if not self.is_root():
+            errstr = f"Node {self.identifier} already has a parent!"
+            raise NotCompatibleException(errstr)
+        self.child_leg_to_open_leg(child_id)
+        self.open_leg_to_parent(child_id, self.nlegs() - 1)
+
+    def swap_child_and_parent_leg(self, child_id: str):
+        """
+        Swaps the parent leg with the given child leg.
+
+        If no parent exists, the child leg will become the parent leg.
+        If no child exists, nothing happens.
+
+        Args:
+            child_id (str): The identifier of the child node to be swapped with the parent.
+
+        Raises:
+            NotCompatibleException: If the given child_id is not a child of this node.
+        """
+        self.make_parent_leg_child_leg()
+        self.make_child_leg_parent_leg(child_id)
+    
     def nlegs(self) -> int:
         """
         Returns the total number of legs of this node.

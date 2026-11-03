@@ -602,6 +602,91 @@ class TestNodeMethods(unittest.TestCase):
         self.assertRaises(ValueError, node.swap_with_first_child,
                           "nonexisting_child")
 
+    def test_make_parent_leg_child_leg_has_parent(self):
+        """
+        Tests the method that makes the parent leg the first child leg for
+        nodes that have a parent.
+
+        The parent should be the last child.
+        """
+        id_list = ["leaf0", "leaf2", "node1p1c0", "node1p1c2",
+                   "node1p2c0", "node1p2c2"]
+        correct_new_shape = [(2,), (2,3,4), (3,2), (3,2,4,5),
+                             (3,4,2), (3,4,2,5,6)]
+        for ids, correct_shape in zip(id_list, correct_new_shape):
+            node = self.nodes[ids]
+            parent_id = node.parent
+            node.make_parent_leg_child_leg()
+            self.assertTrue(node.is_root())
+            self.assertTrue(node.is_parent_of(parent_id))
+            self.assertEqual(correct_shape, node.shape)
+
+    def test_make_parent_leg_child_leg_no_parent(self):
+        """
+        Tests the method that makes the parent leg the first child leg for
+        nodes that do not have a parent.
+
+        Nothing should happen.
+        """
+        id_list = ["empty0", "empty2", "root1c2", "root2c2"]
+        for ids in id_list:
+            node = self.nodes[ids]
+            copy_node = deepcopy(node)
+            node.make_parent_leg_child_leg()
+            self.assertEqual(copy_node, node)
+
+    def test_make_child_leg_parent_leg_wrong_child(self):
+        """
+        Tests the method that makes the child leg the parent leg.
+        If the child does not exist, an exception should be raised.
+        """
+        fake_id = "nonexisting_child"
+        for ids in self.ids:
+            node = self.nodes[ids]
+            self.assertRaises(ValueError, node.make_child_leg_parent_leg,
+                              fake_id)
+
+    def test_make_child_leg_parent_leg_has_parent(self):
+        """
+        Tests the method that makes the child leg the parent leg for nodes that
+        have a parent. An exception should be raised.
+        """
+        id_list = ["node1p1c0", "node1p1c2",
+                   "node1p2c0", "node1p2c2"]
+        for ids in id_list:
+            node = self.nodes[ids]
+            self.assertRaises(NotCompatibleException,
+                              node.make_child_leg_parent_leg,
+                              "child_id")
+
+    def test_make_child_leg_parent_leg_no_parent(self):
+        """
+        Tests the method that makes the child leg the parent leg for nodes that
+        do not have a parent. The child should become the parent.
+        """
+        id_list = ["root1c0", "root1c2", "root2c0", "root2c2"]
+        correct_new_shape = [(2, ), (2, 3, 4), (2, 3), (2, 3, 4, 5)]
+        for ids, correct_shape in zip(id_list, correct_new_shape):
+            node = self.nodes[ids]
+            child_id = "child_id"
+            node.make_child_leg_parent_leg(child_id)
+            self.assertTrue(node.is_child_of(child_id))
+            self.assertEqual(correct_shape, node.shape)
+
+    def test_make_child_leg_parent_leg_no_parent_2nd_child(self):
+        """
+        Tests the method that makes the child leg the parent leg for nodes that
+        do not have a parent. The child should become the parent.
+        """
+        id_list = ["root2c0", "root2c2"]
+        correct_new_shape = [(3, 2), (3, 2, 4, 5)]
+        for ids, correct_shape in zip(id_list, correct_new_shape):
+            node = self.nodes[ids]
+            child_id = "child2"
+            node.make_child_leg_parent_leg(child_id)
+            self.assertTrue(node.is_child_of(child_id))
+            self.assertEqual(correct_shape, node.shape)
+
     def test_open_dimension(self):
         open_dimensions = [1,6,1,12,1,20,1,30,1,12,1,20]
         open_dimensions = dict(zip(self.ids, open_dimensions))
