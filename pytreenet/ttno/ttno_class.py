@@ -9,6 +9,7 @@ import numpy as np
 from ..core.ttn import TreeTensorNetwork
 from ..core.tree_structure import TreeStructure
 from ..core.node import Node
+from ..core.leg_specification import LegSpecification
 from ..operators.hamiltonian import Hamiltonian
 from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      tensor_svd,
@@ -182,167 +183,142 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
         # Ensure that tensor input and output dimensions are the same
         # assert tensor.shape[:half_dim] == tensor.shape[half_dim:]
         root_id = reference_tree.root_id
-        new_leg_dict = {node_id: [leg_dict[node_id], half_dim + leg_dict[node_id]]
+        new_leg_dict = {node_id: (leg_dict[node_id], half_dim + leg_dict[node_id])
                         for node_id in leg_dict}
+        new_TTNO = cls()
+        new_TTNO.add_root(Node(identifier=root_id), tensor)
+        linearised = reference_tree.linearise()
+        for new_node_id in linearised[:-1]: # Exclude the root node
+            cur_root_new = new_TTNO.root_node()
+            ref_new_node = reference_tree.nodes[new_node_id]
+            ref_children = ref_new_node.children
+            ref_children_set = set(ref_children) # To be more efficient in the next line
+            new_root_children = [c for c in cur_root_new.children
+                                 if c not in ref_children_set]
+            new_node_open_legs = new_leg_dict.pop(new_node_id)
+            new_root_open_legs = [legs[0] for legs in new_leg_dict.values()]
+            new_root_open_legs += [legs[1] for legs in new_leg_dict.values()]
+            q_legs = LegSpecification(None, new_root_children,
+                                      new_root_open_legs,
+                                      is_root=True)
+            r_legs = LegSpecification(None, ref_children, new_node_open_legs)
+            if mode == Decomposition.QR:
+                new_TTNO.split_node_qr(root_id, q_legs, r_legs,
+                                       q_identifier=root_id,
+                                       r_identifier=new_node_id)
+            elif mode == Decomposition.SVD or mode == Decomposition.tSVD:
+                svd_params = SVDParameters(max_bond_dim=float('inf'), rel_tol=1e-10)
+                new_TTNO.split_node_svd(root_id, q_legs, r_legs,
+                                        q_identifier=root_id,
+                                        r_identifier=new_node_id,
+                                        svd_params=svd_params)
+            else:
+                raise ValueError(f"Invalid decomposition mode: {mode}")
+            num_new_legs = 1 - len(ref_children)
+            _update_leg_dict(new_leg_dict, tuple(new_node_open_legs), num_new_legs)
 
-        tensor_shape = cls._get_qr_decomposition_shape(reference_tree, new_leg_dict, [], root_id)
-
-        tensor = np.transpose(tensor, axes=tensor_shape)
-
-        root_node = Node(tensor, identifier=root_id)
-
-        new_TTNO = TreeTensorNetworkOperator()
-        new_TTNO.add_root(root_node, tensor)
-
-        new_TTNO._from_tensor_rec(
-            reference_tree, root_node, mode=mode)
         return new_TTNO
 
-    @classmethod
-    def _get_qr_decomposition_shape(
-            cls, reference_tree: TreeStructure, leg_dict: dict[str, list[int]],
-            shape_tensor: list[int],
-            current_id: str) -> list[int]:
-
-        if reference_tree.nodes[current_id].is_leaf():
-            shape_tensor = leg_dict[current_id] + shape_tensor
-            # shape_tensor.extend(leg_dict[current_id])
-            return shape_tensor
-
-        for children_id in reference_tree.nodes[current_id].children:
-            shape_tensor = cls._get_qr_decomposition_shape(reference_tree, leg_dict, shape_tensor, children_id)
-
-        # shape_tensor.extend(leg_dict[current_id])
-        shape_tensor = leg_dict[current_id] + shape_tensor
-
-        return shape_tensor
-
-    def _from_tensor_rec(
-            self, reference_tree: TreeStructure, current_node: str,
-            mode: Decomposition = Decomposition.QR):
-        """
-        Recursive part to obtain a TTNO from a tensor.
-
-        For each child of the current node a new node is defined via a
-        Matrix-decomposition and the current_node id modified.
-
-        Args:
-            reference_tree (TreeStructure): A tree used as a reference. The
-                TTNO will have the same underlying tree structure and the same
-                node_ids.
-            current_node (Node): The current node which we want to split via a
-                matrix decomposition.
-            mode (Decomposition): Determines the decomposition to use for
-                splitting the tensor.
-
-        """
-        # At a leaf, we can immediately stop
-        current_node_id = current_node.identifier
-        if reference_tree.nodes[current_node_id].is_leaf():
-            return
-
-        current_children = reference_tree.nodes[current_node_id].children
-        current_node = self.nodes[current_node.identifier]
-        current_tensor = self.tensors[current_node_id]
-
-        for child_id in current_children:
-            n_recursive_children = 2*reference_tree.find_subtree_size_of_node(child_id)
-            q_legs = list(range(current_tensor.ndim-n_recursive_children))
-            r_legs = list(range(current_tensor.ndim-n_recursive_children, current_tensor.ndim))
-            if mode == Decomposition.QR:
-                Q, R = tensor_qr_decomposition(current_tensor, q_legs, r_legs)
-            elif mode == Decomposition.SVD:
-                Q, S, Vh = tensor_svd(current_tensor, q_legs, r_legs)
-                R = np.tensordot(np.diag(S), Vh, axes=(1, 0))
-            elif mode == Decomposition.tSVD:
-                svd_params = SVDParameters(max_bond_dim= float('inf'), rel_tol=1e-10)
-                Q, S, Vh = truncated_tensor_svd(current_tensor, q_legs, r_legs,
-                                                svd_params)
-                R = np.tensordot(np.diag(S), Vh, axes=(1, 0))
-            else:
-                raise ValueError(f"{mode} is not a valid keyword for mode.")
-
-            # Replace current_node with q_node in the TTNO
-            self.nodes[current_node_id].link_tensor(Q)
-            self.tensors[current_node_id] = Q
-
-            r_node = Node(R, identifier=child_id)
-
-            # We have to add this node as an additional child to the current node
-            self.add_child_to_parent(
-                r_node, R, 0, current_node.identifier, Q.ndim - 1)
-
-            self._from_tensor_rec(reference_tree, r_node, mode=mode)
-
-            # Prepare to repeat for next child, this transposes the tensor to the correct shape
-            current_tensor = self.tensors[current_node_id]
-
-        return
-
-    @staticmethod
-    def _prepare_legs_for_QR(reference_tree: TreeStructure,
-                             current_node: Node,
-                             child_id: str,
-                             leg_dict: Dict[str,int]):
-        """
-        Prepares the list of legs to be used in the tensor decomposition.
-
-        One of the new dictionary contains the legs belonging to the Q-tensor
-        and the other contains the legs belonging to the R-tensor. The legs
-        belonging to the child node are stored in the R-tensor. The remaining
-        legs are grouped into the Q-tensor.
-
-        Args:
-            reference_tree (TreeStructure): A tree used as a reference. The TTNO
-                will have the same underlying tree structure and the same node_ids.
-            current_node (Node): The current node which we want to split via a
-                tensor decomposition.
-            child_id (str): Identifier of the child, which we want to obtain for
-                the TTNO by splitting it of the current_node via a tensor
-                decomposition.
-            leg_dict (Dict[str,int]): A dictionary it contains node_identifiers
-                as keys and leg indices as values. It is used to match the legs
-                of tensor in the current node to the different nodes it will be
-                split into.
-        
-        Returns:
-            Tuple[List[int], List[int], Dict[str,int], Dict[str,int]]: The legs
-                of the current_tensor which are to be associated to the Q-tensor
-                (The ones that remain with the current_node), the legs of the
-                current_tensor which are to be associated to the R-tensor (The
-                legs of the to-be created child), the dictionary describing to
-                which node the open legs of the tensor in the Q-node will belong
-                to, and the dictionary describing to which node the open legs of
-                the tensor in the R-node will belong to.
-        """
-        subtree_list_child = reference_tree.find_subtree_of_node(child_id)
-
-        q_legs = []
-        r_legs = []
-        # Required to keep the leg ordering later as open_legs_in, open_legs_out
-        q_legs_sec = []
-        r_legs_sec = []
-
-        r_leg_dict = {}
-        q_leg_dict = {}
-
-        for node_id_temp in leg_dict:
-            if node_id_temp in subtree_list_child:
-                r_legs.append(leg_dict[node_id_temp][0])
-                r_legs_sec.append(leg_dict[node_id_temp][1])
-                r_leg_dict[node_id_temp] = leg_dict[node_id_temp]
-            else:
-                q_legs.append(leg_dict[node_id_temp][0])
-                q_legs_sec.append(leg_dict[node_id_temp][1])
-                q_leg_dict[node_id_temp] = leg_dict[node_id_temp]
-
-        q_legs.extend(q_legs_sec)
-        r_legs.extend(r_legs_sec)
-
-        if not current_node.is_root():
-            q_legs.append(current_node.parent_leg[1])
-        q_legs.extend(list(current_node.children_legs.values()))
-
-        return q_legs, r_legs, q_leg_dict, r_leg_dict
-
 TTNO = TreeTensorNetworkOperator
+
+
+#####
+# Utility for the from_tensor method
+#####
+class _NumSmaller(Enum):
+    """
+    An enumeration to determine the number of legs with a smaller index.
+
+    Attributes:
+        ZERO: No smaller legs
+        ONE: One smaller leg
+        TWO: Two smaller legs
+    """
+    ZERO = 0
+    ONE = 1
+    TWO = 2
+
+    def new_leg_value(self,
+                      old_value: int,
+                      num_new_legs: int) -> int:
+        """
+        Returns the new leg value based on the number of smaller valued legs.
+
+        Args:
+            old_value (int): The old leg value.
+            num_new_legs (int): The number of new legs added to the node.
+
+        Returns:
+            int: The new leg value.
+        """
+        # Two legs are removed from the current node, the open legs.
+        # On the other hand, one virtual leg to the new node is added.
+        old_value += num_new_legs
+        if self == _NumSmaller.ZERO:
+            return old_value
+        if self == _NumSmaller.ONE:
+            return old_value - 1
+        if self == _NumSmaller.TWO:
+            return old_value - 2
+        errstr = f"Invalid value for {self.__class__.__name__}: {self}"
+        raise ValueError(errstr)
+
+def _determine_num_smaller(removed_legs: tuple[int,int],
+                           leg_to_check: int
+                            ) -> _NumSmaller:
+    """
+    Determines the number of smaller legs in a node.
+
+    Args:
+        removed_legs (tuple[int, int]): The indices of the two legs that are removed.
+        leg_to_check (int): The index of the leg to check.
+
+    Returns:
+        _NumSmaller: The number of smaller legs.
+    """
+    if leg_to_check < removed_legs[0] and leg_to_check < removed_legs[1]:
+        return _NumSmaller.ZERO
+    elif leg_to_check < removed_legs[0] or leg_to_check < removed_legs[1]:
+        return _NumSmaller.ONE
+    else:
+        return _NumSmaller.TWO
+
+def _new_tuple_value(removed_legs: tuple[int,int],
+                     old_leg_tuple: tuple[int,int],
+                     num_new_legs: int
+                     ) -> tuple[int,int]:
+    """
+    Returns a new tuple of leg values based on the removed legs.
+
+    Args:
+        removed_legs (tuple[int, int]): The indices of the two legs that are removed.
+        old_leg_tuple (tuple[int, int]): The old tuple of leg values.
+        num_new_legs (int): The number of new legs added to the node.
+
+    Returns:
+        tuple[int, int]: The new tuple of leg values.
+    """
+    out = []
+    for leg in old_leg_tuple:
+        num_smaller = _determine_num_smaller(removed_legs, leg)
+        new_val = num_smaller.new_leg_value(leg, num_new_legs)
+        out.append(new_val)
+    return tuple(out)
+
+def _update_leg_dict(leg_dict: dict[str, list[int]],
+                     removed_legs: tuple[int,int],
+                     num_new_legs: int
+                     ) -> None:
+    """
+    Updates the leg dictionary based on the removed legs.
+
+    The update is done in place.
+
+    Args:
+        leg_dict (dict[str, list[int]]): The leg dictionary to update.
+        removed_legs (tuple[int, int]): The indices of the two legs that are removed.
+        num_new_legs (int): The number of new legs added to the node.
+    """
+    for node_id, leg_pair in leg_dict.items():
+        new_leg_pair = _new_tuple_value(removed_legs, tuple(leg_pair), num_new_legs)
+        leg_dict[node_id] = list(new_leg_pair)
