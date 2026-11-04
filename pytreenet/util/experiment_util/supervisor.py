@@ -11,6 +11,7 @@ import re
 import json
 import logging
 import sys
+from datetime import datetime
 
 from .sim_params import SimulationParameters
 from .metadata_file import METADATAFILE_STANDARD_NAME
@@ -221,6 +222,7 @@ class Supervisor:
                      num_sims)
         for i, sim_param in enumerate(self.sim_parameters):
             logging.info("### Running simulation %d/%d", i + 1, num_sims)
+            logging.info("### Current time: %s", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             runner = SingleParameterRunner(sim_param,
                                            self.save_directory,
                                            self.simulation_script_path,
