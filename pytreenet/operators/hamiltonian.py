@@ -371,6 +371,36 @@ class Hamiltonian():
                            conversion_dictionary=self.conversion_dictionary,
                            coeffs_mapping=self.coeffs_mapping)
 
+    def rewrite_over_independent_operators(self,
+                                           tol: float | None = None
+                                           ) -> Hamiltonian:
+        """
+        Returns an equal Hamiltonian, independent on every node.
+
+        The operators a node carries are rewritten over a subset of them that
+        is linearly independent, see
+        :func:`pytreenet.operators.hamiltonian_util.rewrite_over_independent_operators`
+        for what the rewrite does and for the precondition on padding.
+
+        Args:
+            tol (float | None, optional): The relative size below which a
+                number counts as noise when a dependence is judged in double
+                precision. None uses the default of the wrapped function.
+                Defaults to None.
+
+        Returns:
+            Hamiltonian: An equal Hamiltonian whose operators are independent
+                on every node that could be rewritten. This Hamiltonian
+                itself, and not a copy, if no node had to be rewritten, which
+                a caller may test with `is`. An empty Hamiltonian if every
+                coefficient cancelled.
+        """
+        # imported here because hamiltonian_util needs this class at module level
+        from .hamiltonian_util import rewrite_over_independent_operators
+        if tol is None:
+            return rewrite_over_independent_operators(self)
+        return rewrite_over_independent_operators(self, tol=tol)
+
     def to_matrix(self,
                   ref_ttn: TreeTensorNetwork,
                   use_padding: bool = True,
