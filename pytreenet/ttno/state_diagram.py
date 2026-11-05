@@ -111,6 +111,19 @@ class StateDiagram():
         return {edge: vertex_coll.num_vertices()
                 for edge, vertex_coll in self.vertex_colls.items()}
 
+    def bond_cost(self) -> Tuple[int, int]:
+        """
+        Returns the total and the largest bond dimension of the diagram.
+
+        The pair is ordered so that comparing two of them prefers the smaller
+        total and breaks a tie by the smaller largest bond dimension.
+
+        Returns:
+            Tuple[int, int]: The sum and the maximum of the bond dimensions.
+        """
+        bonds = self.bond_dimensions().values()
+        return (sum(bonds), max(bonds, default=0))
+
     def get_all_hyperedges(self) -> List[HyperEdge]:
         """
         Returns all hyperedges from all collections in a list

@@ -21,22 +21,6 @@ from ..operators.hamiltonian_util import rewrite_over_independent_operators
 __all__ = ["Decomposition", "TTNO", "TreeTensorNetworkOperator"]
 
 
-def _bond_cost(state_diagram: StateDiagram) -> Tuple[int, int]:
-    """
-    Returns the total and the largest bond dimension of a state diagram.
-
-    Used to keep the better of two diagrams built from the same operator, the
-    total first and the largest as a tie break.
-
-    Args:
-        state_diagram (StateDiagram): The diagram to measure.
-
-    Returns:
-        Tuple[int, int]: The sum and the maximum of its bond dimensions.
-    """
-    bonds = state_diagram.bond_dimensions().values()
-    return (sum(bonds), max(bonds, default=0))
-
 class Decomposition(Enum):
     """
     An enumeration to choosing decomposition method used for TTNO construction.
@@ -115,7 +99,7 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
             if rewritten is not hamiltonian:
                 other = StateDiagram.from_hamiltonian(rewritten,
                                                       reference_tree, method)
-                if _bond_cost(other) < _bond_cost(state_diagram):
+                if other.bond_cost() < state_diagram.bond_cost():
                     hamiltonian, state_diagram = rewritten, other
         return cls.from_state_diagram(state_diagram,
                                       hamiltonian.conversion_dictionary,
