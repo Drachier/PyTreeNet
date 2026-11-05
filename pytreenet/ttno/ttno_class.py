@@ -2,7 +2,7 @@
 Provides the class to represent a Tree Tensor Network Operator (TTNO).
 """
 from __future__ import annotations
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Union
 from enum import Enum
 import numpy as np
 
@@ -15,8 +15,7 @@ from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      tensor_svd,
                                      truncated_tensor_svd,
                                      SVDParameters)
-from .state_diagram import StateDiagram, TTNOFinder
-from ..operators.hamiltonian_util import rewrite_over_independent_operators
+from .state_diagram import StateDiagram, TTNOFinder, OperatorRewrite
 
 __all__ = ["Decomposition", "TTNO", "TreeTensorNetworkOperator"]
 
@@ -63,7 +62,8 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
                              reference_tree: TreeStructure,
                              method: TTNOFinder = TTNOFinder.SGE,
                              dtype: np.dtype = complex,
-                             combine_dependent_operators: bool = True
+                             rewrite: OperatorRewrite = OperatorRewrite.NONE,
+                             tol: Union[float, None] = None
                              ) -> TreeTensorNetworkOperator:
         """
         Generates a TTNO from a Hamiltonian.
@@ -75,35 +75,26 @@ class TreeTensorNetworkOperator(TreeTensorNetwork):
                 should respect.
             method (TTNOFinder): The construction method of the state diagram.
             dtype (np.dtype): The data type of the resulting tensors.
-            combine_dependent_operators (bool): Whether to also build the
-                state diagram from terms rewritten over operators that are
-                linearly independent on every node. The elimination holds the
-                operators as symbols, so the smallest bond it can reach is the
-                operator-Schmidt rank only once they are independent, which is
-                what the rewrite establishes. Reaching that bound is left to
-                the elimination, which may do worse on the rewritten terms, so
-                both diagrams are built and the one with the smaller total bond
-                dimension is kept. A Hamiltonian whose operators are already
-                independent, such as any sum of Pauli strings, is left
-                untouched, only one diagram is built, and the TTNO is the one
-                this returned before. Defaults to True.
+            rewrite (OperatorRewrite, optional): Whether to rewrite the terms
+                over operators that are linearly independent on every node
+                before the state diagram is built, which is the condition
+                under which the construction reaches the operator-Schmidt
+                rank. Defaults to OperatorRewrite.NONE, so the TTNO represents
+                the terms as they were given.
+            tol (float | None, optional): The tolerance of the dependence
+                test, ignored unless the policy rewrites. Defaults to None.
 
         Returns:
             TreeTensorNetworkOperator: The resulting TTNO.
         """
         hamiltonian = hamiltonian.pad_with_identities(reference_tree)
         state_diagram = StateDiagram.from_hamiltonian(hamiltonian,
-                                                      reference_tree, method)
-        if combine_dependent_operators:
-            rewritten = rewrite_over_independent_operators(hamiltonian)
-            if rewritten is not hamiltonian:
-                other = StateDiagram.from_hamiltonian(rewritten,
-                                                      reference_tree, method)
-                if other.bond_cost() < state_diagram.bond_cost():
-                    hamiltonian, state_diagram = rewritten, other
+                                                      reference_tree, method,
+                                                      rewrite=rewrite, tol=tol)
+        chosen = state_diagram.hamiltonian
         return cls.from_state_diagram(state_diagram,
-                                      hamiltonian.conversion_dictionary,
-                                      hamiltonian.coeffs_mapping,
+                                      chosen.conversion_dictionary,
+                                      chosen.coeffs_mapping,
                                       dtype)
 
     @classmethod

@@ -45,6 +45,70 @@ class TTNOFinder(Enum):
         return self in {TTNOFinder.SGE, TTNOFinder.SGE_PURE}
 
 
+class OperatorRewrite(Enum):
+    """
+    An Enum to switch the rewrite over independent operators on or off.
+
+    The construction eliminates over operator symbols, so it reaches the
+    operator-Schmidt rank only once the operators on each node are linearly
+    independent, which
+    :meth:`pytreenet.operators.hamiltonian.Hamiltonian.rewrite_over_independent_operators`
+    establishes. Attaining that bound is left to the construction, which can do
+    worse on the rewritten terms, so the options differ in how far they trust
+    the rewrite.
+    NONE: Build from the terms as they are given. The default, since the
+        rewritten Hamiltonian is equivalent to, but not identical to, the one
+        the caller passed in.
+    ALWAYS: Build from the rewritten terms.
+    BETTER: Build from both and keep the diagram of smaller bond cost, see
+        :meth:`StateDiagram.bond_cost`. A tie keeps the terms as given.
+    """
+    NONE = "No Rewrite"
+    ALWAYS = "Always Rewrite"
+    BETTER = "Better of Both"
+
+    def needs_rewrite(self) -> bool:
+        """
+        Returns whether the policy has to rewrite the Hamiltonian at all.
+        """
+        return self is not OperatorRewrite.NONE
+
+    def candidates(self,
+                   hamiltonian: Hamiltonian,
+                   tol: Union[float, None] = None
+                   ) -> List[Hamiltonian]:
+        """
+        Returns the presentations of the Hamiltonian this policy considers.
+
+        Args:
+            hamiltonian (Hamiltonian): The Hamiltonian as it was given.
+            tol (float | None, optional): The tolerance of the dependence
+                test, see
+                :func:`pytreenet.operators.hamiltonian_util.rewrite_over_independent_operators`.
+                Defaults to None.
+
+        Returns:
+            List[Hamiltonian]: The Hamiltonians to build a diagram from, the
+                one given first where it is among them. It holds one entry,
+                unless the policy compares two presentations and the rewrite
+                changed the terms.
+
+        Raises:
+            ValueError: If the policy is not one of the above.
+        """
+        if self is OperatorRewrite.NONE:
+            return [hamiltonian]
+        rewritten = hamiltonian.rewrite_over_independent_operators(tol)
+        if self is OperatorRewrite.ALWAYS:
+            return [rewritten]
+        if self is OperatorRewrite.BETTER:
+            if rewritten is hamiltonian:
+                return [hamiltonian]
+            return [hamiltonian, rewritten]
+        errstr = "Invalid rewrite policy!"
+        raise ValueError(errstr)
+
+
 class StateDiagram():
     """ 
     A state diagram represents a Hamiltonian (or other operator)
@@ -60,6 +124,9 @@ class StateDiagram():
             them.
         reference_tree (TreeStructure): Provides the underlying tree structure
             with connectivity and identifiers.
+        hamiltonian (Hamiltonian | None): The Hamiltonian this diagram was
+            built from, in the presentation that was used, or None if the
+            diagram was not built from one.
     """
 
     def __init__(self, reference_tree: TreeStructure):
@@ -73,6 +140,7 @@ class StateDiagram():
         self.vertex_colls: Dict[Tuple[str, str], VertexColl] = {}
         self.hyperedge_colls: Dict[str, HyperEdgeColl] = {}
         self.reference_tree = reference_tree
+        self.hamiltonian: Union[Hamiltonian, None] = None
 
     def __repr__(self) -> str:
         """
@@ -182,9 +250,69 @@ class StateDiagram():
     def from_hamiltonian(cls,
                          hamiltonian: Hamiltonian,
                          ref_tree: TreeStructure,
-                         method: TTNOFinder = TTNOFinder.TREE) -> StateDiagram:
+                         method: TTNOFinder = TTNOFinder.TREE,
+                         rewrite: OperatorRewrite = OperatorRewrite.NONE,
+                         tol: Union[float, None] = None) -> StateDiagram:
         """
         Creates a state diagram equivalent to a given Hamiltonian.
+
+        The Hamiltonian the diagram was built from is on the returned diagram
+        as its `hamiltonian` attribute, which matters when the policy rewrites
+        the terms, since the rewrite introduces coefficient symbols and a
+        caller turning the diagram into tensors needs the mappings that go
+        with the presentation that was used.
+
+        The Hamiltonian is expected to name every node of the reference tree.
+        The rewrite only considers nodes that every term names, so an unpadded
+        Hamiltonian is largely left alone, see
+        :meth:`pytreenet.operators.hamiltonian.Hamiltonian.pad_with_identities`.
+
+        Args:
+            hamiltonian (Hamiltonian): Hamiltonian for which the state
+                diagram is to be found
+            ref_tree (TreeTensorNetwork): Supplies the tree topology which
+                is to be incorporated into the state diagram.
+            method (TTNOFinder): The construction method to be used.
+            rewrite (OperatorRewrite, optional): Whether to rewrite the terms
+                over operators that are linearly independent on every node
+                first. Defaults to OperatorRewrite.NONE.
+            tol (float | None, optional): The tolerance of the dependence
+                test, ignored unless the policy rewrites. Defaults to None.
+
+        Returns:
+            StateDiagram: The final state diagram
+
+        Raises:
+            ValueError: If the Hamiltonian has no terms, or if the rewrite
+                leaves no terms and the policy has no presentation left to
+                build from.
+        """
+        if hamiltonian.is_empty():
+            errstr = "The Hamiltonian has no terms, so it has no state diagram!"
+            raise ValueError(errstr)
+        candidates = [candidate
+                      for candidate in rewrite.candidates(hamiltonian, tol)
+                      if not candidate.is_empty()]
+        if not candidates:
+            errstr = ("Rewriting over independent operators left no terms, so there "
+                      "is no state diagram to build!")
+            raise ValueError(errstr)
+        best = None
+        for candidate in candidates:
+            state_diagram = cls._from_hamiltonian_by_method(candidate, ref_tree,
+                                                            method)
+            state_diagram.hamiltonian = candidate
+            if best is None or state_diagram.bond_cost() < best.bond_cost():
+                best = state_diagram
+        return best
+
+    @classmethod
+    def _from_hamiltonian_by_method(cls,
+                                    hamiltonian: Hamiltonian,
+                                    ref_tree: TreeStructure,
+                                    method: TTNOFinder) -> StateDiagram:
+        """
+        Creates a state diagram from the terms exactly as they are given.
 
         Args:
             hamiltonian (Hamiltonian): Hamiltonian for which the state
@@ -196,9 +324,11 @@ class StateDiagram():
         Returns:
             StateDiagram: The final state diagram
 
+        Raises:
+            ValueError: If the method is not one of the construction methods.
         """
         state_diagram = None
-        
+
         if method == TTNOFinder.TREE:
             # DOES NOT WORK WITH COEFFICIENTS
             state_diagram = cls.from_hamiltonian_tree_comparison(hamiltonian,
@@ -511,16 +641,11 @@ class StateDiagram():
         Creates an optimal state diagram equivalent to a given Hamiltonian.
         Depending on the method, the state diagram is constructed using different methods as SGE or Bipartite Graph.
 
-        The elimination holds the operators of the Hamiltonian as symbols, so it is
-        optimal under the condition stated by Cakir, Milbradt and Mendl, that the
-        operators on each node be different and independent. Where two symbols name
-        matrices that are linearly dependent, such as the identity and a phase times the
-        identity on the target of a controlled phase gate, the bond is above the
-        operator-Schmidt rank. Pass the Hamiltonian through
-        :func:`pytreenet.operators.hamiltonian_util.rewrite_over_independent_operators`
-        first to establish the condition, which
-        :meth:`pytreenet.ttno.ttno_class.TreeTensorNetworkOperator.from_hamiltonian`
-        does by default.
+        The elimination holds the operators of the Hamiltonian as symbols, so it reaches
+        the operator-Schmidt rank only where the operators on each node are linearly
+        independent. This builds the diagram from the terms exactly as they are given.
+        Whether to rewrite them over independent operators first is decided in
+        :meth:`from_hamiltonian`, see :class:`OperatorRewrite`.
 
         Args:
             hamiltonian (Hamiltonian): Hamiltonian for which the state

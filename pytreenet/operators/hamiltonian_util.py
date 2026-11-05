@@ -1,29 +1,26 @@
 """
-Rewrite a Hamiltonian over operators that are linearly independent on every node.
+Tools that act on a Hamiltonian and on the operators of its tensor products.
 
-The symbolic Gaussian elimination of :mod:`pytreenet.ttno.state_diagram` reaches the
-smallest bond of a sum of products under the condition stated by Cakir, Milbradt and
-Mendl, that the operators it eliminates over be different and independent. It works on
-operator symbols, so it cannot see a linear dependence between the matrices that two
-symbols name, and where that dependence exists the bond it returns is above the
-operator-Schmidt rank of the operator.
+The construction of a state diagram eliminates over operator symbols, see Cakir et al.,
+2025 (arXiv:2502.18630, https://doi.org/10.48550/arXiv.2502.18630) and, for the bipartite
+part, Ren et al., 2020 (arXiv:2006.02056, https://doi.org/10.48550/arXiv.2006.02056). Two
+symbols naming linearly dependent matrices are therefore two independent directions to
+it, and the bond it builds is above the operator-Schmidt rank of the operator. The
+condition that the operators on each node be linearly independent is not part of either
+work. It is the additional assumption under which the symbolic objective coincides with
+the operator-Schmidt rank, and :func:`rewrite_over_independent_operators` establishes it.
+The smallest case is a controlled gate whose target carries a multiple of the identity
+beside the identity itself.
 
-A controlled phase gate is the simplest example. The three strings of
-``C_b U = I + Pi_b (x) (U - I)`` carry ``U = lambda I`` and ``I`` on the target, which
-are dependent, so the elimination keeps two bond states on the cuts outside the controls
-where one is enough. Rewriting the terms over an independent set of operators on each node
-removes that, and the elimination then reaches the rank. A generic target is already
-independent of the identity, so nothing changes there.
-
-The rewrite is exact. Coefficients are combined as Gaussian rationals, and a float
-converts to a rational without rounding, so no rounding error can add a bond or remove
-one. A coefficient that stays rational is returned as a ``Fraction`` on the symbol it came
-in with, and only one that turns complex is given a symbol of its own.
-
-A dependence found exactly is used only if it also holds in double precision. Nearly
-dependent float operators, such as those of a Lindbladian, read as exactly independent
-with coordinates past ``1e18``, so such a node is left as it is, which costs a bond and
-never the operator.
+Establishing the condition does not make the construction attain the bound. The rewrite
+never raises the rank of the coefficient matrix and drives it down to the
+operator-Schmidt rank, but what the construction attains is that matrix's rank with the
+coefficient symbols read as independent indeterminates, and the rewrite does not control
+that. By giving a combined coefficient a symbol of its own it can raise it, and on a
+three-qubit Lindbladian on a chain of six nodes the bond on the middle cut consequently
+went from five, the operator-Schmidt rank, to six. This is why
+:class:`pytreenet.ttno.state_diagram.OperatorRewrite` offers to build both presentations
+and keep the cheaper one.
 """
 from __future__ import annotations
 
@@ -39,7 +36,7 @@ from .tensorproduct import TensorProduct
 
 __all__ = ["rewrite_over_independent_operators"]
 
-_NEW_SYMBOL_PREFIX = "indep_coeff_"
+_NEW_COEFF_PREFIX = "indep_coeff_"
 
 
 class _Exact:
@@ -292,19 +289,41 @@ def rewrite_over_independent_operators(hamiltonian: Hamiltonian,
     """
     Return an equal Hamiltonian whose operators are independent on every node.
 
-    The symbolic elimination that builds a TTNO reaches the operator-Schmidt rank only
-    when the operators it eliminates over are independent, which it cannot check itself
-    because it holds them as symbols. This rewrites the terms over an independent set on
-    each node so that condition holds. The operator is unchanged. A Hamiltonian that
-    already satisfies the condition is returned untouched, and so is a node whose
-    dependence does not hold in double precision.
+    On each node the operators the terms name are written over a subset of them that is
+    linearly independent, and the terms are expanded and collected accordingly. Pass a
+    Hamiltonian that names every node of the reference tree, since a node some term does
+    not name is left alone, see
+    :meth:`pytreenet.operators.hamiltonian.Hamiltonian.pad_with_identities`. A node is
+    also left alone when it carries fewer than two operators, when one of its symbols has
+    no matrix, when its matrices differ in shape, when its operators are already
+    independent, or when their dependence does not hold in double precision.
+
+    The arithmetic is exact and the decision is not, and both are deliberate.
+    Coefficients are combined as Gaussian rationals and a float converts to a rational
+    without rounding, so the returned Hamiltonian represents the same operator and no
+    rounding decides which terms survive. Whether two operators count as linearly
+    dependent is a numerical judgement, because an exactly rational dependence between
+    float matrices can be an artefact of their stored digits, and ``tol`` is where that
+    judgement is made.
+
+    No operator is created. Every tensor product returned names, on each node, one of the
+    symbols that node already carried, so the conversion dictionary is carried over
+    unchanged. Combining coefficients can turn one complex, and a complex coefficient
+    needs a symbol, so the coefficient mapping grows by one symbol per distinct complex
+    value.
 
     Args:
         hamiltonian (Hamiltonian): The Hamiltonian to rewrite.
+        tol (float, optional): The relative size below which a number counts as noise. A
+            singular value below ``tol`` of the largest is not a direction, and a rebuilt
+            operator differing by less than ``tol`` of the operator's largest entry is
+            not an error. Defaults to 1e-10.
 
     Returns:
         Hamiltonian: An equal Hamiltonian, independent on every node that could be
-            rewritten safely. The same object when nothing was rewritten.
+            rewritten. The Hamiltonian passed in, and not a copy, when no node had to be
+            rewritten, which a caller may test with ``is``. An empty Hamiltonian when
+            every coefficient cancelled.
     """
     rewrites = _node_rewrites(hamiltonian, tol)
     if not rewrites:
@@ -333,14 +352,9 @@ def rewrite_over_independent_operators(hamiltonian: Hamiltonian,
             key = tuple(sorted(pair for pair, _ in combination))
             collected[key] = collected[key] + value if key in collected else value
 
-    if not any(value for value in collected.values()):
-        # every coefficient cancelled, so there is no sum of products to rewrite over and
-        # the caller keeps the Hamiltonian it had rather than an empty one
-        return hamiltonian
-
     new_terms = []
-    new_coeffs: Dict[str, complex] = {}
-    symbol_of_value: Dict[Tuple[Fraction, Fraction], str] = {}
+    new_coeffs_mapping: Dict[str, complex] = {}
+    coeff_symbol_of_value: Dict[Tuple[Fraction, Fraction], str] = {}
     for key, value in sorted(collected.items()):
         if not value:
             continue
@@ -349,16 +363,16 @@ def rewrite_over_independent_operators(hamiltonian: Hamiltonian,
             new_terms.append((Fraction(value.re), ONE_SYMBOL, tensor_product))
             continue
         tag = (value.re, value.im)
-        if tag not in symbol_of_value:
-            name = f"{_NEW_SYMBOL_PREFIX}{len(symbol_of_value)}"
-            while name in coeffs or name in new_coeffs:
+        if tag not in coeff_symbol_of_value:
+            name = f"{_NEW_COEFF_PREFIX}{len(coeff_symbol_of_value)}"
+            while name in coeffs or name in new_coeffs_mapping:
                 name = f"{name}_"
-            symbol_of_value[tag] = name
-            new_coeffs[name] = complex(value)
-        new_terms.append((Fraction(1), symbol_of_value[tag], tensor_product))
+            coeff_symbol_of_value[tag] = name
+            new_coeffs_mapping[name] = complex(value)
+        new_terms.append((Fraction(1), coeff_symbol_of_value[tag], tensor_product))
 
     out = Hamiltonian(new_terms,
-                      conversion_dictionary=dict(hamiltonian.conversion_dictionary),
-                      coeffs_mapping=dict(coeffs))
-    out.update_mappings(coeffs_mapping=new_coeffs)
+                      conversion_dictionary=hamiltonian.conversion_dictionary.copy(),
+                      coeffs_mapping=coeffs.copy())
+    out.update_mappings(coeffs_mapping=new_coeffs_mapping)
     return out
