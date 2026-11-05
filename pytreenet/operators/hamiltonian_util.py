@@ -191,7 +191,7 @@ def _reconstructs(operator: ndarray,
 
 
 def _independent_subset(
-    operators: List[ndarray], tol: float = 1e-10
+    operators: List[ndarray], tol: float
 ) -> Tuple[List[int], List[Dict[int, _Exact]]]:
     """
     Return which operators form an independent set, and each one's exact coordinates.
@@ -232,7 +232,7 @@ def _independent_subset(
 
 
 def _node_rewrites(
-    hamiltonian: Hamiltonian
+    hamiltonian: Hamiltonian, tol: float
 ) -> Dict[str, Dict[str, Dict[str, _Exact]]]:
     """
     Return, for every node that carries a dependence, how to rewrite its operators.
@@ -243,6 +243,8 @@ def _node_rewrites(
 
     Args:
         hamiltonian (Hamiltonian): The Hamiltonian to inspect.
+        tol (float): The relative size below which a number counts as noise, see
+            :func:`rewrite_over_independent_operators`.
 
     Returns:
         Dict[str, Dict[str, Dict[str, _Exact]]]: ``{node: {symbol: {kept symbol:
@@ -266,14 +268,15 @@ def _node_rewrites(
         matrices = [np.asarray(conversion[s]) for s in symbols]
         if len({m.shape for m in matrices}) != 1:
             continue
-        keep, coordinates = _independent_subset(matrices)
+        keep, coordinates = _independent_subset(matrices, tol)
         if len(keep) == len(symbols):
             continue  # already independent, which is the condition the elimination needs
         # The exact solve reads a nearly dependent set as independent, and then the
         # coordinates on it are not determined to any useful precision. Require the kept
         # operators to be a basis in double precision too, or leave the node alone.
         stacked = np.array([np.asarray(matrices[i]).ravel() for i in keep])
-        if np.linalg.matrix_rank(stacked, tol=1e-10) != len(keep):
+        values = np.linalg.svd(stacked, compute_uv=False)
+        if int(np.sum(values > tol * values[0])) != len(keep):
             continue
         kept_symbols = [symbols[i] for i in keep]
         rewrites[node_id] = {
@@ -283,7 +286,9 @@ def _node_rewrites(
     return rewrites
 
 
-def rewrite_over_independent_operators(hamiltonian: Hamiltonian) -> Hamiltonian:
+def rewrite_over_independent_operators(hamiltonian: Hamiltonian,
+                                       tol: float = 1e-10
+                                       ) -> Hamiltonian:
     """
     Return an equal Hamiltonian whose operators are independent on every node.
 
@@ -301,7 +306,7 @@ def rewrite_over_independent_operators(hamiltonian: Hamiltonian) -> Hamiltonian:
         Hamiltonian: An equal Hamiltonian, independent on every node that could be
             rewritten safely. The same object when nothing was rewritten.
     """
-    rewrites = _node_rewrites(hamiltonian)
+    rewrites = _node_rewrites(hamiltonian, tol)
     if not rewrites:
         return hamiltonian
 
