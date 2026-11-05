@@ -34,8 +34,8 @@ from typing import Dict, List, Tuple
 import numpy as np
 from numpy import ndarray
 
-from ..operators.hamiltonian import ONE_SYMBOL, Hamiltonian
-from ..operators.tensorproduct import TensorProduct
+from .hamiltonian import ONE_SYMBOL, Hamiltonian
+from .tensorproduct import TensorProduct
 
 __all__ = ["rewrite_over_independent_operators"]
 

@@ -17,7 +17,7 @@ from pytreenet.operators.tensorproduct import TensorProduct
 from pytreenet.operators.lindbladian import generate_lindbladian
 from pytreenet.random.random_special_ttns import random_mps
 from pytreenet.special_ttn.mps import MatrixProductState
-from pytreenet.ttno.independent_operators import rewrite_over_independent_operators
+from pytreenet.operators.hamiltonian_util import rewrite_over_independent_operators
 from pytreenet.ttno.state_diagram import StateDiagram, TTNOFinder
 from pytreenet.ttno.ttno_class import TreeTensorNetworkOperator as TTNO
 

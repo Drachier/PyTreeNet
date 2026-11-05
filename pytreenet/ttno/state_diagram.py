@@ -504,7 +504,7 @@ class StateDiagram():
         matrices that are linearly dependent, such as the identity and a phase times the
         identity on the target of a controlled phase gate, the bond is above the
         operator-Schmidt rank. Pass the Hamiltonian through
-        :func:`pytreenet.ttno.independent_operators.rewrite_over_independent_operators`
+        :func:`pytreenet.operators.hamiltonian_util.rewrite_over_independent_operators`
         first to establish the condition, which
         :meth:`pytreenet.ttno.ttno_class.TreeTensorNetworkOperator.from_hamiltonian`
         does by default.

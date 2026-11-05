@@ -5,7 +5,6 @@ Apart from the class itself, it contains everything required to build them
 automatically from a symbolic Hamiltonian.
 """
 from .state_diagram import *
-from .independent_operators import *
 from .ttno_class import *
 from .vertex import *
 from .collections import *

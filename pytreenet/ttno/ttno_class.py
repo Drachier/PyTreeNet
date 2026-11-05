@@ -16,7 +16,7 @@ from ..util.tensor_splitting import (tensor_qr_decomposition,
                                      truncated_tensor_svd,
                                      SVDParameters)
 from .state_diagram import StateDiagram, TTNOFinder
-from .independent_operators import rewrite_over_independent_operators
+from ..operators.hamiltonian_util import rewrite_over_independent_operators
 
 __all__ = ["Decomposition", "TTNO", "TreeTensorNetworkOperator"]
 
