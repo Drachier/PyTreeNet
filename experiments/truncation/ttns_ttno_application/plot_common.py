@@ -298,9 +298,10 @@ def standard_plot_main(parameter_class: type[ApplicationParams]) -> None:
             parameters of the data.
     """
     if len(sys.argv) < 2:
-        print("Usage: python plot.py <data_directory>")
+        print("Usage: python plot.py <data_directory> [<plot_directory>]")
         sys.exit(1)
     data_dir = sys.argv[1]
+    plot_dir = sys.argv[2] if len(sys.argv) > 2 else os.path.join(data_dir, "plots")
     structures = (TTNStructure.MPS, TTNStructure.TSTAR, TTNStructure.BINARY, TTNStructure.FTPS)
     sys_sizes = (50, 20, 6, 8)
     bond_dims = (40, 10, 10, 10)
@@ -317,11 +318,9 @@ def standard_plot_main(parameter_class: type[ApplicationParams]) -> None:
                                                    ApplicationMethod.DIRECT_TRUNCATE.value,
                                                    ApplicationMethod.HALF_DENSITY_MATRIX.value
                                                    ])
-        save_path = os.path.join(data_dir, "plots")
-        save_path = os.path.join(save_path, f"truncation_comparison_{structure.value}.pdf")
+        save_path = os.path.join(plot_dir, f"truncation_comparison_{structure.value}.pdf")
         plot_all(md_filter, data_dir, parameter_class, save_path=save_path)
-        rt_save_path = os.path.join(data_dir, "plots")
-        rt_save_path = os.path.join(rt_save_path, f"truncation_comparison_err_vs_rt_{structure.value}.pdf")
+        rt_save_path = os.path.join(plot_dir, f"truncation_comparison_err_vs_rt_{structure.value}.pdf")
         plt_legend = True if structure is structures[-1] else False
         only_plot_err_vs_rt(md_filter, data_dir,
                             parameter_class,
