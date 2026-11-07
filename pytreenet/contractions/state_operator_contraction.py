@@ -5,7 +5,6 @@ This module provides functions to contract a TTNS with a TTNO
 from __future__ import annotations
 from typing import Union, Callable, TYPE_CHECKING
 from enum import Enum
-from functools import lru_cache
 
 import numpy as np
 
@@ -234,15 +233,6 @@ def contract_ket_ham_with_envs(ket_node: Node,
     """
     Contract a state node and a Hamiltonian node with their environments.
 
-    Contracting a neighbour block into the ket tensor replaces the virtual leg
-    of dimension chi to that neighbour by the two legs of dimensions m and chi,
-    where m is the Hamiltonian bond dimension towards that neighbour. Doing so
-    for every neighbour before the Hamiltonian tensor is contracted would build
-    an intermediate carrying the product of all Hamiltonian bond dimensions. The
-    neighbours are therefore split into two groups, one contracted before and
-    one after the Hamiltonian tensor, such that only one of the two partial
-    products occurs at a time. The split is found by `_neighbours_before_ham`.
-
     Args:
         ket_node (Node): The ket node.
         ket_tensor (np.ndarray): The ket tensor.
@@ -277,6 +267,14 @@ def contract_ket_ham_with_envs(ket_node: Node,
               for neighbour_id in neighbour_ids]
     ket_leg = env_tensor_ket_leg_index()
     ham_leg = env_tensor_ham_leg_index()
+    # Contracting a neighbour block into the ket tensor replaces the virtual leg
+    # of dimension chi to that neighbour by the two legs of dimensions m and
+    # chi, where m is the Hamiltonian bond dimension towards that neighbour.
+    # Doing so for every neighbour before the Hamiltonian tensor is contracted
+    # would build an intermediate carrying the product of all Hamiltonian bond
+    # dimensions. The neighbours are therefore split into two groups, one
+    # contracted before and one after the Hamiltonian tensor, so that only one
+    # of the two partial products occurs at a time.
     before_ham = _neighbours_before_ham(tuple(block.shape[ham_leg]
                                               for block in blocks))
     after_ham = [index for index in range(num_neighbours)
@@ -326,50 +324,44 @@ def contract_ket_ham_with_envs(ket_node: Node,
     permutation.extend(range(len(before_ham), len(before_ham) + nopen_ham))
     return np.transpose(kethamblock, permutation)
 
-_MAX_EXACT_SPLIT_DEGREE = 12
-
-@lru_cache(maxsize=128)
-def _neighbours_before_ham(ham_dims: tuple[int, ...]) -> tuple[int, ...]:
+def _neighbours_before_ham(ham_dims: tuple[int, ...],
+                           max_exact_degree: int = 12
+                           ) -> tuple[int, ...]:
     """
     Finds the neighbours to contract before the Hamiltonian tensor.
-
-    Contracting the environment block of a neighbour into the ket tensor
-    multiplies the size of the running tensor by the Hamiltonian bond dimension
-    towards that neighbour. The largest intermediate occurs either directly
-    before the Hamiltonian tensor is contracted, where it is the product of the
-    Hamiltonian bond dimensions of the neighbours contracted so far times the
-    size of the result, or directly after, where it is the product over the
-    remaining neighbours. The peak is thus minimised by balancing the two
-    products, which is a two-way partitioning problem. The open dimensions do
-    not appear, since the input and output dimensions of a Hamiltonian node
-    agree and therefore contribute the same factor to both products.
-
-    Contracting every block first is the order to improve upon, so it is kept
-    whenever the peak cannot be lowered. The result depends only on the
-    Hamiltonian bond dimensions, which are constant during a time evolution,
-    while this function is called once per application of the effective
-    Hamiltonian. It is therefore cached.
 
     Args:
         ham_dims (tuple[int, ...]): The Hamiltonian bond dimension of the
             environment block of every neighbour, in the leg order of the ket
             node.
+        max_exact_degree (int): The largest number of neighbours for which the
+            minimal peak is determined exactly.
 
     Returns:
         tuple[int, ...]: The indices of the neighbours whose environment blocks
             are to be contracted before the Hamiltonian tensor, in ascending
             order.
     """
+    # Contracting the environment block of a neighbour into the ket tensor
+    # multiplies the size of the running tensor by the Hamiltonian bond
+    # dimension towards that neighbour. The largest intermediate therefore
+    # occurs either directly before the Hamiltonian tensor is contracted, where
+    # it is the product of the Hamiltonian bond dimensions of the neighbours
+    # contracted so far times the size of the result, or directly after, where
+    # it is the product over the remaining neighbours. The open dimensions do
+    # not appear, since the input and output dimensions of a Hamiltonian node
+    # agree and thus contribute the same factor to both products.
     num_neighbours = len(ham_dims)
     total = 1
     for dim in ham_dims:
         total *= dim
-    if num_neighbours > _MAX_EXACT_SPLIT_DEGREE:
-        # An exact split enumerates the subsets, so it costs time exponential in
-        # the number of neighbours. No tree or chain comes close to the cutoff,
-        # but a node may have arbitrarily many children. Above it the largest
-        # dimensions are taken until their product reaches the square root of
-        # the total.
+    if num_neighbours > max_exact_degree:
+        # Minimising the peak means balancing the two products, a two-way
+        # partitioning problem. Solving it exactly enumerates the subsets, so it
+        # costs time exponential in the number of neighbours. No tree or chain
+        # comes close to the cutoff, but a node may have arbitrarily many
+        # children. Above it the largest dimensions are taken until their
+        # product reaches the square root of the total.
         before, chosen = 1, []
         for index in sorted(range(num_neighbours),
                             key=lambda index: ham_dims[index],
@@ -378,6 +370,9 @@ def _neighbours_before_ham(ham_dims: tuple[int, ...]) -> tuple[int, ...]:
                 before *= ham_dims[index]
                 chosen.append(index)
         return tuple(sorted(chosen))
+    # Contracting every block first is the order to improve upon, so it is kept
+    # whenever the peak cannot be lowered. A leaf, or a node with trivial
+    # Hamiltonian bonds, thus runs the same sequence of contractions as before.
     best_indices, best_peak = tuple(range(num_neighbours)), total
     for subset in range(1 << num_neighbours):
         before = 1

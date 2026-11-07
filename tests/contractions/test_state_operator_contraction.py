@@ -1,7 +1,5 @@
 from unittest import TestCase, main as unitmain
-from unittest.mock import patch
 
-import numpy
 from numpy import allclose, tensordot, eye, prod
 
 from pytreenet.random.random_matrices import crandn
@@ -919,145 +917,161 @@ class TestContractKetHamWithEnvs(TestCase):
                                            cache)
         self.assertTrue(allclose(ref, found))
 
-class TestContractKetHamWithEnvsOrder(TestCase):
-    """
-    Tests the order in which contract_ket_ham_with_envs contracts.
-
-    Contracting a neighbour block into the ket tensor replaces the virtual leg
-    of dimension chi to that neighbour by the two legs of dimensions m and chi,
-    where m is the Hamiltonian bond dimension towards that neighbour. Doing so
-    for every neighbour before the Hamiltonian tensor is contracted thus builds
-    an intermediate carrying the product of all Hamiltonian bond dimensions,
-    which is what these tests pin down.
-    """
-
-    def setUp(self):
-        # A node of degree four with two open legs, as obtained by contracting
-        # two degree-three nodes of a tree for a two-site update.
-        self.node_id = "node"
-        self.chis = (5, 6, 7, 8)
-        self.ham_dims = (3, 4, 3, 4)
-        self.phys = (2, 2)
-        # The Hamiltonian node holds the neighbours in a different leg order.
-        self.ham_order = (2, 0, 3, 1)
-        self.ket_node, self.ket_tensor = random_tensor_node(self.chis + self.phys,
-                                                            identifier=self.node_id)
-        ham_shape = tuple(self.ham_dims[index] for index in self.ham_order)
-        self.ham_node, self.ham_tensor = random_tensor_node(ham_shape + self.phys + self.phys,
-                                                            identifier=self.node_id)
-        self.neighbour_ids = [f"neighbour{index}" for index in range(4)]
-        self.blocks = [crandn((self.chis[index],
-                               self.ham_dims[index],
-                               self.chis[index]))
-                       for index in range(4)]
-        self.cache = PartialTreeCachDict()
-        for index, neighbour_id in enumerate(self.neighbour_ids):
-            if index == 0:
-                self.ket_node.open_leg_to_parent(neighbour_id, 0)
-            else:
-                self.ket_node.open_leg_to_child(neighbour_id, index)
-            self.cache.add_entry(neighbour_id, self.node_id, self.blocks[index])
-        for position, index in enumerate(self.ham_order):
-            if position == 0:
-                self.ham_node.open_leg_to_parent(self.neighbour_ids[index], 0)
-            else:
-                self.ham_node.open_leg_to_child(self.neighbour_ids[index], position)
-
-    def _trace_peak(self):
-        """
-        Runs the contraction while recording the largest intermediate.
-
-        Returns:
-            tuple[np.ndarray, int]: The result and the size in elements of the
-                largest array produced by a tensordot during the contraction.
-        """
-        original = tensordot
-        peak = 0
-        def traced(first, second, axes=2):
-            nonlocal peak
-            result = original(first, second, axes=axes)
-            peak = max(peak, result.size)
-            return result
-        with patch.object(numpy, "tensordot", traced):
-            found = contract_ket_ham_with_envs(self.ket_node,
-                                               self.ket_tensor,
-                                               self.ham_node,
-                                               self.ham_tensor,
-                                               self.cache)
-        return found, peak
-
     def test_four_neighbours_mixed(self):
         """
         Tests the contraction for a node of degree four with two open legs,
+        as obtained by merging two degree-three nodes for a two-site update,
         where the neighbours are in a different order on the ket and the
         Hamiltonian node.
         """
-        # The open legs of the ket are contracted with the input legs of the
-        # Hamiltonian, leaving its neighbour legs in its own order.
-        ref = tensordot(self.ket_tensor, self.ham_tensor,
+        node_id = "node"
+        chis = (5, 6, 7, 8)
+        ham_dims = (3, 4, 3, 4)
+        ham_order = (2, 0, 3, 1)
+        ket_node, ket_tensor = random_tensor_node(chis + (2, 2),
+                                                  identifier=node_id)
+        ham_shape = tuple(ham_dims[index] for index in ham_order)
+        ham_node, ham_tensor = random_tensor_node(ham_shape + (2, 2, 2, 2),
+                                                  identifier=node_id)
+        neighbour_ids = [f"neighbour{index}" for index in range(4)]
+        blocks = [crandn((chis[index], ham_dims[index], chis[index]))
+                  for index in range(4)]
+        cache = PartialTreeCachDict()
+        for index, neighbour_id in enumerate(neighbour_ids):
+            if index == 0:
+                ket_node.open_leg_to_parent(neighbour_id, 0)
+            else:
+                ket_node.open_leg_to_child(neighbour_id, index)
+            cache.add_entry(neighbour_id, node_id, blocks[index])
+        for position, index in enumerate(ham_order):
+            if position == 0:
+                ham_node.open_leg_to_parent(neighbour_ids[index], 0)
+            else:
+                ham_node.open_leg_to_child(neighbour_ids[index], position)
+        # Reference. The open legs of the ket are contracted with the input
+        # legs of the Hamiltonian, leaving its neighbour legs in its own order.
+        ref = tensordot(ket_tensor, ham_tensor,
                         axes=([4, 5], [6, 7]))
         # ref legs: chi0 chi1 chi2 chi3 | m2 m0 m3 m1 | out0 out1
-        ref = tensordot(ref, self.blocks[0], axes=([0, 5], [0, 1]))
-        ref = tensordot(ref, self.blocks[1], axes=([0, 5], [0, 1]))
-        ref = tensordot(ref, self.blocks[2], axes=([0, 2], [0, 1]))
-        ref = tensordot(ref, self.blocks[3], axes=([0, 1], [0, 1]))
+        ref = tensordot(ref, blocks[0], axes=([0, 5], [0, 1]))
+        ref = tensordot(ref, blocks[1], axes=([0, 5], [0, 1]))
+        ref = tensordot(ref, blocks[2], axes=([0, 2], [0, 1]))
+        ref = tensordot(ref, blocks[3], axes=([0, 1], [0, 1]))
         # ref legs: out0 out1 | bra0 bra1 bra2 bra3
         ref = ref.transpose([2, 3, 4, 5, 0, 1])
-        found, _ = self._trace_peak()
+        # Found
+        found = contract_ket_ham_with_envs(ket_node,
+                                           ket_tensor,
+                                           ham_node,
+                                           ham_tensor,
+                                           cache)
         self.assertEqual(ref.shape, found.shape)
         self.assertTrue(allclose(ref, found))
 
-    def test_peak_intermediate_avoids_the_full_hamiltonian_bond_product(self):
-        """
-        Tests that no intermediate carries every Hamiltonian bond at once.
+class TestNeighboursBeforeHam(TestCase):
+    """
+    Tests the function _neighbours_before_ham.
+    """
 
-        The Hamiltonian bond dimensions are (3,4,3,4). Contracting every block
-        into the ket first produces an intermediate 3*4*3*4 = 144 times the size
-        of the result, while splitting them into (3,4) and (3,4) around the
-        Hamiltonian never exceeds 12 times.
+    def _peak(self, ham_dims, before_ham):
         """
-        found, peak = self._trace_peak()
-        self.assertLessEqual(peak, 12 * found.size)
+        The larger of the two partial products the split trades off.
 
-    def test_neighbours_before_ham_balances_the_bond_dimensions(self):
+        Args:
+            ham_dims (tuple[int, ...]): The Hamiltonian bond dimensions.
+            before_ham (tuple[int, ...]): The indices contracted first.
+
+        Returns:
+            int: The factor by which the largest intermediate exceeds the
+                result.
         """
-        Tests that the split balances the two products it has to trade off.
-        """
-        ham_dims = (3, 4, 3, 4)
-        before_ham = _neighbours_before_ham(ham_dims)
         before = prod([ham_dims[index] for index in before_ham])
         after = prod([dim for index, dim in enumerate(ham_dims)
                       if index not in before_ham])
-        self.assertEqual(12, before)
-        self.assertEqual(12, after)
+        return max(before, after)
 
-    def test_neighbours_before_ham_keeps_the_plain_order_without_a_gain(self):
+    def _minimal_peak(self, ham_dims):
+        """
+        The minimal peak over all subsets, found by brute force.
+
+        Args:
+            ham_dims (tuple[int, ...]): The Hamiltonian bond dimensions.
+
+        Returns:
+            int: The smallest peak any split of these dimensions attains.
+        """
+        num = len(ham_dims)
+        return min(self._peak(ham_dims,
+                              [index for index in range(num)
+                               if subset >> index & 1])
+                   for subset in range(1 << num))
+
+    def test_split_is_optimal(self):
+        """
+        Tests that the split attains the minimal peak.
+
+        The indices have to be a valid ascending subset of the neighbours and
+        the peak they produce has to be the smallest any subset attains.
+        """
+        cases = [(3, 4, 3, 4),
+                 (2, 2, 2),
+                 (6, 2, 3, 5),
+                 (3, 4, 3),
+                 (7, 7, 7, 7, 7),
+                 (1, 5, 1, 5),
+                 (2, 3, 5, 7, 11, 13)]
+        for ham_dims in cases:
+            with self.subTest(ham_dims=ham_dims):
+                before_ham = _neighbours_before_ham(ham_dims)
+                self.assertEqual(sorted(set(before_ham)), list(before_ham))
+                self.assertTrue(set(before_ham).issubset(
+                    range(len(ham_dims))))
+                self.assertEqual(self._minimal_peak(ham_dims),
+                                 self._peak(ham_dims, before_ham))
+
+    def test_plain_order_without_a_gain(self):
         """
         Tests that a node whose peak cannot be lowered is left alone.
 
         With no neighbour, a single neighbour or trivial Hamiltonian bonds
-        there is nothing to trade off, so all blocks stay in front of the
+        there is nothing to trade off, so every block stays in front of the
         Hamiltonian, as in the plain sequence of contractions.
         """
         self.assertEqual((), _neighbours_before_ham(()))
         self.assertEqual((0, ), _neighbours_before_ham((5, )))
         self.assertEqual((0, 1, 2), _neighbours_before_ham((1, 1, 1)))
 
-    def test_neighbours_before_ham_high_degree(self):
+    def test_above_the_exact_cutoff(self):
         """
         Tests the approximate split used above the exact search cutoff.
 
-        Every neighbour has to end up on exactly one of the two sides, and the
-        two products still have to be close to the square root of their total.
+        Every neighbour still ends up on exactly one of the two sides and the
+        peak stays within one dimension of the square root of the total.
         """
         ham_dims = (2, ) * 13
+        total = prod(ham_dims)
         before_ham = _neighbours_before_ham(ham_dims)
         before = prod([ham_dims[index] for index in before_ham])
         after = prod([dim for index, dim in enumerate(ham_dims)
                       if index not in before_ham])
-        self.assertEqual(2 ** 13, before * after)
-        self.assertLessEqual(max(before, after), 2 ** 7)
+        self.assertEqual(total, before * after)
+        self.assertLessEqual(max(before, after),
+                             max(ham_dims) * total ** 0.5)
 
+    def test_exact_cutoff_is_adjustable(self):
+        """
+        Tests that max_exact_degree selects between the two searches.
+
+        These dimensions are a case where the cheaper search does not attain
+        the minimal peak, so the two branches are told apart by their result.
+        """
+        ham_dims = (6, 2, 3, 5)
+        exact = _neighbours_before_ham(ham_dims, max_exact_degree=4)
+        self.assertEqual(self._minimal_peak(ham_dims),
+                         self._peak(ham_dims, exact))
+        approximate = _neighbours_before_ham(ham_dims, max_exact_degree=3)
+        self.assertGreater(self._peak(ham_dims, approximate),
+                           self._minimal_peak(ham_dims))
 
 if __name__ == "__main__":
     unitmain()
