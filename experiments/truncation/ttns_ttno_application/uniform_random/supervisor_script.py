@@ -21,7 +21,7 @@ def generate_parameter_set() -> list[UniformApplicationParams]:
         list[UniformApplicationParams]: A list of tuples containing simulation
         and time evolution parameters.
     """
-    low = -0.5
+    low = 0.0
     high = 1.0
     phys_dim = 3
     structures = (TTNStructure.TSTAR,

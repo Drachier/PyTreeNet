@@ -312,6 +312,7 @@ def standard_plot_main(parameter_class: type[ApplicationParams]) -> None:
         md_filter.add_to_criterium("structure", structure.value)
         md_filter.add_to_criterium("sys_size", sys_size)
         md_filter.add_to_criterium("bond_dim", bond_dim)
+        md_filter.add_to_criterium("distr_low", 0.0)
         md_filter.add_to_criterium("appl_method", [ApplicationMethod.DENSITY_MATRIX.value,
                                                    ApplicationMethod.SRC.value,
                                                    ApplicationMethod.ZIPUP.value,
