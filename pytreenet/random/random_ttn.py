@@ -110,7 +110,8 @@ def random_big_ttns(mode: RandomTTNSMode = RandomTTNSMode.SAME) -> TreeTensorNet
     errstr = "The only supported mode is RandomTTNSMode.SAME"
     raise NotImplementedError(errstr)
 
-def random_big_ttns_two_root_children(mode: Union[RandomTTNSMode,List[Tuple[int]]] = RandomTTNSMode.SAME
+def random_big_ttns_two_root_children(mode: Union[RandomTTNSMode,List[Tuple[int]]] = RandomTTNSMode.SAME,
+                                      seed: int | None = None
                                       ) -> TreeTensorNetwork:
     """
     Returns a random big TTNS where the root has only two children.
@@ -155,11 +156,12 @@ def random_big_ttns_two_root_children(mode: Union[RandomTTNSMode,List[Tuple[int]
         errstr = "Only RandomTTNSMode.SAME, RandomTTNSMode.DIFFVIRT or a list of shapes is supported!"
         raise NotImplementedError(errstr)
 
-    nodes = [random_tensor_node(shape, identifier="site"+str(i))
+    nodes = [random_tensor_node(shape, identifier="site"+str(i),
+                                seed=seed, link=False)
              for i, shape in enumerate(shapes)]
     random_ttns = TreeTensorNetwork()
     random_ttns.add_root(nodes[0][0], nodes[0][1])
-    random_ttns.add_child_to_parent(nodes[1][0],nodes[1][1],0,"site0",0)
+    random_ttns.add_child_to_parent(nodes[1][0],nodes[1][1],0,"site0",0,)
     random_ttns.add_child_to_parent(nodes[2][0],nodes[2][1],0,"site1",1)
     random_ttns.add_child_to_parent(nodes[3][0],nodes[3][1],0,"site1",2)
     random_ttns.add_child_to_parent(nodes[4][0],nodes[4][1],0,"site3",1)

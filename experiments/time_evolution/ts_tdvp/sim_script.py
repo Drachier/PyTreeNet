@@ -115,7 +115,7 @@ def run_simulation(params: SimParams2TDVP) -> tuple[Results, float]:
                        config=cnfg,
                        solver_options={"rtol": params.rtol,
                                        "atol": params.atol})
-    if params.integrator is Integrator.ONEBD_BUG:
+    elif params.integrator is Integrator.ONEBD_BUG:
         init_state = generate_zero_state(params.system_size,
                                         params.structure,
                                         node_prefix=STANDARD_NODE_PREFIX,

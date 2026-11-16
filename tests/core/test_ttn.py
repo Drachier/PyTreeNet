@@ -16,10 +16,11 @@ class TestTreeTensorNetworkBasics(unittest.TestCase):
 
     def setUp(self):
         self.tensortree = ptn.TreeTensorNetwork()
-        self.node1, self.tensor1 = random_tensor_node((2, 3, 4, 5), identifier="orig_root")
-        self.node2, self.tensor2 = random_tensor_node((2, 3), identifier="child1")
-        self.node3, self.tensor3 = random_tensor_node((2, 3, 4, 5), identifier="child2")
-        self.node4, self.tensor4 = random_tensor_node((2, 3, 4, 5), identifier="new_root")
+        self.node1, self.tensor1 = random_tensor_node((2, 3, 4, 5), identifier="orig_root",
+                                                      link=False)
+        self.node2, self.tensor2 = random_tensor_node((2, 3), identifier="child1", link=False)
+        self.node3, self.tensor3 = random_tensor_node((2, 3, 4, 5), identifier="child2", link=False)
+        self.node4, self.tensor4 = random_tensor_node((2, 3, 4, 5), identifier="new_root", link=False)
 
     def test_add_root(self):
         self.assertEqual(self.tensortree.root_id, None)
@@ -61,6 +62,7 @@ class TestTreeTensorNetworkBasics(unittest.TestCase):
         self.tensortree.add_child_to_parent(self.node2, self.tensor2, 1, "orig_root", 1)
         self.tensortree.add_child_to_parent(self.node3, self.tensor3, 0, "child1", 1)
 
+        print(self.node4)
         self.tensortree.add_parent_to_root(1, self.node4, self.tensor4, 0)
         self.assertEqual(self.tensortree.root_id, "new_root")
         self.assertEqual(len(self.tensortree.nodes), 4)
@@ -73,10 +75,10 @@ class TestTreeTensorNetworkBasics(unittest.TestCase):
 
     def test_root_property(self):
         ttn = ptn.TreeTensorNetwork()
-        node0, tensor0 = random_tensor_node((4,3,2),"node0")
+        node0, tensor0 = random_tensor_node((4,3,2),"node0",link=False)
         tensor0_ref_transposed = np.transpose(tensor0, (2,1,0))
-        node1, tensor1 = random_tensor_node((2, ),"node1")
-        node2, tensor2 = random_tensor_node((3, ),"node2")
+        node1, tensor1 = random_tensor_node((2, ),"node1",link=False)
+        node2, tensor2 = random_tensor_node((3, ),"node2",link=False)
         ttn.add_root(node0, tensor0)
         ttn.add_child_to_parent(node1, tensor1, 0, "node0", 2)
         ttn.add_child_to_parent(node2, tensor2, 0, "node0", 2)
@@ -134,7 +136,7 @@ class TestTreeTensorNetworkCopy(unittest.TestCase):
         """
         Checks that adding a node to the new TTN does not change the old TTN.
         """
-        node, tensor = random_tensor_node((2,2,2), identifier="new_node")
+        node, tensor = random_tensor_node((2,2,2), identifier="new_node", link=False)
         self.found_ttn.add_child_to_parent(node, tensor, 0,
                                            "site0", 2)
         self.assertEqual(self.ttn,
@@ -194,7 +196,7 @@ class TestTreeTensorNetworkSimple(unittest.TestCase):
 
     def setUp(self):
         self.tensortree = random_small_ttns()
-        self.svd_params = ptn.SVDParameters(max_bond_dim=float("inf"),
+        self.svd_params = ptn.SVDParameters(max_bond_dim=10**3,
                                             rel_tol=float("-inf"),
                                             total_tol=float("-inf"))
 
@@ -511,15 +513,15 @@ class TestTreeTensorNetworkBigTree(unittest.TestCase):
     def setUp(self):
         self.ttn = ptn.TreeTensorNetwork()
 
-        node1, tensor1 = random_tensor_node((2, 3, 4, 5), identifier="id1")
-        node2, tensor2 = random_tensor_node((2, 3, 4, 5), identifier="id2")
-        node3, tensor3 = random_tensor_node((2, 3, 4, 5), identifier="id3")
-        node4, tensor4 = random_tensor_node((2, 3, 4, 5), identifier="id4")
-        node5, tensor5 = random_tensor_node((2, 3, 4, 5), identifier="id5")
-        node6, tensor6 = random_tensor_node((2, 3, 4, 5), identifier="id6")
-        node7, tensor7 = random_tensor_node((2, 3, 4, 5), identifier="id7")
-        node8, tensor8 = random_tensor_node((2, 3, 4, 5), identifier="id8")
-        node9, tensor9 = random_tensor_node((2, 3, 4, 5), identifier="id9")
+        node1, tensor1 = random_tensor_node((2, 3, 4, 5), identifier="id1", link=False)
+        node2, tensor2 = random_tensor_node((2, 3, 4, 5), identifier="id2", link=False)
+        node3, tensor3 = random_tensor_node((2, 3, 4, 5), identifier="id3", link=False)
+        node4, tensor4 = random_tensor_node((2, 3, 4, 5), identifier="id4", link=False)
+        node5, tensor5 = random_tensor_node((2, 3, 4, 5), identifier="id5", link=False)
+        node6, tensor6 = random_tensor_node((2, 3, 4, 5), identifier="id6", link=False)
+        node7, tensor7 = random_tensor_node((2, 3, 4, 5), identifier="id7", link=False)
+        node8, tensor8 = random_tensor_node((2, 3, 4, 5), identifier="id8", link=False)
+        node9, tensor9 = random_tensor_node((2, 3, 4, 5), identifier="id9", link=False)
 
         self.ttn.add_root(node1, tensor1)
         self.ttn.add_child_to_parent(node2, tensor2, 0, "id1", 0)

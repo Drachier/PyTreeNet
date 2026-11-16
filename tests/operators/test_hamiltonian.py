@@ -133,7 +133,8 @@ class TestHamiltonianSimpleTree(unittest.TestCase):
 
     def test_is_compatible_with_false(self):
         ttn = TreeTensorNetwork()
-        node, tensor = random_tensor_node((2,3,4), identifier="False!")
+        node, tensor = random_tensor_node((2,3,4), identifier="False!",
+                                          link=False)
         ttn.add_root(node, tensor)
         self.assertFalse(self.ham_num.is_compatible_with(ttn))
 

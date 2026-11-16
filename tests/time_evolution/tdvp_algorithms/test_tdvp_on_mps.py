@@ -208,7 +208,7 @@ class TestTDVPonMPS(unittest.TestCase):
         """
         heff = np.tensordot(mpo.tensors["site_1"],
                             ref_cache_dict.get_entry("site_2", "site_1"),
-                            axes=(1,1))
+                            axes=(0,1))
         heff = np.tensordot(heff,
                             ref_cache_dict.get_entry("site_0", "site_1"),
                             axes=(0,1))
@@ -450,7 +450,7 @@ class TestTDVPonMPS(unittest.TestCase):
         # Site update
         heff = np.tensordot(mpo.tensors["site_1"],
                             cache_dict.get_entry("site_0", "site_1"),
-                            axes=(0,1))
+                            axes=(1,1))
         heff = np.tensordot(heff,
                             cache_dict.get_entry("site_2", "site_1"),
                             axes=(0,1))

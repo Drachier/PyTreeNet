@@ -1,3 +1,8 @@
+"""
+Module implementing the Node class, which is responsible for the control of the
+legs of a tensor network node. It keeps track of the leg order and shape.
+"""
+
 from __future__ import annotations
 from typing import List, Dict, Union, Tuple, Callable
 from functools import reduce
@@ -7,7 +12,7 @@ from numpy import ndarray, prod as nprod
 
 from .graph_node import (GraphNode,
                          find_child_permutation_neighbour_index)
-from ..util.std_utils import permute_iterator, postivise_range
+from ..util.std_utils import permute_iterator, positivise_range
 from ..util.ttn_exceptions import NotCompatibleException
 
 class LegKind(Enum):
@@ -95,12 +100,13 @@ class Node(GraphNode):
         return permute_iterator(self._shape, self._leg_permutation)
 
     @property
-    def parent_leg(self) -> int:
+    def parent_leg(self) -> int | None:
         """
         Returns the parent_leg as index.
+        If the node has no parent, None is returned.
 
         Returns:
-            int: The parent_leg where the value is the position in the permutation
+            int | None: The parent_leg where the value is the position in the permutation
                 list. If there is no parent, None is returned.
         """
         if self.is_root():
@@ -129,6 +135,9 @@ class Node(GraphNode):
         """
         Returns the lowest valued open leg.
         """
+        if self.nopen_legs() == 0:
+            errstr = f"Node {self.identifier} has no open legs!"
+            raise ValueError(errstr)
         return self.nvirt_legs()
 
     def __str__(self) -> str:
@@ -149,6 +158,9 @@ class Node(GraphNode):
         Args:
             tensor (ndarray): The tensor to be linked with this node.
         """
+        if self.shape is not None:
+            errstr = f"Node {self.identifier} is already linked to a tensor!"
+            raise NotCompatibleException(errstr)
         self._leg_permutation = list(range(tensor.ndim))
         self._shape = tensor.shape
 
@@ -177,6 +189,9 @@ class Node(GraphNode):
         Always call this, when the associated tensor is transposed
             according to the permutation. This ensures, the legs still match.
         """
+        if self._shape is None:
+            errstr = f"Node {self.identifier} is not linked to a tensor!"
+            raise NotCompatibleException(errstr)
         self._shape = self.shape
         self._leg_permutation = list(range(len(self._leg_permutation)))
 
@@ -213,6 +228,9 @@ class Node(GraphNode):
             other_id (Union[str, None]): The identifier of a different node to
                 appear in the error message.
         """
+        if open_leg < 0:
+            errstr = f"The leg with index {open_leg} of {self.identifier} is negative!"
+            raise IndexError(errstr)
         if self.nopen_legs() == 0:
             errstr = f"Node with identifier {self.identifier} has no open legs!"
             raise ValueError(errstr)
@@ -223,6 +241,9 @@ class Node(GraphNode):
             else:
                 errstr = errstr + f" to connect to {other_id}"
             raise NotCompatibleException(errstr)
+        if open_leg > self.nlegs() - 1:
+            errstr = f"The leg with index {open_leg} of {self.identifier} is too large!"
+            raise IndexError(errstr)
 
     def open_leg_to_parent(self,
                            parent_id: str,
@@ -274,14 +295,13 @@ class Node(GraphNode):
              the to be children nodes as keys and the open leg that they should contract
              to as values.
         """
+        # Validity check on every leg
+        for value in child_dict.values():
+            self._open_leg_checks(value)
         actual_value = {child_id: self._leg_permutation[open_leg]
                         for child_id, open_leg in child_dict.items()}
-        original_nneighbours = self.nneighbours()
         for child_id, value in actual_value.items():
             new_position = self.nvirt_legs()
-            if child_dict[child_id] < original_nneighbours:
-                errstr = f"The leg with index {child_dict[child_id]} of {self.identifier} is not open to connect to {child_id}!"
-                raise NotCompatibleException(errstr)
             self._leg_permutation.remove(value)
             self._leg_permutation.insert(new_position, value)
             self.add_child(child_id)
@@ -344,8 +364,8 @@ class Node(GraphNode):
             raise ValueError(errstr)
         # Deal with negative indices
         nlegs = self.nlegs()
-        open_1 = postivise_range(open_1, nlegs)
-        open_2 = postivise_range(open_2, nlegs)
+        open_1 = positivise_range(open_1, nlegs)
+        open_2 = positivise_range(open_2, nlegs)
         # Ensure that open_1 is the first one
         if open_2.start < open_1.start:
             open_1, open_2 = open_2, open_1
@@ -406,6 +426,8 @@ class Node(GraphNode):
         """
         Returns the total number of legs of this node.
         """
+        if self._leg_permutation is None:
+            return 0
         return len(self._leg_permutation)
 
     def nchild_legs(self) -> int:
@@ -498,7 +520,7 @@ class Node(GraphNode):
             errstr = f"{index} is not a neighbour of node {self.identifier}!"
             raise KeyError(errstr)
         if index > self.nlegs() - 1 or index < 0:
-            errstr = f"Index {index} is invalid for node {self.identifier} with only {self.nchild_legs()} legs!"
+            errstr = f"Index {index} is invalid for node {self.identifier} with only {self.nlegs()} legs!"
             raise IndexError(errstr)
         if index == 0 and not self.is_root():
             return LegKind.PARENT

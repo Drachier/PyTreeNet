@@ -71,25 +71,25 @@ def random_small_ttns(mode: RandomTTNSMode = RandomTTNSMode.DIFFVIRT,
     c2_id = ids[2]
     random_ttns = TreeTensorNetworkState()
     if mode == RandomTTNSMode.DIFFVIRT:
-        root_node, root_tensor = random_tensor_node((5,6,2),root_id, seed=seed)
+        root_node, root_tensor = random_tensor_node((5,6,2),root_id, seed=seed, link=False)
         random_ttns.add_root(root_node, root_tensor)
-        c1_node, c1_tensor = random_tensor_node((5,3),c1_id, seed=seed)
+        c1_node, c1_tensor = random_tensor_node((5,3),c1_id, seed=seed, link=False)
         random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, root_id, 0)
-        c2_node, c2_tensor = random_tensor_node((6,4),c2_id, seed=seed)
+        c2_node, c2_tensor = random_tensor_node((6,4),c2_id, seed=seed, link=False)
         random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, root_id, 1)
     elif mode == RandomTTNSMode.SAMEPHYS:
-        root_node, root_tensor = random_tensor_node((5,6,2),root_id, seed=seed)
+        root_node, root_tensor = random_tensor_node((5,6,2),root_id, seed=seed, link=False)
         random_ttns.add_root(root_node, root_tensor)
-        c1_node, c1_tensor = random_tensor_node((5,2),c1_id, seed=seed)
+        c1_node, c1_tensor = random_tensor_node((5,2),c1_id, seed=seed, link=False)
         random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, root_id, 0)
-        c2_node, c2_tensor = random_tensor_node((6,2),c2_id, seed=seed)
+        c2_node, c2_tensor = random_tensor_node((6,2),c2_id, seed=seed, link=False)
         random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, root_id, 1)
     else:
-        root_node, root_tensor = random_tensor_node((2,2,2),root_id, seed=seed)
+        root_node, root_tensor = random_tensor_node((2,2,2),root_id, seed=seed, link=False)
         random_ttns.add_root(root_node, root_tensor)
-        c1_node, c1_tensor = random_tensor_node((2,3),c1_id, seed=seed)
+        c1_node, c1_tensor = random_tensor_node((2,3),c1_id, seed=seed, link=False)
         random_ttns.add_child_to_parent(c1_node, c1_tensor, 0, root_id, 0)
-        c2_node, c2_tensor = random_tensor_node((2,4),c2_id, seed=seed)
+        c2_node, c2_tensor = random_tensor_node((2,4),c2_id, seed=seed, link=False)
         random_ttns.add_child_to_parent(c2_node, c2_tensor, 0, root_id, 1)
     return random_ttns
 
@@ -129,7 +129,7 @@ def random_big_ttns(mode: RandomTTNSMode = RandomTTNSMode.SAME,
     else:
         errstr = "The only supported mode is RandomTTNSMode.SAME"
         raise NotImplementedError(errstr)
-    nodes = [random_tensor_node(shape, identifier="site"+str(i+1), seed=seed)
+    nodes = [random_tensor_node(shape, identifier="site"+str(i+1), seed=seed, link=False)
                  for i, shape in enumerate(shapes)]
     random_ttns = TreeTensorNetworkState()
     random_ttns.add_root(nodes[0][0], nodes[0][1])
@@ -191,7 +191,7 @@ def random_big_ttns_two_root_children(mode: Union[RandomTTNSMode,List[Tuple[int]
         errstr = "Only RandomTTNSMode.SAME, RandomTTNSMode.DIFFVIRT or a list of shapes is supported!"
         raise NotImplementedError(errstr)
 
-    nodes = [random_tensor_node(shape, identifier="site"+str(i), seed=seed)
+    nodes = [random_tensor_node(shape, identifier="site"+str(i), seed=seed, link=False)
              for i, shape in enumerate(shapes)]
     random_ttns = TreeTensorNetworkState()
     random_ttns.add_root(nodes[0][0], nodes[0][1])

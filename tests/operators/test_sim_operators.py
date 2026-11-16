@@ -104,15 +104,20 @@ class TestSimOperators(unittest.TestCase):
         """
         operator = "M"
         tree = TreeTensorNetwork()
-        node, tensor = random_tensor_node((2,2,2),identifier="A")
+        node, tensor = random_tensor_node((2,2,2),identifier="A",
+                                          link=False)
         tree.add_root(node, tensor)
-        node, tensor = random_tensor_node((2,2,2),identifier="B")
+        node, tensor = random_tensor_node((2,2,2),identifier="B",
+                                          link=False)
         tree.add_child_to_parent(node,tensor,0,"A",0)
-        node, tensor = random_tensor_node((2,2), identifier="C")
+        node, tensor = random_tensor_node((2,2), identifier="C",
+                                          link=False)
         tree.add_child_to_parent(node,tensor,0,"A",1)
-        node, tensor = random_tensor_node((2,2,2), identifier="D")
+        node, tensor = random_tensor_node((2,2,2), identifier="D",
+                                          link=False)
         tree.add_child_to_parent(node,tensor,0,"B",1)
-        node, tensor = random_tensor_node((2,2), identifier="E")
+        node, tensor = random_tensor_node((2,2), identifier="E",
+                                          link=False)
         tree.add_child_to_parent(node,tensor,0,"D",1)
         operators = single_site_operators(operator, tree)
         self.assertEqual(len(operators), 5)
@@ -139,12 +144,15 @@ def mps_structure(n_sites: int) -> TreeStructure:
 
     """
     tree = TreeTensorNetwork()
-    node, tensor = random_tensor_node((2,2), identifier="A")
+    node, tensor = random_tensor_node((2,2), identifier="A",
+                                      link=False)
     tree.add_root(node, tensor)
     for i in range(1, n_sites-1):
-        node, tensor = random_tensor_node((2,2,2), identifier=chr(65+i))
+        node, tensor = random_tensor_node((2,2,2), identifier=chr(65+i),
+                                          link=False)
         tree.add_child_to_parent(node, tensor, 0, chr(65+i-1), 1)
-    node, tensor = random_tensor_node((2,2), identifier=chr(65+n_sites-1))
+    node, tensor = random_tensor_node((2,2), identifier=chr(65+n_sites-1),
+                                      link=False)
     tree.add_child_to_parent(node, tensor, 0, chr(65+n_sites-2), 1)
     return tree
 
@@ -162,21 +170,29 @@ def complicated_tree_structure() -> TreeStructure:
         C   D    F
     """
     tree = TreeTensorNetwork()
-    node, tensor = random_tensor_node((2,2,2), identifier="A")
+    node, tensor = random_tensor_node((2,2,2), identifier="A",
+                                          link=False)
     tree.add_root(node,tensor)
-    node, tensor = random_tensor_node((2,2,2,2), identifier="B")
+    node, tensor = random_tensor_node((2,2,2,2), identifier="B",
+                                          link=False)
     tree.add_child_to_parent(node,tensor,0,"A",0)
-    node, tensor = random_tensor_node((2,2), identifier="C")
+    node, tensor = random_tensor_node((2,2), identifier="C",
+                                          link=False)
     tree.add_child_to_parent(node,tensor,0,"B",1)
-    node, tensor = random_tensor_node((2,2), identifier="D")
+    node, tensor = random_tensor_node((2,2), identifier="D",
+                                          link=False)
     tree.add_child_to_parent(node,tensor,0,"B",2)
-    node, tensor = random_tensor_node((2,2,2,2,2), identifier="E")
+    node, tensor = random_tensor_node((2,2,2,2,2), identifier="E",
+                                          link=False)
     tree.add_child_to_parent(node,tensor,0,"A",1)
-    node, tensor = random_tensor_node((2,2), identifier="F")
+    node, tensor = random_tensor_node((2,2), identifier="F",
+                                          link=False)
     tree.add_child_to_parent(node,tensor,0,"E",1)
-    node, tensor = random_tensor_node((2,2), identifier="G")
+    node, tensor = random_tensor_node((2,2), identifier="G",
+                                          link=False)
     tree.add_child_to_parent(node,tensor,0,"E",2)
-    node, tensor = random_tensor_node((2,2), identifier="H")
+    node, tensor = random_tensor_node((2,2), identifier="H",
+                                          link=False)
     tree.add_child_to_parent(node,tensor,0,"E",3)
     return tree
 

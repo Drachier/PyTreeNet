@@ -30,6 +30,102 @@ class TestGraphNode(unittest.TestCase):
 
         self.node = GraphNode(identifier="this")
 
+    def test_copy_with_new_id_emptynode(self):
+        """
+        Tests the copy_with_new_id method of the GraphNode class.
+        """
+        new_id = "new"
+        new_node = self.node.copy_with_new_id(new_id)
+        self.assertEqual(new_id, new_node.identifier)
+        self.assertEqual(None, new_node.parent)
+        self.assertEqual([], new_node.children)
+
+    def test_copy_with_new_id_nodewithneighbours(self):
+        """
+        Tests that a node with neighbours is copied correctly.
+        """
+        self.node.add_parent(self.parent_id)
+        self.node.add_children([self.child1_id, self.child2_id])
+        new_id = "new"
+        new_node = self.node.copy_with_new_id(new_id)
+        self.assertEqual(new_id, new_node.identifier)
+        self.assertEqual(self.parent_id, new_node.parent)
+        self.assertEqual([self.child1_id, self.child2_id], new_node.children)
+
+    def test_copy_with_new_id_oldnotaffected(self):
+        """
+        Tests that the original node is not affected by the copy_with_new_id method.
+        """
+        self.node.add_parent(self.parent_id)
+        self.node.add_children([self.child1_id, self.child2_id])
+        new_id = "new"
+        new_node = self.node.copy_with_new_id(new_id)
+        # Change the new node
+        new_node.remove_parent()
+        new_node.add_parent("new_parent")
+        new_node.add_child("new_child")
+        new_node.remove_child(self.child1_id)
+        # Check that the old node is not affected
+        self.assertEqual(self.parent_id, self.node.parent)
+        self.assertEqual([self.child1_id, self.child2_id], self.node.children)
+
+    def test_set_identifier(self):
+        """
+        Test the method to set a new identifier for the node.
+        """
+        new_id = "new"
+        self.node.set_identifier(new_id)
+        self.assertEqual(new_id, self.node.identifier)
+
+    def test_eq(self):
+        # Empty Nodes
+        self.assertFalse(GraphNode(identifier="Not this") == self.node)
+        other_node = GraphNode(identifier="this")
+        self.assertTrue(other_node, self.node)
+
+        # With parent
+        other_node.add_parent("parent")
+        self.assertFalse(other_node == self.node)
+        self.node.add_parent("Cat")
+        self.assertFalse(other_node == self.node)
+        other_node.remove_parent()
+        other_node.add_parent("Cat")
+        self.assertTrue(other_node == self.node)
+
+        # With children
+        self.node.add_children([self.child1_id, self.child2_id])
+        self.assertFalse(other_node == self.node)
+        other_node.add_child("Carneval!")
+        self.assertFalse(other_node == self.node)
+        other_node.remove_child("Carneval!")
+        other_node.add_children([self.child1_id, self.child2_id])
+        self.assertTrue(other_node == self.node)
+
+    def test_eq_root_chenanigans(self):
+        """
+        Tests the special cases, where roots are involved.
+        """
+        # Different roots
+        other_node = GraphNode(identifier="other")
+        self.assertFalse(other_node == self.node)
+
+        # Same root
+        other_node = GraphNode(identifier="this")
+        self.assertTrue(other_node == self.node)
+
+        # One root, but not the other
+        other_node = GraphNode(identifier="this")
+        other_node.add_parent("parent")
+        self.assertFalse(other_node == self.node)
+        self.assertFalse(self.node == other_node)
+
+        # With children
+        other_node = GraphNode(identifier="this")
+        self.node.add_children([self.child1_id, self.child2_id])
+        self.assertFalse(other_node == self.node)
+        other_node.add_children([self.child1_id, self.child2_id])
+        self.assertTrue(other_node == self.node)
+
     def test_add_parent(self):
         self.assertEqual(None, self.node.parent)
         self.node.add_parent(self.parent_id)
@@ -66,6 +162,11 @@ class TestGraphNode(unittest.TestCase):
         # Add another child
         self.node.add_children(["third_child"])
         children.append("third_child")
+        self.assertEqual(children, self.node.children)
+
+        # Add a fourth and fifth child
+        self.node.add_children(["fourth_child", "fifth_child"])
+        children.extend(["fourth_child", "fifth_child"])
         self.assertEqual(children, self.node.children)
 
     def test_remove_child_not_existing(self):
@@ -178,31 +279,44 @@ class TestGraphNode(unittest.TestCase):
     def test_is_child_of_root(self):
         # Not if there is no parent
         self.assertFalse(self.node.is_child_of("hi"))
+        self.assertFalse(self.node.is_child_of(GraphNode(identifier="hi")))
 
     def test_is_child_of_false(self):
         # Wrong node
         self.node.add_parent("shark")
         self.assertFalse(self.node.is_child_of("hi"))
+        self.assertFalse(self.node.is_child_of(GraphNode(identifier="hi")))
 
     def test_is_child_of_true(self):
         # It is
         self.node.add_parent("shark")
         self.assertTrue(self.node.is_child_of("shark"))
+        self.assertTrue(self.node.is_child_of(GraphNode(identifier="shark")))
 
     def test_is_parent_of_leaf(self):
         # Not without children
         self.assertFalse(self.node.is_parent_of("fish"))
+        self.assertFalse(self.node.is_parent_of(GraphNode(identifier="fish")))
+        self.assertFalse(self.node.is_parent_of(["fish", "shark",
+                                                 GraphNode(identifier="shark")]))
 
     def test_is_parent_of_false(self):
         # Wrong child
         self.node.add_children([self.child1_id, self.child2_id])
         self.assertFalse(self.node.is_parent_of("More Fish!"))
+        self.assertFalse(self.node.is_parent_of(GraphNode(identifier="fish")))
+        self.assertFalse(self.node.is_parent_of(["fish", "shark",
+                                                 GraphNode(identifier="shark")]))
 
     def test_is_parent_of_true(self):
         # It is
         self.node.add_children([self.child1_id, self.child2_id])
         self.assertTrue(self.node.is_parent_of(self.child1_id))
         self.assertTrue(self.node.is_parent_of(self.child2_id))
+        self.assertTrue(self.node.is_parent_of(GraphNode(identifier=self.child1_id)))
+        self.assertTrue(self.node.is_parent_of(GraphNode(identifier=self.child2_id)))
+        self.assertTrue(self.node.is_parent_of([self.child1_id,
+                                                GraphNode(identifier=self.child2_id)]))
 
     def test_nparents(self):
         # There are only two options
@@ -262,55 +376,6 @@ class TestGraphNode(unittest.TestCase):
         self.node.remove_parent()
         self.assertEqual([self.child1_id, self.child2_id],
                          self.node.neighbouring_nodes())
-
-    def test_eq(self):
-        # Empty Nodes
-        self.assertFalse(GraphNode(identifier="Not this") == self.node)
-        other_node = GraphNode(identifier="this")
-        self.assertTrue(other_node, self.node)
-
-        # With parent
-        other_node.add_parent("parent")
-        self.assertFalse(other_node == self.node)
-        self.node.add_parent("Cat")
-        self.assertFalse(other_node == self.node)
-        other_node.remove_parent()
-        other_node.add_parent("Cat")
-        self.assertTrue(other_node == self.node)
-
-        # With children
-        self.node.add_children([self.child1_id, self.child2_id])
-        self.assertFalse(other_node == self.node)
-        other_node.add_child("Carneval!")
-        self.assertFalse(other_node == self.node)
-        other_node.remove_child("Carneval!")
-        other_node.add_children([self.child1_id, self.child2_id])
-        self.assertTrue(other_node == self.node)
-
-    def test_eq_root_chenanigans(self):
-        """
-        Tests the special cases, where roots are involved.
-        """
-        # Different roots
-        other_node = GraphNode(identifier="other")
-        self.assertFalse(other_node == self.node)
-
-        # Same root
-        other_node = GraphNode(identifier="this")
-        self.assertTrue(other_node == self.node)
-
-        # One root, but not the other
-        other_node = GraphNode(identifier="this")
-        other_node.add_parent("parent")
-        self.assertFalse(other_node == self.node)
-        self.assertFalse(self.node == other_node)
-
-        # With children
-        other_node = GraphNode(identifier="this")
-        self.node.add_children([self.child1_id, self.child2_id])
-        self.assertFalse(other_node == self.node)
-        other_node.add_children([self.child1_id, self.child2_id])
-        self.assertTrue(other_node == self.node)
 
     def test_neighbour_id_non_root(self):
         """
@@ -421,6 +486,18 @@ class TestNodeFunctions(unittest.TestCase):
                                          modify_function=modifier)
         self.assertEqual([1,2,0], perm)
 
+    def test_find_children_permutation_diffnumchildren(self):
+        """
+        Tests the child permutation function when the number of children is different.
+        """
+        old_node = GraphNode()
+        old_node.add_children(["c1", "c2", "c3"])
+        new_node = GraphNode()
+        new_node.add_children(["c2", "c3"])
+        self.assertRaises(ValueError,
+                          find_children_permutation,
+                          old_node, new_node)
+
     def test_find_child_permutation_neighbour_index_complex_modify(self):
         old_node = GraphNode()
         old_node.add_children(["c1", "c2", "c3"])
@@ -452,6 +529,19 @@ class TestNodeFunctions(unittest.TestCase):
         perm = find_child_permutation_neighbour_index(old_node, new_node,
                                                      modify_function=modifier)
         self.assertEqual([2,3,1], perm)
+
+    def test_find_child_permutation_neighbour_index_diffnumparents(self):
+        """
+        If the number of parents is different, the function should raise a ValueError.
+        """
+        old_node = GraphNode()
+        old_node.add_parent("parent1")
+        old_node.add_children(["c1", "c2", "c3"])
+        new_node = GraphNode()
+        new_node.add_children(["c2", "c3", "c1"])
+        self.assertRaises(ValueError,
+                          find_child_permutation_neighbour_index,
+                          old_node, new_node)
 
     def test_determine_parentage_parent1(self):
         """

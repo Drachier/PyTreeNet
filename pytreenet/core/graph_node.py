@@ -4,32 +4,6 @@ Provides the GraphNode class, which is the fundamental building block of trees.
 A GraphNode is a node in a tree structure and contains the information about
 neighbouring nodes, i.e. parent and children nodes.
 
-.. code-block:: python
-
-    # Create a graph node
-    node = GraphNode("node"
-
-    # Add a parent
-    node.add_parent("parent")
-
-    # Add children
-    node.add_child("child1")
-    node.add_children(["child2", "child3"])
-
-    # We can do some checks
-    node.is_root()  # False
-    node.is_leaf()  # False
-    node.is_child_of("parent")  # True
-    node.is_parent_of("child1")  # True
-    
-    # An check the numbers for conneciivity
-    node.nparents()  # 1
-    node.nchildren()  # 3
-    node.nneighbours()  # 4
-    node.neighbour_index("child2") # 2
-    node.child_index("child2")  # 1
-    node.neighbouring_nodes()  # ["parent", "child1", "child2", "child3"]
-
 Note that GraphNodes are usually not used directly, but rather via the Node
 child class in tree tensor networks.
 """
@@ -80,7 +54,7 @@ class GraphNode:
 
     def copy_with_new_id(self, new_id: str) -> GraphNode:
         """
-        Creates a copy of this GraphNode with a new identifier.
+        Creates a shallow copy of this GraphNode with a new identifier.
 
         Args:
             new_id (str): The new identifier.
@@ -239,9 +213,8 @@ class GraphNode:
             new_child_id (str): The identifier of the new child.
         """
         self._check_child_existence(child_id)
-        if child_id == new_child_id:
-            return
-        self.children[self.child_index(child_id)] = new_child_id
+        if child_id != new_child_id:
+            self.children[self.child_index(child_id)] = new_child_id
 
     def replace_neighbour(self, old_neighbour_id: str, new_neighbour_id: str):
         """
@@ -301,7 +274,7 @@ class GraphNode:
                 itself.
             
         Returns:
-            bool: True if this node is a parent of the given node(s), False
+            bool: True if this node is a parent of all the given nodes, False
                 otherwise.
         """
         if isinstance(other_node, list):
@@ -395,6 +368,9 @@ def determine_parentage(node1: GraphNode,
     Raises:
         ValueError: If the nodes are not connected.
     """
+    if node2.is_child_of(node1) and node1.is_child_of(node2):
+        errstr = f"Nodes {node1.identifier} and {node2.identifier} are both parents of each other!"
+        raise ValueError(errstr)
     if node2.is_child_of(node1):
         return (node1, node2)
     if node1.is_child_of(node2):
@@ -476,6 +452,7 @@ def find_child_permutation_neighbour_index(old_node: GraphNode,
     child_perm = find_children_permutation(old_node,
                                            new_node,
                                            modify_function)
-    assert old_node.nparents() == new_node.nparents()
+    if old_node.nparents() != new_node.nparents():
+        raise ValueError("The number of parents must be the same!")
     nparents = old_node.nparents()
     return [num+nparents for num in child_perm]

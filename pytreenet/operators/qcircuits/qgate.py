@@ -1136,7 +1136,7 @@ class ProjectionOperation(QuantumOperation):
 
     def __init__(self,
                  symbol: str,
-                 qubit_ids: list[str],
+                 qubit_ids: list[str] | str,
                  **kwargs
                  ) -> None:
         """
@@ -1144,10 +1144,12 @@ class ProjectionOperation(QuantumOperation):
 
         Args:
             symbol (str): The symbol representing the projection operation.
-            qubit_ids (list[str]): The IDs of the qubits the projection acts on.
+            qubit_ids (list[str] | str): The IDs of the qubits the projection acts on.
             **kwargs: Additional keyword arguments for the measurment
                 operation, passed to the Measurement constructor.
         """
+        if isinstance(qubit_ids, str):
+            qubit_ids = [qubit_ids]
         QuantumOperation.__init__(self, symbol, qubit_ids)
         self.meas = Measurement(qubit_ids, **kwargs)
 

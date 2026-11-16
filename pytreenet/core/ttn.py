@@ -177,6 +177,36 @@ class TreeTensorNetwork(TreeStructure):
             raise KeyError(errstr)
         return self[self.root_id]
 
+    def root_node(self) -> Node:
+        """
+        Returns the root node of the TTN.
+
+        Returns:
+            Node: The root node of the TTN.
+
+        Raises:
+            KeyError: If there is no root in the TTN.
+        """
+        if self.root_id is None:
+            errstr = "There is no root!"
+            raise KeyError(errstr)
+        return self.nodes[self.root_id]
+
+    def root_tensor(self) -> np.ndarray:
+        """
+        Returns the tensor associated with the root node of the TTN.
+
+        Returns:
+            np.ndarray: The tensor associated with the root node of the TTN.
+
+        Raises:
+            KeyError: If there is no root in the TTN.
+        """
+        if self.root_id is None:
+            errstr = "There is no root!"
+            raise KeyError(errstr)
+        return self.tensors[self.root_id]
+
     def __getitem__(self, key: str) -> Tuple[Node, np.ndarray]:
         """
         Returns the node and the tensor associated to a given identifier.
@@ -511,6 +541,7 @@ class TreeTensorNetwork(TreeStructure):
                 root tensor.
         """
         self.ensure_existence(self.root_id)
+        parent.link_tensor(tensor)
         former_root_node = self.root[0]
         new_root_id = parent.identifier
         self.ensure_shape_matching(tensor, parent_leg,

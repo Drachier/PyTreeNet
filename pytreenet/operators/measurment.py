@@ -136,7 +136,7 @@ class Measurement:
         Returns:
             Self: An empty Measurement instance.
         """
-        return cls(**kwargs)
+        return cls([],**kwargs)
 
     def is_empty(self) -> bool:
         """
