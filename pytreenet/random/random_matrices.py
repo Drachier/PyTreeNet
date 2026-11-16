@@ -37,6 +37,40 @@ def random_hermitian_matrix(size: int = 2) -> np.ndarray:
     rmatrix = random_matrix(size)
     return 0.5 * (rmatrix + rmatrix.T.conj())
 
+def random_nearly_dependent_diagonals(size: int = 4,
+                                      condition: float = 1e16,
+                                      seed: int | None = None
+                                      ) -> list[np.ndarray]:
+    """
+    Creates diagonal matrices that are dependent exactly but not numerically.
+
+    The first `size` matrices span the diagonal matrices of the given size,
+    with their singular values spaced geometrically from one down to one over
+    `condition`. The last one is a further random diagonal matrix, so it is a
+    combination of the others exactly, a diagonal matrix of this size having
+    only `size` free entries, while its coordinates on them are of the order of
+    `condition` and rebuilding it from them in double precision loses it.
+
+    Args:
+        size (int, optional): Size of the matrices, and the number of them
+            that span the space. Defaults to 4.
+        condition (float, optional): The ratio of the largest to the smallest
+            singular value of the spanning set. Defaults to 1e16, at which the
+            set is rank deficient in double precision.
+        seed (int, optional): Seed of the random number generator. Defaults to
+            None.
+
+    Returns:
+        list[np.ndarray]: The size + 1 diagonal matrices.
+    """
+    positivity_check(size, "size")
+    positivity_check(condition, "condition")
+    diagonals = crandn((size + 1, size), seed=seed)
+    left, _, right = np.linalg.svd(diagonals[:size])
+    values = np.geomspace(1.0, 1.0 / condition, size)
+    diagonals[:size] = left @ np.diag(values) @ right
+    return [np.diag(diagonal) for diagonal in diagonals]
+
 def random_unitary_matrix(size: int = 2,
                           seed: int | None = None
                           ) -> np.ndarray:
