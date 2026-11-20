@@ -146,21 +146,21 @@ ROOT_CONFIGS = (RootConfig("left_root_uncanonicalised", True,
 
 BOND_DIM_ID = "bond_dim"
 
-def config_res_ids(config: RootConfig) -> tuple[str, str]:
+def config_res_ids(config: RootConfig) -> tuple[str, str, str]:
     """
-    Generates the result identifiers for the truncation error and runtime of
-    the given configuration.
+    Generates the result identifiers for the results.
 
     Args:
         config (RootConfig): The configuration to generate the identifiers
             for.
 
     Returns:
-        tuple[str, str]: The identifiers of the truncation error and the
-            runtime results.
+        tuple[str, str]: The identifiers of the truncation error, runtime and
+            canonicalisation time of the configuration.
     """
     return (config.name + "_trunc_error",
-            config.name + "_run_time")
+            config.name + "_run_time",
+            config.name + "_canon_time")
 
 def init_results(params: ApplicationParams) -> Results:
     """
@@ -175,9 +175,10 @@ def init_results(params: ApplicationParams) -> Results:
     num_res = len(list(bond_dim_range(params))) - 1
     res_dtypes = {BOND_DIM_ID: int}
     for config in ROOT_CONFIGS:
-        trunc_error_id, run_time_id = config_res_ids(config)
+        trunc_error_id, run_time_id, canon_time_id = config_res_ids(config)
         res_dtypes[trunc_error_id] = float
         res_dtypes[run_time_id] = float
+        res_dtypes[canon_time_id] = float
     results = Results()
     results.initialize(res_dtypes,
                        num_res,
@@ -213,7 +214,7 @@ def prepare_instance(ttns: MatrixProductTree,
                      ttno: MatrixProductTree,
                      config: RootConfig,
                      sys_size: int
-                     ) -> tuple[MatrixProductTree, MatrixProductTree]:
+                     ) -> tuple[MatrixProductTree, MatrixProductTree, float]:
     """
     Prepares the MPS and MPO for a single instance of the experiment.
 
@@ -229,22 +230,25 @@ def prepare_instance(ttns: MatrixProductTree,
         sys_size (int): The number of sites of the MPS and MPO.
 
     Returns:
-        tuple[MatrixProductTree, MatrixProductTree]: The prepared copies of
-            the MPS and MPO.
+        tuple[MatrixProductTree, MatrixProductTree, float]: The prepared copies of
+            the MPS and MPO and the time taken for the canonicalisation
+            (0.0 if no canonicalisation was performed).
     """
     root_site = 0 if config.root_is_first_site else sys_size - 1
     instance_ttns = change_root(ttns, root_site)
     instance_ttno = change_root(ttno, root_site)
     if config.canonicalisation is CanonicalisationMode.NONE:
-        return instance_ttns, instance_ttno
+        return instance_ttns, instance_ttno, 0.0
     if config.canonicalisation is CanonicalisationMode.ROOT:
         centre_site = root_site
     else:
         centre_site = sys_size - 1 if config.root_is_first_site else 0
     centre_id = f"site{centre_site}"
+    start = time()
     instance_ttns.canonical_form(centre_id)
     instance_ttno.canonical_form(centre_id)
-    return instance_ttns, instance_ttno
+    end = time()
+    return instance_ttns, instance_ttno, end - start
 
 def run_simulation(params: SDCCanonicalisationParams) -> Results:
     """
@@ -280,10 +284,10 @@ def run_simulation(params: SDCCanonicalisationParams) -> Results:
     # such that the distances to the approximations can be computed.
     exact_ttnss = {}
     for config in ROOT_CONFIGS:
-        instance_ttns, instance_ttno = prepare_instance(ttns,
-                                                       ttno,
-                                                       config,
-                                                       params.sys_size)
+        instance_ttns, instance_ttno, _ = prepare_instance(ttns,
+                                                                   ttno,
+                                                                   config,
+                                                                   params.sys_size)
         exact_ttnss[config.name] = apply_ttno_to_ttns(instance_ttns,
                                                       instance_ttno,
                                                       ApplicationMethod.DIRECT)
@@ -293,20 +297,21 @@ def run_simulation(params: SDCCanonicalisationParams) -> Results:
         svd_params = SVDParameters(max_bond_dim=bond_dim)
         results.set_element(BOND_DIM_ID, idx, bond_dim)
         for config in ROOT_CONFIGS:
+            instance_ttns, instance_ttno, canon_time = prepare_instance(ttns,
+                                                                      ttno,
+                                                                      config,
+                                                                      params.sys_size)
             start_time = time()
-            instance_ttns, instance_ttno = prepare_instance(ttns,
-                                                            ttno,
-                                                            config,
-                                                            params.sys_size)
             approx_ttns = sdc_function(instance_ttns,
                                        instance_ttno,
                                        svd_params=svd_params)
             end_time = time()
             trunc_error = exact_ttnss[config.name].distance(approx_ttns,
                                                             normalise=True)
-            trunc_error_id, run_time_id = config_res_ids(config)
+            trunc_error_id, run_time_id, canon_time_id = config_res_ids(config)
             results.set_element(trunc_error_id, idx, trunc_error)
             results.set_element(run_time_id, idx, end_time - start_time)
+            results.set_element(canon_time_id, idx, canon_time)
     return results
 
 def run_and_save(params: SDCCanonicalisationParams,
