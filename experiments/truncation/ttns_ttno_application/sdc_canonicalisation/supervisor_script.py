@@ -10,7 +10,7 @@ from pytreenet.util.experiment_util.supervisor import (Supervisor,
 from pytreenet.ttns.ttns_ttno.application import ApplicationMethod
 from pytreenet.special_ttn.special_states import TTNStructure
 
-from canonicalisation_common import (ElementDistribution,
+from sim_script import (ElementDistribution,
                                      SDCCanonicalisationParams)
 
 def generate_parameter_set() -> list[SDCCanonicalisationParams]:
