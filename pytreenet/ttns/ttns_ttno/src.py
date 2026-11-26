@@ -25,9 +25,108 @@ if TYPE_CHECKING:
 
     from ...ttno.ttno_class import TTNO
 
-__all__ = ["src_ttns_ttno_application"]
+__all__ = ["src_ttns_ttno_application",
+           "sketch_ttns_ttno_application"]
 
-class SRCTTNOApplication(AbtractLCwithTempTensors):
+class StackSketchTTNOApplication(AbtractLCwithTempTensors):
+    """
+    A class for applying a TTNO to a TTNS using the general tensor stack sketch algorithm.
+
+    Reference: http://arxiv.org/abs/2603.11009
+    """
+
+    def __init__(self,
+                 ttnss: list[TTNS] | TTNS,
+                 ttnos: list[TTNO | None] | TTNO | None = None,
+                 id_trafos_ttns: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
+                 id_trafos_ttnos: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
+                 svd_params: SVDParameters | None = None,
+                 copy_dimension: int | None = None,
+                 sketch_bond_dimension: int | None = None,
+                 seed: int | None = None
+                 ) -> None:
+        """
+        Initialises the SketchingTTNOApplication.
+
+        Args:
+            ttnss (list[TTNS] | TTNS): The TTNSs to apply the TTNOs to. If a
+                single TTNS is given, it is treated as a list of length one.
+            ttnos (list[TTNO | None] | TTNO | None, optional): The TTNOs to apply to
+                the TTNSs. If a single TTNO is given, it is treated as a list of
+                length one, and applied to all TTNSs in ttnss. If None is given,
+                the sum of the TTNSs is computed.
+                Defaults to None.
+            id_trafos_ttns (list[Callable[[str],str]] | Callable[[str],str], optional):
+                The identifier transformation functions for the TTNSs. The i-th
+                function transforms the node identifiers of the 0-th TTNS to the node
+                identifiers of the i-th TTNS. If a single function is given, it is
+                treated as a list of length one, and applied to all TTNSs in ttnss.
+                Defaults to identity_mapping.
+            id_trafos_ttnos (list[Callable[[str],str]] | Callable[[str],str], optional):
+                The identifier transformation functions for the TTNOs. The i-th
+                function transforms the node identifiers of the 0-th TTNS to the node
+                identifiers of the i-th TTNO. If a single function is given, it is
+                treated as a list of length one, and applied to all TTNOs in ttnos.
+                Defaults to identity_mapping.
+            svd_params (SVDParameters | None, optional): The parameters for the SVD
+                decomposition used to truncate the temporary tensors. If None is given,
+                default parameters are used. Defaults to None.
+            copy_dimension (int | None, optional): The dimension of the copy tensor
+                used in the sketching algorithm. If None is given, the dimension
+                in the SVD parameters is used. Defaults to None.
+            sketch_bond_dimension (int | None, optional): The virtual bond dimension
+                between the sketch tensors. If None is given, the dimension in the SVD
+                parameters is used. Defaults to None.
+            seed (int | None, optional): The seed for the random number generator used
+                to generate the random tensors. If None is given, no seed is set.
+                Defaults to None.
+        """
+        super().__init__(ttnss,
+                         ttnos=ttnos,
+                         id_trafos_ttns=id_trafos_ttns,
+                         id_trafos_ttnos=id_trafos_ttnos,
+                         svd_params=svd_params)
+        if copy_dimension is None:
+            copy_dimension = self._svd_params.max_bond_dim
+        self._copy_dimension = copy_dimension
+        if sketch_bond_dimension is None:
+            sketch_bond_dimension = self._svd_params.max_bond_dim
+        self._sketch_bond_dimension = sketch_bond_dimension
+        self._seed = seed
+        self._rand_ttns = TTNS()
+
+    def build_full_subtree_caches(self) -> list[PartialTreeCachDict]:
+        # Notably we can reuse the random TTNS for all terms.
+        self._rand_ttns = generate_sketch_tensors(self.get_base_ttns(),
+                                                  self._copy_dimension,
+                                                  self._sketch_bond_dimension,
+                                                  seed=self._seed)
+        return super().build_full_subtree_caches()
+
+    def build_full_subtree_cache(self,
+                                 index: int
+                                 ) -> PartialTreeCachDict:
+        """
+        Build the full subtree cache for the given index.
+        """
+        ttns = self._ttnss[index]
+        # Note that the random TTNS has the same identifiers as the base TTNs.
+        trafo_to_random = self.get_ttns_base_id_map(index)
+        if self.ttno_applied(index):
+            ttno = self._ttnos[index]
+            id_trafo = self.get_id_trafos_ttns_ttno(index)
+            cache = build_full_subtree_cache(ttns,
+                                             ttno,
+                                             self._rand_ttns,
+                                             id_trafo=id_trafo,
+                                             id_trafo_to_random=trafo_to_random)
+        else:
+            cache = build_full_subtree_cache_state_only(ttns,
+                                                        self._rand_ttns,
+                                                        id_trafo_to_random=trafo_to_random)
+        return cache
+
+class SRCTTNOApplication(StackSketchTTNOApplication):
     """
     A class for applying a TTNO to a TTNS using the succesive randomized compression
     algorithm.
@@ -43,7 +142,7 @@ class SRCTTNOApplication(AbtractLCwithTempTensors):
                  seed: int | None = None
                  ) -> None:
         """
-        Initialises the HalfDMTTNOApplication.
+        Initialises the SRCTTNOApplication.
 
         Args:
             ttnss (list[TTNS] | TTNS): The TTNSs to apply the TTNOs to. If a
@@ -75,46 +174,16 @@ class SRCTTNOApplication(AbtractLCwithTempTensors):
                 to generate the random matrices. If None is given, no seed is set.
                 Defaults to None.
         """
-        super().__init__(ttnss,
-                         ttnos=ttnos,
+        # Merely overwrite the copy_dimension with the desired dimension.
+        # The sketch bond dimension is one, as SRC coincides with the Kathi-Rao-sketching algorithm.
+        super().__init__(ttnss, ttnos,
                          id_trafos_ttns=id_trafos_ttns,
                          id_trafos_ttnos=id_trafos_ttnos,
-                         svd_params=svd_params)
-        if desired_dimension is None:
-            desired_dimension = self._svd_params.max_bond_dim
-        self._desired_dimension = desired_dimension
-        self._seed = seed
-        self._rand_ttns = TTNS()
-
-    def build_full_subtree_caches(self) -> list[PartialTreeCachDict]:
-        # Notably we can reuse the random TTNS for all terms.
-        self._rand_ttns = generate_random_matrices(self.get_base_ttns(),
-                                                    self._desired_dimension,
-                                                    seed=self._seed)
-        return super().build_full_subtree_caches()
-
-    def build_full_subtree_cache(self,
-                                 index: int
-                                 ) -> PartialTreeCachDict:
-        """
-        Build the full subtree cache for the given index.
-        """
-        ttns = self._ttnss[index]
-        # Note that the random TTNS has the same identifiers as the base TTNs.
-        trafo_to_random = self.get_ttns_base_id_map(index)
-        if self.ttno_applied(index):
-            ttno = self._ttnos[index]
-            id_trafo = self.get_id_trafos_ttns_ttno(index)
-            cache = build_full_subtree_cache(ttns,
-                                             ttno,
-                                             self._rand_ttns,
-                                             id_trafo=id_trafo,
-                                             id_trafo_to_random=trafo_to_random)
-        else:
-            cache = build_full_subtree_cache_state_only(ttns,
-                                                        self._rand_ttns,
-                                                        id_trafo_to_random=trafo_to_random)
-        return cache
+                         svd_params=svd_params,
+                         copy_dimension=desired_dimension,
+                         sketch_bond_dimension=1,
+                         seed=seed
+                         )
 
 def src_ttns_ttno_application(ttns: TTNS,
                               ttno: TTNO,
@@ -157,7 +226,7 @@ def src_linear_combination(ttnss: list[TTNS],
                             ) -> TTNS:
     """
     Computes a linear combination of the given TTNSs with the given TTNOs via the
-    half density matrix based algorithm.
+    successive randomized compression algorithm.
 
     Args:
         ttnss (list[TTNS]): The TTNSs to combine.
@@ -233,34 +302,246 @@ def src_addition(ttnss: list[TTNS],
                                   )
     return appl_obj()
 
-def generate_random_matrices(ttns: TTNS,
-                             desired_dimension: int,
-                             seed: int | None = None
-                             ) -> TTNS:
+class SketchingApplication(StackSketchTTNOApplication):
     """
-    Generates a TTNS with random tensors of compatible dimensions.
+    A class for applying a TTNS to another TTNS using the tensor sketching
+    algorithm.
+    """
+
+    def __init__(self,
+                 ttnss: list[TTNS] | TTNS,
+                 ttnos: list[TTNO | None] | TTNO | None = None,
+                 id_trafos_ttns: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
+                 id_trafos_ttnos: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
+                 svd_params: SVDParameters | None = None,
+                 desired_dimension: int | None = None,
+                 seed: int | None = None
+                 ) -> None:
+        """
+        Initialises the TTNSSketchingApplication.
+
+        Args:
+            ttnss (list[TTNS] | TTNS): The TTNSs to apply the TTNOs to. If a
+                single TTNS is given, it is treated as a list of length one.
+            ttnos (list[TTNO | None] | TTNO | None, optional): The TTNOs to apply to
+                the TTNSs. If a single TTNO is given, it is treated as a list of
+                length one, and applied to all TTNSs in ttnss. If None is given,
+                the sum of the TTNSs is computed.
+                Defaults to None.
+            id_trafos_ttns (list[Callable[[str],str]] | Callable[[str],str], optional):
+                The identifier transformation functions for the TTNSs. The i-th
+                function transforms the node identifiers of the 0-th TTNS to the node
+                identifiers of the i-th TTNS. If a single function is given, it is
+                treated as a list of length one, and applied to all TTNSs in ttnss.
+                Defaults to identity_mapping.
+            id_trafos_ttnos (list[Callable[[str],str]] | Callable[[str],str], optional):
+                The identifier transformation functions for the TTNOs. The i-th
+                function transforms the node identifiers of the 0-th TTNS to the node
+                identifiers of the i-th TTNO. If a single function is given, it is
+                treated as a list of length one, and applied to all TTNOs in ttnos.
+                Defaults to identity_mapping.
+            svd_params (SVDParameters | None, optional): The parameters for the SVD
+                decomposition used to truncate the temporary tensors. If None is given,
+                default parameters are used. Defaults to None.
+            desired_dimension (int | None, optional): The desired dimension
+                of the resulting TTNS. If None is given, the dimension in svd_params
+                is used. Defaults to None.
+            seed (int | None, optional): The seed for the random number generator used
+                to generate the random tensors. If None is given, no seed is set.
+                Defaults to None.
+        """
+        # Merely overwrite the sketch_bond_dimension with the desired bond dimension.
+        # The copy dimension is one, as we are not using a copy tensor in this case
+        super().__init__(ttnss,
+                         ttnos=ttnos,
+                         id_trafos_ttns=id_trafos_ttns,
+                         id_trafos_ttnos=id_trafos_ttnos,
+                         svd_params=svd_params,
+                         copy_dimension=1,
+                         sketch_bond_dimension=desired_dimension,
+                         seed=seed
+                         )
+
+def sketch_ttns_ttno_application(ttns: TTNS,
+                              ttno: TTNO,
+                              desired_dimension: int,
+                              id_trafo: Callable | None = None,
+                              seed: int | None = None
+                              ) -> TTNS:
+    """
+    Applies the TTNO to the TTNS using the sketching algorithm.
 
     Args:
-        ttns (TTNS): The TTNS to base the random TTNS on.
-        desired_dimension (int): The desired dimension of the random tensors.
+        ttns (TTNS): The TTNS to apply the TTNO to.
+        ttno (TTNO): The TTNO to apply.
+        desired_dimension (int): The desired dimension of the resulting TTNS.
+        id_trafo (Callable): A function that transforms the TTNS`s node
+            identifiers to the TTNO`s node identifiers. If None, the identity
+            mapping is used. Defaults to None.
+        seed (int | None, optional): Seed for the random number generator.
+            Defaults to None.
 
     Returns:
-        TTNS: A TTNS representing the Kati-Rao-Product of the input tree
-            structure with random tensors.
+        TTNS: The resulting TTNS after applying the TTNO.
+    """
+    appl_obj = SketchingApplication(ttns,
+                                  ttnos=ttno,
+                                  desired_dimension=desired_dimension,
+                                  id_trafos_ttnos=id_trafo if id_trafo is not None else identity_mapping,
+                                  seed=seed
+                                  )
+    return appl_obj()
+
+def sketch_linear_combination(ttnss: list[TTNS],
+                          ttnos: list[TTNO | None],
+                          id_trafos_ttns: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
+                          id_trafos_ttnos: list[Callable[[str],str]] | Callable[[str],str] = identity_mapping,
+                          svd_params: SVDParameters = SVDParameters(),
+                          desired_dimension: int | None = None,
+                          seed: int | None = None
+                            ) -> TTNS:
+    """
+    Computes a linear combination of the given TTNSs with the given TTNOs via the
+    sketching algorithm.
+
+    Args:
+        ttnss (list[TTNS]): The TTNSs to combine.
+        ttnos (list[TTNO]): The TTNOs to apply to the TTNSs. The i-th TTNO is
+            applied to the i-th TTNS.
+        id_trafos_ttns (list[Callable[[str],str]] | Callable[[str],str], optional):
+            The identifier transformation functions for the TTNSs. The i-th
+            function transforms the node identifiers of the 0-th TTNS to the node
+            identifiers of the i-th TTNS. If a single function is given, it is
+            treated as a list of length one, and applied to all TTNSs in ttnss.
+            Defaults to identity_mapping.
+        id_trafos_ttnos (list[Callable[[str],str]] | Callable[[str],str], optional):
+            The identifier transformation functions for the TTNOs. The i-th
+            function transforms the node identifiers of the 0-th TTNS to the node
+            identifiers of the i-th TTNO. If a single function is given, it is
+            treated as a list of length one, and applied to all TTNOs in ttnos.
+            Defaults to identity_mapping.
+        svd_params (SVDParameters, optional): The parameters for the
+            decomposition. Defaults to SVDParameters().
+        desired_dimension (int | None, optional): The desired dimension of the
+            resulting TTNS. If None is given, the dimension in svd_params is used.
+            Defaults to None.
+        seed (int | None, optional): Seed for the random number generator used to
+            generate the random tensors. Defaults to None.
+        
+    Returns:
+        TTNS: The result of the linear combination.
+    """
+    appl_obj = SRCTTNOApplication(ttnss,
+                                  ttnos=ttnos,
+                                  id_trafos_ttns=id_trafos_ttns,
+                                  id_trafos_ttnos=id_trafos_ttnos,
+                                  svd_params=svd_params,
+                                  desired_dimension=desired_dimension,
+                                  seed=seed
+                                  )
+    return appl_obj()
+
+def sketch_addition(ttnss: list[TTNS],
+                 id_trafos_ttns: list[Callable[[str],str]] | Callable = identity_mapping,
+                 svd_params: SVDParameters = SVDParameters(),
+                 desired_dimension: int | None = None,
+                 seed: int | None = None
+                 ) -> TTNS:
+    """
+    Computes the sum of the given TTNSs via the sketching algorithm.
+
+    Args:
+        ttnss (list[TTNS]): The TTNSs to add.
+        id_trafos_ttns (list[Callable[[str],str]] | Callable, optional):
+            The identifier transformation functions for the TTNSs. The i-th
+            function transforms the node identifiers of the 0-th TTNS to the node
+            identifiers of the i-th TTNS. If a single function is given, it is
+            treated as a list of length one, and applied to all TTNSs in ttnss.
+            Defaults to identity_mapping.
+        svd_params (SVDParameters, optional): The parameters for the
+            decomposition. Defaults to SVDParameters().
+        desired_dimension (int | None, optional): The desired dimension of the
+            resulting TTNS. If None is given, the dimension in svd_params is used.
+            Defaults to None.
+        seed (int | None, optional): Seed for the random number generator used to
+            generate the random tensors. Defaults to None.
+    
+    Returns:
+        TTNS: The sum of the input TTNSs.
+    """
+    appl_obj = SRCTTNOApplication(ttnss,
+                                  id_trafos_ttns=id_trafos_ttns,
+                                  svd_params=svd_params,
+                                  desired_dimension=desired_dimension,
+                                  seed=seed
+                                  )
+    return appl_obj()
+
+def generate_sketch_tensors(ttns: TTNS,
+                            copy_dimension: int,
+                            bond_dimension: int,
+                            seed: int | None = None
+                            ) -> TTNS:
+    """
+    Generate sketch tensors for the given TTNS.
+
+    Args:
+        ttns (TTNS): The TTNS to generate sketch tensors for.
+        copy_dimension (int): The dimension of the copy tensor.
+        bond_dimension (int): The virtual bond dimension between the sketch
+            tensors.
+        seed (int | None, optional): Seed for the random number generator used
+            to generate the random tensors. Defaults to None.
+    
+    Returns:
+        TTNS: A TTNS representing the sketch tensors.
     """
     tensors = {}
     for node_id, node in ttns.nodes.items():
         input_dims = node.open_dimensions()
-        desired_shape = [desired_dimension] + input_dims
-        rand_tensor = crandn(tuple(desired_shape), seed=seed)
-        copy_t = copy_tensor(node.nlegs(), desired_dimension)
+        num_neighbours = node.nneighbours()
+        random_tensor_shape = [copy_dimension] + [bond_dimension] * num_neighbours + input_dims
+        rand_tensor = crandn(tuple(random_tensor_shape), seed=seed)
+        copy_t = copy_tensor(node.nlegs(), copy_dimension)
+        # Contracting the copy leg from the random tensor with the copy tens.
         rand_tensor = np.tensordot(copy_t,
                                    rand_tensor,
                                    axes=(0,0))
+        # Now for every neighbour there are two legs, one from the random and
+        # one from the copy tensor. We need to combine them into one leg each.
+        perm = _permutation_for_reshape(node)
+        rand_tensor = np.transpose(rand_tensor, axes=perm)
+        new_shape = [copy_dmension*bond_dimension] * num_neighbours + input_dims
+        rand_tensor = np.reshape(rand_tensor, new_shape)
         tensors[node_id] = rand_tensor
         seed = None if seed is None else seed + 1
     rand_ttns = TTNS.from_tensors(ttns, tensors)
     return rand_ttns
+
+def _permutation_for_reshape(node: Node) -> list[int]:
+    """
+    Computes the permutaiton needed to put the copy and tensor legs next to
+    each other.
+
+    The copy leg is always the first of the two legs.
+
+    Overall the output permutation will yield
+    [copy_leg_0, tensor_leg_0, copy_leg_1, tensor_leg_1, ..., copy_leg_n, tensor_leg_n] + open_legs
+
+    Args:
+        node (Node): The node for which to compute the permutation.
+
+    Returns:
+        list[int]: The permutation of the tensor's axes.
+    """
+    num_neighbours = node.nneighbours()
+    total_leg_number = 2 * num_neighbours + node.nopen_legs()
+    perm = []
+    for i in range(num_neighbours):
+        perm.append(i)
+        perm.append(i + num_neighbours)
+    perm += list(range(2 * num_neighbours, total_leg_number))
+    return perm
 
 def build_full_subtree_cache(ttns: TTNS,
                              ttno: TTNO | None,

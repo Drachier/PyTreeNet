@@ -8,7 +8,8 @@ from enum import Enum
 from .direct_application import direct
 from .dm_approach import dm_ttns_ttno_application
 from .half_dm_approach import half_dm_ttns_ttno_application
-from .src import src_ttns_ttno_application
+from .src import (src_ttns_ttno_application,
+                  sketch_ttns_ttno_application)
 from .zipup import zipup
 from .variational import variational_ttns_ttno_application
 
@@ -28,6 +29,7 @@ class ApplicationMethod(Enum):
     DENSITY_MATRIX = "density_matrix"
     HALF_DENSITY_MATRIX = "half_density_matrix"
     SRC = "src"
+    SKETCH = "sketch"
     ZIPUP = "zipup"
     ZIPUP_CANONICAL = "zipup_canonical"
     VARIATIONAL = "variational"
@@ -51,6 +53,8 @@ class ApplicationMethod(Enum):
             return half_dm_ttns_ttno_application
         if self == ApplicationMethod.SRC:
             return src_ttns_ttno_application
+        if self == ApplicationMethod.SKETCH:
+            return sketch_ttns_ttno_application
         if self == ApplicationMethod.ZIPUP:
             # Annoyingly, zipup has a different signature than the other application methods.
             return lambda ttns, ttno, *args, **kwargs: zipup(ttno, ttns, *args, **kwargs)
@@ -95,7 +99,8 @@ class ApplicationMethod(Enum):
         """
         return self in {ApplicationMethod.DENSITY_MATRIX,
                         ApplicationMethod.HALF_DENSITY_MATRIX,
-                        ApplicationMethod.SRC}
+                        ApplicationMethod.SRC,
+                        ApplicationMethod.SKETCH}
 
 def variational_zipup(ttns: TTNS,
                       ttno: TTNO,
